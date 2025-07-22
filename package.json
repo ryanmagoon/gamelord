@@ -1,0 +1,61 @@
+{
+  "name": "gamelord",
+  "productName": "GameLord",
+  "version": "0.1.0",
+  "description": "A modern emulation frontend with superior UI/UX polish and features",
+  "main": ".vite/build/main.js",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "eslint --ext .ts,.tsx ."
+  },
+  "keywords": ["emulator", "frontend", "libretro", "gaming", "electron", "react"],
+  "author": {
+    "name": "Ryan Magoon",
+    "email": "mr.magoon5@gmail.com"
+  },
+  "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller"
+    ]
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.8.1",
+    "@electron-forge/maker-deb": "^7.8.1",
+    "@electron-forge/maker-rpm": "^7.8.1",
+    "@electron-forge/maker-squirrel": "^7.8.1",
+    "@electron-forge/maker-zip": "^7.8.1",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.8.1",
+    "@electron-forge/plugin-fuses": "^7.8.1",
+    "@electron-forge/plugin-vite": "^7.8.1",
+    "@electron/fuses": "^1.8.0",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.21",
+    "electron": "37.2.3",
+    "eslint": "^8.57.1",
+    "eslint-plugin-import": "^2.32.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "~4.5.5",
+    "vite": "^5.4.19"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.3",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "electron-squirrel-startup": "^1.0.1",
+    "lucide-react": "^0.525.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.3.1"
+  }
+}
