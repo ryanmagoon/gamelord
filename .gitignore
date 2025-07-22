@@ -90,3 +90,6 @@ typings/
 
 # Electron-Forge
 out/
+
+*storybook.log
+storybook-static
