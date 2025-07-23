@@ -1,8 +1,8 @@
 import React from 'react';
 import { Game } from './GameCard';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { 
   Play, 
   Settings, 
@@ -12,7 +12,7 @@ import {
   Info
 } from 'lucide-react';
 import { PlatformIcon } from './PlatformIcon';
-import { cn } from '@/lib/utils';
+import { cn } from '../utils';
 
 interface GameDetailsProps {
   game: Game;

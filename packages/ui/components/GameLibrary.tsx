@@ -1,17 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { GameCard, Game } from './GameCard';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from './ui/select';
 import { Search, Filter, Grid, List } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '../utils';
 
 interface GameLibraryProps {
   games: Game[];

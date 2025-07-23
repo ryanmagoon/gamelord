@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { WebGLRendererComponent } from '@/components/WebGLRenderer';
-import { useWebGLRenderer } from '@/hooks/useWebGLRenderer';
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, WebGLRendererComponent } from '@gamelord/ui';
+import { useWebGLRenderer } from './hooks/useWebGLRenderer';
 import { Monitor, Tv } from 'lucide-react';
 
 function App() {

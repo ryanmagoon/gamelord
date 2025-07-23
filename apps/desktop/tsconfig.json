@@ -13,10 +13,7 @@
     "outDir": "dist",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "strict": true,
-    "paths": {
-      "@/*": ["src/renderer/*"]
-    }
+    "strict": true
   },
   "include": ["src"]
 }

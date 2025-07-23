@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback } from 'react';
-import { WebGLRenderer } from '../lib/webgl/WebGLRenderer';
-import { cn } from '@/lib/utils';
+import { WebGLRenderer } from '../webgl/WebGLRenderer';
+import { cn } from '../utils';
 
 interface WebGLRendererProps {
   className?: string;
