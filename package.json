@@ -3,13 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "description": "A modern emulation frontend with superior UI/UX polish and features",
-  "keywords": ["emulator", "frontend", "libretro", "gaming", "electron", "react"],
+  "keywords": [
+    "emulator",
+    "frontend",
+    "libretro",
+    "gaming",
+    "electron",
+    "react"
+  ],
   "author": {
     "name": "Ryan Magoon",
     "email": "mr.magoon5@gmail.com"
   },
   "license": "MIT",
-  "packageManager": "pnpm@10.12.2",
+  "packageManager": "pnpm@10.13.1",
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
@@ -21,6 +28,7 @@
     "build-storybook": "turbo build-storybook"
   },
   "devDependencies": {
-    "turbo": "^2.5.5"
+    "turbo": "^2.5.5",
+    "typescript": "5.8.3"
   }
 }

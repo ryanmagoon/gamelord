@@ -12,6 +12,16 @@ const config = {
   "framework": {
     "name": "@storybook/react-vite",
     "options": {}
+  },
+  async viteFinal(config) {
+    return {
+      ...config,
+      css: {
+        postcss: {
+          config: './postcss.config.js'
+        }
+      }
+    };
   }
 };
 export default config;
