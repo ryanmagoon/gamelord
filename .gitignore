@@ -91,5 +91,8 @@ typings/
 # Electron-Forge
 out/
 
+# Turborepo
+.turbo/
+
 *storybook.log
 storybook-static
