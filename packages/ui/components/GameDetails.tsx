@@ -14,7 +14,7 @@ import {
 import { PlatformIcon } from './PlatformIcon';
 import { cn } from '../utils';
 
-interface GameDetailsProps {
+export interface GameDetailsProps {
   game: Game;
   onPlay: (game: Game) => void;
   onSettings?: (game: Game) => void;

@@ -1,4 +1,4 @@
-import { VideoFrame } from '../../types/global';
+import { VideoFrame } from '../types/global';
 import { ShaderManager } from './ShaderManager';
 import { defaultVertexShader, defaultFragmentShader, crtFragmentShader } from './shaders';
 

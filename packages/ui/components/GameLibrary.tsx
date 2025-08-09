@@ -13,7 +13,7 @@ import {
 import { Search, Filter, Grid, List } from 'lucide-react';
 import { cn } from '../utils';
 
-interface GameLibraryProps {
+export interface GameLibraryProps {
   games: Game[];
   onPlayGame: (game: Game) => void;
   onGameOptions?: (game: Game) => void;

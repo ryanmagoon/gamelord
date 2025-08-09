@@ -1,4 +1,5 @@
-import { parentPort, MessagePort } from 'worker_threads';
+import { parentPort } from 'worker_threads';
+import { MessagePortMain } from 'electron';
 
 interface CoreMessage {
   action: string;
@@ -6,17 +7,17 @@ interface CoreMessage {
 }
 
 class CoreWorker {
-  private messagePort: MessagePort | null = null;
+  private messagePort: MessagePortMain | null = null;
   private isRunning = false;
   private isPaused = false;
-  private frameTimer: NodeJS.Timer | null = null;
+  private frameTimer: NodeJS.Timeout | null = null;
   
   constructor() {
     this.setupMessageHandlers();
   }
 
   private setupMessageHandlers(): void {
-    process.parentPort.on('message', (event) => {
+    process.parentPort.on('message', (event: any) => {
       const { data, ports } = event;
       
       if (data.action === 'init' && ports.length > 0) {

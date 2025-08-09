@@ -26,6 +26,7 @@ export const Default: Story = {
       genre: 'Platform',
       romPath: '/roms/smb.nes',
     },
+    onPlay: () => {},
   },
 };
 
@@ -39,6 +40,7 @@ export const WithCoverArt: Story = {
       coverArt: 'https://via.placeholder.com/300x400',
       romPath: '/roms/zelda.nes',
     },
+    onPlay: () => {},
   },
 };
 
@@ -51,6 +53,7 @@ export const LongTitle: Story = {
       genre: 'Platform',
       romPath: '/roms/yoshi.smc',
     },
+    onPlay: () => {},
   },
 };
 
@@ -66,5 +69,6 @@ export const RecentlyPlayed: Story = {
       lastPlayed: new Date(),
       playTime: 7200, // 2 hours
     },
+    onPlay: () => {},
   },
 };

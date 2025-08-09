@@ -1,4 +1,4 @@
-import { utilityProcess, MessageChannelMain, UtilityProcess } from 'electron';
+import { utilityProcess, MessageChannelMain, UtilityProcess, MessagePortMain } from 'electron';
 import * as path from 'path';
 import { EventEmitter } from 'events';
 
@@ -23,7 +23,7 @@ export interface AudioSamples {
 
 export class CoreManager extends EventEmitter {
   private coreProcess: UtilityProcess | null = null;
-  private messageChannel: MessageChannelMain | null = null;
+  private messageChannel: MessagePortMain | null = null;
   private isRunning = false;
 
   constructor() {
@@ -68,7 +68,7 @@ export class CoreManager extends EventEmitter {
   private setupMessageHandlers(): void {
     if (!this.messageChannel) return;
 
-    this.messageChannel.on('message', (event) => {
+    this.messageChannel.on('message', (event: any) => {
       const { type, data } = event.data;
       
       switch(type) {

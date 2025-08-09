@@ -16,7 +16,7 @@ export interface Game {
   playTime?: number;
 }
 
-interface GameCardProps {
+export interface GameCardProps {
   game: Game;
   onPlay: (game: Game) => void;
   onOptions?: (game: Game) => void;

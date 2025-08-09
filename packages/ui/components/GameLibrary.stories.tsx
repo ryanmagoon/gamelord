@@ -87,6 +87,7 @@ const sampleGames = [
 export const Default: Story = {
   args: {
     games: sampleGames,
+    onPlayGame: () => {},
   },
   decorators: [
     (Story) => (
@@ -100,6 +101,7 @@ export const Default: Story = {
 export const Empty: Story = {
   args: {
     games: [],
+    onPlayGame: () => {},
   },
   decorators: [
     (Story) => (
@@ -113,6 +115,7 @@ export const Empty: Story = {
 export const SinglePlatform: Story = {
   args: {
     games: sampleGames.filter(game => game.platform === 'NES'),
+    onPlayGame: () => {},
   },
   decorators: [
     (Story) => (
