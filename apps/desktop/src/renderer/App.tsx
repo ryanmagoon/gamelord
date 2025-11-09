@@ -1,41 +1,42 @@
-import React, { useState } from 'react';
-import { Button, WebGLRendererComponent } from '@gamelord/ui';
-import { useWebGLRenderer } from './hooks/useWebGLRenderer';
-import { Monitor, Tv } from 'lucide-react';
-import { LibraryView } from './components/LibraryView';
-import { Game } from '../types/library';
+import React, { useState } from 'react'
+import { Button, WebGLRendererComponent, Game as UiGame } from '@gamelord/ui'
+import { useWebGLRenderer } from './hooks/useWebGLRenderer'
+import { Monitor, Tv } from 'lucide-react'
+import { LibraryView } from './components/LibraryView'
+import { Game } from '../types/library'
 
 function App() {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentGame, setCurrentGame] = useState<Game | null>(null);
-  const { isReady, currentShader, handleRendererReady, changeShader } = useWebGLRenderer();
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentGame, setCurrentGame] = useState<Game | null>(null)
+  const { isReady, currentShader, handleRendererReady, changeShader } =
+    useWebGLRenderer()
 
-  const handlePlay = async () => {
+  const handlePlayGame = async (game: UiGame) => {
     try {
       // For now, just simulate loading a core
       const result = await window.gamelord.core.load({
-        corePath: '/path/to/core.so',
-        romPath: '/path/to/rom.nes'
-      });
-      
+        corePath: `/cores/${game.platform}.so`,
+        romPath: game.romPath,
+      })
+
       if (result.success) {
-        setIsPlaying(true);
+        setIsPlaying(true)
       } else {
-        console.error('Failed to load core:', result.error);
+        console.error('Failed to load core:', result.error)
       }
     } catch (error) {
-      console.error('Error loading game:', error);
+      console.error('Error loading game:', error)
     }
-  };
+  }
 
   const handleStop = async () => {
     try {
-      await window.gamelord.core.unload();
-      setIsPlaying(false);
+      await window.gamelord.core.unload()
+      setIsPlaying(false)
     } catch (error) {
-      console.error('Error unloading core:', error);
+      console.error('Error unloading core:', error)
     }
-  };
+  }
 
   if (isPlaying) {
     return (
@@ -71,17 +72,17 @@ function App() {
           />
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="drag-region titlebar-inset h-10 border-b"></div>
       <div className="flex-1 overflow-hidden">
-        <LibraryView />
+        <LibraryView onPlayGame={handlePlayGame} />
       </div>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App
