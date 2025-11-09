@@ -16,7 +16,7 @@
     "email": "mr.magoon5@gmail.com"
   },
   "license": "MIT",
-  "packageManager": "pnpm@10.13.1",
+  "packageManager": "pnpm@10.15.0",
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
