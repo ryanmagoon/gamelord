@@ -1,6 +1,4 @@
-@import 'tailwindcss';
-
-/* Tailwind v4 + shadcn/ui setup */
+/* Tailwind v4 + shadcn/ui theme variables */
 :root {
   --background: hsl(0 0% 100%);
   --foreground: hsl(222.2 84% 4.9%);
