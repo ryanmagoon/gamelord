@@ -1,6 +1,5 @@
 import { spawn } from 'child_process';
 import { createSocket, Socket } from 'dgram';
-import * as path from 'path';
 import { EmulatorCore, EmulatorLaunchOptions } from './EmulatorCore';
 
 /**
