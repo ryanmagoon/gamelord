@@ -1,24 +1,5 @@
 @import "tailwindcss";
-@import "@gamelord/ui/index.css";
-
-/* Define custom utilities for Tailwind v4 */
-@theme {
-  --color-border: hsl(var(--border));
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-}
-
-@utility border-border {
-  border-color: theme(--color-border);
-}
-
-@utility bg-background {
-  background-color: theme(--color-background);
-}
-
-@utility text-foreground {
-  color: theme(--color-foreground);
-}
+@import "@gamelord/ui/theme.css";
 
 /* Window drag region utilities */
 @utility drag-region {
