@@ -1,41 +1,48 @@
-import React, { useState } from 'react';
-import { Button, WebGLRendererComponent } from '@gamelord/ui';
-import { useWebGLRenderer } from './hooks/useWebGLRenderer';
-import { Monitor, Tv } from 'lucide-react';
-import { LibraryView } from './components/LibraryView';
-import { Game } from '../types/library';
+import React, { useState } from 'react'
+import { Button, WebGLRendererComponent, Game as UiGame } from '@gamelord/ui'
+import { useWebGLRenderer } from './hooks/useWebGLRenderer'
+import { Monitor, Tv } from 'lucide-react'
+import { LibraryView } from './components/LibraryView'
+import { Game } from '../types/library'
 
 function App() {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentGame, setCurrentGame] = useState<Game | null>(null);
-  const { isReady, currentShader, handleRendererReady, changeShader } = useWebGLRenderer();
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentGame, setCurrentGame] = useState<Game | null>(null)
+  const { isReady, currentShader, handleRendererReady, changeShader } =
+    useWebGLRenderer()
 
-  const handlePlay = async () => {
+  const handlePlayGame = async (game: UiGame) => {
     try {
-      // For now, just simulate loading a core
-      const result = await window.gamelord.core.load({
-        corePath: '/path/to/core.so',
-        romPath: '/path/to/rom.nes'
-      });
-      
+      console.log('Launching game:', game)
+
+      // Launch game with native emulator (RetroArch)
+      const result = await window.gamelord.emulator.launch(
+        game.romPath,
+        game.platform // systemId like 'nes', 'snes', etc.
+      )
+
       if (result.success) {
-        setIsPlaying(true);
+        console.log('Game launched successfully!')
+        // Note: We don't set isPlaying=true because the game runs in a separate window
+        // The emulator (RetroArch) is now running externally
       } else {
-        console.error('Failed to load core:', result.error);
+        console.error('Failed to launch emulator:', result.error)
+        alert(`Failed to launch game: ${result.error}`)
       }
     } catch (error) {
-      console.error('Error loading game:', error);
+      console.error('Error launching game:', error)
+      alert(`Error: ${error}`)
     }
-  };
+  }
 
   const handleStop = async () => {
     try {
-      await window.gamelord.core.unload();
-      setIsPlaying(false);
+      await window.gamelord.emulator.stop()
+      setIsPlaying(false)
     } catch (error) {
-      console.error('Error unloading core:', error);
+      console.error('Error stopping emulator:', error)
     }
-  };
+  }
 
   if (isPlaying) {
     return (
@@ -71,17 +78,17 @@ function App() {
           />
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="drag-region titlebar-inset h-10 border-b"></div>
       <div className="flex-1 overflow-hidden">
-        <LibraryView />
+        <LibraryView onPlayGame={handlePlayGame} />
       </div>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

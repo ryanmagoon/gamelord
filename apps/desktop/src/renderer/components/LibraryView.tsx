@@ -1,146 +1,173 @@
-import React, { useState, useEffect } from 'react';
-import { GameLibrary, Button, Badge } from '@gamelord/ui';
-import { Plus, FolderOpen, RefreshCw, Settings } from 'lucide-react';
-import { Game, GameSystem } from '../../types/library';
-import { EmptyLibrary } from './EmptyLibrary';
+import React, { useState, useEffect, useMemo } from 'react'
+import { GameLibrary, Button, Badge } from '@gamelord/ui'
+import { Plus, FolderOpen, RefreshCw } from 'lucide-react'
+import type { Game, Game as UiGame } from '@gamelord/ui'
+import type { Game as AppGame, GameSystem } from '../../types/library'
+import type { GamelordAPI } from '../types/global'
+import { EmptyLibrary } from './EmptyLibrary'
 
-export const LibraryView: React.FC = () => {
-  const [games, setGames] = useState<Game[]>([]);
-  const [systems, setSystems] = useState<GameSystem[]>([]);
-  const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
+export const LibraryView: React.FC<{
+  onPlayGame: (game: Game) => void
+}> = ({ onPlayGame }) => {
+  const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
+
+  const [games, setGames] = useState<AppGame[]>([])
+  const [systems, setSystems] = useState<GameSystem[]>([])
+  const [selectedSystem, setSelectedSystem] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [isScanning, setIsScanning] = useState(false)
 
   useEffect(() => {
-    loadLibrary();
-  }, []);
+    loadLibrary()
+  }, [])
 
   const loadLibrary = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       const [loadedSystems, loadedGames] = await Promise.all([
-        window.gamelord.library.getSystems(),
-        window.gamelord.library.getGames()
-      ]);
-      setSystems(loadedSystems);
-      setGames(loadedGames);
+        api.library.getSystems(),
+        api.library.getGames(),
+      ])
+      setSystems(loadedSystems)
+      setGames(loadedGames)
     } catch (error) {
-      console.error('Failed to load library:', error);
+      console.error('Failed to load library:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleQuickScan = async () => {
-    setIsScanning(true);
+    setIsScanning(true)
     try {
-      const config = await window.gamelord.library.getConfig();
-      const basePath = config.romsBasePath || `${process.env.HOME}/ROMs`;
-      
+      const config = await api.library.getConfig()
+      // In a properly secured Electron renderer (contextIsolation: true, nodeIntegration: false),
+      // `process` is not available. If no base path is configured, prompt the user instead.
+      if (!config.romsBasePath) {
+        await handleSelectDirectory()
+        return
+      }
+      const basePath = config.romsBasePath
+
       // Scan the base path
-      const foundGames = await window.gamelord.library.scanDirectory(basePath);
-      
+      const foundGames = await api.library.scanDirectory(basePath)
+
       if (foundGames.length > 0) {
-        await loadLibrary();
+        await loadLibrary()
       } else {
         // If no games found, prompt to select a directory
-        handleSelectDirectory();
+        await handleSelectDirectory()
       }
     } catch (error) {
-      console.error('Quick scan failed:', error);
+      console.error('Quick scan failed:', error)
     } finally {
-      setIsScanning(false);
+      setIsScanning(false)
     }
-  };
+  }
 
   const handleSelectDirectory = async () => {
-    const directory = await window.gamelord.dialog.selectDirectory();
+    const directory = await api.dialog.selectDirectory()
     if (directory) {
-      setIsScanning(true);
+      setIsScanning(true)
       try {
-        await window.gamelord.library.scanDirectory(directory);
-        await loadLibrary();
+        await api.library.scanDirectory(directory)
+        await loadLibrary()
       } catch (error) {
-        console.error('Directory scan failed:', error);
+        console.error('Directory scan failed:', error)
       } finally {
-        setIsScanning(false);
+        setIsScanning(false)
       }
     }
-  };
+  }
 
   const handleAddSystem = async (system: GameSystem) => {
     // First add the system
-    await window.gamelord.library.addSystem(system);
-    
+    await api.library.addSystem(system)
+
     // Then prompt for ROM directory
-    const directory = await window.gamelord.dialog.selectDirectory();
+    const directory = await api.dialog.selectDirectory()
     if (directory) {
-      await window.gamelord.library.updateSystemPath(system.id, directory);
-      
+      await api.library.updateSystemPath(system.id, directory)
+
       // Scan the directory for games
-      setIsScanning(true);
+      setIsScanning(true)
       try {
-        await window.gamelord.library.scanDirectory(directory, system.id);
-        await loadLibrary();
+        await api.library.scanDirectory(directory, system.id)
+        await loadLibrary()
       } catch (error) {
-        console.error('Failed to scan system directory:', error);
+        console.error('Failed to scan system directory:', error)
       } finally {
-        setIsScanning(false);
+        setIsScanning(false)
       }
     }
-  };
+  }
 
   const handleScanSystemFolders = async () => {
-    setIsScanning(true);
+    setIsScanning(true)
     try {
-      await window.gamelord.library.scanSystemFolders();
-      await loadLibrary();
+      await api.library.scanSystemFolders()
+      await loadLibrary()
     } catch (error) {
-      console.error('System folder scan failed:', error);
+      console.error('System folder scan failed:', error)
     } finally {
-      setIsScanning(false);
+      setIsScanning(false)
     }
-  };
+  }
 
   const handleAddRom = async (systemId: string) => {
-    const romPath = await window.gamelord.dialog.selectRomFile(systemId);
+    const romPath = await api.dialog.selectRomFile(systemId)
     if (romPath) {
-      const game = await window.gamelord.library.addGame(romPath, systemId);
+      const game = await api.library.addGame(romPath, systemId)
       if (game) {
-        setGames([...games, game]);
+        setGames([...games, game])
       }
     }
-  };
+  }
 
-  const handlePlayGame = async (game: Game) => {
-    // Load the core and ROM
-    const result = await window.gamelord.core.load({
-      corePath: `/cores/${game.systemId}.so`, // This would need proper core path mapping
-      romPath: game.romPath
-    });
-    
+  const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
+
+  const handlePlayUiGame = async (uiGame: UiGame) => {
+    const fullGame = idToGame.get(uiGame.id)
+    if (!fullGame) return
+
+    console.log('Launching game:', fullGame.title, 'System:', fullGame.systemId)
+
+    const result = await api.emulator.launch(
+      fullGame.romPath,
+      fullGame.systemId,
+    )
+
     if (result.success) {
-      console.log('Game loaded:', game.title);
+      console.log('Game launched successfully:', fullGame.title)
+      // Game is running in external emulator, no need to change UI state
     } else {
-      console.error('Failed to load game:', result.error);
+      console.error('Failed to launch game:', result.error)
+      alert(`Failed to launch ${fullGame.title}: ${result.error}`)
     }
-  };
+  }
 
-  const handleGameOptions = (game: Game) => {
+  const handleGameOptions = (game: AppGame) => {
     // TODO: Show game options menu (edit metadata, remove, etc.)
-    console.log('Game options:', game);
-  };
+    console.log('Game options:', game)
+  }
+
+  const handleUiGameOptions = (uiGame: UiGame) => {
+    const fullGame = idToGame.get(uiGame.id)
+    if (fullGame) {
+      handleGameOptions(fullGame)
+    }
+  }
 
   const filteredGames = selectedSystem
-    ? games.filter(game => game.systemId === selectedSystem)
-    : games;
+    ? games.filter((game) => game.systemId === selectedSystem)
+    : games
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
-    );
+    )
   }
 
   if (games.length === 0 && !isScanning) {
@@ -151,7 +178,7 @@ export const LibraryView: React.FC = () => {
         onQuickScan={handleQuickScan}
         availableSystems={systems.length > 0 ? systems : []}
       />
-    );
+    )
   }
 
   return (
@@ -190,7 +217,7 @@ export const LibraryView: React.FC = () => {
             All ({games.length})
           </Button>
           {systems.map((system) => {
-            const systemGames = games.filter(g => g.systemId === system.id);
+            const systemGames = games.filter((g) => g.systemId === system.id)
             return (
               <Button
                 key={system.id}
@@ -200,7 +227,7 @@ export const LibraryView: React.FC = () => {
               >
                 {system.shortName} ({systemGames.length})
               </Button>
-            );
+            )
           })}
         </div>
       )}
@@ -209,13 +236,20 @@ export const LibraryView: React.FC = () => {
       <div className="flex-1 overflow-auto p-4">
         {filteredGames.length > 0 ? (
           <GameLibrary
-            games={filteredGames.map(game => ({
-              ...game,
+            games={filteredGames.map<UiGame>((game) => ({
+              id: game.id,
+              title: game.title,
               platform: game.system,
-              genre: game.metadata?.genre
+              genre: game.metadata?.genre,
+              coverArt: game.coverArt,
+              romPath: game.romPath,
+              lastPlayed: game.lastPlayed,
+              playTime: game.playTime,
             }))}
-            onPlayGame={handlePlayGame}
-            onGameOptions={handleGameOptions}
+            onPlayGame={(g) => {
+              void handlePlayUiGame(g)
+            }}
+            onGameOptions={handleUiGameOptions}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -235,5 +269,5 @@ export const LibraryView: React.FC = () => {
         )}
       </div>
     </div>
-  );
-};
+  )
+}

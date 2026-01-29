@@ -1,104 +1,133 @@
 import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog } from 'electron';
-import { CoreManager } from '../core/CoreManager';
-import { CoreOptions } from '../core/CoreManager';
+import { EmulatorManager } from '../emulator/EmulatorManager';
 import { LibraryService } from '../services/LibraryService';
 import { GameSystem } from '../../types/library';
 
 export class IPCHandlers {
-  private coreManager: CoreManager;
+  private emulatorManager: EmulatorManager;
   private libraryService: LibraryService;
 
   constructor() {
-    this.coreManager = new CoreManager();
+    this.emulatorManager = new EmulatorManager();
     this.libraryService = new LibraryService();
     this.setupHandlers();
-    this.setupCoreEventForwarding();
+    this.setupEmulatorEventForwarding();
     this.setupLibraryHandlers();
   }
 
   private setupHandlers(): void {
-    // Core management
-    ipcMain.handle('core:load', async (event: IpcMainInvokeEvent, options: CoreOptions) => {
+    // Emulator management
+    ipcMain.handle('emulator:launch', async (event: IpcMainInvokeEvent, romPath: string, systemId: string, emulatorId?: string) => {
       try {
-        await this.coreManager.loadCore(options);
+        await this.emulatorManager.launchGame(romPath, systemId, emulatorId);
         return { success: true };
       } catch (error) {
-        console.error('Failed to load core:', error);
+        console.error('Failed to launch emulator:', error);
         return { success: false, error: (error as Error).message };
       }
     });
 
-    ipcMain.handle('core:unload', async () => {
+    ipcMain.handle('emulator:stop', async () => {
       try {
-        await this.coreManager.unloadCore();
+        await this.emulatorManager.stopEmulator();
         return { success: true };
       } catch (error) {
-        console.error('Failed to unload core:', error);
+        console.error('Failed to stop emulator:', error);
         return { success: false, error: (error as Error).message };
       }
+    });
+
+    ipcMain.handle('emulator:getAvailable', () => {
+      return this.emulatorManager.getAvailableEmulators();
+    });
+
+    ipcMain.handle('emulator:isRunning', () => {
+      return this.emulatorManager.isEmulatorRunning();
     });
 
     // Emulation control
-    ipcMain.handle('emulation:pause', () => {
-      this.coreManager.pauseEmulation();
-      return { success: true };
+    ipcMain.handle('emulation:pause', async () => {
+      try {
+        await this.emulatorManager.pause();
+        return { success: true };
+      } catch (error) {
+        console.error('Failed to pause emulation:', error);
+        return { success: false, error: (error as Error).message };
+      }
     });
 
-    ipcMain.handle('emulation:resume', () => {
-      this.coreManager.resumeEmulation();
-      return { success: true };
+    ipcMain.handle('emulation:resume', async () => {
+      try {
+        await this.emulatorManager.resume();
+        return { success: true };
+      } catch (error) {
+        console.error('Failed to resume emulation:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('emulation:reset', async () => {
+      try {
+        await this.emulatorManager.reset();
+        return { success: true };
+      } catch (error) {
+        console.error('Failed to reset emulation:', error);
+        return { success: false, error: (error as Error).message };
+      }
     });
 
     // Save states
-    ipcMain.handle('savestate:save', (event, slot: number) => {
-      this.coreManager.saveState(slot);
-      return { success: true };
+    ipcMain.handle('savestate:save', async (event, slot: number) => {
+      try {
+        await this.emulatorManager.saveState(slot);
+        return { success: true };
+      } catch (error) {
+        console.error('Failed to save state:', error);
+        return { success: false, error: (error as Error).message };
+      }
     });
 
-    ipcMain.handle('savestate:load', (event, slot: number) => {
-      this.coreManager.loadState(slot);
-      return { success: true };
+    ipcMain.handle('savestate:load', async (event, slot: number) => {
+      try {
+        await this.emulatorManager.loadState(slot);
+        return { success: true };
+      } catch (error) {
+        console.error('Failed to load state:', error);
+        return { success: false, error: (error as Error).message };
+      }
     });
 
-    // Input handling
-    ipcMain.on('input:button', (event, playerId: number, button: string, pressed: boolean) => {
-      this.coreManager.sendInput(playerId, button, pressed);
+    // Screenshot
+    ipcMain.handle('emulation:screenshot', async (event, outputPath?: string) => {
+      try {
+        const path = await this.emulatorManager.screenshot(outputPath);
+        return { success: true, path };
+      } catch (error) {
+        console.error('Failed to take screenshot:', error);
+        return { success: false, error: (error as Error).message };
+      }
     });
   }
 
-  private setupCoreEventForwarding(): void {
-    // Forward video frames to renderer
-    this.coreManager.on('videoFrame', (frame) => {
-      // Send to all renderer windows
+  private setupEmulatorEventForwarding(): void {
+    // Forward emulator events to all renderer windows
+    const forwardEvent = (eventName: string, data?: any) => {
       const windows = BrowserWindow.getAllWindows();
       windows.forEach((window: BrowserWindow) => {
-        window.webContents.send('video:frame', frame);
+        window.webContents.send(eventName, data);
       });
-    });
+    };
 
-    // Forward audio samples to renderer
-    this.coreManager.on('audioSamples', (samples) => {
-      const windows = BrowserWindow.getAllWindows();
-      windows.forEach((window: BrowserWindow) => {
-        window.webContents.send('audio:samples', samples);
-      });
-    });
-
-    // Forward state changes
-    this.coreManager.on('stateChanged', (data) => {
-      const windows = BrowserWindow.getAllWindows();
-      windows.forEach((window: BrowserWindow) => {
-        window.webContents.send('core:stateChanged', data);
-      });
-    });
-
-    // Forward errors
-    this.coreManager.on('error', (error) => {
-      const windows = BrowserWindow.getAllWindows();
-      windows.forEach((window: BrowserWindow) => {
-        window.webContents.send('core:error', error);
-      });
-    });
+    this.emulatorManager.on('gameLaunched', (data) => forwardEvent('emulator:launched', data));
+    this.emulatorManager.on('emulator:exited', (data) => forwardEvent('emulator:exited', data));
+    this.emulatorManager.on('emulator:error', (error) => forwardEvent('emulator:error', error));
+    this.emulatorManager.on('emulator:stateSaved', (data) => forwardEvent('emulator:stateSaved', data));
+    this.emulatorManager.on('emulator:stateLoaded', (data) => forwardEvent('emulator:stateLoaded', data));
+    this.emulatorManager.on('emulator:screenshotTaken', (data) => forwardEvent('emulator:screenshotTaken', data));
+    this.emulatorManager.on('emulator:paused', () => forwardEvent('emulator:paused'));
+    this.emulatorManager.on('emulator:resumed', () => forwardEvent('emulator:resumed'));
+    this.emulatorManager.on('emulator:reset', () => forwardEvent('emulator:reset'));
+    this.emulatorManager.on('emulator:terminated', () => forwardEvent('emulator:terminated'));
   }
 
   private setupLibraryHandlers(): void {

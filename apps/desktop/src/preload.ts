@@ -2,45 +2,49 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // Expose protected APIs to the renderer process
 contextBridge.exposeInMainWorld('gamelord', {
-  // Core management
-  core: {
-    load: (options: { corePath: string; romPath: string; saveStatePath?: string }) => 
-      ipcRenderer.invoke('core:load', options),
-    unload: () => ipcRenderer.invoke('core:unload')
+  // Emulator management
+  emulator: {
+    launch: (romPath: string, systemId: string, emulatorId?: string) =>
+      ipcRenderer.invoke('emulator:launch', romPath, systemId, emulatorId),
+    stop: () => ipcRenderer.invoke('emulator:stop'),
+    getAvailable: () => ipcRenderer.invoke('emulator:getAvailable'),
+    isRunning: () => ipcRenderer.invoke('emulator:isRunning')
   },
-  
+
   // Emulation control
   emulation: {
     pause: () => ipcRenderer.invoke('emulation:pause'),
-    resume: () => ipcRenderer.invoke('emulation:resume')
+    resume: () => ipcRenderer.invoke('emulation:resume'),
+    reset: () => ipcRenderer.invoke('emulation:reset'),
+    screenshot: (outputPath?: string) => ipcRenderer.invoke('emulation:screenshot', outputPath)
   },
-  
+
   // Save states
   saveState: {
     save: (slot: number) => ipcRenderer.invoke('savestate:save', slot),
     load: (slot: number) => ipcRenderer.invoke('savestate:load', slot)
   },
-  
-  // Input
-  input: {
-    sendButton: (playerId: number, button: string, pressed: boolean) => 
-      ipcRenderer.send('input:button', playerId, button, pressed)
-  },
-  
+
   // Event listeners
   on: (channel: string, callback: (...args: any[]) => void) => {
     const validChannels = [
-      'video:frame',
-      'audio:samples',
-      'core:stateChanged',
-      'core:error'
+      'emulator:launched',
+      'emulator:exited',
+      'emulator:error',
+      'emulator:stateSaved',
+      'emulator:stateLoaded',
+      'emulator:screenshotTaken',
+      'emulator:paused',
+      'emulator:resumed',
+      'emulator:reset',
+      'emulator:terminated'
     ];
-    
+
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => callback(...args));
     }
   },
-  
+
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel);
   },
