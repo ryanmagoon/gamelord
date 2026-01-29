@@ -20,6 +20,7 @@ export class RetroArchCore extends EmulatorCore {
   private networkPort = 55355
   private corePath: string | null = null
   private paused = false
+  private currentStateSlot = 0
 
   constructor(
     emulatorPath: string,
@@ -212,8 +213,7 @@ export class RetroArchCore extends EmulatorCore {
       throw new Error('Save state slot must be between 0 and 9')
     }
 
-    // Set the save state slot
-    await this.sendCommand(`STATE_SLOT_${slot}`)
+    await this.selectStateSlot(slot)
 
     // Wait a bit for the slot to change
     await new Promise((resolve) => setTimeout(resolve, 100))
@@ -232,8 +232,7 @@ export class RetroArchCore extends EmulatorCore {
       throw new Error('Save state slot must be between 0 and 9')
     }
 
-    // Set the save state slot
-    await this.sendCommand(`STATE_SLOT_${slot}`)
+    await this.selectStateSlot(slot)
 
     // Wait a bit for the slot to change
     await new Promise((resolve) => setTimeout(resolve, 100))
@@ -337,7 +336,32 @@ export class RetroArchCore extends EmulatorCore {
     }
 
     this.paused = false
+    this.currentStateSlot = 0
     super.cleanup()
+  }
+
+  /**
+   * RetroArch network commands do not support absolute slot selection (e.g. STATE_SLOT_5).
+   * Slots can only be changed incrementally via STATE_SLOT_INCREASE / STATE_SLOT_DECREASE.
+   *
+   * We track our own notion of "current slot" so we can move to the requested slot by delta.
+   */
+  private async selectStateSlot(slot: number): Promise<void> {
+    const desired = Math.max(0, Math.min(9, Math.trunc(slot)))
+    const delta = desired - this.currentStateSlot
+
+    if (delta === 0) return
+
+    const command = delta > 0 ? 'STATE_SLOT_INCREASE' : 'STATE_SLOT_DECREASE'
+    const steps = Math.abs(delta)
+
+    for (let i = 0; i < steps; i++) {
+      await this.sendCommand(command)
+      // Small delay to avoid flooding RetroArch.
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+
+    this.currentStateSlot = desired
   }
 
   /**
