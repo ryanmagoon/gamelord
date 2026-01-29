@@ -16,8 +16,8 @@ import { EmulatorCore, EmulatorLaunchOptions } from './EmulatorCore';
  */
 export class RetroArchCore extends EmulatorCore {
   private udpClient: Socket | null = null;
-  private networkHost: string = 'localhost';
-  private networkPort: number = 55355;
+  private networkHost = 'localhost';
+  private networkPort = 55355;
   private corePath: string | null = null;
 
   constructor(
@@ -92,14 +92,66 @@ export class RetroArchCore extends EmulatorCore {
       this.cleanup();
     });
 
-    // Wait a bit for RetroArch to start before initializing UDP
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const proc = this.process;
+    if (!proc) {
+      throw new Error('Failed to spawn RetroArch process');
+    }
 
-    // Initialize UDP client for network commands
-    this.initializeUDPClient();
+    // Wait a bit for RetroArch to start before initializing UDP.
+    // IMPORTANT: RetroArch can exit immediately (bad path, missing deps, etc).
+    // We must not emit "launched" or set isRunning=true if the process died during startup.
+    const startupDelayMs = 2000;
 
-    this.isRunning = true;
-    this.emit('launched', { romPath, corePath: this.corePath });
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+
+      const cleanupStartupWatchers = () => {
+        clearTimeout(timer);
+        proc.off('exit', onEarlyExit);
+        proc.off('error', onEarlyError);
+      };
+
+      const settle = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        cleanupStartupWatchers();
+        fn();
+      };
+
+      const onEarlyExit = (code: number | null, signal: NodeJS.Signals | null) => {
+        settle(() => {
+          reject(
+            new Error(
+              `RetroArch exited during startup (code ${code ?? 'null'}, signal ${signal ?? 'none'})`
+            )
+          );
+        });
+      };
+
+      const onEarlyError = (err: Error) => {
+        settle(() => reject(err));
+      };
+
+      proc.once('exit', onEarlyExit);
+      proc.once('error', onEarlyError);
+
+      const timer = setTimeout(() => {
+        settle(() => {
+          // If cleanup ran (exit/error), this.process will be null and/or proc.exitCode will be set.
+          if (this.process !== proc || proc.exitCode !== null || proc.killed) {
+            reject(new Error('RetroArch process is not running after startup delay'));
+            return;
+          }
+
+          // Initialize UDP client for network commands
+          this.initializeUDPClient();
+
+          this.isRunning = true;
+          this.emit('launched', { romPath, corePath: this.corePath });
+          resolve();
+        });
+      }, startupDelayMs);
+    });
   }
 
   /**
@@ -118,14 +170,15 @@ export class RetroArchCore extends EmulatorCore {
    * Send a network command to RetroArch via UDP
    */
   private async sendCommand(command: string): Promise<void> {
-    if (!this.udpClient) {
+    const client = this.udpClient;
+    if (!client) {
       throw new Error('UDP client not initialized');
     }
 
     return new Promise((resolve, reject) => {
       const message = Buffer.from(command);
 
-      this.udpClient!.send(message, this.networkPort, this.networkHost, (err) => {
+      client.send(message, this.networkPort, this.networkHost, (err) => {
         if (err) {
           console.error(`Failed to send command "${command}":`, err);
           reject(err);
