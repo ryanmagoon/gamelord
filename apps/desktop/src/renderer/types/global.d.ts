@@ -1,22 +1,28 @@
 import type { GameSystem, Game, LibraryConfig } from '../../types/library'
 
 export interface GamelordAPI {
-  core: {
-    load: (
-      options: CoreOptions
+  // Emulator management (matches preload API)
+  emulator: {
+    launch: (
+      romPath: string,
+      systemId: string,
+      emulatorId?: string,
     ) => Promise<{ success: boolean; error?: string }>
-    unload: () => Promise<{ success: boolean; error?: string }>
+    stop: () => Promise<{ success: boolean; error?: string }>
+    getAvailable: () => Promise<any>
+    isRunning: () => Promise<boolean>
   }
   emulation: {
     pause: () => Promise<{ success: boolean }>
     resume: () => Promise<{ success: boolean }>
+    reset: () => Promise<{ success: boolean; error?: string }>
+    screenshot: (
+      outputPath?: string,
+    ) => Promise<{ success: boolean; path?: string; error?: string }>
   }
   saveState: {
     save: (slot: number) => Promise<{ success: boolean }>
     load: (slot: number) => Promise<{ success: boolean }>
-  }
-  input: {
-    sendButton: (playerId: number, button: string, pressed: boolean) => void
   }
   // Library management (matches preload API)
   library: {
@@ -44,12 +50,6 @@ export interface GamelordAPI {
   }
   on: (channel: string, callback: (...args: any[]) => void) => void
   removeAllListeners: (channel: string) => void
-}
-
-export interface CoreOptions {
-  corePath: string
-  romPath: string
-  saveStatePath?: string
 }
 
 export interface VideoFrame {

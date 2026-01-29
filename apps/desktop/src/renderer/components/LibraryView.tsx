@@ -41,7 +41,13 @@ export const LibraryView: React.FC<{
     setIsScanning(true)
     try {
       const config = await api.library.getConfig()
-      const basePath = config.romsBasePath || `${process.env.HOME}/ROMs`
+      // In a properly secured Electron renderer (contextIsolation: true, nodeIntegration: false),
+      // `process` is not available. If no base path is configured, prompt the user instead.
+      if (!config.romsBasePath) {
+        await handleSelectDirectory()
+        return
+      }
+      const basePath = config.romsBasePath
 
       // Scan the base path
       const foundGames = await api.library.scanDirectory(basePath)
@@ -50,7 +56,7 @@ export const LibraryView: React.FC<{
         await loadLibrary()
       } else {
         // If no games found, prompt to select a directory
-        handleSelectDirectory()
+        await handleSelectDirectory()
       }
     } catch (error) {
       console.error('Quick scan failed:', error)
@@ -128,7 +134,7 @@ export const LibraryView: React.FC<{
 
     const result = await api.emulator.launch(
       fullGame.romPath,
-      fullGame.systemId
+      fullGame.systemId,
     )
 
     if (result.success) {
