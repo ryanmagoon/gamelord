@@ -217,7 +217,7 @@ export const LibraryView: React.FC<{
             games={filteredGames.map<UiGame>((game) => ({
               id: game.id,
               title: game.title,
-              platform: game.system,
+              platform: game.systemId,
               genre: game.metadata?.genre,
               coverArt: game.coverArt,
               romPath: game.romPath,
