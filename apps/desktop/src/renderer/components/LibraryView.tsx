@@ -120,24 +120,8 @@ export const LibraryView: React.FC<{
 
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
 
-  const handlePlayUiGame = async (uiGame: UiGame) => {
-    const fullGame = idToGame.get(uiGame.id)
-    if (!fullGame) return
-
-    console.log('Launching game:', fullGame.title, 'System:', fullGame.systemId)
-
-    const result = await api.emulator.launch(
-      fullGame.romPath,
-      fullGame.systemId
-    )
-
-    if (result.success) {
-      console.log('Game launched successfully:', fullGame.title)
-      // Game is running in external emulator, no need to change UI state
-    } else {
-      console.error('Failed to launch game:', result.error)
-      alert(`Failed to launch ${fullGame.title}: ${result.error}`)
-    }
+  const handlePlayUiGame = (uiGame: UiGame) => {
+    onPlayGame(uiGame)
   }
 
   const handleGameOptions = (game: AppGame) => {
