@@ -1,57 +1,57 @@
-import React from 'react';
-import { Card, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
-import { Button } from './ui/button';
-import { cn } from '../utils';
-import { Play, MoreVertical } from 'lucide-react';
+import React from 'react'
+import { Card, CardContent } from './ui/card'
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
+import { cn } from '../utils'
+import { Play, MoreVertical } from 'lucide-react'
 
 export interface Game {
-  id: string;
-  title: string;
-  platform: string;
-  genre?: string;
-  coverArt?: string;
-  romPath: string;
-  lastPlayed?: Date;
-  playTime?: number;
+  id: string
+  title: string
+  platform: string
+  genre?: string
+  coverArt?: string
+  romPath: string
+  lastPlayed?: Date
+  playTime?: number
 }
 
 export interface GameCardProps {
-  game: Game;
-  onPlay: (game: Game) => void;
-  onOptions?: (game: Game) => void;
-  className?: string;
+  game: Game
+  onPlay: (game: Game) => void
+  onOptions?: (game: Game) => void
+  className?: string
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ 
-  game, 
-  onPlay, 
+export const GameCard: React.FC<GameCardProps> = ({
+  game,
+  onPlay,
   onOptions,
-  className 
+  className,
 }) => {
   const handlePlay = (e: React.MouseEvent) => {
-    e.preventDefault();
-    onPlay(game);
-  };
+    e.preventDefault()
+    onPlay(game)
+  }
 
   const handleOptions = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onOptions?.(game);
-  };
+    e.preventDefault()
+    e.stopPropagation()
+    onOptions?.(game)
+  }
 
   return (
-    <Card 
+    <Card
       className={cn(
-        "group relative overflow-hidden transition-all hover:scale-105 hover:shadow-lg",
+        'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg',
         className
       )}
     >
       <CardContent className="p-0">
-        <div className="aspect-[3/4] relative bg-muted">
+        <div className="border-red-500 aspect-[3/4] relative bg-muted">
           {game.coverArt ? (
-            <img 
-              src={game.coverArt} 
+            <img
+              src={game.coverArt}
               alt={game.title}
               className="w-full h-full object-cover"
             />
@@ -60,7 +60,7 @@ export const GameCard: React.FC<GameCardProps> = ({
               <span className="text-xs">No Cover</span>
             </div>
           )}
-          
+
           {/* Hover overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -72,16 +72,15 @@ export const GameCard: React.FC<GameCardProps> = ({
                   {game.platform}
                 </Badge>
                 {game.genre && (
-                  <Badge variant="outline" className="text-xs text-white border-white/30">
+                  <Badge
+                    variant="outline"
+                    className="text-xs text-white border-white/30"
+                  >
                     {game.genre}
                   </Badge>
                 )}
               </div>
-              <Button 
-                onClick={handlePlay}
-                size="sm"
-                className="w-full"
-              >
+              <Button onClick={handlePlay} size="sm" className="w-full">
                 <Play className="h-3 w-3 mr-1" />
                 Play
               </Button>
@@ -102,5 +101,5 @@ export const GameCard: React.FC<GameCardProps> = ({
         </div>
       </CardContent>
     </Card>
-  );
-};
+  )
+}
