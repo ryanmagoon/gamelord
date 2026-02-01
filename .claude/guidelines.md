@@ -93,10 +93,11 @@ export function Component({ prop }: { prop: string }) {
 ## Project-Specific Notes
 
 ### Architecture
-- Native emulator processes (RetroArch, etc.)
-- Electron frontend for UI/library management
-- Separate game windows with custom controls
-- UDP commands for emulator control
+- Native libretro cores loaded via dlopen (N-API addon)
+- Main process drives emulation loop at core's native FPS
+- Frames/audio pushed to renderer via `webContents.send` + `Buffer`
+- Renderer displays via canvas `putImageData` + Web Audio API
+- Legacy overlay mode for external RetroArch process still supported
 
 ### Key Principles
 - OpenEmu-style user experience
