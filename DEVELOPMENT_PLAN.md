@@ -101,7 +101,8 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 
 ### UI Polish
 - [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers)
-- [ ] Shader/filter selection (CRT, scanlines, etc.)
+- [x] Shader/filter selection (CRT, CRT Aperture, Scanlines, LCD, Sharp Bilinear via WebGL2)
+- [ ] Explore loading Slang (.slang/.slangp) shaders from the libretro shader ecosystem
 - [ ] Screenshot gallery per game
 - [ ] Playtime tracking and statistics
 - [ ] Settings panel
