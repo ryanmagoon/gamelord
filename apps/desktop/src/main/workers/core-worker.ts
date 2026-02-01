@@ -30,7 +30,6 @@ class CoreWorker {
   }
 
   private initialize(options: any): void {
-    console.log('Initializing core with options:', options);
     
     // TODO: Actually load libretro core here
     // For now, we'll simulate it
@@ -103,7 +102,6 @@ class CoreWorker {
   }
 
   private saveState(slot: number): void {
-    console.log(`Saving state to slot ${slot}`);
     // TODO: Implement save state
     this.sendMessage('stateChanged', { 
       action: 'saved', 
@@ -112,7 +110,6 @@ class CoreWorker {
   }
 
   private loadState(slot: number): void {
-    console.log(`Loading state from slot ${slot}`);
     // TODO: Implement load state
     this.sendMessage('stateChanged', { 
       action: 'loaded', 
@@ -121,7 +118,6 @@ class CoreWorker {
   }
 
   private handleInput(playerId: number, button: string, pressed: boolean): void {
-    console.log(`Player ${playerId} ${pressed ? 'pressed' : 'released'} ${button}`);
     // TODO: Forward input to emulation core
   }
 

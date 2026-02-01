@@ -130,7 +130,6 @@ export const LibraryView: React.FC<{
     const fullGame = idToGame.get(uiGame.id)
     if (!fullGame) return
 
-    console.log('Launching game:', fullGame.title, 'System:', fullGame.systemId)
 
     const result = await api.emulator.launch(
       fullGame.romPath,
@@ -138,7 +137,6 @@ export const LibraryView: React.FC<{
     )
 
     if (result.success) {
-      console.log('Game launched successfully:', fullGame.title)
       // Game is running in external emulator, no need to change UI state
     } else {
       console.error('Failed to launch game:', result.error)
@@ -148,7 +146,6 @@ export const LibraryView: React.FC<{
 
   const handleGameOptions = (game: AppGame) => {
     // TODO: Show game options menu (edit metadata, remove, etc.)
-    console.log('Game options:', game)
   }
 
   const handleUiGameOptions = (uiGame: UiGame) => {
