@@ -94,6 +94,12 @@ export class GameWindowManager {
     this.activeNativeCore = nativeCore
 
     gameWindow.on('close', () => {
+      // Flush battery-backed SRAM (in-game saves) to disk
+      try {
+        nativeCore.saveSram()
+      } catch (error) {
+        console.error('Failed to save SRAM on close:', error)
+      }
       // Auto-save state before the window is destroyed
       try {
         nativeCore.saveState(99)
