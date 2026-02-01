@@ -44,6 +44,7 @@ export class IPCHandlers {
         fs.writeFileSync(tmpCfgPath, [
           'video_window_show_decorations = "false"',
           'ui_menubar_enable = "false"',
+          'pause_nonactive = "false"',
         ].join('\n') + '\n');
 
         // Launch the emulator with decoration-hiding config
