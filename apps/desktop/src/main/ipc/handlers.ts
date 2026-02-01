@@ -1,15 +1,18 @@
 import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog } from 'electron';
 import { EmulatorManager } from '../emulator/EmulatorManager';
 import { LibraryService } from '../services/LibraryService';
+import { GameWindowManager } from '../GameWindowManager';
 import { GameSystem } from '../../types/library';
 
 export class IPCHandlers {
   private emulatorManager: EmulatorManager;
   private libraryService: LibraryService;
+  private gameWindowManager: GameWindowManager;
 
-  constructor() {
+  constructor(preloadPath: string) {
     this.emulatorManager = new EmulatorManager();
     this.libraryService = new LibraryService();
+    this.gameWindowManager = new GameWindowManager(preloadPath);
     this.setupHandlers();
     this.setupEmulatorEventForwarding();
     this.setupLibraryHandlers();
@@ -19,7 +22,28 @@ export class IPCHandlers {
     // Emulator management
     ipcMain.handle('emulator:launch', async (event: IpcMainInvokeEvent, romPath: string, systemId: string, emulatorId?: string) => {
       try {
+        // Find the game in the library to get full metadata
+        const games = this.libraryService.getGames(systemId);
+        const game = games.find(g => g.romPath === romPath);
+
+        if (!game) {
+          throw new Error('Game not found in library');
+        }
+
+        // Create custom game window
+        this.gameWindowManager.createGameWindow(game);
+
+        // Launch the emulator
         await this.emulatorManager.launchGame(romPath, systemId, emulatorId);
+
+        // Start tracking RetroArch window to overlay our controls
+        const pid = this.emulatorManager.getCurrentEmulatorPid();
+        if (pid) {
+          this.gameWindowManager.startTrackingRetroArchWindow(game.id, pid);
+        } else {
+          console.warn('Could not get emulator PID for window tracking');
+        }
+
         return { success: true };
       } catch (error) {
         console.error('Failed to launch emulator:', error);

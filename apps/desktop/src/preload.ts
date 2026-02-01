@@ -37,7 +37,8 @@ contextBridge.exposeInMainWorld('gamelord', {
       'emulator:paused',
       'emulator:resumed',
       'emulator:reset',
-      'emulator:terminated'
+      'emulator:terminated',
+      'game:loaded'
     ];
 
     if (validChannels.includes(channel)) {
@@ -47,6 +48,15 @@ contextBridge.exposeInMainWorld('gamelord', {
 
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel);
+  },
+
+  // Game window controls
+  gameWindow: {
+    minimize: () => ipcRenderer.send('game-window:minimize'),
+    maximize: () => ipcRenderer.send('game-window:maximize'),
+    close: () => ipcRenderer.send('game-window:close'),
+    toggleFullscreen: () => ipcRenderer.send('game-window:toggle-fullscreen'),
+    setClickThrough: (value: boolean) => ipcRenderer.send('game-window:set-click-through', value)
   },
 
   // Library management
