@@ -238,7 +238,7 @@ export const GameWindow: React.FC = () => {
       if (!isPaused) {
         setShowControls(false)
       }
-    }, 3000)
+    }, 1000)
     setControlsHoverTimeout(timeout)
   }, [mode, isPaused, controlsHoverTimeout])
 
@@ -268,7 +268,7 @@ export const GameWindow: React.FC = () => {
 
       {/* Top control bar with integrated drag region */}
       <div
-        className={`absolute top-0 left-0 right-0 z-50 transition-opacity duration-200 ${
+        className={`absolute top-0 left-0 right-0 z-50 transition-opacity duration-150 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
@@ -283,7 +283,7 @@ export const GameWindow: React.FC = () => {
 
       {/* Bottom control bar */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-50 transition-opacity duration-200 ${
+        className={`absolute bottom-0 left-0 right-0 z-50 transition-opacity duration-150 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
