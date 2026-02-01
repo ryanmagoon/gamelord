@@ -98,7 +98,7 @@ export class EmulatorManager extends EventEmitter {
   /**
    * Launch a game with the specified emulator and system
    */
-  async launchGame(romPath: string, systemId: string, emulatorId?: string): Promise<void> {
+  async launchGame(romPath: string, systemId: string, emulatorId?: string, extraArgs?: string[]): Promise<void> {
     // Close current emulator if running
     if (this.currentEmulator?.isActive()) {
       await this.currentEmulator.terminate();
@@ -126,6 +126,10 @@ export class EmulatorManager extends EventEmitter {
       if (!options.corePath) {
         throw new Error(`No core found for system: ${systemId}`);
       }
+    }
+
+    if (extraArgs) {
+      options.extraArgs = extraArgs;
     }
 
     // Launch the game

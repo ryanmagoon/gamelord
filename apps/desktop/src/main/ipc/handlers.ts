@@ -1,4 +1,6 @@
-import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog } from 'electron';
+import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog, app } from 'electron';
+import path from 'path';
+import fs from 'fs';
 import { EmulatorManager } from '../emulator/EmulatorManager';
 import { LibraryService } from '../services/LibraryService';
 import { GameWindowManager } from '../GameWindowManager';
@@ -33,8 +35,21 @@ export class IPCHandlers {
         // Create custom game window
         this.gameWindowManager.createGameWindow(game);
 
-        // Launch the emulator
-        await this.emulatorManager.launchGame(romPath, systemId, emulatorId);
+        // Write a temp RetroArch config to hide window decorations.
+        // video_window_show_decorations removes the title bar on supported drivers.
+        // As a fallback, we also disable the menu bar within RetroArch.
+        const tmpCfgDir = path.join(app.getPath('temp'), 'gamelord');
+        fs.mkdirSync(tmpCfgDir, { recursive: true });
+        const tmpCfgPath = path.join(tmpCfgDir, 'overlay.cfg');
+        fs.writeFileSync(tmpCfgPath, [
+          'video_window_show_decorations = "false"',
+          'ui_menubar_enable = "false"',
+        ].join('\n') + '\n');
+
+        // Launch the emulator with decoration-hiding config
+        await this.emulatorManager.launchGame(romPath, systemId, emulatorId, [
+          '--appendconfig', tmpCfgPath,
+        ]);
 
         // Start tracking RetroArch window to overlay our controls
         const pid = this.emulatorManager.getCurrentEmulatorPid();

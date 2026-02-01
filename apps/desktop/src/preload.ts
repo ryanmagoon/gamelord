@@ -38,7 +38,8 @@ contextBridge.exposeInMainWorld('gamelord', {
       'emulator:resumed',
       'emulator:reset',
       'emulator:terminated',
-      'game:loaded'
+      'game:loaded',
+      'overlay:show-controls'
     ];
 
     if (validChannels.includes(channel)) {
