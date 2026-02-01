@@ -8,7 +8,6 @@ import {
   Camera,
   Volume2,
   Settings,
-  Maximize,
 } from 'lucide-react'
 import type { Game } from '../../types/library'
 import type { GamelordAPI } from '../types/global'
@@ -65,10 +64,6 @@ export const GameWindow: React.FC = () => {
     await api.emulation.screenshot()
   }
 
-  const handleToggleFullscreen = () => {
-    api.gameWindow.toggleFullscreen()
-  }
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,10 +74,6 @@ export const GameWindow: React.FC = () => {
       if (e.key === 'F9') {
         e.preventDefault()
         void handleLoadState()
-      }
-      if (e.key === 'F11') {
-        e.preventDefault()
-        handleToggleFullscreen()
       }
       if (e.key === ' ' && e.target === document.body) {
         e.preventDefault()
@@ -193,14 +184,6 @@ export const GameWindow: React.FC = () => {
               className="text-white hover:bg-white/10"
             >
               <Volume2 className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleToggleFullscreen}
-              className="text-white hover:bg-white/10"
-            >
-              <Maximize className="h-5 w-5" />
             </Button>
             <Button
               variant="ghost"
