@@ -74,7 +74,7 @@ export const DEFAULT_SYSTEMS: GameSystem[] = [
     extensions: ['.n64', '.z64', '.v64'],
   },
   {
-    id: 'ps1',
+    id: 'psx',
     name: 'PlayStation',
     shortName: 'PS1',
     extensions: ['.cue', '.bin', '.iso', '.chd', '.pbp'],
