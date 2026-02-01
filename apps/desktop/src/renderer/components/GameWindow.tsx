@@ -332,6 +332,7 @@ export const GameWindow: React.FC = () => {
   return (
     <div
       className={`relative h-screen overflow-hidden ${isNative ? 'bg-black' : 'bg-transparent'}`}
+      style={{ cursor: isNative && !showControls ? 'none' : undefined }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
