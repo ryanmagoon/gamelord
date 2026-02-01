@@ -6,7 +6,6 @@ import { CoreDownloader } from './CoreDownloader';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { app } from 'electron';
 
 /**
  * Manages emulator instances and provides a unified interface for launching games.
