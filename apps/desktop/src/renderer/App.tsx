@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Button, WebGLRendererComponent, Game as UiGame } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
-import { Monitor, Tv } from 'lucide-react'
+import { Monitor, Tv, Sun, Moon } from 'lucide-react'
 import { LibraryView } from './components/LibraryView'
 import { Game } from '../types/library'
 
@@ -10,6 +10,16 @@ function App() {
   const [currentGame, setCurrentGame] = useState<Game | null>(null)
   const { isReady, currentShader, handleRendererReady, changeShader } =
     useWebGLRenderer()
+  const [isDark, setIsDark] = useState(
+    () => document.documentElement.classList.contains('dark'),
+  )
+
+  const toggleTheme = useCallback(() => {
+    const next = !isDark
+    setIsDark(next)
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('gamelord:theme', next ? 'dark' : 'light')
+  }, [isDark])
 
   const handlePlayGame = async (game: UiGame) => {
     try {
@@ -81,7 +91,11 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="drag-region titlebar-inset h-10 border-b"></div>
+      <div className="drag-region titlebar-inset h-10 border-b flex items-center justify-end px-4">
+        <Button variant="ghost" size="icon" className="no-drag h-7 w-7" onClick={toggleTheme}>
+          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
+      </div>
       <div className="flex-1 overflow-hidden">
         <LibraryView onPlayGame={handlePlayGame} />
       </div>
