@@ -104,9 +104,11 @@ export class GameWindowManager {
     let lastBounds = ''
     let controlsVisible = false
     let polling = false
+    let missCount = 0
+    const MAX_MISSES = 5 // consecutive failures before assuming window is gone
 
     const poll = async () => {
-      if (polling) return // skip if previous poll still running
+      if (polling) return
       polling = true
       try {
         if (gameWindow.isDestroyed()) {
@@ -116,20 +118,34 @@ export class GameWindowManager {
 
         const rawBounds = await this.getWindowBoundsByPid(pid)
         if (!rawBounds) {
-          console.log(`RetroArch window (PID ${pid}) disappeared, closing overlay`)
-          this.stopTracking(gameId)
-          if (!gameWindow.isDestroyed()) {
-            gameWindow.close()
+          missCount++
+          if (missCount >= MAX_MISSES) {
+            console.log(`RetroArch window (PID ${pid}) disappeared, closing overlay`)
+            this.stopTracking(gameId)
+            if (!gameWindow.isDestroyed()) {
+              gameWindow.close()
+            }
           }
           return
         }
+        missCount = 0
 
-        // Offset to content area below title bar
+        // Detect if window is fullscreen (position 0,0 and matches a display)
+        const displays = screen.getAllDisplays()
+        const isFullscreen = displays.some(
+          (d) =>
+            rawBounds.x === d.bounds.x &&
+            rawBounds.y === d.bounds.y &&
+            rawBounds.width === d.bounds.width &&
+            rawBounds.height === d.bounds.height,
+        )
+
+        const titleOffset = isFullscreen ? 0 : TITLE_BAR_HEIGHT
         const bounds = {
           x: rawBounds.x,
-          y: rawBounds.y + TITLE_BAR_HEIGHT,
+          y: rawBounds.y + titleOffset,
           width: rawBounds.width,
-          height: rawBounds.height - TITLE_BAR_HEIGHT,
+          height: rawBounds.height - titleOffset,
         }
 
         // Only update bounds if they changed
