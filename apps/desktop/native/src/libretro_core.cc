@@ -88,11 +88,14 @@ Napi::Value LibretroCore::LoadCore(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(env, false);
   }
 
+  fprintf(stderr, "[libretro] LoadCore: setting environment callback\n");
   // retro_set_environment must be called before retro_init
   fn_set_environment_(EnvironmentCallback);
 
+  fprintf(stderr, "[libretro] LoadCore: calling retro_init\n");
   // retro_init allocates core internal state; must be called before other set_* callbacks
   fn_init_();
+  fprintf(stderr, "[libretro] LoadCore: retro_init done, setting callbacks\n");
 
   // Set remaining callbacks after init (cores may need internal state allocated)
   fn_set_video_refresh_(VideoRefreshCallback);
@@ -460,7 +463,10 @@ bool LibretroCore::ResolveFunctions() {
 
 bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
   LibretroCore *self = s_instance;
-  if (!self) return false;
+  if (!self) {
+    fprintf(stderr, "[libretro] EnvironmentCallback cmd=%u but s_instance is NULL!\n", cmd);
+    return false;
+  }
 
   switch (cmd) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT: {
@@ -525,11 +531,8 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_SET_CONTENT_INFO_OVERRIDE:
       return true;
 
-    case RETRO_ENVIRONMENT_GET_GAME_INFO_EXT: {
-      const struct retro_game_info_ext **ext = static_cast<const struct retro_game_info_ext **>(data);
-      *ext = &self->game_info_ext_;
-      return true;
-    }
+    case RETRO_ENVIRONMENT_GET_GAME_INFO_EXT:
+      return false;
 
     case RETRO_ENVIRONMENT_GET_INPUT_BITMASKS:
       return true;
