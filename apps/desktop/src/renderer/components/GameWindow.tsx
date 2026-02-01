@@ -10,9 +10,12 @@ import {
   Volume2,
   VolumeX,
   Settings,
+  Monitor,
 } from 'lucide-react'
 import type { Game } from '../../types/library'
 import type { GamelordAPI } from '../types/global'
+import { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from '@gamelord/ui'
+import type { ShaderPreset } from '@gamelord/ui'
 
 // Keyboard → libretro joypad button mapping
 const KEY_MAP: Record<string, number> = {
@@ -45,7 +48,14 @@ export const GameWindow: React.FC = () => {
     return localStorage.getItem('gamelord:muted') === 'true'
   })
 
+  const [shader, setShader] = useState<ShaderPreset>(() => {
+    const saved = localStorage.getItem('gamelord:shader')
+    return (saved as ShaderPreset) || 'default'
+  })
+  const [showShaderMenu, setShowShaderMenu] = useState(false)
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const rendererRef = useRef<WebGLRenderer | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioNextTimeRef = useRef(0)
   const gainNodeRef = useRef<GainNode | null>(null)
@@ -75,24 +85,23 @@ export const GameWindow: React.FC = () => {
         canvas.width = avInfo.geometry.baseWidth
         canvas.height = avInfo.geometry.baseHeight
       }
+      // Initialize WebGL renderer once we know the canvas size
+      if (canvas && !rendererRef.current) {
+        try {
+          const renderer = new WebGLRenderer(canvas)
+          renderer.initialize()
+          renderer.setShader(shader)
+          rendererRef.current = renderer
+        } catch (error) {
+          console.error('Failed to initialize WebGL renderer:', error)
+        }
+      }
     })
 
     api.on('game:video-frame', (frameData: any) => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-
-      const { width, height, data } = frameData
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width
-        canvas.height = height
+      if (rendererRef.current) {
+        rendererRef.current.renderFrame(frameData)
       }
-
-      const pixels = new Uint8ClampedArray(data)
-      const imageData = ctx.createImageData(width, height)
-      imageData.data.set(pixels)
-      ctx.putImageData(imageData, 0, 0)
     })
 
     api.on('game:audio-samples', (audioData: any) => {
@@ -142,12 +151,33 @@ export const GameWindow: React.FC = () => {
       api.removeAllListeners('game:video-frame')
       api.removeAllListeners('game:audio-samples')
 
+      rendererRef.current?.destroy()
+      rendererRef.current = null
+
       if (audioContextRef.current) {
         audioContextRef.current.close()
         audioContextRef.current = null
       }
     }
   }, [api])
+
+  // Handle canvas resize for WebGL viewport
+  useEffect(() => {
+    const handleResize = () => {
+      const canvas = canvasRef.current
+      if (!canvas || !rendererRef.current) return
+      const rect = canvas.getBoundingClientRect()
+      rendererRef.current.resize(rect.width * devicePixelRatio, rect.height * devicePixelRatio)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Sync shader preference
+  useEffect(() => {
+    rendererRef.current?.setShader(shader)
+    localStorage.setItem('gamelord:shader', shader)
+  }, [shader])
 
   // Sync gain node with volume/mute state and persist
   useEffect(() => {
@@ -296,7 +326,7 @@ export const GameWindow: React.FC = () => {
           ref={canvasRef}
           className="absolute inset-0 w-full h-full object-contain"
           style={{
-            imageRendering: 'pixelated',
+            imageRendering: shader === 'default' ? 'pixelated' : 'auto',
           }}
           width={256}
           height={240}
@@ -423,6 +453,34 @@ export const GameWindow: React.FC = () => {
               }}
               className="w-20 h-1 accent-white cursor-pointer"
             />
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowShaderMenu((v) => !v)}
+                className="text-white hover:bg-white/10"
+                title="Shader"
+              >
+                <Monitor className="h-5 w-5" />
+              </Button>
+              {showShaderMenu && (
+                <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-md rounded-lg shadow-lg py-1 min-w-[160px]">
+                  {SHADER_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      onClick={() => { setShader(preset); setShowShaderMenu(false) }}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                        shader === preset
+                          ? 'text-blue-400 bg-white/10'
+                          : 'text-white/80 hover:bg-white/10'
+                      }`}
+                    >
+                      {SHADER_LABELS[preset]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <Button
               variant="ghost"
               size="sm"

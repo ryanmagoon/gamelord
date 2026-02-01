@@ -10,6 +10,8 @@ export * from './components/GameLibrary';
 export * from './components/GameDetails';
 export * from './components/PlatformIcon';
 export * from './components/WebGLRenderer';
+export { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from './webgl/WebGLRenderer';
+export type { ShaderPreset } from './webgl/WebGLRenderer';
 
 // Utils
 export * from './utils';
