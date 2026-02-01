@@ -260,28 +260,18 @@ export const GameWindow: React.FC = () => {
           className="absolute inset-0 w-full h-full object-contain"
           style={{
             imageRendering: 'pixelated',
-            // Add top padding for macOS title bar in hiddenInset mode
-            top: '40px',
-            height: 'calc(100% - 40px)',
           }}
           width={256}
           height={240}
         />
       )}
 
-      {/* Title bar drag region for native mode */}
-      {isNative && (
-        <div
-          className="absolute top-0 left-0 right-0 h-10 z-50"
-          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-        />
-      )}
-
-      {/* Top control bar */}
+      {/* Top control bar with integrated drag region */}
       <div
-        className={`absolute ${isNative ? 'top-10' : 'top-0'} left-0 right-0 z-50 transition-opacity duration-200 ${
+        className={`absolute top-0 left-0 right-0 z-50 transition-opacity duration-200 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div className="flex items-center justify-center px-4 py-2 bg-black/75 backdrop-blur-md shadow-lg">
           <div className="flex items-center gap-3">
