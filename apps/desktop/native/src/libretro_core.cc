@@ -464,9 +464,53 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
       return false;
     }
 
+    case RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION: {
+      // Report that we support core options v2
+      unsigned *version = static_cast<unsigned *>(data);
+      *version = 2;
+      return true;
+    }
+
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS:
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_INTL:
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2:
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL:
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY:
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK:
+      // Accept core options silently (we don't use them yet)
+      return true;
+
     case RETRO_ENVIRONMENT_SET_VARIABLES:
     case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
       return false;
+
+    case RETRO_ENVIRONMENT_SET_CONTENT_INFO_OVERRIDE:
+      return true;
+
+    case RETRO_ENVIRONMENT_GET_GAME_INFO_EXT:
+      return false;
+
+    case RETRO_ENVIRONMENT_GET_INPUT_BITMASKS:
+      return true;
+
+    case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:
+    case RETRO_ENVIRONMENT_SET_CONTROLLER_INFO:
+    case RETRO_ENVIRONMENT_SET_SUBSYSTEM_INFO:
+    case RETRO_ENVIRONMENT_SET_MEMORY_MAPS:
+    case RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS:
+      return true;
+
+    case RETRO_ENVIRONMENT_GET_MESSAGE_INTERFACE_VERSION: {
+      unsigned *version = static_cast<unsigned *>(data);
+      *version = 0;
+      return true;
+    }
+
+    case RETRO_ENVIRONMENT_GET_INPUT_MAX_USERS: {
+      unsigned *max_users = static_cast<unsigned *>(data);
+      *max_users = 2;
+      return true;
+    }
 
     case RETRO_ENVIRONMENT_SET_GEOMETRY: {
       if (data) {
@@ -481,6 +525,7 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
       return true;
 
     default:
+      fprintf(stderr, "[libretro] Unhandled environment command: %u\n", cmd);
       return false;
   }
 }
