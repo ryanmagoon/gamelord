@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld('gamelord', {
     load: (slot: number) => ipcRenderer.invoke('savestate:load', slot)
   },
 
+  // Run one frame and return video+audio data (called from requestAnimationFrame)
+  tick: () => ipcRenderer.invoke('game:tick'),
+
   // Game input forwarding (native mode)
   gameInput: (port: number, id: number, pressed: boolean) =>
     ipcRenderer.send('game:input', port, id, pressed),

@@ -17,6 +17,7 @@ export class GameWindowManager {
   private trackingIntervals = new Map<string, ReturnType<typeof setInterval>>()
   private frameIntervals = new Map<string, ReturnType<typeof setInterval>>()
   private readonly preloadPath: string
+  private activeNativeCore: LibretroNativeCore | null = null
 
   constructor(preloadPath: string) {
     this.preloadPath = preloadPath
@@ -68,41 +69,18 @@ export class GameWindowManager {
       gameWindow.webContents.send('game:loaded', game)
       gameWindow.webContents.send('game:mode', 'native')
 
-      // Send AV info so renderer can set up canvas
       if (avInfo) {
         gameWindow.webContents.send('game:av-info', avInfo)
       }
+
+      this.startEmulationLoop(game.id, nativeCore, gameWindow)
     })
 
-    // Start pushing frames to the renderer
-    const frameInterval = setInterval(() => {
-      if (gameWindow.isDestroyed()) {
-        clearInterval(frameInterval)
-        return
-      }
-
-      const frame = nativeCore.getVideoFrame()
-      if (frame) {
-        gameWindow.webContents.send('game:video-frame', {
-          data: Array.from(frame.data), // serialize for IPC
-          width: frame.width,
-          height: frame.height,
-        })
-      }
-
-      const audio = nativeCore.getAudioBuffer()
-      if (audio) {
-        gameWindow.webContents.send('game:audio-samples', {
-          samples: Array.from(audio),
-          sampleRate: nativeCore.getAVInfo()?.timing.sampleRate || 44100,
-        })
-      }
-    }, 16) // ~60fps
-
-    this.frameIntervals.set(game.id, frameInterval)
+    this.activeNativeCore = nativeCore
 
     gameWindow.on('closed', () => {
-      this.stopFramePush(game.id)
+      this.stopEmulationLoop(game.id)
+      this.activeNativeCore = null
       this.gameWindows.delete(game.id)
     })
 
@@ -293,6 +271,60 @@ export class GameWindowManager {
     }
   }
 
+  private emulationTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+  private startEmulationLoop(gameId: string, core: LibretroNativeCore, win: BrowserWindow): void {
+    const avInfo = core.getAVInfo()
+    const fps = avInfo?.timing.fps || 60
+    const frameTimeMs = 1000 / fps
+    const sampleRate = avInfo?.timing.sampleRate || 44100
+
+    let lastTime = performance.now()
+
+    const tick = () => {
+      if (win.isDestroyed()) return
+
+      const now = performance.now()
+      const elapsed = now - lastTime
+
+      if (elapsed >= frameTimeMs) {
+        lastTime = now - (elapsed % frameTimeMs) // account for drift
+
+        core.runFrame()
+
+        const frame = core.getVideoFrame()
+        const audio = core.getAudioBuffer()
+
+        if (frame && !win.isDestroyed()) {
+          win.webContents.send('game:video-frame', {
+            data: Buffer.from(frame.data.buffer, frame.data.byteOffset, frame.data.byteLength),
+            width: frame.width,
+            height: frame.height,
+          })
+        }
+
+        if (audio && audio.length > 0 && !win.isDestroyed()) {
+          win.webContents.send('game:audio-samples', {
+            samples: Buffer.from(audio.buffer, audio.byteOffset, audio.byteLength),
+            sampleRate,
+          })
+        }
+      }
+
+      this.emulationTimers.set(gameId, setTimeout(tick, 1))
+    }
+
+    this.emulationTimers.set(gameId, setTimeout(tick, 1))
+  }
+
+  private stopEmulationLoop(gameId: string): void {
+    const timer = this.emulationTimers.get(gameId)
+    if (timer) {
+      clearTimeout(timer)
+      this.emulationTimers.delete(gameId)
+    }
+  }
+
   closeGameWindow(gameId: string): void {
     this.stopTracking(gameId)
     this.stopFramePush(gameId)
@@ -385,7 +417,11 @@ export class GameWindowManager {
 
   destroy(): void {
     this.closeAllGameWindows()
+    this.activeNativeCore = null
     this.inputListeners = []
+    for (const [gameId] of this.emulationTimers) {
+      this.stopEmulationLoop(gameId)
+    }
     ipcMain.removeAllListeners('game-window:minimize')
     ipcMain.removeAllListeners('game-window:maximize')
     ipcMain.removeAllListeners('game-window:close')

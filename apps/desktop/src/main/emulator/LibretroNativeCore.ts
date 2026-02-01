@@ -148,27 +148,20 @@ export class LibretroNativeCore extends EmulatorCore {
     this.isRunning = true
     this.paused = false
 
-    // Start the emulation loop using a tight setTimeout loop
-    const fps = this.avInfo?.timing.fps || 60
-    const frameTimeMs = 1000 / fps
+    // No emulation loop here — frames are driven by GameWindowManager
+    // which calls runFrame() at display refresh rate
     this.emulationRunning = true
-    let nextFrameTime = performance.now()
-
-    const tick = () => {
-      if (!this.emulationRunning) return
-
-      const now = performance.now()
-      if (now >= nextFrameTime && !this.paused && this.native) {
-        this.native.run()
-        this.emit('frame')
-        nextFrameTime = now + frameTimeMs
-      }
-
-      this.emulationTimer = setTimeout(tick, 1)
-    }
-    tick()
 
     this.emit('launched', { romPath, corePath })
+  }
+
+  /**
+   * Run one frame of emulation. Called by GameWindowManager at display rate.
+   */
+  runFrame(): void {
+    if (!this.paused && this.native && this.emulationRunning) {
+      this.native.run()
+    }
   }
 
   /**
