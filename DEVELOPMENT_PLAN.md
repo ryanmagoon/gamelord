@@ -100,6 +100,7 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 - [ ] Per-game netplay compatibility metadata (supported cores, input latency settings)
 
 ### UI Polish
+- [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers)
 - [ ] Shader/filter selection (CRT, scanlines, etc.)
 - [ ] Screenshot gallery per game
 - [ ] Playtime tracking and statistics
