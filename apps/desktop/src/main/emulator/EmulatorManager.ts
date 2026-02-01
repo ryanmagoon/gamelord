@@ -194,7 +194,7 @@ export class EmulatorManager extends EventEmitter {
 
     // Map system IDs to core names
     const coreMapping: Record<string, string[]> = {
-      'nes': ['mesen_libretro', 'fceumm_libretro', 'nestopia_libretro'],
+      'nes': ['fceumm_libretro', 'nestopia_libretro', 'mesen_libretro'],
       'snes': ['bsnes_libretro', 'snes9x_libretro'],
       'genesis': ['genesis_plus_gx_libretro', 'picodrive_libretro'],
       'gb': ['mgba_libretro', 'gambatte_libretro'],
