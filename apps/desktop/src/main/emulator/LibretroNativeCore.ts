@@ -47,6 +47,9 @@ interface NativeLibretroCore {
   isLoaded(): boolean
   setSystemDirectory(dir: string): void
   setSaveDirectory(dir: string): void
+  getMemoryData(memType?: number): Uint8Array | null
+  getMemorySize(memType?: number): number
+  setMemoryData(data: Uint8Array, memType?: number): void
 }
 
 interface NativeAddon {
@@ -96,13 +99,16 @@ export class LibretroNativeCore extends EmulatorCore {
   private paused = false
   private avInfo: ReturnType<NativeLibretroCore['getAVInfo']> = null
   private saveStatesDir: string
+  private sramDir: string
 
   constructor(
     private readonly coresBasePath: string,
   ) {
     super('LibretroNative', coresBasePath)
     this.saveStatesDir = path.join(app.getPath('userData'), 'savestates')
+    this.sramDir = path.join(app.getPath('userData'), 'saves')
     fs.mkdirSync(this.saveStatesDir, { recursive: true })
+    fs.mkdirSync(this.sramDir, { recursive: true })
   }
 
   async launch(romPath: string, options: EmulatorLaunchOptions = {}): Promise<void> {
@@ -143,6 +149,9 @@ export class LibretroNativeCore extends EmulatorCore {
       this.cleanup()
       throw new Error('Failed to load game: ' + romPath)
     }
+
+    // Load battery-backed SRAM from disk if it exists
+    this.loadSram()
 
     this.avInfo = this.native.getAVInfo()
     this.isRunning = true
@@ -272,6 +281,7 @@ export class LibretroNativeCore extends EmulatorCore {
   async terminate(): Promise<void> {
     this.stopEmulationLoop()
     if (this.native) {
+      this.saveSram()
       this.native.destroy()
       this.native = null
     }
@@ -281,6 +291,7 @@ export class LibretroNativeCore extends EmulatorCore {
   protected cleanup(): void {
     this.stopEmulationLoop()
     if (this.native) {
+      try { this.saveSram() } catch { /* ignore */ }
       try { this.native.destroy() } catch { /* ignore */ }
       this.native = null
     }
@@ -338,6 +349,36 @@ export class LibretroNativeCore extends EmulatorCore {
   private getAutoSavePath(): string {
     const romName = this.romPath ? path.basename(this.romPath, path.extname(this.romPath)) : 'unknown'
     return path.join(this.saveStatesDir, romName, 'autosave.sav')
+  }
+
+  /** Flush the core's battery-backed SRAM to disk. */
+  saveSram(): void {
+    if (!this.native || !this.romPath) return
+    const sramData = this.native.getMemoryData()
+    if (!sramData || sramData.length === 0) return
+
+    // Check if SRAM is all zeros (no save data)
+    if (sramData.every((b) => b === 0)) return
+
+    const sramPath = this.getSramPath()
+    fs.mkdirSync(path.dirname(sramPath), { recursive: true })
+    fs.writeFileSync(sramPath, Buffer.from(sramData.buffer, sramData.byteOffset, sramData.byteLength))
+  }
+
+  /** Restore battery-backed SRAM from disk into the core. */
+  private loadSram(): void {
+    if (!this.native || !this.romPath) return
+    const sramPath = this.getSramPath()
+    if (!fs.existsSync(sramPath)) return
+
+    const data = fs.readFileSync(sramPath)
+    const sramData = new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+    this.native.setMemoryData(sramData)
+  }
+
+  private getSramPath(): string {
+    const romName = this.romPath ? path.basename(this.romPath, path.extname(this.romPath)) : 'unknown'
+    return path.join(this.sramDir, `${romName}.srm`)
   }
 
   private getStatePath(slot: number): string {

@@ -43,6 +43,9 @@ private:
   Napi::Value IsLoaded(const Napi::CallbackInfo &info);
   void SetSystemDirectory(const Napi::CallbackInfo &info);
   void SetSaveDirectory(const Napi::CallbackInfo &info);
+  Napi::Value GetMemoryData(const Napi::CallbackInfo &info);
+  Napi::Value GetMemorySize(const Napi::CallbackInfo &info);
+  void SetMemoryData(const Napi::CallbackInfo &info);
 
   // Internal
   void CloseCore();

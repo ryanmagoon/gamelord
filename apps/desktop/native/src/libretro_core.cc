@@ -27,6 +27,9 @@ Napi::Object LibretroCore::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("isLoaded", &LibretroCore::IsLoaded),
     InstanceMethod("setSystemDirectory", &LibretroCore::SetSystemDirectory),
     InstanceMethod("setSaveDirectory", &LibretroCore::SetSaveDirectory),
+    InstanceMethod("getMemoryData", &LibretroCore::GetMemoryData),
+    InstanceMethod("getMemorySize", &LibretroCore::GetMemorySize),
+    InstanceMethod("setMemoryData", &LibretroCore::SetMemoryData),
   });
 
   Napi::FunctionReference *constructor = new Napi::FunctionReference();
@@ -380,6 +383,74 @@ void LibretroCore::SetSaveDirectory(const Napi::CallbackInfo &info) {
   if (info.Length() >= 1 && info[0].IsString()) {
     save_directory_ = info[0].As<Napi::String>().Utf8Value();
   }
+}
+
+Napi::Value LibretroCore::GetMemoryData(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+
+  if (!game_loaded_ || !fn_get_memory_data_ || !fn_get_memory_size_) {
+    return env.Null();
+  }
+
+  unsigned memType = RETRO_MEMORY_SAVE_RAM;
+  if (info.Length() >= 1 && info[0].IsNumber()) {
+    memType = info[0].As<Napi::Number>().Uint32Value();
+  }
+
+  void *data = fn_get_memory_data_(memType);
+  size_t size = fn_get_memory_size_(memType);
+
+  if (!data || size == 0) {
+    return env.Null();
+  }
+
+  Napi::ArrayBuffer ab = Napi::ArrayBuffer::New(env, size);
+  memcpy(ab.Data(), data, size);
+  return Napi::Uint8Array::New(env, size, ab, 0);
+}
+
+Napi::Value LibretroCore::GetMemorySize(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+
+  if (!game_loaded_ || !fn_get_memory_size_) {
+    return Napi::Number::New(env, 0);
+  }
+
+  unsigned memType = RETRO_MEMORY_SAVE_RAM;
+  if (info.Length() >= 1 && info[0].IsNumber()) {
+    memType = info[0].As<Napi::Number>().Uint32Value();
+  }
+
+  return Napi::Number::New(env, static_cast<double>(fn_get_memory_size_(memType)));
+}
+
+void LibretroCore::SetMemoryData(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+
+  if (!game_loaded_ || !fn_get_memory_data_ || !fn_get_memory_size_) {
+    return;
+  }
+
+  if (info.Length() < 1 || !info[0].IsTypedArray()) {
+    Napi::TypeError::New(env, "Expected Uint8Array").ThrowAsJavaScriptException();
+    return;
+  }
+
+  unsigned memType = RETRO_MEMORY_SAVE_RAM;
+  if (info.Length() >= 2 && info[1].IsNumber()) {
+    memType = info[1].As<Napi::Number>().Uint32Value();
+  }
+
+  void *dest = fn_get_memory_data_(memType);
+  size_t destSize = fn_get_memory_size_(memType);
+
+  if (!dest || destSize == 0) {
+    return;
+  }
+
+  Napi::Uint8Array arr = info[0].As<Napi::Uint8Array>();
+  size_t copySize = std::min(arr.ByteLength(), destSize);
+  memcpy(dest, arr.Data(), copySize);
 }
 
 // ---------------------------------------------------------------------------
