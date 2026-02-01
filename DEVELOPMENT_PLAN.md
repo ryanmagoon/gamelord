@@ -86,6 +86,19 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 - [ ] Gamepad API support in renderer
 - [ ] Per-game input mappings
 
+### Rewind
+- [ ] Implement frame-state ring buffer — capture serialized save states every N frames
+- [ ] Hold-to-rewind input binding (rewind button replays buffered states in reverse)
+- [ ] Configurable rewind buffer duration and granularity
+- [ ] Visual rewind indicator in the game window overlay
+
+### Online Multiplayer
+- [ ] Netplay architecture — relay server for input synchronization between peers
+- [ ] Lobby system with room codes for creating/joining sessions
+- [ ] Rollback-based netcode using save state serialization for latency hiding
+- [ ] Friend list and invite system
+- [ ] Per-game netplay compatibility metadata (supported cores, input latency settings)
+
 ### UI Polish
 - [ ] Shader/filter selection (CRT, scanlines, etc.)
 - [ ] Screenshot gallery per game
