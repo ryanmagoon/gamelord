@@ -1,11 +1,13 @@
 import { BrowserWindow, ipcMain, screen } from 'electron'
 import path from 'path'
-import { execSync } from 'child_process'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import type { Game } from '../types/library'
 
+const execFileAsync = promisify(execFile)
+
 const TITLE_BAR_HEIGHT = 28 // standard macOS title bar
-const EDGE_ZONE = 48 // px from top/bottom to trigger controls
-const POLL_INTERVAL = 100 // ms
+const POLL_INTERVAL = 200 // ms
 
 export class GameWindowManager {
   private gameWindows = new Map<string, BrowserWindow>()
@@ -65,11 +67,11 @@ export class GameWindowManager {
   }
 
   /**
-   * Get window bounds by PID using a simple JXA query.
+   * Get window bounds by PID using a simple JXA query (async).
    */
-  private getWindowBoundsByPid(
+  private async getWindowBoundsByPid(
     pid: number,
-  ): { x: number; y: number; width: number; height: number } | null {
+  ): Promise<{ x: number; y: number; width: number; height: number } | null> {
     try {
       const script =
         'const se=Application("System Events");' +
@@ -78,11 +80,10 @@ export class GameWindowManager {
         'const w=p[0].windows[0];' +
         'const o=w.position();const s=w.size();' +
         'JSON.stringify({x:o[0],y:o[1],w:s[0],h:s[1]})'
-      const raw = execSync(`osascript -l JavaScript -e '${script}'`, {
+      const { stdout } = await execFileAsync('osascript', ['-l', 'JavaScript', '-e', script], {
         timeout: 3000,
-        encoding: 'utf-8',
-      }).trim()
-      const r = JSON.parse(raw)
+      })
+      const r = JSON.parse(stdout.trim())
       return { x: r.x, y: r.y, width: r.w, height: r.h }
     } catch {
       return null
@@ -102,66 +103,65 @@ export class GameWindowManager {
 
     let lastBounds = ''
     let controlsVisible = false
+    let polling = false
 
-    const interval = setInterval(() => {
-      if (gameWindow.isDestroyed()) {
-        this.stopTracking(gameId)
-        return
-      }
-
-      // Get RetroArch window bounds
-      const rawBounds = this.getWindowBoundsByPid(pid)
-      if (!rawBounds) {
-        console.log(`RetroArch window (PID ${pid}) disappeared, closing overlay`)
-        this.stopTracking(gameId)
-        if (!gameWindow.isDestroyed()) {
-          gameWindow.close()
+    const poll = async () => {
+      if (polling) return // skip if previous poll still running
+      polling = true
+      try {
+        if (gameWindow.isDestroyed()) {
+          this.stopTracking(gameId)
+          return
         }
-        return
-      }
 
-      // Offset to content area below title bar
-      const bounds = {
-        x: rawBounds.x,
-        y: rawBounds.y + TITLE_BAR_HEIGHT,
-        width: rawBounds.width,
-        height: rawBounds.height - TITLE_BAR_HEIGHT,
-      }
+        const rawBounds = await this.getWindowBoundsByPid(pid)
+        if (!rawBounds) {
+          console.log(`RetroArch window (PID ${pid}) disappeared, closing overlay`)
+          this.stopTracking(gameId)
+          if (!gameWindow.isDestroyed()) {
+            gameWindow.close()
+          }
+          return
+        }
 
-      // Only update bounds if they changed to avoid flicker
-      const boundsKey = `${bounds.x},${bounds.y},${bounds.width},${bounds.height}`
-      if (boundsKey !== lastBounds) {
-        gameWindow.setBounds(bounds)
-        lastBounds = boundsKey
-      }
+        // Offset to content area below title bar
+        const bounds = {
+          x: rawBounds.x,
+          y: rawBounds.y + TITLE_BAR_HEIGHT,
+          width: rawBounds.width,
+          height: rawBounds.height - TITLE_BAR_HEIGHT,
+        }
 
-      // Poll cursor position from main process (reliable, no forwarded events needed)
-      const cursor = screen.getCursorScreenPoint()
-      const inOverlay =
-        cursor.x >= bounds.x &&
-        cursor.x <= bounds.x + bounds.width &&
-        cursor.y >= bounds.y &&
-        cursor.y <= bounds.y + bounds.height
+        // Only update bounds if they changed
+        const boundsKey = `${bounds.x},${bounds.y},${bounds.width},${bounds.height}`
+        if (boundsKey !== lastBounds) {
+          gameWindow.setBounds(bounds)
+          lastBounds = boundsKey
+        }
 
-      if (inOverlay) {
-        const relY = cursor.y - bounds.y
-        const nearEdge = relY < EDGE_ZONE || relY > bounds.height - EDGE_ZONE
+        // Check cursor position (instant, no blocking)
+        const cursor = screen.getCursorScreenPoint()
+        const inOverlay =
+          cursor.x >= bounds.x &&
+          cursor.x <= bounds.x + bounds.width &&
+          cursor.y >= bounds.y &&
+          cursor.y <= bounds.y + bounds.height
 
-        if (nearEdge && !controlsVisible) {
+        if (inOverlay && !controlsVisible) {
           controlsVisible = true
           gameWindow.setIgnoreMouseEvents(false)
           gameWindow.webContents.send('overlay:show-controls', true)
-        } else if (!nearEdge && controlsVisible) {
+        } else if (!inOverlay && controlsVisible) {
           controlsVisible = false
           gameWindow.setIgnoreMouseEvents(true, { forward: true })
           gameWindow.webContents.send('overlay:show-controls', false)
         }
-      } else if (controlsVisible) {
-        controlsVisible = false
-        gameWindow.setIgnoreMouseEvents(true, { forward: true })
-        gameWindow.webContents.send('overlay:show-controls', false)
+      } finally {
+        polling = false
       }
-    }, POLL_INTERVAL)
+    }
+
+    const interval = setInterval(poll, POLL_INTERVAL)
 
     this.trackingIntervals.set(gameId, interval)
     console.log(`Tracking RetroArch window (PID ${pid}) for game ${gameId}`)
