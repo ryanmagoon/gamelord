@@ -397,6 +397,13 @@ export class GameWindowManager {
       },
     )
 
+    ipcMain.on('game-window:set-traffic-light-visible', (event, visible: boolean) => {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      if (window) {
+        window.setWindowButtonVisibility(visible)
+      }
+    })
+
     // Input forwarding from renderer to native core
     ipcMain.on('game:input', (event, port: number, id: number, pressed: boolean) => {
       this.emit('input', port, id, pressed)

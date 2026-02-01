@@ -152,6 +152,13 @@ export const GameWindow: React.FC = () => {
     }
   }, [volume, isMuted])
 
+  // Sync traffic light visibility with controls overlay
+  useEffect(() => {
+    if (mode === 'native') {
+      api.gameWindow.setTrafficLightVisible(showControls)
+    }
+  }, [showControls, mode, api])
+
   // Keyboard input for native mode
   useEffect(() => {
     if (mode !== 'native') return
