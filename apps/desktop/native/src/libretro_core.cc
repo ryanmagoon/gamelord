@@ -73,9 +73,10 @@ Napi::Value LibretroCore::LoadCore(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(env, false);
   }
 #else
-  dl_handle_ = dlopen(corePath.c_str(), RTLD_LAZY);
+  dl_handle_ = dlopen(corePath.c_str(), RTLD_NOW | RTLD_LOCAL);
   if (!dl_handle_) {
-    std::string err = dlerror() ? dlerror() : "Unknown error";
+    const char *dl_err = dlerror();
+    std::string err = dl_err ? dl_err : "Unknown error";
     Napi::Error::New(env, "Failed to load core: " + err).ThrowAsJavaScriptException();
     return Napi::Boolean::New(env, false);
   }
