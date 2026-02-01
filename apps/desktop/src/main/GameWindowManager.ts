@@ -58,6 +58,14 @@ export class GameWindowManager {
       },
     })
 
+    // Lock window to the core's aspect ratio
+    if (avInfo) {
+      const aspectRatio = avInfo.geometry.aspectRatio > 0
+        ? avInfo.geometry.aspectRatio
+        : baseWidth / baseHeight
+      gameWindow.setAspectRatio(aspectRatio)
+    }
+
     if (GAME_WINDOW_VITE_DEV_SERVER_URL) {
       gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
     } else {
