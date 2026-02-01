@@ -91,7 +91,8 @@ function loadNativeAddon(): NativeAddon {
 export class LibretroNativeCore extends EmulatorCore {
   private native: NativeLibretroCore | null = null
   private addon: NativeAddon | null = null
-  private emulationTimer: ReturnType<typeof setInterval> | null = null
+  private emulationTimer: ReturnType<typeof setTimeout> | null = null
+  private emulationRunning = false
   private paused = false
   private avInfo: ReturnType<NativeLibretroCore['getAVInfo']> = null
   private saveStatesDir: string
@@ -147,16 +148,25 @@ export class LibretroNativeCore extends EmulatorCore {
     this.isRunning = true
     this.paused = false
 
-    // Start the emulation loop at the core's target FPS
+    // Start the emulation loop using a tight setTimeout loop
     const fps = this.avInfo?.timing.fps || 60
-    const frameTime = 1000 / fps
+    const frameTimeMs = 1000 / fps
+    this.emulationRunning = true
+    let nextFrameTime = performance.now()
 
-    this.emulationTimer = setInterval(() => {
-      if (!this.paused && this.native) {
+    const tick = () => {
+      if (!this.emulationRunning) return
+
+      const now = performance.now()
+      if (now >= nextFrameTime && !this.paused && this.native) {
         this.native.run()
         this.emit('frame')
+        nextFrameTime = now + frameTimeMs
       }
-    }, frameTime)
+
+      this.emulationTimer = setTimeout(tick, 1)
+    }
+    tick()
 
     this.emit('launched', { romPath, corePath })
   }
@@ -293,8 +303,9 @@ export class LibretroNativeCore extends EmulatorCore {
   }
 
   private stopEmulationLoop(): void {
+    this.emulationRunning = false
     if (this.emulationTimer) {
-      clearInterval(this.emulationTimer)
+      clearTimeout(this.emulationTimer)
       this.emulationTimer = null
     }
   }
