@@ -30,14 +30,12 @@ export class WebGLRenderer {
   setShader(shader: ShaderType): void {
     this.currentShader = shader;
     // TODO: Switch shader programs
-    console.log(`Switched to ${shader} shader`);
   }
 
   render(videoFrame: ImageData): void {
     if (!this.isReady) return;
     
     // TODO: Render the video frame using WebGL
-    console.log('Rendering frame with WebGL');
   }
 
   resize(width: number, height: number): void {

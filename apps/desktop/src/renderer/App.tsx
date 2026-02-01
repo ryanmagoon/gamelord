@@ -13,7 +13,6 @@ function App() {
 
   const handlePlayGame = async (game: UiGame) => {
     try {
-      console.log('Launching game:', game)
 
       // Launch game with native emulator (RetroArch)
       const result = await window.gamelord.emulator.launch(
@@ -22,7 +21,6 @@ function App() {
       )
 
       if (result.success) {
-        console.log('Game launched successfully!')
         // Note: We don't set isPlaying=true because the game runs in a separate window
         // The emulator (RetroArch) is now running externally
       } else {

@@ -81,7 +81,6 @@ export class RetroArchCore extends EmulatorCore {
 
     // Setup process event handlers
     this.process.stdout?.on('data', (data) => {
-      console.log(`[RetroArch] ${data.toString()}`)
       this.emit('log', data.toString())
     })
 
@@ -91,7 +90,6 @@ export class RetroArchCore extends EmulatorCore {
     })
 
     this.process.on('exit', (code, signal) => {
-      console.log(`RetroArch exited with code ${code}, signal ${signal}`)
       this.emit('exited', { code, signal })
       this.cleanup()
     })
@@ -198,7 +196,6 @@ export class RetroArchCore extends EmulatorCore {
           console.error(`Failed to send command "${command}":`, err)
           reject(err)
         } else {
-          console.log(`Sent command to RetroArch: ${command}`)
           resolve()
         }
       })

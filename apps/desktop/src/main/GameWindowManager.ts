@@ -192,7 +192,6 @@ export class GameWindowManager {
         if (!rawBounds) {
           missCount++
           if (missCount >= MAX_MISSES) {
-            console.log(`RetroArch window (PID ${pid}) disappeared, closing overlay`)
             this.stopTracking(gameId)
             if (!gameWindow.isDestroyed()) {
               gameWindow.close()
@@ -252,7 +251,6 @@ export class GameWindowManager {
     const interval = setInterval(poll, POLL_INTERVAL)
 
     this.trackingIntervals.set(gameId, interval)
-    console.log(`Tracking RetroArch window (PID ${pid}) for game ${gameId}`)
   }
 
   stopTracking(gameId: string): void {

@@ -44,7 +44,6 @@ export class EmulatorManager extends EventEmitter {
         }
       });
 
-      console.log('Found RetroArch at:', retroarchPaths[0]);
     }
 
     // Check for libretro cores (native mode — no RetroArch process needed)
@@ -68,7 +67,6 @@ export class EmulatorManager extends EventEmitter {
         }
       });
 
-      console.log('Found libretro cores at:', coresPath);
     }
   }
 
