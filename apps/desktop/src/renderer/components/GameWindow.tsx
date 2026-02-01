@@ -37,8 +37,13 @@ export const GameWindow: React.FC = () => {
   const [showControls, setShowControls] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState(0)
   const [mode, setMode] = useState<'overlay' | 'native'>('overlay')
-  const [volume, setVolume] = useState(0.5)
-  const [isMuted, setIsMuted] = useState(false)
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem('gamelord:volume')
+    return saved !== null ? parseFloat(saved) : 0.5
+  })
+  const [isMuted, setIsMuted] = useState(() => {
+    return localStorage.getItem('gamelord:muted') === 'true'
+  })
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -144,11 +149,13 @@ export const GameWindow: React.FC = () => {
     }
   }, [api])
 
-  // Sync gain node with volume/mute state
+  // Sync gain node with volume/mute state and persist
   useEffect(() => {
     if (gainNodeRef.current) {
       gainNodeRef.current.gain.value = isMuted ? 0 : volume
     }
+    localStorage.setItem('gamelord:volume', String(volume))
+    localStorage.setItem('gamelord:muted', String(isMuted))
   }, [volume, isMuted])
 
   // Sync traffic light visibility with controls overlay
