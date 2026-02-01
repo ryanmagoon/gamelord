@@ -303,8 +303,48 @@ export class LibretroNativeCore extends EmulatorCore {
     }
   }
 
+  /**
+   * Check whether an autosave file exists for the currently loaded ROM.
+   */
+  hasAutoSave(): boolean {
+    return fs.existsSync(this.getAutoSavePath())
+  }
+
+  /**
+   * Check whether an autosave exists for a specific ROM path (without needing a loaded game).
+   */
+  hasAutoSaveForRom(romPath: string): boolean {
+    const romName = path.basename(romPath, path.extname(romPath))
+    return fs.existsSync(path.join(this.saveStatesDir, romName, 'autosave.sav'))
+  }
+
+  /** Delete the autosave file for the currently loaded ROM. */
+  deleteAutoSave(): void {
+    const autoSavePath = this.getAutoSavePath()
+    if (fs.existsSync(autoSavePath)) {
+      fs.unlinkSync(autoSavePath)
+    }
+  }
+
+  /** Delete the autosave file for a specific ROM path. */
+  deleteAutoSaveForRom(romPath: string): void {
+    const romName = path.basename(romPath, path.extname(romPath))
+    const autoSavePath = path.join(this.saveStatesDir, romName, 'autosave.sav')
+    if (fs.existsSync(autoSavePath)) {
+      fs.unlinkSync(autoSavePath)
+    }
+  }
+
+  private getAutoSavePath(): string {
+    const romName = this.romPath ? path.basename(this.romPath, path.extname(this.romPath)) : 'unknown'
+    return path.join(this.saveStatesDir, romName, 'autosave.sav')
+  }
+
   private getStatePath(slot: number): string {
     const romName = this.romPath ? path.basename(this.romPath, path.extname(this.romPath)) : 'unknown'
+    if (slot === 99) {
+      return path.join(this.saveStatesDir, romName, 'autosave.sav')
+    }
     return path.join(this.saveStatesDir, romName, `state-${slot}.sav`)
   }
 }
