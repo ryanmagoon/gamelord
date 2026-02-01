@@ -508,15 +508,12 @@ export const GameWindow: React.FC = () => {
         </div>
       </div>
 
-      {/* Pause overlay */}
+      {/* Pause indicator — minimal badge so the game screen stays visible */}
       {isPaused && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-40" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <div className="text-center">
-            <Pause className="h-16 w-16 text-white mx-auto mb-4" />
-            <p className="text-white text-xl font-semibold">Paused</p>
-            <p className="text-gray-400 text-sm mt-2">
-              Press Space or click Play to resume
-            </p>
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-sm">
+            <Pause className="h-4 w-4 text-white" />
+            <span className="text-white text-sm font-medium">PAUSED</span>
           </div>
         </div>
       )}
