@@ -28,7 +28,7 @@ export class GameWindowManager {
    * Create a game window in native mode — the game renders inside the
    * BrowserWindow via canvas. Single window, single title bar.
    */
-  createNativeGameWindow(game: Game, nativeCore: LibretroNativeCore): BrowserWindow {
+  createNativeGameWindow(game: Game, nativeCore: LibretroNativeCore, shouldResume = false): BrowserWindow {
     const existingWindow = this.gameWindows.get(game.id)
     if (existingWindow && !existingWindow.isDestroyed()) {
       existingWindow.close()
@@ -83,9 +83,24 @@ export class GameWindowManager {
       }
 
       this.startEmulationLoop(game.id, nativeCore, gameWindow)
+
+      if (shouldResume) {
+        nativeCore.loadState(99).catch((error) => {
+          console.error('Failed to load autosave:', error)
+        })
+      }
     })
 
     this.activeNativeCore = nativeCore
+
+    gameWindow.on('close', () => {
+      // Auto-save state before the window is destroyed
+      try {
+        nativeCore.saveState(99)
+      } catch (error) {
+        console.error('Failed to autosave on close:', error)
+      }
+    })
 
     gameWindow.on('closed', () => {
       this.stopEmulationLoop(game.id)

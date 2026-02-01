@@ -39,7 +39,27 @@ export class IPCHandlers {
         if (this.emulatorManager.isNativeMode()) {
           // Native mode: single window, game renders inside BrowserWindow canvas
           const nativeCore = this.emulatorManager.getCurrentEmulator() as LibretroNativeCore;
-          const gameWindow = this.gameWindowManager.createNativeGameWindow(game, nativeCore);
+
+          // Check for autosave and prompt user
+          let shouldResume = false;
+          if (nativeCore.hasAutoSave()) {
+            const mainWindow = BrowserWindow.getFocusedWindow();
+            const result = await dialog.showMessageBox(mainWindow!, {
+              type: 'question',
+              title: 'Resume Game',
+              message: 'Resume where you left off?',
+              detail: `An autosave was found for ${game.title}.`,
+              buttons: ['Resume', 'Start Fresh'],
+              defaultId: 0,
+              cancelId: 1,
+            });
+            shouldResume = result.response === 0;
+            if (!shouldResume) {
+              nativeCore.deleteAutoSave();
+            }
+          }
+
+          const gameWindow = this.gameWindowManager.createNativeGameWindow(game, nativeCore, shouldResume);
 
           // Forward input from renderer to native core
           this.gameWindowManager.on('input', (port: number, id: number, pressed: boolean) => {
