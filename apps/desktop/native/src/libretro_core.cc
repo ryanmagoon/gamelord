@@ -528,6 +528,12 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
   }
 
   switch (cmd) {
+    case 3 /* RETRO_ENVIRONMENT_GET_CAN_DUPE */: {
+      bool *can_dupe = static_cast<bool *>(data);
+      *can_dupe = true;
+      return true;
+    }
+
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT: {
       unsigned *fmt = static_cast<unsigned *>(data);
       self->pixel_format_ = *fmt;
@@ -634,7 +640,14 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
 
 void LibretroCore::VideoRefreshCallback(const void *data, unsigned width, unsigned height, size_t pitch) {
   LibretroCore *self = s_instance;
-  if (!self || !data) return;
+  if (!self) return;
+
+  // NULL data means frame dupe — keep the previous frame buffer as-is
+  if (!data) {
+    std::lock_guard<std::mutex> lock(self->video_mutex_);
+    self->video_frame_ready_ = true;
+    return;
+  }
 
   // Convert to RGBA8888 regardless of source format
   size_t out_size = width * height * 4;
