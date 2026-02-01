@@ -138,9 +138,9 @@ export class EmulatorManager extends EventEmitter {
     // Setup event forwarding
     this.setupEventForwarding(this.currentEmulator);
 
-    // Get core path for the system (if using RetroArch)
+    // Get core path for the system (RetroArch or native libretro)
     const options: any = {};
-    if (emulatorInfo.type === 'retroarch') {
+    if (emulatorInfo.type === 'retroarch' || emulatorInfo.type === 'libretro-native') {
       options.corePath = this.getCorePathForSystem(systemId);
       if (!options.corePath) {
         throw new Error(`No core found for system: ${systemId}`);
