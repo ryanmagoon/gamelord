@@ -412,10 +412,6 @@ void LibretroCore::CloseCore() {
 #endif
     dl_handle_ = nullptr;
   }
-
-  if (s_instance == this) {
-    s_instance = nullptr;
-  }
 }
 
 bool LibretroCore::ResolveFunctions() {
