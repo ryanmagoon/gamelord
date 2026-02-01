@@ -58,6 +58,10 @@ export class ShaderManager {
     return shader;
   }
 
+  hasShader(name: string): boolean {
+    return this.shaders.has(name);
+  }
+
   useShader(name: string): void {
     const program = this.shaders.get(name);
     if (!program) {

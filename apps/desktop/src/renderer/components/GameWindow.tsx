@@ -15,7 +15,6 @@ import {
 import type { Game } from '../../types/library'
 import type { GamelordAPI } from '../types/global'
 import { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from '@gamelord/ui'
-import type { ShaderPreset } from '@gamelord/ui'
 
 // Keyboard → libretro joypad button mapping
 const KEY_MAP: Record<string, number> = {
@@ -48,9 +47,9 @@ export const GameWindow: React.FC = () => {
     return localStorage.getItem('gamelord:muted') === 'true'
   })
 
-  const [shader, setShader] = useState<ShaderPreset>(() => {
+  const [shader, setShader] = useState<string>(() => {
     const saved = localStorage.getItem('gamelord:shader')
-    return (saved as ShaderPreset) || 'default'
+    return (saved as string) || 'default'
   })
   const [showShaderMenu, setShowShaderMenu] = useState(false)
 
@@ -85,23 +84,34 @@ export const GameWindow: React.FC = () => {
         canvas.width = avInfo.geometry.baseWidth
         canvas.height = avInfo.geometry.baseHeight
       }
-      // Initialize WebGL renderer once we know the canvas size
-      if (canvas && !rendererRef.current) {
-        try {
-          const renderer = new WebGLRenderer(canvas)
-          renderer.initialize()
-          renderer.setShader(shader)
-          rendererRef.current = renderer
-        } catch (error) {
-          console.error('Failed to initialize WebGL renderer:', error)
-        }
-      }
     })
 
     api.on('game:video-frame', (frameData: any) => {
-      if (rendererRef.current) {
-        rendererRef.current.renderFrame(frameData)
+      const canvas = canvasRef.current
+      if (!canvas) return
+
+      const { width, height, data } = frameData
+
+      // Initialize WebGL renderer on first frame
+      if (!rendererRef.current) {
+        try {
+          const rect = canvas.getBoundingClientRect()
+          const displayWidth = Math.round(rect.width * devicePixelRatio) || width
+          const displayHeight = Math.round(rect.height * devicePixelRatio) || height
+          canvas.width = displayWidth
+          canvas.height = displayHeight
+          const renderer = new WebGLRenderer(canvas)
+          renderer.initialize()
+          const savedShader = (localStorage.getItem('gamelord:shader') as string) || 'default'
+          renderer.setShader(savedShader)
+          rendererRef.current = renderer
+        } catch (error) {
+          console.error('Failed to initialize WebGL renderer:', error)
+          return
+        }
       }
+
+      rendererRef.current.renderFrame(frameData)
     })
 
     api.on('game:audio-samples', (audioData: any) => {
@@ -167,9 +177,14 @@ export const GameWindow: React.FC = () => {
       const canvas = canvasRef.current
       if (!canvas || !rendererRef.current) return
       const rect = canvas.getBoundingClientRect()
-      rendererRef.current.resize(rect.width * devicePixelRatio, rect.height * devicePixelRatio)
+      const w = rect.width * devicePixelRatio
+      const h = rect.height * devicePixelRatio
+      if (canvas.width !== w || canvas.height !== h) {
+        rendererRef.current.resize(w, h)
+      }
     }
     window.addEventListener('resize', handleResize)
+    handleResize()
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
