@@ -186,6 +186,7 @@ export class IPCHandlers {
     this.emulatorManager.on('emulator:resumed', () => forwardEvent('emulator:resumed'));
     this.emulatorManager.on('emulator:reset', () => forwardEvent('emulator:reset'));
     this.emulatorManager.on('emulator:terminated', () => forwardEvent('emulator:terminated'));
+    this.emulatorManager.on('core:downloadProgress', (data) => forwardEvent('core:downloadProgress', data));
   }
 
   private setupLibraryHandlers(): void {
