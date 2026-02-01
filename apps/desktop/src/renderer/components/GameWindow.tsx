@@ -6,7 +6,9 @@ import {
   Save,
   FolderOpen,
   Camera,
+  Volume1,
   Volume2,
+  VolumeX,
   Settings,
 } from 'lucide-react'
 import type { Game } from '../../types/library'
@@ -36,10 +38,13 @@ export const GameWindow: React.FC = () => {
   const [selectedSlot, setSelectedSlot] = useState(0)
   const [mode, setMode] = useState<'overlay' | 'native'>('overlay')
   const [controlsHoverTimeout, setControlsHoverTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [volume, setVolume] = useState(0.5)
+  const [isMuted, setIsMuted] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioNextTimeRef = useRef(0)
+  const gainNodeRef = useRef<GainNode | null>(null)
 
   useEffect(() => {
     api.on('game:loaded', (gameData: Game) => {
@@ -90,6 +95,9 @@ export const GameWindow: React.FC = () => {
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext({ sampleRate: audioData.sampleRate })
         audioNextTimeRef.current = 0
+        gainNodeRef.current = audioContextRef.current.createGain()
+        gainNodeRef.current.gain.value = isMuted ? 0 : volume
+        gainNodeRef.current.connect(audioContextRef.current.destination)
       }
 
       const ctx = audioContextRef.current
@@ -108,7 +116,7 @@ export const GameWindow: React.FC = () => {
 
         const source = ctx.createBufferSource()
         source.buffer = buffer
-        source.connect(ctx.destination)
+        source.connect(gainNodeRef.current!)
 
         // Schedule seamlessly after the previous chunk
         const now = ctx.currentTime
@@ -136,6 +144,13 @@ export const GameWindow: React.FC = () => {
       }
     }
   }, [api])
+
+  // Sync gain node with volume/mute state
+  useEffect(() => {
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = isMuted ? 0 : volume
+    }
+  }, [volume, isMuted])
 
   // Keyboard input for native mode
   useEffect(() => {
@@ -347,15 +362,35 @@ export const GameWindow: React.FC = () => {
             </Button>
           </div>
 
-          {/* Additional controls */}
+          {/* Volume & additional controls */}
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => setIsMuted((m) => !m)}
               className="text-white hover:bg-white/10"
             >
-              <Volume2 className="h-5 w-5" />
+              {isMuted || volume === 0 ? (
+                <VolumeX className="h-5 w-5" />
+              ) : volume < 0.5 ? (
+                <Volume1 className="h-5 w-5" />
+              ) : (
+                <Volume2 className="h-5 w-5" />
+              )}
             </Button>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={isMuted ? 0 : volume}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value)
+                setVolume(v)
+                if (v > 0 && isMuted) setIsMuted(false)
+              }}
+              className="w-20 h-1 accent-white cursor-pointer"
+            />
             <Button
               variant="ghost"
               size="sm"
