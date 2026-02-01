@@ -25,24 +25,32 @@ export const GameWindow: React.FC = () => {
       setGame(gameData)
     })
 
-    // Main process tells us when to show/hide controls based on cursor position
     api.on('overlay:show-controls', (visible: boolean) => {
       setShowControls(visible)
     })
 
+    // Drive pause state from emulator events, not optimistic toggling
+    api.on('emulator:paused', () => setIsPaused(true))
+    api.on('emulator:resumed', () => setIsPaused(false))
+
     return () => {
       api.removeAllListeners('game:loaded')
       api.removeAllListeners('overlay:show-controls')
+      api.removeAllListeners('emulator:paused')
+      api.removeAllListeners('emulator:resumed')
     }
   }, [api])
 
   const handlePauseResume = async () => {
-    if (isPaused) {
-      await api.emulation.resume()
-    } else {
-      await api.emulation.pause()
+    try {
+      if (isPaused) {
+        await api.emulation.resume()
+      } else {
+        await api.emulation.pause()
+      }
+    } catch (err) {
+      console.error('Pause/resume failed:', err)
     }
-    setIsPaused(!isPaused)
   }
 
   const handleSaveState = async () => {
