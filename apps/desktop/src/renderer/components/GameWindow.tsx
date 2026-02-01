@@ -37,7 +37,6 @@ export const GameWindow: React.FC = () => {
   const [showControls, setShowControls] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState(0)
   const [mode, setMode] = useState<'overlay' | 'native'>('overlay')
-  const [controlsHoverTimeout, setControlsHoverTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
   const [volume, setVolume] = useState(0.5)
   const [isMuted, setIsMuted] = useState(false)
 
@@ -233,21 +232,16 @@ export const GameWindow: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isPaused, selectedSlot])
 
-  // In native mode, show/hide controls on mouse movement
-  const handleMouseMove = useCallback(() => {
+  // In native mode, show controls on mouse enter/move, hide on leave
+  const handleMouseEnter = useCallback(() => {
     if (mode !== 'native') return
-
     setShowControls(true)
-    if (controlsHoverTimeout) {
-      clearTimeout(controlsHoverTimeout)
-    }
-    const timeout = setTimeout(() => {
-      if (!isPaused) {
-        setShowControls(false)
-      }
-    }, 1000)
-    setControlsHoverTimeout(timeout)
-  }, [mode, isPaused, controlsHoverTimeout])
+  }, [mode])
+
+  const handleMouseLeave = useCallback(() => {
+    if (mode !== 'native' || isPaused) return
+    setShowControls(false)
+  }, [mode, isPaused])
 
   if (!game) {
     return null
@@ -258,7 +252,8 @@ export const GameWindow: React.FC = () => {
   return (
     <div
       className={`relative h-screen overflow-hidden ${isNative ? 'bg-black' : 'bg-transparent'}`}
-      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Canvas for native mode rendering */}
       {isNative && (
