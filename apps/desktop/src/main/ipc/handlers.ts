@@ -1,15 +1,20 @@
-import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog } from 'electron';
+import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog, app } from 'electron';
+import path from 'path';
+import fs from 'fs';
 import { EmulatorManager } from '../emulator/EmulatorManager';
 import { LibraryService } from '../services/LibraryService';
+import { GameWindowManager } from '../GameWindowManager';
 import { GameSystem } from '../../types/library';
 
 export class IPCHandlers {
   private emulatorManager: EmulatorManager;
   private libraryService: LibraryService;
+  private gameWindowManager: GameWindowManager;
 
-  constructor() {
+  constructor(preloadPath: string) {
     this.emulatorManager = new EmulatorManager();
     this.libraryService = new LibraryService();
+    this.gameWindowManager = new GameWindowManager(preloadPath);
     this.setupHandlers();
     this.setupEmulatorEventForwarding();
     this.setupLibraryHandlers();
@@ -19,7 +24,42 @@ export class IPCHandlers {
     // Emulator management
     ipcMain.handle('emulator:launch', async (event: IpcMainInvokeEvent, romPath: string, systemId: string, emulatorId?: string) => {
       try {
-        await this.emulatorManager.launchGame(romPath, systemId, emulatorId);
+        // Find the game in the library to get full metadata
+        const games = this.libraryService.getGames(systemId);
+        const game = games.find(g => g.romPath === romPath);
+
+        if (!game) {
+          throw new Error('Game not found in library');
+        }
+
+        // Create custom game window
+        this.gameWindowManager.createGameWindow(game);
+
+        // Write a temp RetroArch config to hide window decorations.
+        // video_window_show_decorations removes the title bar on supported drivers.
+        // As a fallback, we also disable the menu bar within RetroArch.
+        const tmpCfgDir = path.join(app.getPath('temp'), 'gamelord');
+        fs.mkdirSync(tmpCfgDir, { recursive: true });
+        const tmpCfgPath = path.join(tmpCfgDir, 'overlay.cfg');
+        fs.writeFileSync(tmpCfgPath, [
+          'video_window_show_decorations = "false"',
+          'ui_menubar_enable = "false"',
+          'pause_nonactive = "false"',
+        ].join('\n') + '\n');
+
+        // Launch the emulator with decoration-hiding config
+        await this.emulatorManager.launchGame(romPath, systemId, emulatorId, [
+          '--appendconfig', tmpCfgPath,
+        ]);
+
+        // Start tracking RetroArch window to overlay our controls
+        const pid = this.emulatorManager.getCurrentEmulatorPid();
+        if (pid) {
+          this.gameWindowManager.startTrackingRetroArchWindow(game.id, pid);
+        } else {
+          console.warn('Could not get emulator PID for window tracking');
+        }
+
         return { success: true };
       } catch (error) {
         console.error('Failed to launch emulator:', error);
