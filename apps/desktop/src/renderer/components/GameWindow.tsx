@@ -239,23 +239,44 @@ export const GameWindow: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isPaused, selectedSlot])
 
-  // In native mode, show controls on mouse move, hide on leave
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isOverControlsRef = useRef(false)
+
+  const scheduleHide = useCallback(() => {
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+    hideTimeoutRef.current = setTimeout(() => {
+      if (!isPaused && !isOverControlsRef.current) {
+        setShowControls(false)
+      }
+    }, 3000)
+  }, [isPaused])
+
+  // Show on mouse move, auto-hide after 3s of inactivity
   const handleMouseMove = useCallback(() => {
     if (mode !== 'native') return
     setShowControls(true)
-  }, [mode])
+    scheduleHide()
+  }, [mode, scheduleHide])
 
   const handleMouseLeave = useCallback((event: React.MouseEvent) => {
     if (mode !== 'native' || isPaused) return
-    // Ignore false mouseleave events caused by WebkitAppRegion 'drag'
-    // regions — only hide if the cursor actually left the window
     const { clientX, clientY } = event
     const { innerWidth, innerHeight } = window
     if (clientX > 0 && clientX < innerWidth && clientY > 0 && clientY < innerHeight) {
       return
     }
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
     setShowControls(false)
   }, [mode, isPaused])
+
+  const handleControlsEnter = useCallback(() => {
+    isOverControlsRef.current = true
+  }, [])
+
+  const handleControlsLeave = useCallback(() => {
+    isOverControlsRef.current = false
+    scheduleHide()
+  }, [scheduleHide])
 
   if (!game) {
     return null
@@ -288,6 +309,8 @@ export const GameWindow: React.FC = () => {
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        onMouseEnter={handleControlsEnter}
+        onMouseLeave={handleControlsLeave}
       >
         <div className="flex items-center justify-center px-4 py-2 bg-black/75 backdrop-blur-md shadow-lg select-none">
           <div className="flex items-center gap-3">
@@ -303,6 +326,8 @@ export const GameWindow: React.FC = () => {
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        onMouseEnter={handleControlsEnter}
+        onMouseLeave={handleControlsLeave}
       >
         <div className="flex items-center justify-between px-6 py-4 bg-black/75 backdrop-blur-md shadow-lg">
           {/* Playback controls */}
