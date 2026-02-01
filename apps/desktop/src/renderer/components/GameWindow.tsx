@@ -39,6 +39,7 @@ export const GameWindow: React.FC = () => {
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const audioNextTimeRef = useRef(0)
 
   useEffect(() => {
     api.on('game:loaded', (gameData: Game) => {
@@ -67,48 +68,56 @@ export const GameWindow: React.FC = () => {
       }
     })
 
-    api.on('game:video-frame', (frame: { data: number[]; width: number; height: number }) => {
+    api.on('game:video-frame', (frameData: any) => {
       const canvas = canvasRef.current
       if (!canvas) return
-
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
-      if (canvas.width !== frame.width || canvas.height !== frame.height) {
-        canvas.width = frame.width
-        canvas.height = frame.height
+      const { width, height, data } = frameData
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width
+        canvas.height = height
       }
 
-      const imageData = ctx.createImageData(frame.width, frame.height)
-      const pixels = new Uint8ClampedArray(frame.data)
+      const pixels = new Uint8ClampedArray(data)
+      const imageData = ctx.createImageData(width, height)
       imageData.data.set(pixels)
       ctx.putImageData(imageData, 0, 0)
     })
 
-    api.on('game:audio-samples', (audioData: { samples: number[]; sampleRate: number }) => {
+    api.on('game:audio-samples', (audioData: any) => {
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext({ sampleRate: audioData.sampleRate })
+        audioNextTimeRef.current = 0
       }
 
       const ctx = audioContextRef.current
-      const samples = new Int16Array(audioData.samples)
+      const samples = new Int16Array(audioData.samples.buffer)
       const frames = samples.length / 2
 
-      if (frames === 0) return
+      if (frames > 0) {
+        const buffer = ctx.createBuffer(2, frames, audioData.sampleRate)
+        const leftChannel = buffer.getChannelData(0)
+        const rightChannel = buffer.getChannelData(1)
 
-      const buffer = ctx.createBuffer(2, frames, audioData.sampleRate)
-      const leftChannel = buffer.getChannelData(0)
-      const rightChannel = buffer.getChannelData(1)
+        for (let i = 0; i < frames; i++) {
+          leftChannel[i] = samples[i * 2] / 32768
+          rightChannel[i] = samples[i * 2 + 1] / 32768
+        }
 
-      for (let i = 0; i < frames; i++) {
-        leftChannel[i] = samples[i * 2] / 32768
-        rightChannel[i] = samples[i * 2 + 1] / 32768
+        const source = ctx.createBufferSource()
+        source.buffer = buffer
+        source.connect(ctx.destination)
+
+        // Schedule seamlessly after the previous chunk
+        const now = ctx.currentTime
+        if (audioNextTimeRef.current < now) {
+          audioNextTimeRef.current = now
+        }
+        source.start(audioNextTimeRef.current)
+        audioNextTimeRef.current += buffer.duration
       }
-
-      const source = ctx.createBufferSource()
-      source.buffer = buffer
-      source.connect(ctx.destination)
-      source.start()
     })
 
     return () => {
