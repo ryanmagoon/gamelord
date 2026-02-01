@@ -58,6 +58,9 @@ export interface GamelordAPI {
     setClickThrough: (value: boolean) => void
   }
 
+  // Game input (native mode)
+  gameInput: (port: number, id: number, pressed: boolean) => void
+
   on: (channel: string, callback: (...args: any[]) => void) => void
   removeAllListeners: (channel: string) => void
 }

@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { EmulatorCore, EmulatorInfo } from './EmulatorCore';
 import { RetroArchCore } from './RetroArchCore';
+import { LibretroNativeCore } from './LibretroNativeCore';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -46,11 +47,29 @@ export class EmulatorManager extends EventEmitter {
       console.log('Found RetroArch at:', retroarchPaths[0]);
     }
 
-    // TODO: Add discovery for other standalone emulators
-    // - Mesen (NES/SNES)
-    // - Dolphin (GameCube/Wii)
-    // - PCSX2 (PS2)
-    // - mGBA (GB/GBC/GBA)
+    // Check for libretro cores (native mode — no RetroArch process needed)
+    const coresPath = this.getRetroArchCoresPath();
+    if (coresPath) {
+      this.availableEmulators.set('libretro-native', {
+        id: 'libretro-native',
+        name: 'LibretroNative',
+        type: 'libretro-native',
+        path: coresPath,
+        supportedSystems: ['nes', 'snes', 'genesis', 'gb', 'gbc', 'gba', 'n64', 'psx'],
+        features: {
+          saveStates: true,
+          screenshots: true,
+          pauseResume: true,
+          reset: true,
+          fastForward: false,
+          rewind: false,
+          shaders: false,
+          cheats: false
+        }
+      });
+
+      console.log('Found libretro cores at:', coresPath);
+    }
   }
 
   /**
@@ -150,11 +169,15 @@ export class EmulatorManager extends EventEmitter {
     systemId: string
   ): Promise<EmulatorCore> {
     switch (emulatorInfo.type) {
-      case 'retroarch':
+      case 'retroarch': {
         const corePath = this.getCorePathForSystem(systemId);
         return new RetroArchCore(emulatorInfo.path, corePath ?? undefined);
+      }
 
-      // TODO: Add other emulator types
+      case 'libretro-native': {
+        return new LibretroNativeCore(emulatorInfo.path);
+      }
+
       default:
         throw new Error(`Unsupported emulator type: ${emulatorInfo.type}`);
     }
@@ -221,7 +244,17 @@ export class EmulatorManager extends EventEmitter {
    * Select the best emulator for a given system
    */
   private selectBestEmulator(systemId: string): EmulatorInfo | undefined {
-    // For now, prefer RetroArch for all systems
+    // Prefer native libretro core loading (single-window, no external process)
+    const native = this.availableEmulators.get('libretro-native');
+    if (native && native.supportedSystems.includes(systemId)) {
+      // Verify we actually have a core for this system
+      const corePath = this.getCorePathForSystem(systemId);
+      if (corePath) {
+        return native;
+      }
+    }
+
+    // Fall back to RetroArch process mode
     const retroarch = this.availableEmulators.get('retroarch');
     if (retroarch && retroarch.supportedSystems.includes(systemId)) {
       return retroarch;
@@ -341,5 +374,19 @@ export class EmulatorManager extends EventEmitter {
    */
   getCurrentEmulatorPid(): number | undefined {
     return this.currentEmulator?.getProcessId();
+  }
+
+  /**
+   * Get the current emulator instance (for native core access).
+   */
+  getCurrentEmulator(): EmulatorCore | null {
+    return this.currentEmulator;
+  }
+
+  /**
+   * Check if the current emulator is using native libretro core loading.
+   */
+  isNativeMode(): boolean {
+    return this.currentEmulator instanceof LibretroNativeCore;
   }
 }

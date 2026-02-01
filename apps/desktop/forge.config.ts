@@ -9,7 +9,9 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/*.node',
+    },
     appBundleId: 'com.gamelord.app',
     appCategoryType: 'public.app-category.games',
     appCopyright: 'Copyright © 2025 GameLord',
