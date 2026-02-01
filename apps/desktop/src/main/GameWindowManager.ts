@@ -3,15 +3,19 @@ import path from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import type { Game } from '../types/library'
+import type { LibretroNativeCore } from './emulator/LibretroNativeCore'
 
 const execFileAsync = promisify(execFile)
 
 const TITLE_BAR_HEIGHT = 28 // standard macOS title bar
 const POLL_INTERVAL = 200 // ms
 
+export type GameWindowMode = 'overlay' | 'native'
+
 export class GameWindowManager {
   private gameWindows = new Map<string, BrowserWindow>()
   private trackingIntervals = new Map<string, ReturnType<typeof setInterval>>()
+  private frameIntervals = new Map<string, ReturnType<typeof setInterval>>()
   private readonly preloadPath: string
 
   constructor(preloadPath: string) {
@@ -19,6 +23,96 @@ export class GameWindowManager {
     this.setupIpcHandlers()
   }
 
+  /**
+   * Create a game window in native mode — the game renders inside the
+   * BrowserWindow via canvas. Single window, single title bar.
+   */
+  createNativeGameWindow(game: Game, nativeCore: LibretroNativeCore): BrowserWindow {
+    const existingWindow = this.gameWindows.get(game.id)
+    if (existingWindow && !existingWindow.isDestroyed()) {
+      existingWindow.close()
+    }
+
+    const avInfo = nativeCore.getAVInfo()
+    const baseWidth = avInfo?.geometry.baseWidth || 256
+    const baseHeight = avInfo?.geometry.baseHeight || 240
+    // Scale up to a reasonable window size (3x for retro games)
+    const scale = Math.max(2, Math.floor(720 / baseHeight))
+    const windowWidth = baseWidth * scale
+    const windowHeight = baseHeight * scale
+
+    const gameWindow = new BrowserWindow({
+      width: windowWidth,
+      height: windowHeight + 40, // extra for title bar area
+      minWidth: baseWidth * 2,
+      minHeight: baseHeight * 2 + 40,
+      title: `GameLord - ${game.title}`,
+      titleBarStyle: 'hiddenInset',
+      backgroundColor: '#000000',
+      webPreferences: {
+        preload: this.preloadPath,
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    })
+
+    if (GAME_WINDOW_VITE_DEV_SERVER_URL) {
+      gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
+    } else {
+      gameWindow.loadFile(
+        path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/index.html`),
+      )
+    }
+
+    gameWindow.webContents.on('did-finish-load', () => {
+      gameWindow.webContents.send('game:loaded', game)
+      gameWindow.webContents.send('game:mode', 'native')
+
+      // Send AV info so renderer can set up canvas
+      if (avInfo) {
+        gameWindow.webContents.send('game:av-info', avInfo)
+      }
+    })
+
+    // Start pushing frames to the renderer
+    const frameInterval = setInterval(() => {
+      if (gameWindow.isDestroyed()) {
+        clearInterval(frameInterval)
+        return
+      }
+
+      const frame = nativeCore.getVideoFrame()
+      if (frame) {
+        gameWindow.webContents.send('game:video-frame', {
+          data: Array.from(frame.data), // serialize for IPC
+          width: frame.width,
+          height: frame.height,
+        })
+      }
+
+      const audio = nativeCore.getAudioBuffer()
+      if (audio) {
+        gameWindow.webContents.send('game:audio-samples', {
+          samples: Array.from(audio),
+          sampleRate: nativeCore.getAVInfo()?.timing.sampleRate || 44100,
+        })
+      }
+    }, 16) // ~60fps
+
+    this.frameIntervals.set(game.id, frameInterval)
+
+    gameWindow.on('closed', () => {
+      this.stopFramePush(game.id)
+      this.gameWindows.delete(game.id)
+    })
+
+    this.gameWindows.set(game.id, gameWindow)
+    return gameWindow
+  }
+
+  /**
+   * Create an overlay game window (legacy mode for external RetroArch process).
+   */
   createGameWindow(game: Game): BrowserWindow {
     const existingWindow = this.gameWindows.get(game.id)
     if (existingWindow && !existingWindow.isDestroyed()) {
@@ -46,7 +140,6 @@ export class GameWindowManager {
 
     if (GAME_WINDOW_VITE_DEV_SERVER_URL) {
       gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
-      // gameWindow.webContents.openDevTools()
     } else {
       gameWindow.loadFile(
         path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/index.html`),
@@ -55,6 +148,7 @@ export class GameWindowManager {
 
     gameWindow.webContents.on('did-finish-load', () => {
       gameWindow.webContents.send('game:loaded', game)
+      gameWindow.webContents.send('game:mode', 'overlay')
     })
 
     gameWindow.on('closed', () => {
@@ -191,8 +285,17 @@ export class GameWindowManager {
     }
   }
 
+  private stopFramePush(gameId: string): void {
+    const interval = this.frameIntervals.get(gameId)
+    if (interval) {
+      clearInterval(interval)
+      this.frameIntervals.delete(gameId)
+    }
+  }
+
   closeGameWindow(gameId: string): void {
     this.stopTracking(gameId)
+    this.stopFramePush(gameId)
     const window = this.gameWindows.get(gameId)
     if (window && !window.isDestroyed()) {
       window.close()
@@ -202,6 +305,9 @@ export class GameWindowManager {
   closeAllGameWindows(): void {
     for (const [gameId] of this.trackingIntervals) {
       this.stopTracking(gameId)
+    }
+    for (const [gameId] of this.frameIntervals) {
+      this.stopFramePush(gameId)
     }
     for (const window of this.gameWindows.values()) {
       if (!window.isDestroyed()) {
@@ -251,14 +357,40 @@ export class GameWindowManager {
         }
       },
     )
+
+    // Input forwarding from renderer to native core
+    ipcMain.on('game:input', (event, port: number, id: number, pressed: boolean) => {
+      this.emit('input', port, id, pressed)
+    })
+  }
+
+  private inputListeners: Array<(port: number, id: number, pressed: boolean) => void> = []
+
+  on(event: string, listener: (...args: any[]) => void): this {
+    if (event === 'input') {
+      this.inputListeners.push(listener as any)
+    }
+    return this
+  }
+
+  private emit(event: string, ...args: any[]): boolean {
+    if (event === 'input') {
+      for (const listener of this.inputListeners) {
+        listener(...(args as [number, number, boolean]))
+      }
+      return true
+    }
+    return false
   }
 
   destroy(): void {
     this.closeAllGameWindows()
+    this.inputListeners = []
     ipcMain.removeAllListeners('game-window:minimize')
     ipcMain.removeAllListeners('game-window:maximize')
     ipcMain.removeAllListeners('game-window:close')
     ipcMain.removeAllListeners('game-window:toggle-fullscreen')
     ipcMain.removeAllListeners('game-window:set-click-through')
+    ipcMain.removeAllListeners('game:input')
   }
 }

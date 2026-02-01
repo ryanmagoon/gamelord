@@ -2,6 +2,7 @@ import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog, app } from 'electro
 import path from 'path';
 import fs from 'fs';
 import { EmulatorManager } from '../emulator/EmulatorManager';
+import { LibretroNativeCore } from '../emulator/LibretroNativeCore';
 import { LibraryService } from '../services/LibraryService';
 import { GameWindowManager } from '../GameWindowManager';
 import { GameSystem } from '../../types/library';
@@ -32,32 +33,29 @@ export class IPCHandlers {
           throw new Error('Game not found in library');
         }
 
-        // Create custom game window
-        this.gameWindowManager.createGameWindow(game);
+        // Launch the emulator
+        await this.emulatorManager.launchGame(romPath, systemId, emulatorId);
 
-        // Write a temp RetroArch config to hide window decorations.
-        // video_window_show_decorations removes the title bar on supported drivers.
-        // As a fallback, we also disable the menu bar within RetroArch.
-        const tmpCfgDir = path.join(app.getPath('temp'), 'gamelord');
-        fs.mkdirSync(tmpCfgDir, { recursive: true });
-        const tmpCfgPath = path.join(tmpCfgDir, 'overlay.cfg');
-        fs.writeFileSync(tmpCfgPath, [
-          'video_window_show_decorations = "false"',
-          'ui_menubar_enable = "false"',
-          'pause_nonactive = "false"',
-        ].join('\n') + '\n');
+        if (this.emulatorManager.isNativeMode()) {
+          // Native mode: single window, game renders inside BrowserWindow canvas
+          const nativeCore = this.emulatorManager.getCurrentEmulator() as LibretroNativeCore;
+          const gameWindow = this.gameWindowManager.createNativeGameWindow(game, nativeCore);
 
-        // Launch the emulator with decoration-hiding config
-        await this.emulatorManager.launchGame(romPath, systemId, emulatorId, [
-          '--appendconfig', tmpCfgPath,
-        ]);
-
-        // Start tracking RetroArch window to overlay our controls
-        const pid = this.emulatorManager.getCurrentEmulatorPid();
-        if (pid) {
-          this.gameWindowManager.startTrackingRetroArchWindow(game.id, pid);
+          // Forward input from renderer to native core
+          this.gameWindowManager.on('input', (port: number, id: number, pressed: boolean) => {
+            nativeCore.setInput(port, id, pressed);
+          });
         } else {
-          console.warn('Could not get emulator PID for window tracking');
+          // Legacy overlay mode: external RetroArch process
+          this.gameWindowManager.createGameWindow(game);
+
+          // Start tracking RetroArch window to overlay our controls
+          const pid = this.emulatorManager.getCurrentEmulatorPid();
+          if (pid) {
+            this.gameWindowManager.startTrackingRetroArchWindow(game.id, pid);
+          } else {
+            console.warn('Could not get emulator PID for window tracking');
+          }
         }
 
         return { success: true };

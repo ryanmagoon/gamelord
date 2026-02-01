@@ -6,7 +6,8 @@
   "description": "GameLord desktop application",
   "main": ".vite/build/main.js",
   "scripts": {
-    "build": "tsc --noEmit && electron-forge package",
+    "build:native": "cd native && node-gyp rebuild",
+    "build": "npm run build:native && tsc --noEmit && electron-forge package",
     "dev": "electron-forge start",
     "start": "electron-forge start",
     "package": "electron-forge package",
@@ -33,6 +34,7 @@
     "electron": "37.2.3",
     "eslint": "^8.57.1",
     "eslint-plugin-import": "^2.32.0",
+    "node-gyp": "^10.3.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11",
     "ts-node": "^10.9.2",
@@ -45,6 +47,7 @@
     "@types/react-dom": "^19.1.6",
     "electron-squirrel-startup": "^1.0.1",
     "lucide-react": "^0.525.0",
+    "node-addon-api": "^8.3.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   }

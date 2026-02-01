@@ -7,7 +7,10 @@ export default defineConfig({
       input: {
         main: './src/main.ts',
         'workers/core-worker': './src/main/workers/core-worker.ts'
-      }
+      },
+      external: [
+        /\.node$/,
+      ]
     }
   }
 });

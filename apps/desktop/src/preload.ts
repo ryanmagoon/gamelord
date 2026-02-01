@@ -25,6 +25,10 @@ contextBridge.exposeInMainWorld('gamelord', {
     load: (slot: number) => ipcRenderer.invoke('savestate:load', slot)
   },
 
+  // Game input forwarding (native mode)
+  gameInput: (port: number, id: number, pressed: boolean) =>
+    ipcRenderer.send('game:input', port, id, pressed),
+
   // Event listeners
   on: (channel: string, callback: (...args: any[]) => void) => {
     const validChannels = [
@@ -39,6 +43,10 @@ contextBridge.exposeInMainWorld('gamelord', {
       'emulator:reset',
       'emulator:terminated',
       'game:loaded',
+      'game:mode',
+      'game:av-info',
+      'game:video-frame',
+      'game:audio-samples',
       'overlay:show-controls'
     ];
 
