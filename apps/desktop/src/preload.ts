@@ -50,7 +50,8 @@ contextBridge.exposeInMainWorld('gamelord', {
       'game:av-info',
       'game:video-frame',
       'game:audio-samples',
-      'overlay:show-controls'
+      'overlay:show-controls',
+      'core:downloadProgress'
     ];
 
     if (validChannels.includes(channel)) {
