@@ -43,7 +43,8 @@ const createWindow = () => {
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
   // Initialize IPC handlers before creating window
-  ipcHandlers = new IPCHandlers();
+  const preloadPath = path.join(__dirname, 'preload.js');
+  ipcHandlers = new IPCHandlers(preloadPath);
   createWindow();
 });
 
@@ -51,9 +52,7 @@ app.on('ready', () => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  app.quit();
 });
 
 app.on('activate', () => {

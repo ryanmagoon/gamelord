@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/* Window drag region utilities */
+@utility drag-region {
+  -webkit-app-region: drag;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@utility no-drag {
+  -webkit-app-region: no-drag;
+}
+
+* {
+  border-color: transparent;
+}
+
+html, body, #root {
+  background: transparent !important;
+  background-color: transparent !important;
+}
