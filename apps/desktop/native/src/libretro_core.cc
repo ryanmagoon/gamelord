@@ -88,15 +88,18 @@ Napi::Value LibretroCore::LoadCore(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(env, false);
   }
 
-  // Set callbacks before init
+  // retro_set_environment must be called before retro_init
   fn_set_environment_(EnvironmentCallback);
+
+  // retro_init allocates core internal state; must be called before other set_* callbacks
+  fn_init_();
+
+  // Set remaining callbacks after init (cores may need internal state allocated)
   fn_set_video_refresh_(VideoRefreshCallback);
   fn_set_audio_sample_(AudioSampleCallback);
   fn_set_audio_sample_batch_(AudioSampleBatchCallback);
   fn_set_input_poll_(InputPollCallback);
   fn_set_input_state_(InputStateCallback);
-
-  fn_init_();
   core_loaded_ = true;
 
   return Napi::Boolean::New(env, true);
