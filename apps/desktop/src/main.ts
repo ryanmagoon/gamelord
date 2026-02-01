@@ -43,7 +43,8 @@ const createWindow = () => {
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
   // Initialize IPC handlers before creating window
-  ipcHandlers = new IPCHandlers();
+  const preloadPath = path.join(__dirname, 'preload.js');
+  ipcHandlers = new IPCHandlers(preloadPath);
   createWindow();
 });
 

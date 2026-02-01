@@ -48,6 +48,16 @@ export interface GamelordAPI {
     selectDirectory: () => Promise<string | null>
     selectRomFile: (systemId: string) => Promise<string | null>
   }
+
+  // Game window controls
+  gameWindow: {
+    minimize: () => void
+    maximize: () => void
+    close: () => void
+    toggleFullscreen: () => void
+    setClickThrough: (value: boolean) => void
+  }
+
   on: (channel: string, callback: (...args: any[]) => void) => void
   removeAllListeners: (channel: string) => void
 }

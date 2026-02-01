@@ -5,9 +5,23 @@ export interface GamelordAPI {
     ) => Promise<{ success: boolean; error?: string }>
     unload: () => Promise<{ success: boolean; error?: string }>
   }
+  emulator: {
+    launch: (
+      romPath: string,
+      systemId: string,
+      emulatorId?: string,
+    ) => Promise<{ success: boolean; error?: string }>
+    stop: () => Promise<{ success: boolean; error?: string }>
+    getAvailable: () => Promise<any>
+    isRunning: () => Promise<boolean>
+  }
   emulation: {
     pause: () => Promise<{ success: boolean }>
     resume: () => Promise<{ success: boolean }>
+    reset: () => Promise<{ success: boolean; error?: string }>
+    screenshot: (
+      outputPath?: string,
+    ) => Promise<{ success: boolean; path?: string; error?: string }>
   }
   saveState: {
     save: (slot: number) => Promise<{ success: boolean }>
@@ -36,6 +50,13 @@ export interface GamelordAPI {
   dialog?: {
     selectDirectory: () => Promise<string | null>
     selectRomFile: (systemId: string) => Promise<string | null>
+  }
+  gameWindow?: {
+    minimize: () => void
+    maximize: () => void
+    close: () => void
+    toggleFullscreen: () => void
+    setClickThrough: (value: boolean) => void
   }
   on: (channel: string, callback: (...args: any[]) => void) => void
   removeAllListeners: (channel: string) => void
