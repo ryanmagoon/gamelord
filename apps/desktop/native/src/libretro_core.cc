@@ -88,14 +88,11 @@ Napi::Value LibretroCore::LoadCore(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(env, false);
   }
 
-  fprintf(stderr, "[libretro] LoadCore: setting environment callback\n");
   // retro_set_environment must be called before retro_init
   fn_set_environment_(EnvironmentCallback);
 
-  fprintf(stderr, "[libretro] LoadCore: calling retro_init\n");
   // retro_init allocates core internal state; must be called before other set_* callbacks
   fn_init_();
-  fprintf(stderr, "[libretro] LoadCore: retro_init done, setting callbacks\n");
 
   // Set remaining callbacks after init (cores may need internal state allocated)
   fn_set_video_refresh_(VideoRefreshCallback);
@@ -183,11 +180,7 @@ Napi::Value LibretroCore::LoadGame(const Napi::CallbackInfo &info) {
     game_info_ext_.file_in_archive = false;
   }
 
-  fprintf(stderr, "[libretro] Loading game: path=%s, ext=%s, need_fullpath=%d, data=%p, size=%zu\n",
-          gameinfo.path, game_ext_.c_str(), sysinfo.need_fullpath, gameinfo.data, gameinfo.size);
-
   if (!fn_load_game_(&gameinfo)) {
-    fprintf(stderr, "[libretro] retro_load_game returned false\n");
     Napi::Error::New(env, "Core rejected the game").ThrowAsJavaScriptException();
     return Napi::Boolean::New(env, false);
   }
@@ -460,7 +453,6 @@ bool LibretroCore::ResolveFunctions() {
 bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
   LibretroCore *self = s_instance;
   if (!self) {
-    fprintf(stderr, "[libretro] EnvironmentCallback cmd=%u but s_instance is NULL!\n", cmd);
     return false;
   }
 
@@ -565,7 +557,6 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
       return true;
 
     default:
-      fprintf(stderr, "[libretro] Unhandled environment command: %u\n", cmd);
       return false;
   }
 }
