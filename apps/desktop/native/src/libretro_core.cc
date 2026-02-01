@@ -127,10 +127,11 @@ Napi::Value LibretroCore::LoadGame(const Napi::CallbackInfo &info) {
   struct retro_game_info gameinfo = {};
   gameinfo.path = romPath.c_str();
 
+  // Always load ROM into memory — some cores report need_fullpath but
+  // still benefit from having data available, and it ensures the core
+  // can access the ROM even if it can't open the path itself.
   std::vector<uint8_t> rom_data;
-
-  if (!sysinfo.need_fullpath) {
-    // Load ROM into memory
+  {
     std::ifstream file(romPath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
       Napi::Error::New(env, "Failed to open ROM: " + romPath).ThrowAsJavaScriptException();
@@ -146,7 +147,44 @@ Napi::Value LibretroCore::LoadGame(const Napi::CallbackInfo &info) {
     gameinfo.size = size;
   }
 
+  // Prepare extended game info for GET_GAME_INFO_EXT
+  {
+    std::string fullPath = romPath;
+    // Extract directory
+    size_t lastSlash = fullPath.rfind('/');
+    if (lastSlash == std::string::npos) lastSlash = fullPath.rfind('\\');
+    game_dir_ = (lastSlash != std::string::npos) ? fullPath.substr(0, lastSlash) : ".";
+
+    // Extract filename without extension
+    std::string filename = (lastSlash != std::string::npos) ? fullPath.substr(lastSlash + 1) : fullPath;
+    size_t dotPos = filename.rfind('.');
+    game_name_ = (dotPos != std::string::npos) ? filename.substr(0, dotPos) : filename;
+
+    // Extract extension (lowercase, without dot)
+    game_ext_ = "";
+    if (dotPos != std::string::npos) {
+      game_ext_ = filename.substr(dotPos + 1);
+      std::transform(game_ext_.begin(), game_ext_.end(), game_ext_.begin(), ::tolower);
+    }
+
+    game_info_ext_ = {};
+    game_info_ext_.full_path = romPath.c_str();
+    game_info_ext_.archive_path = nullptr;
+    game_info_ext_.archive_file = nullptr;
+    game_info_ext_.dir = game_dir_.c_str();
+    game_info_ext_.name = game_name_.c_str();
+    game_info_ext_.ext = game_ext_.c_str();
+    game_info_ext_.meta = nullptr;
+    game_info_ext_.data = gameinfo.data;
+    game_info_ext_.size = gameinfo.size;
+    game_info_ext_.file_in_archive = false;
+  }
+
+  fprintf(stderr, "[libretro] Loading game: path=%s, ext=%s, need_fullpath=%d, data=%p, size=%zu\n",
+          gameinfo.path, game_ext_.c_str(), sysinfo.need_fullpath, gameinfo.data, gameinfo.size);
+
   if (!fn_load_game_(&gameinfo)) {
+    fprintf(stderr, "[libretro] retro_load_game returned false\n");
     Napi::Error::New(env, "Core rejected the game").ThrowAsJavaScriptException();
     return Napi::Boolean::New(env, false);
   }
@@ -487,8 +525,11 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_SET_CONTENT_INFO_OVERRIDE:
       return true;
 
-    case RETRO_ENVIRONMENT_GET_GAME_INFO_EXT:
-      return false;
+    case RETRO_ENVIRONMENT_GET_GAME_INFO_EXT: {
+      const struct retro_game_info_ext **ext = static_cast<const struct retro_game_info_ext **>(data);
+      *ext = &self->game_info_ext_;
+      return true;
+    }
 
     case RETRO_ENVIRONMENT_GET_INPUT_BITMASKS:
       return true;

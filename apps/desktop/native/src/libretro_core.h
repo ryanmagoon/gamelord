@@ -118,6 +118,12 @@ private:
 
   // AV info cache
   struct retro_system_av_info av_info_ = {};
+
+  // Game info for GET_GAME_INFO_EXT during retro_load_game
+  struct retro_game_info_ext game_info_ext_ = {};
+  std::string game_dir_;
+  std::string game_name_;
+  std::string game_ext_;
 };
 
 #endif // LIBRETRO_CORE_H

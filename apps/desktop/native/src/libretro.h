@@ -172,6 +172,19 @@ typedef unsigned (*retro_get_region_t)(void);
 typedef void *(*retro_get_memory_data_t)(unsigned id);
 typedef size_t (*retro_get_memory_size_t)(unsigned id);
 
+struct retro_game_info_ext {
+  const char *full_path;
+  const char *archive_path;
+  const char *archive_file;
+  const char *dir;
+  const char *name;
+  const char *ext;
+  const char *meta;
+  const void *data;
+  size_t size;
+  bool file_in_archive;
+};
+
 #ifdef __cplusplus
 }
 #endif
