@@ -44,11 +44,12 @@ export class GameWindowManager {
 
     const gameWindow = new BrowserWindow({
       width: windowWidth,
-      height: windowHeight + 40, // extra for title bar area
+      height: windowHeight,
       minWidth: baseWidth * 2,
-      minHeight: baseHeight * 2 + 40,
+      minHeight: baseHeight * 2,
       title: `GameLord - ${game.title}`,
-      titleBarStyle: 'hiddenInset',
+      titleBarStyle: 'hidden',
+      trafficLightPosition: { x: 10, y: 10 },
       backgroundColor: '#000000',
       webPreferences: {
         preload: this.preloadPath,
