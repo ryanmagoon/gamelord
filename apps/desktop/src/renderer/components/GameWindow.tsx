@@ -232,14 +232,21 @@ export const GameWindow: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isPaused, selectedSlot])
 
-  // In native mode, show controls on mouse enter/move, hide on leave
-  const handleMouseEnter = useCallback(() => {
+  // In native mode, show controls on mouse move, hide on leave
+  const handleMouseMove = useCallback(() => {
     if (mode !== 'native') return
     setShowControls(true)
   }, [mode])
 
-  const handleMouseLeave = useCallback(() => {
+  const handleMouseLeave = useCallback((event: React.MouseEvent) => {
     if (mode !== 'native' || isPaused) return
+    // Ignore false mouseleave events caused by WebkitAppRegion 'drag'
+    // regions — only hide if the cursor actually left the window
+    const { clientX, clientY } = event
+    const { innerWidth, innerHeight } = window
+    if (clientX > 0 && clientX < innerWidth && clientY > 0 && clientY < innerHeight) {
+      return
+    }
     setShowControls(false)
   }, [mode, isPaused])
 
@@ -252,7 +259,7 @@ export const GameWindow: React.FC = () => {
   return (
     <div
       className={`relative h-screen overflow-hidden ${isNative ? 'bg-black' : 'bg-transparent'}`}
-      onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
       {/* Canvas for native mode rendering */}
@@ -268,14 +275,14 @@ export const GameWindow: React.FC = () => {
         />
       )}
 
-      {/* Top control bar with integrated drag region */}
+      {/* Top control bar (draggable title area) */}
       <div
         className={`absolute top-0 left-0 right-0 z-50 transition-opacity duration-150 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <div className="flex items-center justify-center px-4 py-2 bg-black/75 backdrop-blur-md shadow-lg">
+        <div className="flex items-center justify-center px-4 py-2 bg-black/75 backdrop-blur-md shadow-lg select-none">
           <div className="flex items-center gap-3">
             <h1 className="text-white font-semibold">{game.title}</h1>
             <span className="text-gray-400 text-sm">{game.system}</span>
@@ -288,6 +295,7 @@ export const GameWindow: React.FC = () => {
         className={`absolute bottom-0 left-0 right-0 z-50 transition-opacity duration-150 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <div className="flex items-center justify-between px-6 py-4 bg-black/75 backdrop-blur-md shadow-lg">
           {/* Playback controls */}
@@ -396,7 +404,7 @@ export const GameWindow: React.FC = () => {
 
       {/* Pause overlay */}
       {isPaused && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-40">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-40" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <div className="text-center">
             <Pause className="h-16 w-16 text-white mx-auto mb-4" />
             <p className="text-white text-xl font-semibold">Paused</p>
