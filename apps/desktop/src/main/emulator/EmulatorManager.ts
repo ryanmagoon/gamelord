@@ -2,9 +2,11 @@ import { EventEmitter } from 'events';
 import { EmulatorCore, EmulatorInfo } from './EmulatorCore';
 import { RetroArchCore } from './RetroArchCore';
 import { LibretroNativeCore } from './LibretroNativeCore';
+import { CoreDownloader } from './CoreDownloader';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { app } from 'electron';
 
 /**
  * Manages emulator instances and provides a unified interface for launching games.
@@ -13,10 +15,19 @@ import * as os from 'os';
 export class EmulatorManager extends EventEmitter {
   private currentEmulator: EmulatorCore | null = null;
   private availableEmulators: Map<string, EmulatorInfo> = new Map();
+  private coreDownloader: CoreDownloader;
 
   constructor() {
     super();
+    this.coreDownloader = new CoreDownloader();
+    this.coreDownloader.on('progress', (progress) => {
+      this.emit('core:downloadProgress', progress);
+    });
     this.discoverEmulators();
+  }
+
+  getCoreDownloader(): CoreDownloader {
+    return this.coreDownloader;
   }
 
   /**
@@ -47,14 +58,15 @@ export class EmulatorManager extends EventEmitter {
     }
 
     // Check for libretro cores (native mode — no RetroArch process needed)
-    const coresPath = this.getRetroArchCoresPath();
-    if (coresPath) {
+    // Always register native mode; cores will be downloaded on demand
+    const coresPath = this.coreDownloader.getCoresDirectory();
+    {
       this.availableEmulators.set('libretro-native', {
         id: 'libretro-native',
         name: 'LibretroNative',
         type: 'libretro-native',
         path: coresPath,
-        supportedSystems: ['nes', 'snes', 'genesis', 'gb', 'gbc', 'gba', 'n64', 'psx'],
+        supportedSystems: ['nes', 'snes', 'genesis', 'gb', 'gbc', 'gba', 'n64', 'psx', 'psp', 'nds', 'arcade'],
         features: {
           saveStates: true,
           screenshots: true,
@@ -141,7 +153,8 @@ export class EmulatorManager extends EventEmitter {
     if (emulatorInfo.type === 'retroarch' || emulatorInfo.type === 'libretro-native') {
       options.corePath = this.getCorePathForSystem(systemId);
       if (!options.corePath) {
-        throw new Error(`No core found for system: ${systemId}`);
+        // Auto-download the core
+        options.corePath = await this.coreDownloader.downloadCoreForSystem(systemId);
       }
     }
 
@@ -182,24 +195,22 @@ export class EmulatorManager extends EventEmitter {
   }
 
   /**
-   * Get the core path for a specific system (RetroArch)
+   * Get the core path for a specific system, checking the app-managed
+   * cores directory first, then falling back to RetroArch's directory.
    */
-  private getCorePathForSystem(systemId: string): string | null {
-    const coresBasePath = this.getRetroArchCoresPath();
-    if (!coresBasePath) {
-      return null;
-    }
-
-    // Map system IDs to core names
+  getCorePathForSystem(systemId: string): string | null {
     const coreMapping: Record<string, string[]> = {
       'nes': ['fceumm_libretro', 'nestopia_libretro', 'mesen_libretro'],
-      'snes': ['bsnes_libretro', 'snes9x_libretro'],
+      'snes': ['snes9x_libretro', 'bsnes_libretro'],
       'genesis': ['genesis_plus_gx_libretro', 'picodrive_libretro'],
-      'gb': ['mgba_libretro', 'gambatte_libretro'],
-      'gbc': ['mgba_libretro', 'gambatte_libretro'],
+      'gb': ['gambatte_libretro', 'mgba_libretro'],
+      'gbc': ['gambatte_libretro', 'mgba_libretro'],
       'gba': ['mgba_libretro', 'vba_next_libretro'],
       'n64': ['mupen64plus_next_libretro', 'parallel_n64_libretro'],
-      'psx': ['pcsx_rearmed_libretro', 'beetle_psx_libretro']
+      'psx': ['pcsx_rearmed_libretro', 'beetle_psx_libretro'],
+      'psp': ['ppsspp_libretro'],
+      'nds': ['desmume_libretro'],
+      'arcade': ['mame_libretro'],
     };
 
     const coreNames = coreMapping[systemId];
@@ -207,14 +218,26 @@ export class EmulatorManager extends EventEmitter {
       return null;
     }
 
-    // Try to find the first available core
     const extension = process.platform === 'darwin' ? '.dylib' :
                       process.platform === 'win32' ? '.dll' : '.so';
 
+    // Check app-managed cores directory first
+    const appCoresDir = this.coreDownloader.getCoresDirectory();
     for (const coreName of coreNames) {
-      const corePath = path.join(coresBasePath, coreName + extension);
+      const corePath = path.join(appCoresDir, coreName + extension);
       if (fs.existsSync(corePath)) {
         return corePath;
+      }
+    }
+
+    // Fall back to RetroArch's directory
+    const retroArchCoresDir = this.getRetroArchCoresPath();
+    if (retroArchCoresDir) {
+      for (const coreName of coreNames) {
+        const corePath = path.join(retroArchCoresDir, coreName + extension);
+        if (fs.existsSync(corePath)) {
+          return corePath;
+        }
       }
     }
 
@@ -222,7 +245,7 @@ export class EmulatorManager extends EventEmitter {
   }
 
   /**
-   * Get the RetroArch cores directory path
+   * Get the RetroArch cores directory path (used as fallback).
    */
   private getRetroArchCoresPath(): string | null {
     let basePath: string;
@@ -242,14 +265,11 @@ export class EmulatorManager extends EventEmitter {
    * Select the best emulator for a given system
    */
   private selectBestEmulator(systemId: string): EmulatorInfo | undefined {
-    // Prefer native libretro core loading (single-window, no external process)
+    // Prefer native libretro core loading (single-window, no external process).
+    // Cores will be auto-downloaded if missing during the launch flow.
     const native = this.availableEmulators.get('libretro-native');
     if (native && native.supportedSystems.includes(systemId)) {
-      // Verify we actually have a core for this system
-      const corePath = this.getCorePathForSystem(systemId);
-      if (corePath) {
-        return native;
-      }
+      return native;
     }
 
     // Fall back to RetroArch process mode
