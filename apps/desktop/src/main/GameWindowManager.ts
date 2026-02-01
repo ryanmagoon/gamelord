@@ -1,12 +1,12 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, ipcMain, screen } from 'electron'
 import path from 'path'
 import { execSync } from 'child_process'
 import type { Game } from '../types/library'
 
-/**
- * Manages custom game windows that overlay controls on top of native emulator windows.
- * Provides OpenEmu-style cohesive UI experience while maintaining native emulation performance.
- */
+const TITLE_BAR_HEIGHT = 28 // standard macOS title bar
+const EDGE_ZONE = 48 // px from top/bottom to trigger controls
+const POLL_INTERVAL = 100 // ms
+
 export class GameWindowManager {
   private gameWindows = new Map<string, BrowserWindow>()
   private trackingIntervals = new Map<string, ReturnType<typeof setInterval>>()
@@ -17,17 +17,12 @@ export class GameWindowManager {
     this.setupIpcHandlers()
   }
 
-  /**
-   * Create a custom game window for the given game
-   */
   createGameWindow(game: Game): BrowserWindow {
-    // Close existing window for this game if any
     const existingWindow = this.gameWindows.get(game.id)
     if (existingWindow && !existingWindow.isDestroyed()) {
       existingWindow.close()
     }
 
-    // Create transparent frameless overlay window
     const gameWindow = new BrowserWindow({
       width: 1024,
       height: 768,
@@ -47,58 +42,53 @@ export class GameWindowManager {
       },
     })
 
-    // Load the game window renderer
     if (GAME_WINDOW_VITE_DEV_SERVER_URL) {
       gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
-      gameWindow.webContents.openDevTools()
+      // gameWindow.webContents.openDevTools()
     } else {
-      gameWindow.loadFile(path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/index.html`))
+      gameWindow.loadFile(
+        path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/index.html`),
+      )
     }
 
-    // Send game data once window is ready
     gameWindow.webContents.on('did-finish-load', () => {
       gameWindow.webContents.send('game:loaded', game)
     })
 
-    // Cleanup on close
     gameWindow.on('closed', () => {
       this.stopTracking(game.id)
       this.gameWindows.delete(game.id)
     })
 
-    // Store window reference
     this.gameWindows.set(game.id, gameWindow)
-
     return gameWindow
   }
 
   /**
-   * Get window bounds of a process by PID using macOS JXA/System Events
+   * Get window bounds by PID using a simple JXA query.
    */
-  private getWindowBoundsByPid(pid: number): { x: number; y: number; width: number; height: number } | null {
+  private getWindowBoundsByPid(
+    pid: number,
+  ): { x: number; y: number; width: number; height: number } | null {
     try {
-      const script = `
-        const se = Application("System Events");
-        const procs = se.processes.whose({unixId: ${pid}});
-        if (procs.length === 0) throw "no process";
-        const w = procs[0].windows[0];
-        const pos = w.position();
-        const sz = w.size();
-        JSON.stringify({x: pos[0], y: pos[1], width: sz[0], height: sz[1]});
-      `
-      const result = execSync(`osascript -l JavaScript -e '${script}'`, {
-        timeout: 5000,
+      const script =
+        'const se=Application("System Events");' +
+        `const p=se.processes.whose({unixId:${pid}});` +
+        'if(p.length===0)throw 1;' +
+        'const w=p[0].windows[0];' +
+        'const o=w.position();const s=w.size();' +
+        'JSON.stringify({x:o[0],y:o[1],w:s[0],h:s[1]})'
+      const raw = execSync(`osascript -l JavaScript -e '${script}'`, {
+        timeout: 3000,
         encoding: 'utf-8',
       }).trim()
-      return JSON.parse(result)
+      const r = JSON.parse(raw)
+      return { x: r.x, y: r.y, width: r.w, height: r.h }
     } catch {
       return null
     }
   }
 
-  /**
-   * Start tracking the RetroArch window position/size and overlay our window on top
-   */
   startTrackingRetroArchWindow(gameId: string, pid: number): void {
     const gameWindow = this.gameWindows.get(gameId)
     if (!gameWindow || gameWindow.isDestroyed()) {
@@ -110,16 +100,18 @@ export class GameWindowManager {
     gameWindow.setIgnoreMouseEvents(true, { forward: true })
     gameWindow.show()
 
-    // Poll RetroArch window position
+    let lastBounds = ''
+    let controlsVisible = false
+
     const interval = setInterval(() => {
       if (gameWindow.isDestroyed()) {
         this.stopTracking(gameId)
         return
       }
 
-      const bounds = this.getWindowBoundsByPid(pid)
-      if (!bounds) {
-        // RetroArch window disappeared — close overlay
+      // Get RetroArch window bounds
+      const rawBounds = this.getWindowBoundsByPid(pid)
+      if (!rawBounds) {
         console.log(`RetroArch window (PID ${pid}) disappeared, closing overlay`)
         this.stopTracking(gameId)
         if (!gameWindow.isDestroyed()) {
@@ -128,16 +120,53 @@ export class GameWindowManager {
         return
       }
 
-      gameWindow.setBounds(bounds)
-    }, 150)
+      // Offset to content area below title bar
+      const bounds = {
+        x: rawBounds.x,
+        y: rawBounds.y + TITLE_BAR_HEIGHT,
+        width: rawBounds.width,
+        height: rawBounds.height - TITLE_BAR_HEIGHT,
+      }
+
+      // Only update bounds if they changed to avoid flicker
+      const boundsKey = `${bounds.x},${bounds.y},${bounds.width},${bounds.height}`
+      if (boundsKey !== lastBounds) {
+        gameWindow.setBounds(bounds)
+        lastBounds = boundsKey
+      }
+
+      // Poll cursor position from main process (reliable, no forwarded events needed)
+      const cursor = screen.getCursorScreenPoint()
+      const inOverlay =
+        cursor.x >= bounds.x &&
+        cursor.x <= bounds.x + bounds.width &&
+        cursor.y >= bounds.y &&
+        cursor.y <= bounds.y + bounds.height
+
+      if (inOverlay) {
+        const relY = cursor.y - bounds.y
+        const nearEdge = relY < EDGE_ZONE || relY > bounds.height - EDGE_ZONE
+
+        if (nearEdge && !controlsVisible) {
+          controlsVisible = true
+          gameWindow.setIgnoreMouseEvents(false)
+          gameWindow.webContents.send('overlay:show-controls', true)
+        } else if (!nearEdge && controlsVisible) {
+          controlsVisible = false
+          gameWindow.setIgnoreMouseEvents(true, { forward: true })
+          gameWindow.webContents.send('overlay:show-controls', false)
+        }
+      } else if (controlsVisible) {
+        controlsVisible = false
+        gameWindow.setIgnoreMouseEvents(true, { forward: true })
+        gameWindow.webContents.send('overlay:show-controls', false)
+      }
+    }, POLL_INTERVAL)
 
     this.trackingIntervals.set(gameId, interval)
     console.log(`Tracking RetroArch window (PID ${pid}) for game ${gameId}`)
   }
 
-  /**
-   * Stop tracking for a given game
-   */
   stopTracking(gameId: string): void {
     const interval = this.trackingIntervals.get(gameId)
     if (interval) {
@@ -146,9 +175,6 @@ export class GameWindowManager {
     }
   }
 
-  /**
-   * Close game window for the given game ID
-   */
   closeGameWindow(gameId: string): void {
     this.stopTracking(gameId)
     const window = this.gameWindows.get(gameId)
@@ -157,9 +183,6 @@ export class GameWindowManager {
     }
   }
 
-  /**
-   * Close all game windows
-   */
   closeAllGameWindows(): void {
     for (const [gameId] of this.trackingIntervals) {
       this.stopTracking(gameId)
@@ -172,16 +195,10 @@ export class GameWindowManager {
     this.gameWindows.clear()
   }
 
-  /**
-   * Get the window for a specific game
-   */
   getGameWindow(gameId: string): BrowserWindow | undefined {
     return this.gameWindows.get(gameId)
   }
 
-  /**
-   * Setup IPC handlers for game window actions
-   */
   private setupIpcHandlers(): void {
     ipcMain.on('game-window:minimize', (event) => {
       const window = BrowserWindow.fromWebContents(event.sender)
@@ -209,17 +226,17 @@ export class GameWindowManager {
       }
     })
 
-    ipcMain.on('game-window:set-click-through', (event, clickThrough: boolean) => {
-      const window = BrowserWindow.fromWebContents(event.sender)
-      if (window) {
-        window.setIgnoreMouseEvents(clickThrough, { forward: true })
-      }
-    })
+    ipcMain.on(
+      'game-window:set-click-through',
+      (event, clickThrough: boolean) => {
+        const window = BrowserWindow.fromWebContents(event.sender)
+        if (window) {
+          window.setIgnoreMouseEvents(clickThrough, { forward: true })
+        }
+      },
+    )
   }
 
-  /**
-   * Cleanup resources
-   */
   destroy(): void {
     this.closeAllGameWindows()
     ipcMain.removeAllListeners('game-window:minimize')

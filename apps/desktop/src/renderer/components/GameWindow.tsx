@@ -3,9 +3,6 @@ import { Button } from '@gamelord/ui'
 import {
   Play,
   Pause,
-  X,
-  Minimize2,
-  Maximize2,
   Save,
   FolderOpen,
   Camera,
@@ -20,31 +17,22 @@ export const GameWindow: React.FC = () => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
   const [game, setGame] = useState<Game | null>(null)
   const [isPaused, setIsPaused] = useState(false)
-  const [showControls, setShowControls] = useState(true)
+  const [showControls, setShowControls] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState(0)
 
   useEffect(() => {
-    // Listen for game data from main process
-    const handleGameLoaded = (gameData: Game) => {
+    api.on('game:loaded', (gameData: Game) => {
       setGame(gameData)
-    }
+    })
 
-    api.on('game:loaded', handleGameLoaded)
-
-    // Auto-hide controls after 3 seconds of no movement
-    let hideTimeout: NodeJS.Timeout
-    const handleMouseMove = () => {
-      setShowControls(true)
-      clearTimeout(hideTimeout)
-      hideTimeout = setTimeout(() => setShowControls(false), 3000)
-    }
-
-    window.addEventListener('mousemove', handleMouseMove)
+    // Main process tells us when to show/hide controls based on cursor position
+    api.on('overlay:show-controls', (visible: boolean) => {
+      setShowControls(visible)
+    })
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-      clearTimeout(hideTimeout)
       api.removeAllListeners('game:loaded')
+      api.removeAllListeners('overlay:show-controls')
     }
   }, [api])
 
@@ -69,18 +57,6 @@ export const GameWindow: React.FC = () => {
     await api.emulation.screenshot()
   }
 
-  const handleClose = () => {
-    api.gameWindow.close()
-  }
-
-  const handleMinimize = () => {
-    api.gameWindow.minimize()
-  }
-
-  const handleMaximize = () => {
-    api.gameWindow.maximize()
-  }
-
   const handleToggleFullscreen = () => {
     api.gameWindow.toggleFullscreen()
   }
@@ -88,27 +64,18 @@ export const GameWindow: React.FC = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // F5 - Quick save
       if (e.key === 'F5') {
         e.preventDefault()
         void handleSaveState()
       }
-      // F9 - Quick load
       if (e.key === 'F9') {
         e.preventDefault()
         void handleLoadState()
       }
-      // F11 - Toggle fullscreen
       if (e.key === 'F11') {
         e.preventDefault()
         handleToggleFullscreen()
       }
-      // Escape - Show controls
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        setShowControls(true)
-      }
-      // Space - Pause/Resume
       if (e.key === ' ' && e.target === document.body) {
         e.preventDefault()
         void handlePauseResume()
@@ -120,67 +87,32 @@ export const GameWindow: React.FC = () => {
   }, [isPaused, selectedSlot])
 
   if (!game) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
-        <p>Loading game...</p>
-      </div>
-    )
+    return null
   }
 
   return (
     <div className="relative h-screen bg-transparent overflow-hidden">
-      {/* Custom title bar */}
+      {/* Top control bar */}
       <div
-        className={`absolute top-0 left-0 right-0 z-50 transition-opacity duration-300 ${
+        className={`absolute top-0 left-0 right-0 z-50 transition-opacity duration-200 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
-        onMouseEnter={() => api.gameWindow.setClickThrough(false)}
-        onMouseLeave={() => api.gameWindow.setClickThrough(true)}
       >
-        <div className="flex items-center justify-between px-4 py-2 bg-gradient-to-b from-black/80 to-transparent backdrop-blur-sm">
+        <div className="flex items-center justify-center px-4 py-2 bg-black/75 backdrop-blur-md shadow-lg">
           <div className="flex items-center gap-3">
             <h1 className="text-white font-semibold">{game.title}</h1>
             <span className="text-gray-400 text-sm">{game.system}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleMinimize}
-              className="text-white hover:bg-white/10"
-            >
-              <Minimize2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleMaximize}
-              className="text-white hover:bg-white/10"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              className="text-white hover:bg-red-500/20"
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </div>
 
       {/* Bottom control bar */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-50 transition-opacity duration-300 ${
+        className={`absolute bottom-0 left-0 right-0 z-50 transition-opacity duration-200 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
-        onMouseEnter={() => api.gameWindow.setClickThrough(false)}
-        onMouseLeave={() => api.gameWindow.setClickThrough(true)}
       >
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-t from-black/90 to-transparent backdrop-blur-sm">
+        <div className="flex items-center justify-between px-6 py-4 bg-black/75 backdrop-blur-md shadow-lg">
           {/* Playback controls */}
           <div className="flex items-center gap-2">
             <Button
