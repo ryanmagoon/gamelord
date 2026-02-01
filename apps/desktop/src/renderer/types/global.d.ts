@@ -56,6 +56,7 @@ export interface GamelordAPI {
     close: () => void
     toggleFullscreen: () => void
     setClickThrough: (value: boolean) => void
+    setTrafficLightVisible: (visible: boolean) => void
   }
 
   // Game input (native mode)
