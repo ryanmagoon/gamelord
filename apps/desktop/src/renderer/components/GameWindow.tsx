@@ -61,6 +61,52 @@ export const GameWindow: React.FC = () => {
   const gainNodeRef = useRef<GainNode | null>(null)
   const [gameAspectRatio, setGameAspectRatio] = useState<number | null>(null)
 
+  // Resize handler extracted so it can be called from multiple places
+  const updateCanvasSize = useCallback(() => {
+    const canvas = canvasRef.current
+    const container = containerRef.current
+    if (!canvas || !container) return
+
+    // Get container dimensions
+    const containerRect = container.getBoundingClientRect()
+    const containerW = containerRect.width
+    const containerH = containerRect.height
+
+    // Skip if container has no dimensions yet
+    if (containerW === 0 || containerH === 0) return
+
+    // Use game aspect ratio if available, otherwise default to NES aspect ratio
+    const aspectRatio = gameAspectRatio || (256 / 240)
+
+    // Calculate canvas size to fit container while maintaining aspect ratio
+    let canvasW: number
+    let canvasH: number
+
+    if (containerW / containerH > aspectRatio) {
+      // Container is wider than game aspect ratio - fit to height
+      canvasH = containerH
+      canvasW = containerH * aspectRatio
+    } else {
+      // Container is taller than game aspect ratio - fit to width
+      canvasW = containerW
+      canvasH = containerW / aspectRatio
+    }
+
+    // Apply CSS dimensions for display
+    canvas.style.width = `${canvasW}px`
+    canvas.style.height = `${canvasH}px`
+
+    // Set canvas buffer dimensions for WebGL (accounting for device pixel ratio)
+    const bufferW = Math.round(canvasW * devicePixelRatio)
+    const bufferH = Math.round(canvasH * devicePixelRatio)
+
+    if (canvas.width !== bufferW || canvas.height !== bufferH) {
+      canvas.width = bufferW
+      canvas.height = bufferH
+      rendererRef.current?.resize(bufferW, bufferH)
+    }
+  }, [gameAspectRatio])
+
   useEffect(() => {
     api.on('game:loaded', (gameData: Game) => {
       setGame(gameData)
@@ -97,21 +143,20 @@ export const GameWindow: React.FC = () => {
       const canvas = canvasRef.current
       if (!canvas) return
 
-      const { width, height, data } = frameData
-
       // Initialize WebGL renderer on first frame
       if (!rendererRef.current) {
         try {
-          const rect = canvas.getBoundingClientRect()
-          const displayWidth = Math.round(rect.width * devicePixelRatio) || width
-          const displayHeight = Math.round(rect.height * devicePixelRatio) || height
-          canvas.width = displayWidth
-          canvas.height = displayHeight
+          // Set initial canvas size based on container
+          updateCanvasSize()
+
           const renderer = new WebGLRenderer(canvas)
           renderer.initialize()
           const savedShader = (localStorage.getItem('gamelord:shader') as string) || 'default'
           renderer.setShader(savedShader)
           rendererRef.current = renderer
+
+          // Ensure canvas is properly sized after renderer is ready
+          requestAnimationFrame(() => updateCanvasSize())
         } catch (error) {
           console.error('Failed to initialize WebGL renderer:', error)
           return
@@ -176,56 +221,19 @@ export const GameWindow: React.FC = () => {
         audioContextRef.current = null
       }
     }
-  }, [api])
+  }, [api, updateCanvasSize])
 
   // Handle canvas resize for WebGL viewport
   useEffect(() => {
-    const handleResize = () => {
-      const canvas = canvasRef.current
-      const container = containerRef.current
-      if (!canvas || !container) return
-
-      // Get container dimensions
-      const containerRect = container.getBoundingClientRect()
-      const containerW = containerRect.width
-      const containerH = containerRect.height
-
-      // Use game aspect ratio if available, otherwise default to NES aspect ratio
-      const aspectRatio = gameAspectRatio || (256 / 240)
-
-      // Calculate canvas size to fit container while maintaining aspect ratio
-      let canvasW: number
-      let canvasH: number
-
-      if (containerW / containerH > aspectRatio) {
-        // Container is wider than game aspect ratio - fit to height
-        canvasH = containerH
-        canvasW = containerH * aspectRatio
-      } else {
-        // Container is taller than game aspect ratio - fit to width
-        canvasW = containerW
-        canvasH = containerW / aspectRatio
-      }
-
-      // Apply CSS dimensions for display
-      canvas.style.width = `${canvasW}px`
-      canvas.style.height = `${canvasH}px`
-
-      // Set canvas buffer dimensions for WebGL (accounting for device pixel ratio)
-      const bufferW = Math.round(canvasW * devicePixelRatio)
-      const bufferH = Math.round(canvasH * devicePixelRatio)
-
-      if (canvas.width !== bufferW || canvas.height !== bufferH) {
-        canvas.width = bufferW
-        canvas.height = bufferH
-        rendererRef.current?.resize(bufferW, bufferH)
-      }
+    window.addEventListener('resize', updateCanvasSize)
+    // Run immediately and also after a brief delay to ensure layout is complete
+    updateCanvasSize()
+    const timeoutId = setTimeout(updateCanvasSize, 50)
+    return () => {
+      window.removeEventListener('resize', updateCanvasSize)
+      clearTimeout(timeoutId)
     }
-
-    window.addEventListener('resize', handleResize)
-    handleResize()
-    return () => window.removeEventListener('resize', handleResize)
-  }, [gameAspectRatio])
+  }, [updateCanvasSize])
 
   // Sync shader preference
   useEffect(() => {
