@@ -11,6 +11,7 @@ export class IPCHandlers {
   private emulatorManager: EmulatorManager;
   private libraryService: LibraryService;
   private gameWindowManager: GameWindowManager;
+  private pendingResumeDialogs = new Map<string, (shouldResume: boolean) => void>();
 
   constructor(preloadPath: string) {
     this.emulatorManager = new EmulatorManager();
@@ -19,6 +20,7 @@ export class IPCHandlers {
     this.setupHandlers();
     this.setupEmulatorEventForwarding();
     this.setupLibraryHandlers();
+    this.setupDialogHandlers();
   }
 
   private setupHandlers(): void {
@@ -40,22 +42,15 @@ export class IPCHandlers {
           // Native mode: single window, game renders inside BrowserWindow canvas
           const nativeCore = this.emulatorManager.getCurrentEmulator() as LibretroNativeCore;
 
-          // Check for autosave and prompt user
+          // Check for autosave and prompt user with custom dialog
           let shouldResume = false;
           if (nativeCore.hasAutoSave()) {
             const mainWindow = BrowserWindow.getFocusedWindow();
-            const result = await dialog.showMessageBox(mainWindow!, {
-              type: 'question',
-              title: 'Resume Game',
-              message: 'Resume where you left off?',
-              detail: `An autosave was found for ${game.title}.`,
-              buttons: ['Resume', 'Start Fresh'],
-              defaultId: 0,
-              cancelId: 1,
-            });
-            shouldResume = result.response === 0;
-            if (!shouldResume) {
-              nativeCore.deleteAutoSave();
+            if (mainWindow) {
+              shouldResume = await this.showResumeGameDialog(mainWindow, game.title);
+              if (!shouldResume) {
+                nativeCore.deleteAutoSave();
+              }
             }
           }
 
@@ -278,11 +273,45 @@ export class IPCHandlers {
         title: 'Select ROM File',
         filters
       });
-      
+
       if (!result.canceled && result.filePaths.length > 0) {
         return result.filePaths[0];
       }
       return null;
+    });
+  }
+
+  private setupDialogHandlers(): void {
+    // Handle resume game dialog response from renderer
+    ipcMain.on('dialog:resumeGameResponse', (event, requestId: string, shouldResume: boolean) => {
+      const resolver = this.pendingResumeDialogs.get(requestId);
+      if (resolver) {
+        resolver(shouldResume);
+        this.pendingResumeDialogs.delete(requestId);
+      }
+    });
+  }
+
+  /**
+   * Show a custom resume game dialog in the renderer and wait for response.
+   */
+  private showResumeGameDialog(window: BrowserWindow, gameTitle: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const requestId = `resume-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      this.pendingResumeDialogs.set(requestId, resolve);
+
+      window.webContents.send('dialog:showResumeGame', {
+        requestId,
+        gameTitle,
+      });
+
+      // Timeout fallback: if no response after 30 seconds, default to not resuming
+      setTimeout(() => {
+        if (this.pendingResumeDialogs.has(requestId)) {
+          this.pendingResumeDialogs.delete(requestId);
+          resolve(false);
+        }
+      }, 30000);
     });
   }
 }
