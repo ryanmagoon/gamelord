@@ -47,6 +47,7 @@ export class GameWindowManager {
       height: windowHeight,
       minWidth: baseWidth * 2,
       minHeight: baseHeight * 2,
+      useContentSize: true, // Ensure width/height refer to content area, not window frame
       title: `GameLord - ${game.title}`,
       titleBarStyle: 'hidden',
       trafficLightPosition: { x: 10, y: 10 },
