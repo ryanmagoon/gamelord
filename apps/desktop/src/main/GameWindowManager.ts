@@ -37,15 +37,20 @@ export class GameWindowManager {
     const avInfo = nativeCore.getAVInfo()
     const baseWidth = avInfo?.geometry.baseWidth || 256
     const baseHeight = avInfo?.geometry.baseHeight || 240
-    // Scale up to a reasonable window size (3x for retro games)
+    // Use the core's reported aspect ratio (accounts for non-square pixels like NES 4:3)
+    const aspectRatio = avInfo?.geometry.aspectRatio && avInfo.geometry.aspectRatio > 0
+      ? avInfo.geometry.aspectRatio
+      : baseWidth / baseHeight
+    // Scale up to a reasonable window size (targeting ~720p height)
     const scale = Math.max(2, Math.floor(720 / baseHeight))
-    const windowWidth = baseWidth * scale
     const windowHeight = baseHeight * scale
+    // Width is calculated from height using the correct aspect ratio
+    const windowWidth = Math.round(windowHeight * aspectRatio)
 
     const gameWindow = new BrowserWindow({
       width: windowWidth,
       height: windowHeight,
-      minWidth: baseWidth * 2,
+      minWidth: Math.round(baseHeight * 2 * aspectRatio),
       minHeight: baseHeight * 2,
       useContentSize: true, // Ensure width/height refer to content area, not window frame
       title: `GameLord - ${game.title}`,
@@ -60,12 +65,7 @@ export class GameWindowManager {
     })
 
     // Lock window to the core's aspect ratio
-    if (avInfo) {
-      const aspectRatio = avInfo.geometry.aspectRatio > 0
-        ? avInfo.geometry.aspectRatio
-        : baseWidth / baseHeight
-      gameWindow.setAspectRatio(aspectRatio)
-    }
+    gameWindow.setAspectRatio(aspectRatio)
 
     if (GAME_WINDOW_VITE_DEV_SERVER_URL) {
       gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
