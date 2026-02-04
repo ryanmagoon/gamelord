@@ -54,10 +54,12 @@ export const GameWindow: React.FC = () => {
   const [showShaderMenu, setShowShaderMenu] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const rendererRef = useRef<WebGLRenderer | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioNextTimeRef = useRef(0)
   const gainNodeRef = useRef<GainNode | null>(null)
+  const [gameAspectRatio, setGameAspectRatio] = useState<number | null>(null)
 
   useEffect(() => {
     api.on('game:loaded', (gameData: Game) => {
@@ -84,6 +86,11 @@ export const GameWindow: React.FC = () => {
         canvas.width = avInfo.geometry.baseWidth
         canvas.height = avInfo.geometry.baseHeight
       }
+      // Calculate aspect ratio for proper scaling
+      const aspectRatio = avInfo.geometry.aspectRatio > 0
+        ? avInfo.geometry.aspectRatio
+        : avInfo.geometry.baseWidth / avInfo.geometry.baseHeight
+      setGameAspectRatio(aspectRatio)
     })
 
     api.on('game:video-frame', (frameData: any) => {
@@ -175,18 +182,50 @@ export const GameWindow: React.FC = () => {
   useEffect(() => {
     const handleResize = () => {
       const canvas = canvasRef.current
-      if (!canvas || !rendererRef.current) return
-      const rect = canvas.getBoundingClientRect()
-      const w = rect.width * devicePixelRatio
-      const h = rect.height * devicePixelRatio
-      if (canvas.width !== w || canvas.height !== h) {
-        rendererRef.current.resize(w, h)
+      const container = containerRef.current
+      if (!canvas || !container) return
+
+      // Get container dimensions
+      const containerRect = container.getBoundingClientRect()
+      const containerW = containerRect.width
+      const containerH = containerRect.height
+
+      // Use game aspect ratio if available, otherwise default to NES aspect ratio
+      const aspectRatio = gameAspectRatio || (256 / 240)
+
+      // Calculate canvas size to fit container while maintaining aspect ratio
+      let canvasW: number
+      let canvasH: number
+
+      if (containerW / containerH > aspectRatio) {
+        // Container is wider than game aspect ratio - fit to height
+        canvasH = containerH
+        canvasW = containerH * aspectRatio
+      } else {
+        // Container is taller than game aspect ratio - fit to width
+        canvasW = containerW
+        canvasH = containerW / aspectRatio
+      }
+
+      // Apply CSS dimensions for display
+      canvas.style.width = `${canvasW}px`
+      canvas.style.height = `${canvasH}px`
+
+      // Set canvas buffer dimensions for WebGL (accounting for device pixel ratio)
+      const bufferW = Math.round(canvasW * devicePixelRatio)
+      const bufferH = Math.round(canvasH * devicePixelRatio)
+
+      if (canvas.width !== bufferW || canvas.height !== bufferH) {
+        canvas.width = bufferW
+        canvas.height = bufferH
+        rendererRef.current?.resize(bufferW, bufferH)
       }
     }
+
     window.addEventListener('resize', handleResize)
     handleResize()
     return () => window.removeEventListener('resize', handleResize)
-  }, [])
+  }, [gameAspectRatio])
 
   // Sync shader preference
   useEffect(() => {
@@ -336,17 +375,21 @@ export const GameWindow: React.FC = () => {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Canvas for native mode rendering */}
+      {/* Canvas container for native mode rendering */}
       {isNative && (
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 w-full h-full object-contain"
-          style={{
-            imageRendering: shader === 'default' ? 'pixelated' : 'auto',
-          }}
-          width={256}
-          height={240}
-        />
+        <div
+          ref={containerRef}
+          className="absolute inset-0 flex items-center justify-center"
+        >
+          <canvas
+            ref={canvasRef}
+            style={{
+              imageRendering: shader === 'default' ? 'pixelated' : 'auto',
+            }}
+            width={256}
+            height={240}
+          />
+        </div>
       )}
 
       {/* Top control bar (draggable title area) */}
