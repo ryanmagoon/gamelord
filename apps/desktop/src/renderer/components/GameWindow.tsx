@@ -345,10 +345,10 @@ export const GameWindow: React.FC = () => {
 
   // Show on mouse move, auto-hide after 3s of inactivity
   const handleMouseMove = useCallback(() => {
-    if (mode !== 'native') return
+    if (mode !== 'native' || isPoweringOn) return
     setShowControls(true)
     scheduleHide()
-  }, [mode, scheduleHide])
+  }, [mode, isPoweringOn, scheduleHide])
 
   const handleMouseLeave = useCallback((event: React.MouseEvent) => {
     if (mode !== 'native' || isPaused) return
