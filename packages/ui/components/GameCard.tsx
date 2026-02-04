@@ -56,9 +56,7 @@ export const GameCard: React.FC<GameCardProps> = ({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-muted flex items-center justify-center">
-              <Play className="h-8 w-8 text-muted-foreground" />
-            </div>
+            <div className="w-full h-full bg-muted" />
           )}
 
           {/* Always visible overlay */}
