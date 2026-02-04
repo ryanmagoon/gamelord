@@ -43,12 +43,12 @@ export const GameCard: React.FC<GameCardProps> = ({
   return (
     <Card
       className={cn(
-        'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg',
+        'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg w-48',
         className
       )}
     >
       <CardContent className="p-0">
-        <div className="border-red-500 aspect-[3/4] relative bg-muted">
+        <div className="aspect-[3/4] relative">
           {game.coverArt ? (
             <img
               src={game.coverArt}
@@ -56,8 +56,8 @@ export const GameCard: React.FC<GameCardProps> = ({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-              <span className="text-xs">No Cover</span>
+            <div className="w-full h-full bg-muted flex items-center justify-center">
+              <Play className="h-8 w-8 text-muted-foreground" />
             </div>
           )}
 
