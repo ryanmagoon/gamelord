@@ -70,7 +70,7 @@ export class GameWindowManager {
       gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
     } else {
       gameWindow.loadFile(
-        path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/index.html`),
+        path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/game-window.html`),
       )
     }
 
@@ -150,7 +150,7 @@ export class GameWindowManager {
       gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
     } else {
       gameWindow.loadFile(
-        path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/index.html`),
+        path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/game-window.html`),
       )
     }
 

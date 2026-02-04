@@ -3,6 +3,9 @@ import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { IPCHandlers } from './main/ipc/handlers';
 
+// Set app name for macOS menu bar (must be called before app is ready)
+app.setName('GameLord');
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
