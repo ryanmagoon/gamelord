@@ -116,9 +116,7 @@ export const GameWindow: React.FC = () => {
 
     api.on('game:mode', (m: string) => {
       setMode(m as 'overlay' | 'native')
-      if (m === 'native') {
-        setShowControls(true) // always show in native mode initially
-      }
+      // Controls start hidden; user reveals them by moving mouse
     })
 
     api.on('overlay:show-controls', (visible: boolean) => {
