@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { expect, within, userEvent, fn } from 'storybook/test';
 import { GameCard } from './GameCard';
 import superMarioBrosBox from '../assets/super-mario-bros-box.png';
 
@@ -72,5 +73,49 @@ export const RecentlyPlayed: Story = {
       playTime: 7200, // 2 hours
     },
     onPlay: () => {},
+  },
+};
+
+/** Test that accessibility features work correctly */
+export const AccessibilityTest: Story = {
+  args: {
+    game: {
+      id: '5',
+      title: 'Test Game',
+      platform: 'NES',
+      romPath: '/roms/test.nes',
+    },
+    onPlay: fn(),
+    onOptions: fn(),
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+
+    // Play button should have aria-label with game title
+    const playButton = canvas.getByRole('button', { name: /play test game/i });
+    await expect(playButton).toBeInTheDocument();
+
+    // Options button should have aria-label with game title
+    const optionsButton = canvas.getByRole('button', { name: /options for test game/i });
+    await expect(optionsButton).toBeInTheDocument();
+
+    // Options button should have focus:opacity-100 for keyboard accessibility
+    await expect(optionsButton.className).toContain('focus:opacity-100');
+
+    // Test keyboard navigation - tab to Play button
+    await userEvent.tab();
+    await expect(playButton).toHaveFocus();
+
+    // Tab to Options button
+    await userEvent.tab();
+    await expect(optionsButton).toHaveFocus();
+
+    // Click Play button and verify callback
+    await userEvent.click(playButton);
+    await expect(args.onPlay).toHaveBeenCalled();
+
+    // Click Options button and verify callback
+    await userEvent.click(optionsButton);
+    await expect(args.onOptions).toHaveBeenCalled();
   },
 };
