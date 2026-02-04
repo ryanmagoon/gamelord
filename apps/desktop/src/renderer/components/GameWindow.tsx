@@ -15,6 +15,7 @@ import {
 import type { Game } from '../../types/library'
 import type { GamelordAPI } from '../types/global'
 import { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from '@gamelord/ui'
+import { CRTPowerOn } from './CRTPowerOn'
 
 // Keyboard → libretro joypad button mapping
 const KEY_MAP: Record<string, number> = {
@@ -52,6 +53,7 @@ export const GameWindow: React.FC = () => {
     return (saved as string) || 'default'
   })
   const [showShaderMenu, setShowShaderMenu] = useState(false)
+  const [isPoweringOn, setIsPoweringOn] = useState(true)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -383,6 +385,11 @@ export const GameWindow: React.FC = () => {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
+      {/* CRT Power-on animation */}
+      {isNative && isPoweringOn && (
+        <CRTPowerOn onComplete={() => setIsPoweringOn(false)} duration={600} />
+      )}
+
       {/* Canvas container for native mode rendering */}
       {isNative && (
         <div
