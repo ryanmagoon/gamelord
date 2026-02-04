@@ -51,7 +51,8 @@ contextBridge.exposeInMainWorld('gamelord', {
       'game:video-frame',
       'game:audio-samples',
       'overlay:show-controls',
-      'core:downloadProgress'
+      'core:downloadProgress',
+      'dialog:showResumeGame'
     ];
 
     if (validChannels.includes(channel)) {
@@ -100,6 +101,8 @@ contextBridge.exposeInMainWorld('gamelord', {
   // Dialog
   dialog: {
     selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
-    selectRomFile: (systemId: string) => ipcRenderer.invoke('dialog:selectRomFile', systemId)
+    selectRomFile: (systemId: string) => ipcRenderer.invoke('dialog:selectRomFile', systemId),
+    respondResumeGame: (requestId: string, shouldResume: boolean) =>
+      ipcRenderer.send('dialog:resumeGameResponse', requestId, shouldResume)
   }
 });

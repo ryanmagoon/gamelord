@@ -1,11 +1,20 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Button, WebGLRendererComponent, Game as UiGame } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
 import { Monitor, Tv, Sun, Moon } from 'lucide-react'
 import { LibraryView } from './components/LibraryView'
+import { ResumeGameDialog } from './components/ResumeGameDialog'
 import { Game } from '../types/library'
+import type { GamelordAPI } from './types/global'
+
+interface ResumeDialogState {
+  open: boolean
+  requestId: string
+  gameTitle: string
+}
 
 function App() {
+  const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentGame, setCurrentGame] = useState<Game | null>(null)
   const { isReady, currentShader, handleRendererReady, changeShader } =
@@ -13,6 +22,33 @@ function App() {
   const [isDark, setIsDark] = useState(
     () => document.documentElement.classList.contains('dark'),
   )
+  const [resumeDialog, setResumeDialog] = useState<ResumeDialogState>({
+    open: false,
+    requestId: '',
+    gameTitle: '',
+  })
+
+  // Listen for resume game dialog requests from main process
+  useEffect(() => {
+    const handleShowResumeDialog = (data: { requestId: string; gameTitle: string }) => {
+      setResumeDialog({
+        open: true,
+        requestId: data.requestId,
+        gameTitle: data.gameTitle,
+      })
+    }
+
+    api.on('dialog:showResumeGame', handleShowResumeDialog)
+
+    return () => {
+      api.removeAllListeners('dialog:showResumeGame')
+    }
+  }, [api])
+
+  const handleResumeDialogResponse = useCallback((shouldResume: boolean) => {
+    api.dialog.respondResumeGame(resumeDialog.requestId, shouldResume)
+    setResumeDialog({ open: false, requestId: '', gameTitle: '' })
+  }, [api, resumeDialog.requestId])
 
   const toggleTheme = useCallback(() => {
     const next = !isDark
@@ -23,9 +59,8 @@ function App() {
 
   const handlePlayGame = async (game: UiGame) => {
     try {
-
       // Launch game with native emulator (RetroArch)
-      const result = await window.gamelord.emulator.launch(
+      const result = await api.emulator.launch(
         game.romPath,
         game.platform // systemId like 'nes', 'snes', etc.
       )
@@ -45,7 +80,7 @@ function App() {
 
   const handleStop = async () => {
     try {
-      await window.gamelord.emulator.stop()
+      await api.emulator.stop()
       setIsPlaying(false)
     } catch (error) {
       console.error('Error stopping emulator:', error)
@@ -99,6 +134,14 @@ function App() {
       <div className="flex-1 overflow-hidden">
         <LibraryView onPlayGame={handlePlayGame} />
       </div>
+
+      {/* Resume game dialog */}
+      <ResumeGameDialog
+        open={resumeDialog.open}
+        gameTitle={resumeDialog.gameTitle}
+        onResume={() => handleResumeDialogResponse(true)}
+        onStartFresh={() => handleResumeDialogResponse(false)}
+      />
     </div>
   )
 }

@@ -47,6 +47,7 @@ export interface GamelordAPI {
   dialog: {
     selectDirectory: () => Promise<string | null>
     selectRomFile: (systemId: string) => Promise<string | null>
+    respondResumeGame: (requestId: string, shouldResume: boolean) => void
   }
 
   // Game window controls
