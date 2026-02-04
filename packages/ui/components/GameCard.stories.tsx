@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { GameCard } from './GameCard';
+import superMarioBrosBox from '../assets/super-mario-bros-box.png';
 
 const meta = {
   title: 'Components/GameCard',
@@ -24,6 +25,7 @@ export const Default: Story = {
       title: 'Super Mario Bros.',
       platform: 'NES',
       genre: 'Platform',
+      coverArt: superMarioBrosBox,
       romPath: '/roms/smb.nes',
     },
     onPlay: () => {},
@@ -37,7 +39,7 @@ export const WithCoverArt: Story = {
       title: 'The Legend of Zelda',
       platform: 'NES',
       genre: 'Adventure',
-      coverArt: 'https://via.placeholder.com/300x400',
+      coverArt: superMarioBrosBox,
       romPath: '/roms/zelda.nes',
     },
     onPlay: () => {},
@@ -64,7 +66,7 @@ export const RecentlyPlayed: Story = {
       title: 'Sonic the Hedgehog',
       platform: 'Genesis',
       genre: 'Platform',
-      coverArt: 'https://via.placeholder.com/300x400',
+      coverArt: superMarioBrosBox,
       romPath: '/roms/sonic.md',
       lastPlayed: new Date(),
       playTime: 7200, // 2 hours

@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 
+/* Tell Tailwind where to scan for class usage */
+@source "./components/**/*.{js,ts,jsx,tsx}";
+@source "./utils.ts";
+
 /* Tailwind v4 + shadcn/ui setup */
 :root {
   --background: hsl(0 0% 100%);
