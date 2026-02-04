@@ -63,25 +63,33 @@ function loadNativeAddon(): NativeAddon {
   const possiblePaths = [
     // Development: node-gyp build output
     path.join(__dirname, '../../native/build/Release/gamelord_libretro.node'),
-    // Packaged: alongside the app
-    path.join(process.resourcesPath || '', 'native/gamelord_libretro.node'),
+    // Packaged: extraResource places it directly in Resources/
+    path.join(process.resourcesPath || '', 'gamelord_libretro.node'),
     // Fallback: relative to app root
     path.join(app.getAppPath(), 'native/build/Release/gamelord_libretro.node'),
   ]
 
+  const errors: string[] = []
   for (const p of possiblePaths) {
-    try {
-      if (fs.existsSync(p)) {
-        return require(p) as NativeAddon
+    const exists = fs.existsSync(p)
+    console.log(`[LibretroNativeCore] Trying path: ${p} (exists: ${exists})`)
+    if (exists) {
+      try {
+        const addon = require(p) as NativeAddon
+        console.log(`[LibretroNativeCore] Successfully loaded from: ${p}`)
+        return addon
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err)
+        console.error(`[LibretroNativeCore] Failed to require ${p}: ${errMsg}`)
+        errors.push(`${p}: ${errMsg}`)
       }
-    } catch {
-      // Try next path
     }
   }
 
   throw new Error(
     'Failed to load libretro native addon. Searched:\n' +
-    possiblePaths.join('\n')
+    possiblePaths.join('\n') +
+    (errors.length > 0 ? '\n\nErrors:\n' + errors.join('\n') : '')
   )
 }
 

@@ -12,6 +12,9 @@ const config: ForgeConfig = {
     asar: {
       unpack: '**/*.node',
     },
+    extraResource: [
+      './native/build/Release/gamelord_libretro.node',
+    ],
     appBundleId: 'com.gamelord.app',
     appCategoryType: 'public.app-category.games',
     appCopyright: 'Copyright © 2025 GameLord',
@@ -69,7 +72,8 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      // Disabled: native modules and libretro cores must load from outside asar
+      [FuseV1Options.OnlyLoadAppFromAsar]: false,
     }),
   ],
 };
