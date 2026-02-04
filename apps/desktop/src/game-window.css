@@ -1,4 +1,11 @@
 @import "tailwindcss";
+@import "@gamelord/ui/theme.css";
+
+/* Scan local game-window components */
+@source "./game-window/**/*.{js,ts,jsx,tsx}";
+/* Scan UI package components (from src/, go up 3 levels to monorepo root) */
+@source "../../../packages/ui/components/**/*.{js,ts,jsx,tsx}";
+@source "../../../packages/ui/utils.ts";
 
 /* Window drag region utilities */
 @utility drag-region {
