@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { GameLibrary, Button, Badge } from '@gamelord/ui'
+import { GameLibrary, Button, Badge, type GameCardMenuItem } from '@gamelord/ui'
 import { Plus, FolderOpen, RefreshCw, Download } from 'lucide-react'
 import type { Game, Game as UiGame } from '@gamelord/ui'
 import type { Game as AppGame, GameSystem } from '../../types/library'
@@ -16,7 +16,8 @@ interface CoreDownloadProgress {
 
 export const LibraryView: React.FC<{
   onPlayGame: (game: Game) => void
-}> = ({ onPlayGame }) => {
+  getMenuItems?: (game: Game) => GameCardMenuItem[]
+}> = ({ onPlayGame, getMenuItems }) => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
 
   const [games, setGames] = useState<AppGame[]>([])
@@ -282,6 +283,7 @@ export const LibraryView: React.FC<{
               void handlePlayUiGame(g)
             }}
             onGameOptions={handleUiGameOptions}
+            getMenuItems={getMenuItems}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">

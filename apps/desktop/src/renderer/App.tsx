@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { Button, WebGLRendererComponent, Game as UiGame } from '@gamelord/ui'
+import { Button, WebGLRendererComponent, Game as UiGame, type GameCardMenuItem } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
-import { Monitor, Tv, Sun, Moon } from 'lucide-react'
+import { Monitor, Tv, Sun, Moon, Cpu } from 'lucide-react'
 import { LibraryView } from './components/LibraryView'
 import { ResumeGameDialog } from './components/ResumeGameDialog'
 import { CoreSelectDialog } from './components/CoreSelectDialog'
@@ -162,6 +162,43 @@ function App() {
     setCoreSelectDialog((previous) => ({ ...previous, open: false, pendingGame: null }))
   }
 
+  /**
+   * Opens the core selection dialog for a game, clearing any saved preference
+   * so the user can pick a different core.
+   */
+  const handleChangeCore = async (game: UiGame) => {
+    try {
+      const cores = await api.emulator.getCoresForSystem(game.platform)
+      if (cores.length <= 1) return // Nothing to change
+
+      // Clear any saved preference so the dialog doesn't auto-skip
+      localStorage.removeItem(`gamelord:core-preference:${game.platform}`)
+
+      setCoreSelectDialog({
+        open: true,
+        systemId: game.platform,
+        systemName: game.platform.toUpperCase(),
+        cores,
+        pendingGame: game,
+      })
+    } catch (error) {
+      console.error('Error fetching cores:', error)
+    }
+  }
+
+  /** Returns dropdown menu items for a game card. */
+  const getMenuItems = useCallback((game: UiGame): GameCardMenuItem[] => {
+    const items: GameCardMenuItem[] = []
+
+    items.push({
+      label: 'Change Core',
+      icon: <Cpu className="h-4 w-4" />,
+      onClick: () => void handleChangeCore(game),
+    })
+
+    return items
+  }, [])
+
   const handleStop = async () => {
     try {
       await api.emulator.stop()
@@ -216,7 +253,7 @@ function App() {
         </Button>
       </div>
       <div className="flex-1 overflow-hidden">
-        <LibraryView onPlayGame={handlePlayGame} />
+        <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} />
       </div>
 
       {/* Resume game dialog */}
