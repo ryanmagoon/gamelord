@@ -82,9 +82,13 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 - [ ] Recently played tracking
 
 ### Controls & Input
-- [ ] Controller configuration UI (map physical controllers)
-- [ ] Gamepad API support in renderer
-- [ ] Per-game input mappings
+- [ ] Controller configuration UI with 3D interactive controller model
+  - [ ] Three.js rendering of a realistic controller model that the user can rotate/inspect
+  - [ ] Highlight each button on the 3D model as it becomes the active assignment target
+  - [ ] Click-to-assign flow: highlighted button pulses/glows, user presses physical input to bind it
+  - [ ] Support for multiple controller types (Xbox, PlayStation, generic) with matching 3D models
+- [ ] Gamepad API support in renderer — detect connected controllers, read input state
+- [ ] Per-game input mappings — override default bindings on a per-game or per-system basis
 
 ### Rewind
 - [ ] Implement frame-state ring buffer — capture serialized save states every N frames
