@@ -149,23 +149,9 @@ export const LibraryView: React.FC<{
 
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
 
-  const handlePlayUiGame = async (uiGame: UiGame) => {
-    const fullGame = idToGame.get(uiGame.id)
-    if (!fullGame) return
-
-
-    const result = await api.emulator.launch(
-      fullGame.romPath,
-      fullGame.systemId,
-    )
-
-    if (!result.success) {
-      console.error('Failed to launch game:', result.error)
-      const message = result.error?.includes('No known core')
-        ? `No emulator core available for this system. The core could not be downloaded automatically.`
-        : result.error;
-      alert(`Failed to launch ${fullGame.title}: ${message}`)
-    }
+  /** Delegate to the parent's onPlayGame so App.tsx can handle core selection. */
+  const handlePlayUiGame = (uiGame: UiGame) => {
+    onPlayGame(uiGame)
   }
 
   const handleGameOptions = (game: AppGame) => {
