@@ -4,11 +4,15 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('gamelord', {
   // Emulator management
   emulator: {
-    launch: (romPath: string, systemId: string, emulatorId?: string) =>
-      ipcRenderer.invoke('emulator:launch', romPath, systemId, emulatorId),
+    launch: (romPath: string, systemId: string, emulatorId?: string, coreName?: string) =>
+      ipcRenderer.invoke('emulator:launch', romPath, systemId, emulatorId, coreName),
     stop: () => ipcRenderer.invoke('emulator:stop'),
     getAvailable: () => ipcRenderer.invoke('emulator:getAvailable'),
-    isRunning: () => ipcRenderer.invoke('emulator:isRunning')
+    isRunning: () => ipcRenderer.invoke('emulator:isRunning'),
+    getCoresForSystem: (systemId: string) =>
+      ipcRenderer.invoke('emulator:getCoresForSystem', systemId),
+    downloadCore: (coreName: string, systemId: string) =>
+      ipcRenderer.invoke('emulator:downloadCore', coreName, systemId),
   },
 
   // Emulation control

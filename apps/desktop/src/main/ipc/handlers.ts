@@ -25,7 +25,21 @@ export class IPCHandlers {
 
   private setupHandlers(): void {
     // Emulator management
-    ipcMain.handle('emulator:launch', async (event: IpcMainInvokeEvent, romPath: string, systemId: string, emulatorId?: string) => {
+    ipcMain.handle('emulator:getCoresForSystem', async (event: IpcMainInvokeEvent, systemId: string) => {
+      return this.emulatorManager.getCoresForSystem(systemId);
+    });
+
+    ipcMain.handle('emulator:downloadCore', async (event: IpcMainInvokeEvent, coreName: string, systemId: string) => {
+      try {
+        const corePath = await this.emulatorManager.getCoreDownloader().downloadCore(coreName, systemId);
+        return { success: true, corePath };
+      } catch (error) {
+        console.error('Failed to download core:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('emulator:launch', async (event: IpcMainInvokeEvent, romPath: string, systemId: string, emulatorId?: string, coreName?: string) => {
       try {
         // Find the game in the library to get full metadata
         const games = this.libraryService.getGames(systemId);
@@ -35,8 +49,8 @@ export class IPCHandlers {
           throw new Error('Game not found in library');
         }
 
-        // Launch the emulator
-        await this.emulatorManager.launchGame(romPath, systemId, emulatorId);
+        // Launch the emulator with optional specific core
+        await this.emulatorManager.launchGame(romPath, systemId, emulatorId, undefined, coreName);
 
         if (this.emulatorManager.isNativeMode()) {
           // Native mode: single window, game renders inside BrowserWindow canvas

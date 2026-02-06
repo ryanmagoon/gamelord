@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { GameCard, Game } from './GameCard';
+import { GameCard, Game, GameCardMenuItem } from './GameCard';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -17,6 +17,8 @@ export interface GameLibraryProps {
   games: Game[];
   onPlayGame: (game: Game) => void;
   onGameOptions?: (game: Game) => void;
+  /** Returns menu items for a specific game's dropdown. */
+  getMenuItems?: (game: Game) => GameCardMenuItem[];
   className?: string;
 }
 
@@ -27,6 +29,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   games,
   onPlayGame,
   onGameOptions,
+  getMenuItems,
   className
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -166,6 +169,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
               game={game}
               onPlay={onPlayGame}
               onOptions={onGameOptions}
+              menuItems={getMenuItems?.(game)}
             />
           ))}
         </div>

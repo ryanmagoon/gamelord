@@ -1,16 +1,26 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { Button, WebGLRendererComponent, Game as UiGame } from '@gamelord/ui'
+import { Button, WebGLRendererComponent, Game as UiGame, type GameCardMenuItem } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
-import { Monitor, Tv, Sun, Moon } from 'lucide-react'
+import { Monitor, Tv, Sun, Moon, Cpu } from 'lucide-react'
 import { LibraryView } from './components/LibraryView'
 import { ResumeGameDialog } from './components/ResumeGameDialog'
+import { CoreSelectDialog } from './components/CoreSelectDialog'
 import { Game } from '../types/library'
-import type { GamelordAPI } from './types/global'
+import type { GamelordAPI, CoreInfo } from './types/global'
 
 interface ResumeDialogState {
   open: boolean
   requestId: string
   gameTitle: string
+}
+
+interface CoreSelectDialogState {
+  open: boolean
+  systemId: string
+  systemName: string
+  cores: CoreInfo[]
+  /** The game that triggered the core selection dialog. */
+  pendingGame: UiGame | null
 }
 
 function App() {
@@ -26,6 +36,13 @@ function App() {
     open: false,
     requestId: '',
     gameTitle: '',
+  })
+  const [coreSelectDialog, setCoreSelectDialog] = useState<CoreSelectDialogState>({
+    open: false,
+    systemId: '',
+    systemName: '',
+    cores: [],
+    pendingGame: null,
   })
 
   // Listen for resume game dialog requests from main process
@@ -57,18 +74,37 @@ function App() {
     localStorage.setItem('gamelord:theme', next ? 'dark' : 'light')
   }, [isDark])
 
-  const handlePlayGame = async (game: UiGame) => {
+  /** Resolves the machine-readable system ID from a UiGame. */
+  const getSystemId = (game: UiGame) => game.systemId ?? game.platform
+
+  /**
+   * Launches a game with an explicit core name, downloading the core first
+   * if it isn't installed yet.
+   */
+  const launchGameWithCore = async (game: UiGame, coreName?: string) => {
+    const systemId = getSystemId(game)
     try {
-      // Launch game with native emulator (RetroArch)
+      // If a specific core was requested and it isn't installed, download it
+      if (coreName) {
+        const cores = await api.emulator.getCoresForSystem(systemId)
+        const selectedCore = cores.find((core) => core.name === coreName)
+        if (selectedCore && !selectedCore.installed) {
+          const downloadResult = await api.emulator.downloadCore(coreName, systemId)
+          if (!downloadResult.success) {
+            alert(`Failed to download core: ${downloadResult.error}`)
+            return
+          }
+        }
+      }
+
       const result = await api.emulator.launch(
         game.romPath,
-        game.platform // systemId like 'nes', 'snes', etc.
+        systemId,
+        undefined,
+        coreName,
       )
 
-      if (result.success) {
-        // Note: We don't set isPlaying=true because the game runs in a separate window
-        // The emulator (RetroArch) is now running externally
-      } else {
+      if (!result.success) {
         console.error('Failed to launch emulator:', result.error)
         alert(`Failed to launch game: ${result.error}`)
       }
@@ -77,6 +113,97 @@ function App() {
       alert(`Error: ${error}`)
     }
   }
+
+  const handlePlayGame = async (game: UiGame) => {
+    const systemId = getSystemId(game)
+    try {
+      const cores = await api.emulator.getCoresForSystem(systemId)
+
+      // If there are 0 or 1 cores, launch directly (no selection needed)
+      if (cores.length <= 1) {
+        await launchGameWithCore(game, cores[0]?.name)
+        return
+      }
+
+      // Check for a saved core preference
+      const preferenceKey = `gamelord:core-preference:${systemId}`
+      const savedCoreName = localStorage.getItem(preferenceKey)
+
+      if (savedCoreName) {
+        await launchGameWithCore(game, savedCoreName)
+        return
+      }
+
+      // Multiple cores available and no preference saved — show the dialog
+      setCoreSelectDialog({
+        open: true,
+        systemId,
+        systemName: systemId.toUpperCase(),
+        cores,
+        pendingGame: game,
+      })
+    } catch (error) {
+      console.error('Error launching game:', error)
+      alert(`Error: ${error}`)
+    }
+  }
+
+  const handleCoreSelect = async (coreName: string, remember: boolean) => {
+    const { pendingGame, systemId } = coreSelectDialog
+
+    // Close the dialog immediately
+    setCoreSelectDialog((previous) => ({ ...previous, open: false }))
+
+    if (remember) {
+      localStorage.setItem(`gamelord:core-preference:${systemId}`, coreName)
+    }
+
+    if (pendingGame) {
+      await launchGameWithCore(pendingGame, coreName)
+    }
+  }
+
+  const handleCoreSelectCancel = () => {
+    setCoreSelectDialog((previous) => ({ ...previous, open: false, pendingGame: null }))
+  }
+
+  /**
+   * Opens the core selection dialog for a game, clearing any saved preference
+   * so the user can pick a different core.
+   */
+  const handleChangeCore = async (game: UiGame) => {
+    const systemId = getSystemId(game)
+    try {
+      const cores = await api.emulator.getCoresForSystem(systemId)
+      if (cores.length <= 1) return // Nothing to change
+
+      // Clear any saved preference so the dialog doesn't auto-skip
+      localStorage.removeItem(`gamelord:core-preference:${systemId}`)
+
+      setCoreSelectDialog({
+        open: true,
+        systemId,
+        systemName: systemId.toUpperCase(),
+        cores,
+        pendingGame: game,
+      })
+    } catch (error) {
+      console.error('Error fetching cores:', error)
+    }
+  }
+
+  /** Returns dropdown menu items for a game card. */
+  const getMenuItems = useCallback((game: UiGame): GameCardMenuItem[] => {
+    const items: GameCardMenuItem[] = []
+
+    items.push({
+      label: 'Change Core',
+      icon: <Cpu className="h-4 w-4" />,
+      onClick: () => void handleChangeCore(game),
+    })
+
+    return items
+  }, [])
 
   const handleStop = async () => {
     try {
@@ -132,7 +259,7 @@ function App() {
         </Button>
       </div>
       <div className="flex-1 overflow-hidden">
-        <LibraryView onPlayGame={handlePlayGame} />
+        <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} />
       </div>
 
       {/* Resume game dialog */}
@@ -141,6 +268,15 @@ function App() {
         gameTitle={resumeDialog.gameTitle}
         onResume={() => handleResumeDialogResponse(true)}
         onStartFresh={() => handleResumeDialogResponse(false)}
+      />
+
+      {/* Core selection dialog */}
+      <CoreSelectDialog
+        open={coreSelectDialog.open}
+        systemName={coreSelectDialog.systemName}
+        cores={coreSelectDialog.cores}
+        onSelect={handleCoreSelect}
+        onCancel={handleCoreSelectCancel}
       />
     </div>
   )
