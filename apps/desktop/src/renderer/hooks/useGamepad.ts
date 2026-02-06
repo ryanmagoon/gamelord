@@ -90,7 +90,8 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
         gamepadIndex++
       ) {
         const gamepad = gamepads[gamepadIndex]
-        if (!gamepad || gamepad.mapping !== 'standard') continue
+        if (!gamepad) continue
+        if (gamepad.mapping !== 'standard') continue
 
         const port = gamepadIndex
         let previousState = previousStatesRef.current.get(gamepadIndex)
@@ -162,7 +163,7 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
   }, [])
 
   useEffect(() => {
-    const handleConnect = () => {
+    const handleConnect = (event: GamepadEvent) => {
       setConnectedCount((count) => count + 1)
     }
 
@@ -184,7 +185,9 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
     const existingGamepads = navigator.getGamepads()
     let initialCount = 0
     for (const gamepad of existingGamepads) {
-      if (gamepad) initialCount++
+      if (gamepad) {
+        initialCount++
+      }
     }
     if (initialCount > 0) {
       setConnectedCount(initialCount)

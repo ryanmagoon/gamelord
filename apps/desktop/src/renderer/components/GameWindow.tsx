@@ -41,7 +41,7 @@ export const GameWindow: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false)
   const [showControls, setShowControls] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState(0)
-  const [mode, setMode] = useState<'overlay' | 'native'>('overlay')
+  const [mode, setMode] = useState<'overlay' | 'native'>('native')
   const [volume, setVolume] = useState(() => {
     const saved = localStorage.getItem('gamelord:volume')
     return saved !== null ? parseFloat(saved) : 0.5
