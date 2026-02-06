@@ -87,7 +87,7 @@ apps/desktop/src/preload.ts   - Renderer API bridge
   - [ ] Highlight each button on the 3D model as it becomes the active assignment target
   - [ ] Click-to-assign flow: highlighted button pulses/glows, user presses physical input to bind it
   - [ ] Support for multiple controller types (Xbox, PlayStation, generic) with matching 3D models
-- [ ] Gamepad API support in renderer — detect connected controllers, read input state
+- [x] Gamepad API support in renderer — detect connected controllers, read input state
 - [ ] Per-game input mappings — override default bindings on a per-game or per-system basis
 
 ### Rewind
