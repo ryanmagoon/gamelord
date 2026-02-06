@@ -15,6 +15,8 @@ export interface Game {
   id: string
   title: string
   platform: string
+  /** Machine-readable system identifier (e.g. "snes", "nes"). Used for launch. */
+  systemId?: string
   genre?: string
   coverArt?: string
   romPath: string

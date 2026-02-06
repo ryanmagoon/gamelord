@@ -74,18 +74,22 @@ function App() {
     localStorage.setItem('gamelord:theme', next ? 'dark' : 'light')
   }, [isDark])
 
+  /** Resolves the machine-readable system ID from a UiGame. */
+  const getSystemId = (game: UiGame) => game.systemId ?? game.platform
+
   /**
    * Launches a game with an explicit core name, downloading the core first
    * if it isn't installed yet.
    */
   const launchGameWithCore = async (game: UiGame, coreName?: string) => {
+    const systemId = getSystemId(game)
     try {
       // If a specific core was requested and it isn't installed, download it
       if (coreName) {
-        const cores = await api.emulator.getCoresForSystem(game.platform)
+        const cores = await api.emulator.getCoresForSystem(systemId)
         const selectedCore = cores.find((core) => core.name === coreName)
         if (selectedCore && !selectedCore.installed) {
-          const downloadResult = await api.emulator.downloadCore(coreName, game.platform)
+          const downloadResult = await api.emulator.downloadCore(coreName, systemId)
           if (!downloadResult.success) {
             alert(`Failed to download core: ${downloadResult.error}`)
             return
@@ -95,7 +99,7 @@ function App() {
 
       const result = await api.emulator.launch(
         game.romPath,
-        game.platform,
+        systemId,
         undefined,
         coreName,
       )
@@ -111,8 +115,9 @@ function App() {
   }
 
   const handlePlayGame = async (game: UiGame) => {
+    const systemId = getSystemId(game)
     try {
-      const cores = await api.emulator.getCoresForSystem(game.platform)
+      const cores = await api.emulator.getCoresForSystem(systemId)
 
       // If there are 0 or 1 cores, launch directly (no selection needed)
       if (cores.length <= 1) {
@@ -121,7 +126,7 @@ function App() {
       }
 
       // Check for a saved core preference
-      const preferenceKey = `gamelord:core-preference:${game.platform}`
+      const preferenceKey = `gamelord:core-preference:${systemId}`
       const savedCoreName = localStorage.getItem(preferenceKey)
 
       if (savedCoreName) {
@@ -132,8 +137,8 @@ function App() {
       // Multiple cores available and no preference saved — show the dialog
       setCoreSelectDialog({
         open: true,
-        systemId: game.platform,
-        systemName: game.platform.toUpperCase(),
+        systemId,
+        systemName: systemId.toUpperCase(),
         cores,
         pendingGame: game,
       })
@@ -167,17 +172,18 @@ function App() {
    * so the user can pick a different core.
    */
   const handleChangeCore = async (game: UiGame) => {
+    const systemId = getSystemId(game)
     try {
-      const cores = await api.emulator.getCoresForSystem(game.platform)
+      const cores = await api.emulator.getCoresForSystem(systemId)
       if (cores.length <= 1) return // Nothing to change
 
       // Clear any saved preference so the dialog doesn't auto-skip
-      localStorage.removeItem(`gamelord:core-preference:${game.platform}`)
+      localStorage.removeItem(`gamelord:core-preference:${systemId}`)
 
       setCoreSelectDialog({
         open: true,
-        systemId: game.platform,
-        systemName: game.platform.toUpperCase(),
+        systemId,
+        systemName: systemId.toUpperCase(),
         cores,
         pendingGame: game,
       })

@@ -273,6 +273,7 @@ export const LibraryView: React.FC<{
               id: game.id,
               title: game.title,
               platform: game.system,
+              systemId: game.systemId,
               genre: game.metadata?.genre,
               coverArt: game.coverArt,
               romPath: game.romPath,
