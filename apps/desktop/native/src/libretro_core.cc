@@ -713,6 +713,10 @@ void LibretroCore::AudioSampleCallback(int16_t left, int16_t right) {
   if (!self) return;
 
   std::lock_guard<std::mutex> lock(self->audio_mutex_);
+  if (self->audio_buffer_.size() >= MAX_AUDIO_BUFFER_SAMPLES) {
+    // Drop oldest samples to make room
+    self->audio_buffer_.erase(self->audio_buffer_.begin(), self->audio_buffer_.begin() + 2);
+  }
   self->audio_buffer_.push_back(left);
   self->audio_buffer_.push_back(right);
 }
@@ -722,9 +726,23 @@ size_t LibretroCore::AudioSampleBatchCallback(const int16_t *data, size_t frames
   if (!self || !data) return 0;
 
   std::lock_guard<std::mutex> lock(self->audio_mutex_);
-  // Stereo: frames * 2 samples
-  self->audio_buffer_.insert(self->audio_buffer_.end(), data, data + frames * 2);
+  size_t incoming = frames * 2; // stereo samples
+  size_t currentSize = self->audio_buffer_.size();
 
+  // If adding these samples would exceed the cap, drop oldest to make room
+  if (currentSize + incoming > MAX_AUDIO_BUFFER_SAMPLES) {
+    size_t excess = (currentSize + incoming) - MAX_AUDIO_BUFFER_SAMPLES;
+    if (excess >= currentSize) {
+      // Incoming data alone exceeds buffer — replace entirely, keep only the tail
+      self->audio_buffer_.clear();
+      size_t offset = incoming - MAX_AUDIO_BUFFER_SAMPLES;
+      self->audio_buffer_.insert(self->audio_buffer_.end(), data + offset, data + incoming);
+      return frames;
+    }
+    self->audio_buffer_.erase(self->audio_buffer_.begin(), self->audio_buffer_.begin() + excess);
+  }
+
+  self->audio_buffer_.insert(self->audio_buffer_.end(), data, data + incoming);
   return frames;
 }
 
