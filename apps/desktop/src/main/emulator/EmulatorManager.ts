@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { EmulatorCore, EmulatorInfo } from './EmulatorCore';
 import { RetroArchCore } from './RetroArchCore';
 import { LibretroNativeCore } from './LibretroNativeCore';
-import { CoreDownloader } from './CoreDownloader';
+import { CoreDownloader, CoreInfo } from './CoreDownloader';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -124,9 +124,18 @@ export class EmulatorManager extends EventEmitter {
   }
 
   /**
-   * Launch a game with the specified emulator and system
+   * Returns info about all known cores for a system, including
+   * display name, description, and installation status.
    */
-  async launchGame(romPath: string, systemId: string, emulatorId?: string, extraArgs?: string[]): Promise<void> {
+  getCoresForSystem(systemId: string): CoreInfo[] {
+    return this.coreDownloader.getCoresForSystem(systemId);
+  }
+
+  /**
+   * Launch a game with the specified emulator and system.
+   * When coreName is provided, that specific core is used instead of auto-selection.
+   */
+  async launchGame(romPath: string, systemId: string, emulatorId?: string, extraArgs?: string[], coreName?: string): Promise<void> {
     // Close current emulator if running
     if (this.currentEmulator?.isActive()) {
       await this.currentEmulator.terminate();
@@ -150,10 +159,18 @@ export class EmulatorManager extends EventEmitter {
     // Get core path for the system (RetroArch or native libretro)
     const options: any = {};
     if (emulatorInfo.type === 'retroarch' || emulatorInfo.type === 'libretro-native') {
-      options.corePath = this.getCorePathForSystem(systemId);
-      if (!options.corePath) {
-        // Auto-download the core
-        options.corePath = await this.coreDownloader.downloadCoreForSystem(systemId);
+      if (coreName) {
+        // Use the specific core requested by the user
+        options.corePath = this.coreDownloader.getCorePath(coreName);
+        if (!options.corePath) {
+          options.corePath = await this.coreDownloader.downloadCore(coreName, systemId);
+        }
+      } else {
+        options.corePath = this.getCorePathForSystem(systemId);
+        if (!options.corePath) {
+          // Auto-download the preferred core
+          options.corePath = await this.coreDownloader.downloadCoreForSystem(systemId);
+        }
       }
     }
 
