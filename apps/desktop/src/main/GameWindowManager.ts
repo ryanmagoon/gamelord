@@ -309,6 +309,8 @@ export class GameWindowManager {
     const sampleRate = avInfo?.timing.sampleRate || 44100
 
     let lastTime = performance.now()
+    let consecutiveErrors = 0
+    const MAX_CONSECUTIVE_ERRORS = 5
 
     const tick = () => {
       if (win.isDestroyed()) return
@@ -319,7 +321,24 @@ export class GameWindowManager {
       if (elapsed >= frameTimeMs) {
         lastTime = now - (elapsed % frameTimeMs) // account for drift
 
-        core.runFrame()
+        try {
+          core.runFrame()
+          consecutiveErrors = 0
+        } catch (error) {
+          consecutiveErrors++
+          console.error(`Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, error)
+
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            console.error('Emulation loop terminated after repeated frame errors')
+            this.stopEmulationLoop(gameId)
+            if (!win.isDestroyed()) {
+              win.webContents.send('game:emulation-error', {
+                message: `Emulation crashed: ${error instanceof Error ? error.message : String(error)}`,
+              })
+            }
+            return
+          }
+        }
 
         const frame = core.getVideoFrame()
         const audio = core.getAudioBuffer()
