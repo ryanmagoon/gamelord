@@ -87,7 +87,7 @@ apps/desktop/src/preload.ts   - Renderer API bridge
   - [ ] Highlight each button on the 3D model as it becomes the active assignment target
   - [ ] Click-to-assign flow: highlighted button pulses/glows, user presses physical input to bind it
   - [ ] Support for multiple controller types (Xbox, PlayStation, generic) with matching 3D models
-- [ ] Gamepad API support in renderer — detect connected controllers, read input state
+- [x] Gamepad API support in renderer — detect connected controllers, read input state
 - [ ] Per-game input mappings — override default bindings on a per-game or per-system basis
 
 ### Rewind
@@ -102,6 +102,15 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 - [ ] Rollback-based netcode using save state serialization for latency hiding
 - [ ] Friend list and invite system
 - [ ] Per-game netplay compatibility metadata (supported cores, input latency settings)
+
+### Developer Tools
+- [ ] Toggleable debug overlay for the game window (keyboard shortcut or settings toggle)
+  - [ ] Input state: show which buttons/axes are active in real time (gamepad and keyboard)
+  - [ ] Emulation stats: FPS, frame time, audio buffer health, dropped frames
+  - [ ] IPC monitor: visualize game:input, game:video-frame, game:audio-samples throughput
+  - [ ] Gamepad inspector: connected controllers, mapping type, raw button/axis values
+  - [ ] Mode/state readout: current mode, paused state, active core, ROM info
+- [ ] Persist debug overlay preferences in localStorage
 
 ### UI Polish
 - [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers)
@@ -133,3 +142,4 @@ ARM64 cores from: `https://buildbot.libretro.com/nightly/apple/osx/arm64/latest/
 ### Known Issues
 - Mesen core fails to load games via the native addon (works in standalone C test). Use fceumm instead.
 - `node-gyp` v5.0.6 bundled with npm is incompatible with Node 24; must use `npx node-gyp` (v10+).
+- Hard-refreshing the game window causes the emulation to run at uncapped speed (the main-process emulation loop keeps pushing frames while the renderer resets its state).
