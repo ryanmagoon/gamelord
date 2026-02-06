@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useGamepad } from '../useGamepad'
-import { LIBRETRO_BUTTON } from '../../lib/gamepad/mappings'
+import { useGamepad } from './useGamepad'
+import { LIBRETRO_BUTTON } from '../lib/gamepad/mappings'
 
 type GameInputFn = (port: number, id: number, pressed: boolean) => void
 

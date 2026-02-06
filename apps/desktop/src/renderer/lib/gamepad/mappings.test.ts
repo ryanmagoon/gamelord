@@ -3,7 +3,7 @@ import {
   STANDARD_GAMEPAD_MAPPING,
   LIBRETRO_BUTTON,
   ANALOG_DEADZONE,
-} from '../mappings'
+} from './mappings'
 
 describe('STANDARD_GAMEPAD_MAPPING', () => {
   it('has 16 entries matching the W3C standard gamepad layout', () => {
