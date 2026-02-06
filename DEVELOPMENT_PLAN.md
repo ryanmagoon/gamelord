@@ -116,6 +116,7 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 - [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers)
 - [x] Shader/filter selection (CRT, CRT Aperture, Scanlines, LCD, Sharp Bilinear via WebGL2)
 - [ ] Explore loading Slang (.slang/.slangp) shaders from the libretro shader ecosystem
+- [ ] Persist shader choice per core (e.g. CRT for SNES/snes9x, Sharp Bilinear for GBA/mgba)
 - [x] Dark mode (default) with light/dark toggle and localStorage persistence
 - [ ] Screenshot gallery per game
 - [ ] Playtime tracking and statistics
