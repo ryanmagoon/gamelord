@@ -11,11 +11,13 @@ import {
   VolumeX,
   Settings,
   Monitor,
+  Gamepad2,
 } from 'lucide-react'
 import type { Game } from '../../types/library'
 import type { GamelordAPI } from '../types/global'
 import { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from '@gamelord/ui'
 import { CRTPowerOn } from './CRTPowerOn'
+import { useGamepad } from '../hooks/useGamepad'
 
 // Keyboard → libretro joypad button mapping
 const KEY_MAP: Record<string, number> = {
@@ -62,6 +64,12 @@ export const GameWindow: React.FC = () => {
   const audioNextTimeRef = useRef(0)
   const gainNodeRef = useRef<GainNode | null>(null)
   const [gameAspectRatio, setGameAspectRatio] = useState<number | null>(null)
+
+  // Gamepad polling — uses same api.gameInput() pipeline as keyboard
+  const { connectedCount: connectedGamepads } = useGamepad({
+    gameInput: api.gameInput,
+    enabled: mode === 'native' && !isPaused,
+  })
 
   // Resize handler extracted so it can be called from multiple places
   const updateCanvasSize = useCallback(() => {
@@ -553,6 +561,14 @@ export const GameWindow: React.FC = () => {
                 </div>
               )}
             </div>
+            {connectedGamepads > 0 && (
+              <div
+                className="flex items-center gap-1 text-green-400 px-1"
+                title={`${connectedGamepads} gamepad${connectedGamepads > 1 ? 's' : ''} connected`}
+              >
+                <Gamepad2 className="h-4 w-4" />
+              </div>
+            )}
             <Button
               variant="ghost"
               size="sm"
