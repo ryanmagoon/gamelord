@@ -133,3 +133,4 @@ ARM64 cores from: `https://buildbot.libretro.com/nightly/apple/osx/arm64/latest/
 ### Known Issues
 - Mesen core fails to load games via the native addon (works in standalone C test). Use fceumm instead.
 - `node-gyp` v5.0.6 bundled with npm is incompatible with Node 24; must use `npx node-gyp` (v10+).
+- Hard-refreshing the game window causes the emulation to run at uncapped speed (the main-process emulation loop keeps pushing frames while the renderer resets its state).
