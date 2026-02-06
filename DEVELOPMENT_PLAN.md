@@ -63,43 +63,72 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 
 ## TODO
 
-### Performance & Quality
-- [ ] Add structured logging system (log levels, categories, file output) to replace ad-hoc console.error/warn
-- [ ] Investigate SharedArrayBuffer for zero-copy frame transfer (eliminate Buffer serialization)
-- [ ] Audio resampling — handle cases where core sample rate differs from AudioContext
-- [ ] Frame skipping / frame pacing improvements if display refresh != core FPS
+Items are grouped by priority. Work top-down within each tier.
 
-### Multi-System Support
+### P0 — Critical (fix before any new features)
+
+- [x] **CI/CD pipeline** — GitHub Actions workflow: lint, type-check, test, native addon build on every PR
+- [x] **Emulation loop error handling** — Wrap `core.runFrame()` in try-catch in `GameWindowManager.ts`; stop loop and notify renderer on crash instead of silently freezing
+- [x] **Bounded audio buffer** — Replace unbounded `std::vector` insert in `libretro_core.cc` with a fixed-size circular buffer to prevent memory exhaustion when renderer falls behind
+- [x] **Path validation** — Validate `romPath` and `corePath` are within expected directories before passing to `dlopen()` and filesystem operations; prevent path traversal
+
+### P1 — High Priority (stability & correctness)
+
+- [ ] **Structured logging** — Replace ad-hoc `console.error`/`console.warn` with a logging library (e.g. `electron-log` or `pino`); add log levels, categories, and file output
+- [ ] **Route native addon logs to Node.js** — Replace `fprintf(stderr, ...)` in `libretro_core.cc` with N-API event emission so logs appear in the structured logging system
+- [ ] **Test suite — IPC handlers** — Mock native addon, verify correct dispatch and error responses
+- [ ] **Test suite — LibraryService** — Scanning, deduplication, game ID generation, edge cases
+- [ ] **Test suite — LibretroNativeCore** — Save state round-trip, SRAM persistence, error recovery
+- [ ] **Test suite — WebGL renderer** — Shader compilation, preset switching, fallback behavior
+- [ ] **Fix test environment** — Switch vitest config from jsdom to happy-dom (per project conventions)
+- [ ] **Fix game ID hashing** — Replace `MD5(romPath)` in `LibraryService.ts` with `SHA-256(fileContent)` so IDs survive file moves
+
+### P2 — Performance
+
+- [ ] **Worker thread emulation** — Move emulation loop from main process `setTimeout` to a dedicated Worker thread; finish the `core-worker.ts` stub
+- [ ] **SharedArrayBuffer for frame transfer** — Zero-copy video/audio push between worker and renderer (unlocked by worker thread migration)
+- [ ] **Lock-free audio buffer** — Replace `std::mutex`-guarded audio buffer in native addon with a lock-free SPSC ring buffer
+- [ ] **Audio resampling** — Handle cases where core sample rate differs from `AudioContext.sampleRate`
+- [ ] **Frame skipping / frame pacing** — Catch-up mechanism when rendering lags; handle display refresh != core FPS
+
+### P3 — Multi-System Support
+
 - [ ] Install and test additional cores (SNES: snes9x/bsnes, Genesis: genesis_plus_gx, GB/GBA: mgba/gambatte)
 - [ ] Update ROM scanner to detect multiple system types
 - [ ] Add system badges/icons to library UI
+- [ ] Remove C++ singleton constraint (`LibretroCore::s_instance`) to allow multiple core instances
 
-### Library & Metadata
+### P4 — Library & Metadata
+
 - [ ] Integrate metadata API (TheGamesDB or IGDB) for cover art and game info
 - [ ] Cover art downloading and caching
 - [ ] Grid view with cover art thumbnails
 - [ ] Search, filter, and sorting
 - [ ] Recently played tracking
 
-### Controls & Input
+### P5 — Controls & Input
+
 - [ ] Controller configuration UI (map physical controllers)
 - [ ] Gamepad API support in renderer
 - [ ] Per-game input mappings
 
-### Rewind
+### P6 — Rewind
+
 - [ ] Implement frame-state ring buffer — capture serialized save states every N frames
 - [ ] Hold-to-rewind input binding (rewind button replays buffered states in reverse)
 - [ ] Configurable rewind buffer duration and granularity
 - [ ] Visual rewind indicator in the game window overlay
 
-### Online Multiplayer
+### P7 — Online Multiplayer
+
 - [ ] Netplay architecture — relay server for input synchronization between peers
 - [ ] Lobby system with room codes for creating/joining sessions
 - [ ] Rollback-based netcode using save state serialization for latency hiding
 - [ ] Friend list and invite system
 - [ ] Per-game netplay compatibility metadata (supported cores, input latency settings)
 
-### UI Polish
+### P8 — UI Polish
+
 - [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers)
 - [x] Shader/filter selection (CRT, CRT Aperture, Scanlines, LCD, Sharp Bilinear via WebGL2)
 - [ ] Explore loading Slang (.slang/.slangp) shaders from the libretro shader ecosystem
@@ -108,10 +137,17 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 - [ ] Playtime tracking and statistics
 - [ ] Settings panel
 
-### Packaging & Distribution
+### P9 — Packaging & Distribution
+
 - [ ] Bundle libretro cores with the app
 - [ ] Package as DMG for macOS
 - [ ] Auto-update mechanism
+
+### P10 — Native Addon Hardening
+
+- [ ] **Enable C++ exceptions or remove STL** — `NAPI_DISABLE_CPP_EXCEPTIONS` is set but `std::vector` can throw on allocation failure; either enable exceptions or use pre-allocated fixed buffers
+- [ ] **Cross-platform path handling** — Abstract macOS-specific paths (e.g. `/Applications/RetroArch.app/...` in `EmulatorManager.ts`) behind platform detection
+- [ ] **Pin dependency versions** — Replace `^` ranges in `package.json` with exact versions to prevent surprise breakages (especially Tailwind CSS v4)
 
 ---
 
