@@ -103,6 +103,15 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 - [ ] Friend list and invite system
 - [ ] Per-game netplay compatibility metadata (supported cores, input latency settings)
 
+### Developer Tools
+- [ ] Toggleable debug overlay for the game window (keyboard shortcut or settings toggle)
+  - [ ] Input state: show which buttons/axes are active in real time (gamepad and keyboard)
+  - [ ] Emulation stats: FPS, frame time, audio buffer health, dropped frames
+  - [ ] IPC monitor: visualize game:input, game:video-frame, game:audio-samples throughput
+  - [ ] Gamepad inspector: connected controllers, mapping type, raw button/axis values
+  - [ ] Mode/state readout: current mode, paused state, active core, ROM info
+- [ ] Persist debug overlay preferences in localStorage
+
 ### UI Polish
 - [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers)
 - [x] Shader/filter selection (CRT, CRT Aperture, Scanlines, LCD, Sharp Bilinear via WebGL2)
