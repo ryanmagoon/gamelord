@@ -15,7 +15,8 @@ import {
 import type { Game } from '../../types/library'
 import type { GamelordAPI } from '../types/global'
 import { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from '@gamelord/ui'
-import { CRTPowerOn } from './CRTPowerOn'
+import { PowerAnimation } from './animations'
+import { getDisplayType } from '../../types/displayType'
 
 // Keyboard → libretro joypad button mapping
 const KEY_MAP: Record<string, number> = {
@@ -54,6 +55,7 @@ export const GameWindow: React.FC = () => {
   })
   const [showShaderMenu, setShowShaderMenu] = useState(false)
   const [isPoweringOn, setIsPoweringOn] = useState(true)
+  const [isPoweringOff, setIsPoweringOff] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -125,6 +127,10 @@ export const GameWindow: React.FC = () => {
 
     api.on('emulator:paused', () => setIsPaused(true))
     api.on('emulator:resumed', () => setIsPaused(false))
+
+    api.on('game:prepare-close', () => {
+      setIsPoweringOff(true)
+    })
 
     api.on('game:av-info', (avInfo: any) => {
       const canvas = canvasRef.current
@@ -212,6 +218,7 @@ export const GameWindow: React.FC = () => {
       api.removeAllListeners('game:av-info')
       api.removeAllListeners('game:video-frame')
       api.removeAllListeners('game:audio-samples')
+      api.removeAllListeners('game:prepare-close')
 
       rendererRef.current?.destroy()
       rendererRef.current = null
@@ -345,10 +352,10 @@ export const GameWindow: React.FC = () => {
 
   // Show on mouse move, auto-hide after 3s of inactivity
   const handleMouseMove = useCallback(() => {
-    if (mode !== 'native' || isPoweringOn) return
+    if (mode !== 'native' || isPoweringOn || isPoweringOff) return
     setShowControls(true)
     scheduleHide()
-  }, [mode, isPoweringOn, scheduleHide])
+  }, [mode, isPoweringOn, isPoweringOff, scheduleHide])
 
   const handleMouseLeave = useCallback((event: React.MouseEvent) => {
     if (mode !== 'native' || isPaused) return
@@ -375,6 +382,7 @@ export const GameWindow: React.FC = () => {
   }
 
   const isNative = mode === 'native'
+  const displayType = getDisplayType(game.systemId)
 
   return (
     <div
@@ -383,9 +391,22 @@ export const GameWindow: React.FC = () => {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
-      {/* CRT Power-on animation */}
+      {/* Power-on animation (system-specific) */}
       {isNative && isPoweringOn && (
-        <CRTPowerOn onComplete={() => setIsPoweringOn(false)} duration={600} />
+        <PowerAnimation
+          displayType={displayType}
+          direction="on"
+          onComplete={() => setIsPoweringOn(false)}
+        />
+      )}
+
+      {/* Power-off / shutdown animation (system-specific) */}
+      {isNative && isPoweringOff && (
+        <PowerAnimation
+          displayType={displayType}
+          direction="off"
+          onComplete={() => api.gameWindow.readyToClose()}
+        />
       )}
 
       {/* Canvas container for native mode rendering */}
