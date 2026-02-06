@@ -2,7 +2,9 @@ import { EventEmitter } from 'events'
 import { EmulatorCore, EmulatorLaunchOptions } from './EmulatorCore'
 import * as path from 'path'
 import * as fs from 'fs'
+import * as os from 'os'
 import { app } from 'electron'
+import { validateCorePath, validateRomPath } from '../utils/pathValidation'
 
 /**
  * Native addon type declarations for the libretro_native module.
@@ -119,6 +121,28 @@ export class LibretroNativeCore extends EmulatorCore {
     fs.mkdirSync(this.sramDir, { recursive: true })
   }
 
+  /**
+   * Directories that are allowed to contain libretro cores.
+   * Cores loaded via dlopen must come from one of these locations.
+   */
+  private getAllowedCoreDirs(): string[] {
+    const dirs = [
+      // App-managed cores directory
+      path.join(app.getPath('userData'), 'cores'),
+    ]
+
+    // RetroArch cores directories (platform-specific)
+    if (process.platform === 'darwin') {
+      dirs.push(path.join(os.homedir(), 'Library/Application Support/RetroArch/cores'))
+    } else if (process.platform === 'win32') {
+      dirs.push(path.join(os.homedir(), 'AppData/Roaming/RetroArch/cores'))
+    } else {
+      dirs.push(path.join(os.homedir(), '.config/retroarch/cores'))
+    }
+
+    return dirs.filter((dir) => fs.existsSync(dir))
+  }
+
   async launch(romPath: string, options: EmulatorLaunchOptions = {}): Promise<void> {
     if (this.isRunning) {
       throw new Error('Emulator is already running')
@@ -129,7 +153,11 @@ export class LibretroNativeCore extends EmulatorCore {
       throw new Error('Core path is required')
     }
 
-    this.romPath = romPath
+    // Validate paths before loading anything
+    const validatedRomPath = validateRomPath(romPath)
+    const validatedCorePath = validateCorePath(corePath, this.getAllowedCoreDirs())
+
+    this.romPath = validatedRomPath
 
     // Load addon
     if (!this.addon) {
@@ -139,7 +167,7 @@ export class LibretroNativeCore extends EmulatorCore {
     this.native = new this.addon.LibretroCore()
 
     // Set directories
-    const systemDir = path.dirname(corePath)
+    const systemDir = path.dirname(validatedCorePath)
     const saveDir = path.join(app.getPath('userData'), 'saves')
     fs.mkdirSync(saveDir, { recursive: true })
 
@@ -147,15 +175,15 @@ export class LibretroNativeCore extends EmulatorCore {
     this.native.setSaveDirectory(saveDir)
 
     // Load core
-    if (!this.native.loadCore(corePath)) {
+    if (!this.native.loadCore(validatedCorePath)) {
       this.cleanup()
-      throw new Error('Failed to load core: ' + corePath)
+      throw new Error('Failed to load core: ' + validatedCorePath)
     }
 
     // Load game
-    if (!this.native.loadGame(romPath)) {
+    if (!this.native.loadGame(validatedRomPath)) {
       this.cleanup()
-      throw new Error('Failed to load game: ' + romPath)
+      throw new Error('Failed to load game: ' + validatedRomPath)
     }
 
     // Load battery-backed SRAM from disk if it exists
@@ -169,7 +197,7 @@ export class LibretroNativeCore extends EmulatorCore {
     // which calls runFrame() at display refresh rate
     this.emulationRunning = true
 
-    this.emit('launched', { romPath, corePath })
+    this.emit('launched', { romPath: validatedRomPath, corePath: validatedCorePath })
   }
 
   /**
