@@ -9,11 +9,11 @@ A modern, elegant emulation frontend built as a spiritual successor to OpenEmu, 
 - 🎮 **Multi-System Support** - Powered by libretro cores for compatibility with multiple gaming systems
 - 🎨 **Beautiful Native UI** - Built with shadcn/ui for a polished, macOS-native appearance
 - 🚀 **High Performance** - WebGL rendering with shader effects and optimized frame timing
-- 🎯 **Smart Library Management** - Automatic ROM scanning, metadata fetching, and cover art
-- 🎛️ **Advanced Controller Support** - Full gamepad configuration with custom mapping profiles
-- 💾 **Save State Management** - Quick save/load with visual previews
-- 🌈 **Visual Effects** - CRT shaders, scanlines, and other retro visual enhancements
-- 🔒 **Secure Architecture** - Process isolation with Electron's UtilityProcess API
+- 🎯 **Library Management** - Automatic ROM scanning with multi-system detection
+- 🎛️ **Keyboard Input** - Configurable keyboard mapping for libretro joypad buttons
+- 💾 **Save State Management** - Quick save/load with multiple slots and autosave on close
+- 🌈 **Visual Effects** - CRT shaders, scanlines, and other retro visual enhancements via WebGL2
+- 🔒 **Secure Architecture** - Context isolation with Electron preload scripts
 
 ## Architecture
 
@@ -22,24 +22,20 @@ GameLord uses a modern, secure architecture with proper process separation:
 ```
 ┌─────────────────────────────────────────┐
 │            Main Process                 │
-│  - Core Manager Service                 │
-│  - File System Operations               │
+│  - Native Addon (libretro core via      │
+│    dlopen + N-API)                      │
+│  - Emulation Loop & Frame Generation    │
+│  - Library & File System Operations     │
 │  - IPC Coordination                     │
 └─────────────────────────────────────────┘
-              │ IPC
+              │ IPC (webContents.send)
 ┌─────────────────────────────────────────┐
 │          Renderer Process               │
 │  - React UI (shadcn/ui)                 │
 │  - Game Library Display                 │
-│  - Settings Management                  │
-│  - WebGL Video Rendering                │
-└─────────────────────────────────────────┘
-              │ MessageChannel
-┌─────────────────────────────────────────┐
-│        UtilityProcess                   │
-│  - Libretro Core Execution              │
-│  - Emulation Loop                       │
-│  - Frame Generation                     │
+│  - WebGL2 Video Rendering + Shaders     │
+│  - Web Audio API Playback               │
+│  - Input Capture & Forwarding           │
 └─────────────────────────────────────────┘
 ```
 
@@ -179,12 +175,12 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 - [x] Initial project setup with Electron Forge
 - [x] React + TypeScript integration
 - [x] shadcn/ui component library
-- [ ] Core emulation integration
-- [ ] ROM library management
+- [x] Core emulation integration
+- [x] ROM library management
 - [ ] Game metadata service
-- [ ] Save state system
+- [x] Save state system
 - [ ] Controller configuration
-- [ ] Shader effects
+- [x] Shader effects
 - [ ] Multi-language support
 
 ## License
