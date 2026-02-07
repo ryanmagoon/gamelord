@@ -111,11 +111,10 @@ const PortablePowerOff: React.FC<{ onComplete: () => void; duration: number }> =
     }
   }, [duration, onComplete])
 
-  if (phase === 'done') return null
-
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
-      {/* White flash layer — fades in over the game */}
+      {/* White flash layer — fades in over the game, stays black through 'done'
+          so the game canvas never flashes through while the OS window fade plays */}
       <div
         className="absolute inset-0 transition-all"
         style={{

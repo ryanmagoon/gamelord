@@ -158,15 +158,13 @@ const LCDPowerOff: React.FC<{ onComplete: () => void; duration: number }> = ({
     }
   }, [duration, onComplete])
 
-  if (phase === 'done') return null
-
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
       {/* Green LCD afterimage layer */}
       <div
         className="absolute inset-0 transition-all"
         style={{
-          backgroundColor: phase === 'off' ? 'black' : LCD_GREEN,
+          backgroundColor: phase === 'off' || phase === 'done' ? 'black' : LCD_GREEN,
           opacity: phase === 'fade-out' ? 0.5 : 1,
           transitionDuration: `${duration * 0.35}ms`,
           transitionTimingFunction: 'ease-in',
@@ -174,9 +172,10 @@ const LCDPowerOff: React.FC<{ onComplete: () => void; duration: number }> = ({
       />
 
       {/* Pixel grid — stays visible during afterimage, fades with backlight */}
-      <PixelGrid opacity={phase === 'off' ? 0 : 0.4} />
+      <PixelGrid opacity={phase === 'off' || phase === 'done' ? 0 : 0.4} />
 
-      {/* Dark overlay that builds up */}
+      {/* Dark overlay — stays opaque through 'done' so the game canvas
+          never flashes through while the OS window fade plays */}
       <div
         className="absolute inset-0 transition-opacity"
         style={{

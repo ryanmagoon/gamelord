@@ -206,11 +206,10 @@ const CRTPowerOff: React.FC<{ onComplete: () => void; duration: number }> = ({
     }
   }, [duration, onComplete])
 
-  if (phase === 'done') return null
-
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
-      {/* Black background — fades in immediately to cover the game */}
+      {/* Black background — stays opaque through 'done' so the game canvas
+          never flashes through while the OS window fade plays */}
       <div
         className="absolute inset-0 bg-black"
         style={{
