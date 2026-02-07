@@ -130,6 +130,8 @@ export const GameWindow: React.FC = () => {
 
     api.on('game:prepare-close', () => {
       setIsPoweringOff(true)
+      setShowControls(false)
+      setShowShaderMenu(false)
     })
 
     api.on('game:av-info', (avInfo: any) => {
@@ -257,12 +259,12 @@ export const GameWindow: React.FC = () => {
     localStorage.setItem('gamelord:muted', String(isMuted))
   }, [volume, isMuted])
 
-  // Sync traffic light visibility with controls overlay
+  // Sync traffic light visibility with controls overlay (hide during shutdown)
   useEffect(() => {
     if (mode === 'native') {
-      api.gameWindow.setTrafficLightVisible(showControls)
+      api.gameWindow.setTrafficLightVisible(showControls && !isPoweringOff)
     }
-  }, [showControls, mode, api])
+  }, [showControls, isPoweringOff, mode, api])
 
   // Keyboard input for native mode
   useEffect(() => {
@@ -426,10 +428,12 @@ export const GameWindow: React.FC = () => {
         </div>
       )}
 
-      {/* Top control bar (draggable title area) */}
+      {/* Top control bar (draggable title area) — slides up on close */}
       <div
-        className={`absolute top-0 left-0 right-0 z-50 transition-opacity duration-150 ${
-          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`absolute top-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
+          showControls && !isPoweringOff
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 -translate-y-full pointer-events-none'
         }`}
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         onMouseEnter={handleControlsEnter}
@@ -443,10 +447,12 @@ export const GameWindow: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom control bar */}
+      {/* Bottom control bar — slides down on close */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-50 transition-opacity duration-150 ${
-          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`absolute bottom-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
+          showControls && !isPoweringOff
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-full pointer-events-none'
         }`}
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         onMouseEnter={handleControlsEnter}
@@ -585,8 +591,8 @@ export const GameWindow: React.FC = () => {
         </div>
       </div>
 
-      {/* Pause indicator — minimal badge so the game screen stays visible */}
-      {isPaused && (
+      {/* Pause indicator — fades out on close */}
+      {isPaused && !isPoweringOff && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
           <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-sm">
             <Pause className="h-4 w-4 text-white" />
