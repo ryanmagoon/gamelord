@@ -4,6 +4,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import type { Game } from '../types/library'
 import type { LibretroNativeCore } from './emulator/LibretroNativeCore'
+import { animateWindowClose } from './windowCloseAnimation'
 
 const execFileAsync = promisify(execFile)
 
@@ -12,7 +13,7 @@ const POLL_INTERVAL = 200 // ms
 
 export type GameWindowMode = 'overlay' | 'native'
 
-/** Max time to wait for the renderer's shutdown animation before force-closing. */
+/** Max time to wait for the renderer's shutdown animation + OS window fade before force-closing. */
 const SHUTDOWN_ANIMATION_TIMEOUT = 2000
 
 export class GameWindowManager {
@@ -499,9 +500,13 @@ export class GameWindowManager {
           clearTimeout(timeout)
           this.shutdownTimeouts.delete(windowId)
         }
-        // Mark as ready and close — the 'close' handler will allow it through
-        this.readyToCloseWindows.add(windowId)
-        window.close()
+        // Fade/shrink the OS window, then destroy it
+        animateWindowClose(window).then(() => {
+          if (!window.isDestroyed()) {
+            this.readyToCloseWindows.add(windowId)
+            window.close()
+          }
+        })
       }
     })
 
