@@ -77,6 +77,11 @@ function loadNativeAddon(): NativeAddon {
     console.log(`[LibretroNativeCore] Trying path: ${p} (exists: ${exists})`)
     if (exists) {
       try {
+        // Dynamic require is necessary: native .node addons must be loaded at runtime from a path
+        // determined by the packaging context (dev vs packaged). Static import() cannot be used
+        // because Electron's packager rewrites imports but not require() for native modules.
+        // See: https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const addon = require(p) as NativeAddon
         console.log(`[LibretroNativeCore] Successfully loaded from: ${p}`)
         return addon
