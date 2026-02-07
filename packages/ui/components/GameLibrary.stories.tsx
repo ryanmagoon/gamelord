@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { GameLibrary } from './GameLibrary';
 
 const meta = {
@@ -87,7 +87,7 @@ const sampleGames = [
 export const Default: Story = {
   args: {
     games: sampleGames,
-    onPlayGame: () => {},
+    onPlayGame() { /* storybook action placeholder */ },
   },
   decorators: [
     (Story) => (
@@ -101,7 +101,7 @@ export const Default: Story = {
 export const Empty: Story = {
   args: {
     games: [],
-    onPlayGame: () => {},
+    onPlayGame() { /* storybook action placeholder */ },
   },
   decorators: [
     (Story) => (
@@ -115,7 +115,7 @@ export const Empty: Story = {
 export const SinglePlatform: Story = {
   args: {
     games: sampleGames.filter(game => game.platform === 'NES'),
-    onPlayGame: () => {},
+    onPlayGame() { /* storybook action placeholder */ },
   },
   decorators: [
     (Story) => (

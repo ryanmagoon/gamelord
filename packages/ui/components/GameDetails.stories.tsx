@@ -28,7 +28,7 @@ export const Default: Story = {
       lastPlayed: new Date(),
       playTime: 7200, // 2 hours
     },
-    onPlay: () => {},
+    onPlay() { /* storybook action placeholder */ },
   },
 };
 
@@ -44,7 +44,7 @@ export const WithCoverArt: Story = {
       lastPlayed: new Date(Date.now() - 86400000), // Yesterday
       playTime: 36000, // 10 hours
     },
-    onPlay: () => {},
+    onPlay() { /* storybook action placeholder */ },
   },
 };
 
@@ -58,6 +58,6 @@ export const NeverPlayed: Story = {
       coverArt: 'https://via.placeholder.com/300x400',
       romPath: '/Users/username/ROMs/Genesis/sonic.md',
     },
-    onPlay: () => {},
+    onPlay() { /* storybook action placeholder */ },
   },
 };
