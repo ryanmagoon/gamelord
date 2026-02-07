@@ -108,9 +108,13 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P5 — Controls & Input
 
-- [ ] Controller configuration UI (map physical controllers)
-- [ ] Gamepad API support in renderer
-- [ ] Per-game input mappings
+- [ ] Controller configuration UI with 3D interactive controller model
+  - [ ] Three.js rendering of a realistic controller model that the user can rotate/inspect
+  - [ ] Highlight each button on the 3D model as it becomes the active assignment target
+  - [ ] Click-to-assign flow: highlighted button pulses/glows, user presses physical input to bind it
+  - [ ] Support for multiple controller types (Xbox, PlayStation, generic) with matching 3D models
+- [x] Gamepad API support in renderer — detect connected controllers, read input state
+- [ ] Per-game input mappings — override default bindings on a per-game or per-system basis
 
 ### P6 — Rewind
 
@@ -127,11 +131,22 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Friend list and invite system
 - [ ] Per-game netplay compatibility metadata (supported cores, input latency settings)
 
+### Developer Tools
+
+- [ ] Toggleable debug overlay for the game window (keyboard shortcut or settings toggle)
+  - [ ] Input state: show which buttons/axes are active in real time (gamepad and keyboard)
+  - [ ] Emulation stats: FPS, frame time, audio buffer health, dropped frames
+  - [ ] IPC monitor: visualize game:input, game:video-frame, game:audio-samples throughput
+  - [ ] Gamepad inspector: connected controllers, mapping type, raw button/axis values
+  - [ ] Mode/state readout: current mode, paused state, active core, ROM info
+- [ ] Persist debug overlay preferences in localStorage
+
 ### P8 — UI Polish
 
 - [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers)
 - [x] Shader/filter selection (CRT, CRT Aperture, Scanlines, LCD, Sharp Bilinear via WebGL2)
 - [ ] Explore loading Slang (.slang/.slangp) shaders from the libretro shader ecosystem
+- [ ] Persist shader choice per core (e.g. CRT for SNES/snes9x, Sharp Bilinear for GBA/mgba)
 - [x] Dark mode (default) with light/dark toggle and localStorage persistence
 - [ ] **VHS-style pause screen** — Replace the minimal pause badge with a nostalgic VHS aesthetic: large "PAUSE" text in the corner (VCR-style monospace font, blue/white), horizontal beam warping/tracking distortion across the screen, subtle static crackle noise overlay, and scanline drift. Should feel like pausing a VHS tape in the '90s. Only applies to CRT-display-type systems; LCD systems keep a clean digital pause indicator.
 - [ ] Screenshot gallery per game
@@ -166,3 +181,4 @@ ARM64 cores from: `https://buildbot.libretro.com/nightly/apple/osx/arm64/latest/
 ### Known Issues
 - Mesen core fails to load games via the native addon (works in standalone C test). Use fceumm instead.
 - `node-gyp` v5.0.6 bundled with npm is incompatible with Node 24; must use `npx node-gyp` (v10+).
+- Hard-refreshing the game window causes the emulation to run at uncapped speed (the main-process emulation loop keeps pushing frames while the renderer resets its state).
