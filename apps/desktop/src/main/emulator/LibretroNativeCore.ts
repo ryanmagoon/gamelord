@@ -81,6 +81,7 @@ function loadNativeAddon(): NativeAddon {
         // determined by the packaging context (dev vs packaged). Static import() cannot be used
         // because Electron's packager rewrites imports but not require() for native modules.
         // See: https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules
+        // TODO: replace with createRequire or single known path — https://github.com/ryanmagoon/gamelord/issues/10
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const addon = require(p) as NativeAddon
         console.log(`[LibretroNativeCore] Successfully loaded from: ${p}`)
