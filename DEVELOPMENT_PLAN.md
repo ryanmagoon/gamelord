@@ -133,6 +133,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] Shader/filter selection (CRT, CRT Aperture, Scanlines, LCD, Sharp Bilinear via WebGL2)
 - [ ] Explore loading Slang (.slang/.slangp) shaders from the libretro shader ecosystem
 - [x] Dark mode (default) with light/dark toggle and localStorage persistence
+- [ ] **VHS-style pause screen** — Replace the minimal pause badge with a nostalgic VHS aesthetic: large "PAUSE" text in the corner (VCR-style monospace font, blue/white), horizontal beam warping/tracking distortion across the screen, subtle static crackle noise overlay, and scanline drift. Should feel like pausing a VHS tape in the '90s. Only applies to CRT-display-type systems; LCD systems keep a clean digital pause indicator.
 - [ ] Screenshot gallery per game
 - [ ] Playtime tracking and statistics
 - [ ] Settings panel
