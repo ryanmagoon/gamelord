@@ -193,9 +193,16 @@ export const GameWindow: React.FC = () => {
         source.buffer = buffer
         source.connect(gainNodeRef.current!)
 
-        // Schedule seamlessly after the previous chunk
+        // Schedule seamlessly after the previous chunk.
+        // Cap how far ahead we can buffer to prevent audio lag buildup:
+        // if we're more than 80ms ahead of real time, drop this chunk
+        // and reset the schedule to prevent growing desync.
         const now = ctx.currentTime
         if (audioNextTimeRef.current < now) {
+          audioNextTimeRef.current = now
+        }
+        const maxLookahead = 0.08 // 80ms max buffer ahead of real time
+        if (audioNextTimeRef.current > now + maxLookahead) {
           audioNextTimeRef.current = now
         }
         source.start(audioNextTimeRef.current)
