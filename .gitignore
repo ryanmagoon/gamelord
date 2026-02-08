@@ -88,8 +88,11 @@ typings/
 # Vite
 .vite/
 
-# Electron-Forge
+# electron-vite build output
 out/
+
+# electron-builder output
+dist/
 
 # Turborepo
 .turbo/
