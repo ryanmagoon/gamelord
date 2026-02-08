@@ -269,6 +269,7 @@ export const LibraryView: React.FC<{
       <div className="flex-1 overflow-auto p-4">
         {filteredGames.length > 0 ? (
           <GameLibrary
+            key={selectedSystem ?? 'all'}
             games={filteredGames.map<UiGame>((game) => ({
               id: game.id,
               title: game.title,

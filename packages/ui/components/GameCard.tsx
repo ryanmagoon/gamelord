@@ -38,6 +38,8 @@ export interface GameCardProps {
   /** Menu items shown in the options dropdown on hover. */
   menuItems?: GameCardMenuItem[]
   className?: string
+  /** Inline styles forwarded to the root card element (useful for animation delays). */
+  style?: React.CSSProperties
 }
 
 export const GameCard: React.FC<GameCardProps> = ({
@@ -46,6 +48,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   onOptions,
   menuItems,
   className,
+  style,
 }) => {
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -60,6 +63,7 @@ export const GameCard: React.FC<GameCardProps> = ({
         'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg w-48',
         className
       )}
+      style={style}
     >
       <CardContent className="p-0">
         <div className="aspect-[3/4] relative">

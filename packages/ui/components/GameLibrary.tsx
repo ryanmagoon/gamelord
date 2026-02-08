@@ -163,13 +163,15 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
       {/* Games Grid/List */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {filteredGames.map(game => (
+          {filteredGames.map((game, index) => (
             <GameCard
               key={game.id}
               game={game}
               onPlay={onPlayGame}
               onOptions={onGameOptions}
               menuItems={getMenuItems?.(game)}
+              className="animate-card-enter"
+              style={{ animationDelay: `${Math.min(index * 40, 600)}ms` }}
             />
           ))}
         </div>
