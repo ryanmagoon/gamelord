@@ -1,6 +1,7 @@
 import { app, BrowserWindow, net, protocol } from 'electron';
 import path from 'node:path';
 import { IPCHandlers } from './main/ipc/handlers';
+import { getSavedWindowBounds, manageWindowState } from './main/utils/windowState';
 
 // Set app name for macOS menu bar (must be called before app is ready)
 app.setName('GameLord');
@@ -9,10 +10,11 @@ app.setName('GameLord');
 let ipcHandlers: IPCHandlers;
 
 const createWindow = () => {
-  // Create the browser window.
+  const savedBounds = getSavedWindowBounds();
+
+  // Create the browser window with saved position/size.
   const mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...savedBounds,
     minWidth: 800,
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
@@ -23,6 +25,9 @@ const createWindow = () => {
       sandbox: true
     },
   });
+
+  // Persist window position, size, and maximize state across sessions.
+  manageWindowState(mainWindow);
 
   // and load the index.html of the app.
   if (process.env.ELECTRON_RENDERER_URL) {
