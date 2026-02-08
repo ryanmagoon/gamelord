@@ -21,6 +21,8 @@ interface CoreSelectDialogState {
   cores: CoreInfo[]
   /** The game that triggered the core selection dialog. */
   pendingGame: UiGame | null
+  /** True when the dialog was opened from a dropdown menu (suppresses overlay animation). */
+  fromDropdown: boolean
 }
 
 function App() {
@@ -43,6 +45,7 @@ function App() {
     systemName: '',
     cores: [],
     pendingGame: null,
+    fromDropdown: false,
   })
 
   // Listen for resume game dialog requests from main process
@@ -141,6 +144,7 @@ function App() {
         systemName: systemId.toUpperCase(),
         cores,
         pendingGame: game,
+        fromDropdown: false,
       })
     } catch (error) {
       console.error('Error launching game:', error)
@@ -173,22 +177,35 @@ function App() {
    */
   const handleChangeCore = async (game: UiGame) => {
     const systemId = getSystemId(game)
+
+    // Show the dialog immediately (with an empty cores list so it displays a
+    // loading state) and suppress the overlay animation so there's no flash
+    // between the dropdown menu closing and this dialog opening.
+    setCoreSelectDialog({
+      open: true,
+      systemId,
+      systemName: systemId.toUpperCase(),
+      cores: [],
+      pendingGame: game,
+      fromDropdown: true,
+    })
+
     try {
       const cores = await api.emulator.getCoresForSystem(systemId)
-      if (cores.length <= 1) return // Nothing to change
+      if (cores.length <= 1) {
+        // Nothing to change — close the dialog
+        setCoreSelectDialog((previous) => ({ ...previous, open: false, pendingGame: null }))
+        return
+      }
 
       // Clear any saved preference so the dialog doesn't auto-skip
       localStorage.removeItem(`gamelord:core-preference:${systemId}`)
 
-      setCoreSelectDialog({
-        open: true,
-        systemId,
-        systemName: systemId.toUpperCase(),
-        cores,
-        pendingGame: game,
-      })
+      // Populate the dialog with the fetched cores
+      setCoreSelectDialog((previous) => ({ ...previous, cores }))
     } catch (error) {
       console.error('Error fetching cores:', error)
+      setCoreSelectDialog((previous) => ({ ...previous, open: false, pendingGame: null }))
     }
   }
 
@@ -277,6 +294,7 @@ function App() {
         cores={coreSelectDialog.cores}
         onSelect={handleCoreSelect}
         onCancel={handleCoreSelectCancel}
+        suppressOverlayAnimation={coreSelectDialog.fromDropdown}
       />
     </div>
   )
