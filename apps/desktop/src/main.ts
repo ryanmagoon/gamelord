@@ -1,7 +1,12 @@
+import { config as loadDotenv } from 'dotenv';
 import { app, BrowserWindow, net, protocol } from 'electron';
 import path from 'node:path';
 import { IPCHandlers } from './main/ipc/handlers';
 import { getSavedWindowBounds, manageWindowState } from './main/utils/windowState';
+
+// Load .env from the desktop app root (apps/desktop/.env) before anything
+// reads process.env. This provides SCREENSCRAPER_DEV_ID / DEV_PASSWORD, etc.
+loadDotenv({ path: path.join(__dirname, '../../.env') });
 
 // Set app name for macOS menu bar (must be called before app is ready)
 app.setName('GameLord');
