@@ -52,6 +52,8 @@ contextBridge.exposeInMainWorld('gamelord', {
       'game:audio-samples',
       'overlay:show-controls',
       'core:downloadProgress',
+      'artwork:progress',
+      'artwork:syncComplete',
       'dialog:showResumeGame'
     ];
 
@@ -96,6 +98,18 @@ contextBridge.exposeInMainWorld('gamelord', {
     getConfig: () => ipcRenderer.invoke('library:getConfig'),
     setRomsBasePath: (basePath: string) => 
       ipcRenderer.invoke('library:setRomsBasePath', basePath)
+  },
+
+  // Artwork & metadata
+  artwork: {
+    syncGame: (gameId: string) => ipcRenderer.invoke('artwork:syncGame', gameId),
+    syncAll: () => ipcRenderer.invoke('artwork:syncAll'),
+    cancelSync: () => ipcRenderer.invoke('artwork:cancelSync'),
+    getSyncStatus: () => ipcRenderer.invoke('artwork:getSyncStatus'),
+    getCredentials: () => ipcRenderer.invoke('artwork:getCredentials'),
+    setCredentials: (userId: string, userPassword: string) =>
+      ipcRenderer.invoke('artwork:setCredentials', userId, userPassword),
+    clearCredentials: () => ipcRenderer.invoke('artwork:clearCredentials'),
   },
 
   // Dialog

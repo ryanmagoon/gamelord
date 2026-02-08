@@ -43,6 +43,17 @@ export interface GamelordAPI {
     setRomsBasePath: (basePath: string) => Promise<any>
   }
 
+  // Artwork & metadata
+  artwork: {
+    syncGame: (gameId: string) => Promise<{ success: boolean; error?: string }>
+    syncAll: () => Promise<{ success: boolean; error?: string }>
+    cancelSync: () => Promise<{ success: boolean }>
+    getSyncStatus: () => Promise<{ inProgress: boolean }>
+    getCredentials: () => Promise<{ hasCredentials: boolean }>
+    setCredentials: (userId: string, userPassword: string) => Promise<{ success: boolean; error?: string }>
+    clearCredentials: () => Promise<{ success: boolean; error?: string }>
+  }
+
   // Dialog helpers (matches preload API)
   dialog: {
     selectDirectory: () => Promise<string | null>

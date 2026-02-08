@@ -4,22 +4,26 @@ import fs from 'fs';
 import { EmulatorManager } from '../emulator/EmulatorManager';
 import { LibretroNativeCore } from '../emulator/LibretroNativeCore';
 import { LibraryService } from '../services/LibraryService';
+import { ArtworkService } from '../services/ArtworkService';
 import { GameWindowManager } from '../GameWindowManager';
 import { GameSystem } from '../../types/library';
 
 export class IPCHandlers {
   private emulatorManager: EmulatorManager;
   private libraryService: LibraryService;
+  private artworkService: ArtworkService;
   private gameWindowManager: GameWindowManager;
   private pendingResumeDialogs = new Map<string, (shouldResume: boolean) => void>();
 
   constructor(preloadPath: string) {
     this.emulatorManager = new EmulatorManager();
     this.libraryService = new LibraryService();
+    this.artworkService = new ArtworkService(this.libraryService);
     this.gameWindowManager = new GameWindowManager(preloadPath);
     this.setupHandlers();
     this.setupEmulatorEventForwarding();
     this.setupLibraryHandlers();
+    this.setupArtworkHandlers();
     this.setupDialogHandlers();
   }
 
@@ -278,6 +282,69 @@ export class IPCHandlers {
         return result.filePaths[0];
       }
       return null;
+    });
+  }
+
+  private setupArtworkHandlers(): void {
+    // Forward artwork progress events to all renderer windows
+    const forwardEvent = (eventName: string, data?: any) => {
+      const windows = BrowserWindow.getAllWindows();
+      windows.forEach((window: BrowserWindow) => {
+        window.webContents.send(eventName, data);
+      });
+    };
+
+    this.artworkService.on('progress', (data) => forwardEvent('artwork:progress', data));
+    this.artworkService.on('syncComplete', (data) => forwardEvent('artwork:syncComplete', data));
+
+    ipcMain.handle('artwork:syncGame', async (event, gameId: string) => {
+      try {
+        const success = await this.artworkService.syncGame(gameId);
+        return { success };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('artwork:syncAll', async () => {
+      try {
+        // Run in background — don't await the full sync
+        this.artworkService.syncAllGames();
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('artwork:cancelSync', () => {
+      this.artworkService.cancelSync();
+      return { success: true };
+    });
+
+    ipcMain.handle('artwork:getSyncStatus', () => {
+      return this.artworkService.getSyncStatus();
+    });
+
+    ipcMain.handle('artwork:getCredentials', () => {
+      return { hasCredentials: this.artworkService.hasCredentials() };
+    });
+
+    ipcMain.handle('artwork:setCredentials', async (event, userId: string, userPassword: string) => {
+      try {
+        await this.artworkService.setCredentials(userId, userPassword);
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('artwork:clearCredentials', async () => {
+      try {
+        await this.artworkService.clearCredentials();
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
     });
   }
 

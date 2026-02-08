@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, net, protocol } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { IPCHandlers } from './main/ipc/handlers';
@@ -45,6 +45,14 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
+  // Register artwork:// protocol to serve cached cover art images
+  // from the sandboxed renderer via <img src="artwork://gameId.png">
+  protocol.handle('artwork', (request) => {
+    const filename = request.url.slice('artwork://'.length);
+    const filePath = path.join(app.getPath('userData'), 'artwork', filename);
+    return net.fetch(`file://${filePath}`);
+  });
+
   // Initialize IPC handlers before creating window
   const preloadPath = path.join(__dirname, 'preload.js');
   ipcHandlers = new IPCHandlers(preloadPath);
