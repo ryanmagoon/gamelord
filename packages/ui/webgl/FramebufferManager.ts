@@ -27,7 +27,7 @@ export class FramebufferManager {
   }
 
   /** Returns a framebuffer for the given key, creating or resizing as needed. */
-  getFramebuffer(key: string, width: number, height: number, format: FramebufferFormat): FBOEntry {
+  getFramebuffer(key: string, width: number, height: number, format: FramebufferFormat, mipmap = false): FBOEntry {
     const existing = this.fbos.get(key);
     if (existing && existing.width === width && existing.height === height && existing.format === format) {
       return existing;
@@ -37,7 +37,7 @@ export class FramebufferManager {
       this.destroyFBO(existing);
     }
 
-    const entry = this.createFBO(width, height, format);
+    const entry = this.createFBO(width, height, format, mipmap);
     this.fbos.set(key, entry);
     return entry;
   }
@@ -76,6 +76,21 @@ export class FramebufferManager {
     return this.fbos.get(key)?.texture ?? null;
   }
 
+  /** Retrieves the previous-frame texture from a feedback pair. */
+  getFeedbackTexture(key: string): WebGLTexture | null {
+    return this.feedbackPairs.get(key)?.previous.texture ?? null;
+  }
+
+  /** Generates mipmaps for a named FBO's texture. */
+  generateMipmaps(key: string): void {
+    const entry = this.fbos.get(key);
+    if (!entry) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+
   destroy(): void {
     for (const entry of this.fbos.values()) {
       this.destroyFBO(entry);
@@ -89,7 +104,7 @@ export class FramebufferManager {
     this.feedbackPairs.clear();
   }
 
-  private createFBO(width: number, height: number, format: FramebufferFormat): FBOEntry {
+  private createFBO(width: number, height: number, format: FramebufferFormat, mipmap = false): FBOEntry {
     const gl = this.gl;
 
     const texture = gl.createTexture()!;
@@ -97,7 +112,7 @@ export class FramebufferManager {
 
     const { internalFormat, type } = this.getFormatParams(format);
     gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0, gl.RGBA, type, null);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mipmap ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);

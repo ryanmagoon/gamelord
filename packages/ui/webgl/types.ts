@@ -25,6 +25,8 @@ export interface ShaderPassDefinition {
   alias?: string;
   /** When true, the pass can read its own previous-frame output via u_feedback. */
   feedback?: boolean;
+  /** When true, mipmaps are generated on this pass's output FBO after rendering. */
+  mipmap?: boolean;
   /**
    * Extra texture inputs beyond the automatic Source/Original/feedback.
    * Keys are uniform names, values are the alias of another pass or a LUT name.
