@@ -1,6 +1,56 @@
 @import "tailwindcss";
 @import "@gamelord/ui/theme.css";
 
+/*
+ * Geist Pixel — a bitmap-inspired display typeface from Vercel.
+ * We load all five variants so they can be mixed for different UI contexts.
+ * "Square" is the default body font; others are available via font-family.
+ */
+@font-face {
+  font-family: 'Geist Pixel Square';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Square.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Grid';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Grid.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Circle';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Circle.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Triangle';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Triangle.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Line';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Line.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Override the system font stack from theme.css with Geist Pixel Square. */
+body {
+  font-family: 'Geist Pixel Square', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
 /* Scan local renderer components */
 @source "./renderer/**/*.{js,ts,jsx,tsx}";
 /* Scan UI package components (from src/, go up 3 levels to monorepo root) */
