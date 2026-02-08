@@ -262,77 +262,72 @@ void main() {
 // ---------------------------------------------------------------------------
 
 const SUBPIXEL_MASKS_GLSL = `
-// Returns vec4: rgb = mask weights, a = fraction of "off" subpixels in the
-// mask pattern (used for energy-conserving brightness compensation).
-vec4 mask_weights_alpha(vec2 coord, float maskIntensity, int layout_type) {
+// Ported from libretro/slang-shaders include/subpixel_masks.h (public domain, hunterk).
+// Alpha = bright_subpixels / total_subpixels in the mask tile.
+// mask_intensity: 0.0 = no mask, 1.0 = full mask. Called with 1.0 from CRT composite.
+vec4 mask_weights_alpha(vec2 coord, float mask_intensity, int phosphor_layout) {
   vec3 weights = vec3(1.0);
-  float alpha = 0.0; // fraction of off subpixels
+  float alpha = 1.0;
 
   float on  = 1.0;
-  float off = 1.0 - maskIntensity;
+  float off = 1.0 - mask_intensity;
+  vec3 red     = vec3(on,  off, off);
+  vec3 green   = vec3(off, on,  off);
+  vec3 blue    = vec3(off, off, on );
+  vec3 magenta = vec3(on,  off, on );
+  vec3 yellow  = vec3(on,  on,  off);
+  vec3 cyan    = vec3(off, on,  on );
+  vec3 black   = vec3(off, off, off);
 
-  vec2 xy = coord;
+  vec3 aperture_weights = mix(magenta, green, floor(mod(coord.x, 2.0)));
 
-  if (layout_type == 0) {
+  if (phosphor_layout == 0) {
     // No mask
-    weights = vec3(1.0);
-    alpha = 0.0;
-  } else if (layout_type == 1) {
-    // Classic aperture grille (RGB vertical stripes, 3-pixel period)
-    // Each pixel: 1 channel on, 2 off → alpha = 2/3
-    int col = int(mod(xy.x, 3.0));
-    if (col == 0) weights = vec3(on, off, off);
-    else if (col == 1) weights = vec3(off, on, off);
-    else weights = vec3(off, off, on);
-    alpha = 2.0 / 3.0;
-  } else if (layout_type == 2) {
-    // 2x2 shadow mask (checkerboard-ish RGB)
-    // Same subpixel ratio as aperture grille: 1 on, 2 off per pixel
-    int col = int(mod(xy.x, 3.0));
-    int row = int(mod(xy.y, 2.0));
-    if (row == 0) {
-      if (col == 0) weights = vec3(on, off, off);
-      else if (col == 1) weights = vec3(off, on, off);
-      else weights = vec3(off, off, on);
+    return vec4(weights, alpha);
+  } else if (phosphor_layout == 1) {
+    // Classic aperture for RGB panels (aperture_1_2_bgr)
+    // 2-pixel period: magenta, green. 3 bright subpixels per 6 total.
+    weights = aperture_weights;
+    alpha = 3.0 / 6.0;
+  } else if (phosphor_layout == 2) {
+    // 2x2 shadow mask for RGB panels (delta_1_2x1_bgr)
+    vec3 inverse_aperture = mix(green, magenta, floor(mod(coord.x, 2.0)));
+    weights = mix(aperture_weights, inverse_aperture, floor(mod(coord.y, 2.0)));
+    alpha = 6.0 / 12.0;
+  } else if (phosphor_layout == 3) {
+    // Slot mask for RGB panels (3x4 pattern)
+    int w = int(floor(mod(coord.y, 3.0)));
+    int z = int(floor(mod(coord.x, 4.0)));
+    // Row 0: magenta, green, black, black
+    // Row 1: magenta, green, magenta, green
+    // Row 2: black, black, magenta, green
+    if (w == 0) {
+      if (z < 2) weights = (z == 0) ? magenta : green;
+      else weights = black;
+    } else if (w == 1) {
+      weights = (z == 0 || z == 2) ? magenta : green;
     } else {
-      if (col == 0) weights = vec3(off, off, on);
-      else if (col == 1) weights = vec3(on, off, off);
-      else weights = vec3(off, on, off);
+      if (z < 2) weights = black;
+      else weights = (z == 2) ? magenta : green;
     }
-    alpha = 2.0 / 3.0;
-  } else if (layout_type == 3) {
-    // Slot mask (3x4 pattern with gaps)
-    // 4-wide period: 3 lit columns + 1 dark, each lit has 1/3 on → alpha = 3/4
-    int col = int(mod(xy.x, 4.0));
-    int row = int(mod(xy.y, 4.0));
-    if (row < 2) {
-      if (col == 0) weights = vec3(on, off, off);
-      else if (col == 1) weights = vec3(off, on, off);
-      else if (col == 2) weights = vec3(off, off, on);
-      else weights = vec3(off, off, off);
-    } else {
-      if (col == 0) weights = vec3(off, off, on);
-      else if (col == 1) weights = vec3(on, off, off);
-      else if (col == 2) weights = vec3(off, on, off);
-      else weights = vec3(off, off, off);
-    }
-    alpha = 3.0 / 4.0;
-  } else if (layout_type == 4) {
-    // Fine aperture grille (1-pixel subpixels, 4-pixel period)
-    // 4-wide: 3 lit + 1 dark, each lit has 1/3 on → alpha = 3/4
-    int col = int(mod(xy.x, 4.0));
-    if (col == 0) weights = vec3(on, off, off);
-    else if (col == 1) weights = vec3(off, on, off);
-    else if (col == 2) weights = vec3(off, off, on);
-    else weights = vec3(off, off, off);
-    alpha = 3.0 / 4.0;
-  } else if (layout_type == 5) {
-    // BGR aperture grille (reversed subpixel order)
-    int col = int(mod(xy.x, 3.0));
-    if (col == 0) weights = vec3(off, off, on);
-    else if (col == 1) weights = vec3(off, on, off);
-    else weights = vec3(on, off, off);
-    alpha = 2.0 / 3.0;
+    alpha = 12.0 / 36.0;
+  } else if (phosphor_layout == 4) {
+    // Classic aperture for RBG panels
+    weights = mix(yellow, blue, floor(mod(coord.x, 2.0)));
+    alpha = 3.0 / 6.0;
+  } else if (phosphor_layout == 5) {
+    // 2x2 shadow mask for RBG panels
+    vec3 inverse_aperture = mix(blue, yellow, floor(mod(coord.x, 2.0)));
+    weights = mix(mix(yellow, blue, floor(mod(coord.x, 2.0))), inverse_aperture, floor(mod(coord.y, 2.0)));
+    alpha = 6.0 / 12.0;
+  } else if (phosphor_layout == 6) {
+    // aperture_1_4_rgb
+    int z = int(floor(mod(coord.x, 4.0)));
+    if (z == 0) weights = red;
+    else if (z == 1) weights = green;
+    else if (z == 2) weights = blue;
+    else weights = black;
+    alpha = 3.0 / 12.0;
   }
 
   return vec4(weights, alpha);
