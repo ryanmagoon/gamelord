@@ -438,23 +438,20 @@ vec3 texblur(vec2 coord) {
 }
 
 void main() {
-  // Apply barrel distortion
+  // Apply barrel distortion (matching original crt-geom-deluxe transform())
   vec2 xy;
   if (curvature > 0.5) {
-    float screenRatio = u_resolution.y / u_resolution.x;
-    vec2 cd = v_texCoord - 0.5;
-    cd *= vec2(1.0, screenRatio);
-    xy = bkwtrans(cd * vec2(v_stretch.z, v_stretch.z) + v_stretch.xy);
-    xy /= vec2(aspect_x, aspect_y);
-    xy = xy + 0.5;
+    vec2 cd = v_texCoord - vec2(0.5);
+    cd = cd * vec2(aspect_x, aspect_y) * v_stretch.z + v_stretch.xy;
+    xy = bkwtrans(cd) / vec2(overscan_x, overscan_y) / vec2(aspect_x, aspect_y) + vec2(0.5);
   } else {
-    xy = v_texCoord;
+    xy = (v_texCoord - vec2(0.5)) / vec2(overscan_x, overscan_y) + vec2(0.5);
   }
 
   float cval = corner(xy);
 
-  // Raster bloom: modulate raster size by average brightness
-  float avgbright = dot(textureLod(u_blur_texture, vec2(0.5, 0.5), 9.0).rgb, vec3(1.0)) / 3.0;
+  // Raster bloom: sample highest available mip for whole-frame average brightness
+  float avgbright = dot(textureLod(u_blur_texture, vec2(1.0, 1.0), 9.0).rgb, vec3(1.0)) / 3.0;
   float rbloom = 1.0 - rasterbloom * (avgbright - 0.5);
   xy = (xy - vec2(0.5)) * rbloom + vec2(0.5);
 
