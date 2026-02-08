@@ -66,22 +66,25 @@ out vec4 fragColor;
 ${PARAMS_GLSL}
 
 void main() {
-  // Stay in sRGB throughout — pass 4 handles the gamma pipeline
   vec3 current = texture(u_texture, v_texCoord).rgb;
 
-  vec4 phosphorData = texture(u_phosphorFeedback, v_texCoord);
-  vec3 phosphorColor = max(phosphorData.rgb, vec3(0.0));
+  // Read previous-frame phosphor state
+  vec4 phosphor = texture(u_phosphorFeedback, v_texCoord);
 
-  // Decode elapsed time from alpha channel
-  float timeEncoded = phosphorData.a * 255.0;
-  float t = max(timeEncoded, 1.0);
+  // Linearize both
+  vec3 cscrn = pow(current, vec3(CRTgamma));
+  vec3 cphos = pow(max(phosphor.rgb, vec3(0.0)), vec3(CRTgamma));
 
-  // Exponential phosphor decay: amplitude * t^(-power)
-  float decay = phosphor_amplitude * pow(t, -phosphor_power);
-  vec3 decayed = phosphorColor * decay;
+  // Decode elapsed time from alpha channel (matching original encoding)
+  float t = 1.0 + 255.0 * phosphor.a;
+  t = max(t, 1.0);
 
-  // Composite: add decayed phosphor glow to current frame
-  vec3 result = current + decayed;
+  // Exponential phosphor decay — zero out if too old
+  float decayScale = (t > 1023.0) ? 0.0 : phosphor_amplitude * pow(t, -phosphor_power);
+  cphos *= decayScale;
+
+  // Composite in linear space, then re-encode to gamma
+  vec3 result = pow(cscrn + cphos, vec3(1.0 / CRTgamma));
 
   fragColor = vec4(result, 1.0);
 }`;
@@ -106,24 +109,26 @@ out vec4 fragColor;
 ${PARAMS_GLSL}
 
 void main() {
-  vec3 current = texture(u_texture, v_texCoord).rgb;
-  vec4 prev = texture(u_feedback, v_texCoord);
+  vec4 screen = texture(u_texture, v_texCoord);
+  vec4 phosphor = texture(u_feedback, v_texCoord);
 
-  float currentLum = dot(current, vec3(0.2126, 0.7152, 0.0722));
-  float prevLum = dot(prev.rgb, vec3(0.2126, 0.7152, 0.0722));
+  vec3 lum = vec3(0.299, 0.587, 0.114);
+  float bscrn = dot(pow(screen.rgb, vec3(CRTgamma)), lum);
+  float bphos = dot(pow(max(phosphor.rgb, vec3(0.0)), vec3(CRTgamma)), lum);
 
   // Decode elapsed time from alpha channel
-  float prevTime = prev.a * 255.0;
+  float t = 1.0 + 255.0 * phosphor.a;
 
-  // If current pixel is brighter, stamp new phosphor (reset timer)
-  // Otherwise let old phosphor continue decaying (increment timer)
-  if (currentLum >= prevLum * 0.95) {
-    // New content — reset phosphor with time = 1
-    fragColor = vec4(current, 1.0 / 255.0);
+  // Apply phosphor decay to determine if old phosphor is still brighter
+  bphos = (t > 1023.0) ? 0.0 : bphos * pow(t, -phosphor_power);
+
+  if (bscrn >= bphos) {
+    // Current pixel is brighter — stamp new phosphor, reset timer
+    fragColor = vec4(screen.rgb, 1.0 / 255.0);
   } else {
-    // Continue decay — increment time, keep previous color
-    float newTime = min(prevTime + 1.0, 255.0);
-    fragColor = vec4(prev.rgb, newTime / 255.0);
+    // Old phosphor still brighter — keep decaying, increment timer
+    float newTime = min(t + 1.0, 1023.0);
+    fragColor = vec4(phosphor.rgb, fract(newTime / 256.0) * 256.0 / 255.0);
   }
 }`;
 
