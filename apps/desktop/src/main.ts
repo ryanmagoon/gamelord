@@ -1,15 +1,9 @@
 import { app, BrowserWindow, net, protocol } from 'electron';
 import path from 'node:path';
-import started from 'electron-squirrel-startup';
 import { IPCHandlers } from './main/ipc/handlers';
 
 // Set app name for macOS menu bar (must be called before app is ready)
 app.setName('GameLord');
-
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (started) {
-  app.quit();
-}
 
 // Initialize IPC handlers
 let ipcHandlers: IPCHandlers;
@@ -23,7 +17,7 @@ const createWindow = () => {
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true
@@ -31,10 +25,10 @@ const createWindow = () => {
   });
 
   // and load the index.html of the app.
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+  if (process.env.ELECTRON_RENDERER_URL) {
+    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
-    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
   // Open the DevTools.
@@ -54,7 +48,7 @@ app.on('ready', () => {
   });
 
   // Initialize IPC handlers before creating window
-  const preloadPath = path.join(__dirname, 'preload.js');
+  const preloadPath = path.join(__dirname, '../preload/index.js');
   ipcHandlers = new IPCHandlers(preloadPath);
   createWindow();
 });

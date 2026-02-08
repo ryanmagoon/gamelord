@@ -2,7 +2,7 @@ import React from 'react';
 import { Game } from './GameCard';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { 
   Play, 
   Settings, 

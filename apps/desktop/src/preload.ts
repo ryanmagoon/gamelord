@@ -4,11 +4,15 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('gamelord', {
   // Emulator management
   emulator: {
-    launch: (romPath: string, systemId: string, emulatorId?: string) =>
-      ipcRenderer.invoke('emulator:launch', romPath, systemId, emulatorId),
+    launch: (romPath: string, systemId: string, emulatorId?: string, coreName?: string) =>
+      ipcRenderer.invoke('emulator:launch', romPath, systemId, emulatorId, coreName),
     stop: () => ipcRenderer.invoke('emulator:stop'),
     getAvailable: () => ipcRenderer.invoke('emulator:getAvailable'),
-    isRunning: () => ipcRenderer.invoke('emulator:isRunning')
+    isRunning: () => ipcRenderer.invoke('emulator:isRunning'),
+    getCoresForSystem: (systemId: string) =>
+      ipcRenderer.invoke('emulator:getCoresForSystem', systemId),
+    downloadCore: (coreName: string, systemId: string) =>
+      ipcRenderer.invoke('emulator:downloadCore', coreName, systemId),
   },
 
   // Emulation control
@@ -54,7 +58,9 @@ contextBridge.exposeInMainWorld('gamelord', {
       'core:downloadProgress',
       'artwork:progress',
       'artwork:syncComplete',
-      'dialog:showResumeGame'
+      'dialog:showResumeGame',
+      'game:prepare-close',
+      'game:emulation-error'
     ];
 
     if (validChannels.includes(channel)) {
@@ -73,7 +79,8 @@ contextBridge.exposeInMainWorld('gamelord', {
     close: () => ipcRenderer.send('game-window:close'),
     toggleFullscreen: () => ipcRenderer.send('game-window:toggle-fullscreen'),
     setClickThrough: (value: boolean) => ipcRenderer.send('game-window:set-click-through', value),
-    setTrafficLightVisible: (visible: boolean) => ipcRenderer.send('game-window:set-traffic-light-visible', visible)
+    setTrafficLightVisible: (visible: boolean) => ipcRenderer.send('game-window:set-traffic-light-visible', visible),
+    readyToClose: () => ipcRenderer.send('game-window:ready-to-close')
   },
 
   // Library management

@@ -11,7 +11,7 @@ const execFileAsync = promisify(execFile);
 
 /**
  * Map of system IDs to their preferred libretro core name.
- * The first core listed for each system is the one that will be downloaded.
+ * Used as the default when no specific core is requested.
  */
 const PREFERRED_CORES: Record<string, string> = {
   'nes': 'fceumm_libretro',
@@ -26,6 +26,62 @@ const PREFERRED_CORES: Record<string, string> = {
   'nds': 'desmume_libretro',
   'arcade': 'mame_libretro',
 };
+
+/** All known cores per system, in preference order. */
+const SYSTEM_CORES: Record<string, string[]> = {
+  'nes': ['fceumm_libretro', 'nestopia_libretro', 'mesen_libretro'],
+  'snes': ['snes9x_libretro', 'bsnes_libretro'],
+  'genesis': ['genesis_plus_gx_libretro', 'picodrive_libretro'],
+  'gb': ['gambatte_libretro', 'mgba_libretro'],
+  'gbc': ['gambatte_libretro', 'mgba_libretro'],
+  'gba': ['mgba_libretro', 'vba_next_libretro'],
+  'n64': ['mupen64plus_next_libretro', 'parallel_n64_libretro'],
+  'psx': ['pcsx_rearmed_libretro', 'beetle_psx_libretro'],
+  'psp': ['ppsspp_libretro'],
+  'nds': ['desmume_libretro'],
+  'arcade': ['mame_libretro'],
+};
+
+/** Human-readable display names for cores. */
+const CORE_DISPLAY_NAMES: Record<string, string> = {
+  'fceumm_libretro': 'FCEUmm',
+  'nestopia_libretro': 'Nestopia',
+  'mesen_libretro': 'Mesen',
+  'snes9x_libretro': 'Snes9x',
+  'bsnes_libretro': 'bsnes',
+  'genesis_plus_gx_libretro': 'Genesis Plus GX',
+  'picodrive_libretro': 'PicoDrive',
+  'gambatte_libretro': 'Gambatte',
+  'mgba_libretro': 'mGBA',
+  'vba_next_libretro': 'VBA-M',
+  'mupen64plus_next_libretro': 'Mupen64Plus',
+  'parallel_n64_libretro': 'ParaLLEl N64',
+  'pcsx_rearmed_libretro': 'PCSX ReARMed',
+  'beetle_psx_libretro': 'Beetle PSX',
+  'ppsspp_libretro': 'PPSSPP',
+  'desmume_libretro': 'DeSmuME',
+  'mame_libretro': 'MAME',
+};
+
+/** Short descriptions for cores. */
+const CORE_DESCRIPTIONS: Record<string, string> = {
+  'snes9x_libretro': 'Fast, highly compatible. Best for most games.',
+  'bsnes_libretro': 'Cycle-accurate. Perfect accuracy, higher CPU usage.',
+  'fceumm_libretro': 'Accurate and fast NES emulation.',
+  'nestopia_libretro': 'High-accuracy NES emulation.',
+  'mesen_libretro': 'Cycle-accurate NES emulation.',
+  'genesis_plus_gx_libretro': 'Accurate Genesis/Mega Drive emulation.',
+  'picodrive_libretro': 'Fast Genesis emulation, Sega CD/32X support.',
+  'gambatte_libretro': 'Accurate Game Boy/Color emulation.',
+  'mgba_libretro': 'Fast and accurate GBA emulation.',
+};
+
+export interface CoreInfo {
+  name: string
+  displayName: string
+  description: string
+  installed: boolean
+}
 
 export interface CoreDownloadProgress {
   coreName: string;
@@ -90,6 +146,40 @@ export class CoreDownloader extends EventEmitter {
     return fs.existsSync(corePath) ? corePath : null;
   }
 
+  /** Check if a specific core is installed. */
+  isCoreInstalled(coreName: string): boolean {
+    const corePath = path.join(
+      this.getCoresDirectory(),
+      coreName + this.getLibExtension()
+    );
+    return fs.existsSync(corePath);
+  }
+
+  /** Returns the path to a specific core if it's installed, or null. */
+  getCorePath(coreName: string): string | null {
+    const corePath = path.join(
+      this.getCoresDirectory(),
+      coreName + this.getLibExtension()
+    );
+    return fs.existsSync(corePath) ? corePath : null;
+  }
+
+  /**
+   * Returns info about all known cores for a system, including
+   * display name, description, and installation status.
+   */
+  getCoresForSystem(systemId: string): CoreInfo[] {
+    const coreNames = SYSTEM_CORES[systemId];
+    if (!coreNames) return [];
+
+    return coreNames.map((name) => ({
+      name,
+      displayName: CORE_DISPLAY_NAMES[name] ?? name,
+      description: CORE_DESCRIPTIONS[name] ?? '',
+      installed: this.isCoreInstalled(name),
+    }));
+  }
+
   /**
    * Downloads the preferred core for the given system ID.
    * Emits 'progress' events with CoreDownloadProgress payloads.
@@ -101,9 +191,18 @@ export class CoreDownloader extends EventEmitter {
       throw new Error(`No known core for system: ${systemId}`);
     }
 
+    return this.downloadCore(coreName, systemId);
+  }
+
+  /**
+   * Downloads a specific core by name.
+   * Emits 'progress' events with CoreDownloadProgress payloads.
+   * Returns the path to the downloaded core .dylib.
+   */
+  async downloadCore(coreName: string, systemId: string): Promise<string> {
     // Check if already present
-    const existing = this.hasCoreForSystem(systemId);
-    if (existing) return existing;
+    const existingPath = this.getCorePath(coreName);
+    if (existingPath) return existingPath;
 
     // Prevent duplicate concurrent downloads
     if (this.downloading.has(coreName)) {
@@ -215,7 +314,7 @@ export class CoreDownloader extends EventEmitter {
             resolve();
           });
           file.on('error', (err) => {
-            fs.unlink(dest, () => {});
+            fs.unlink(dest, () => { /* ignore unlink errors during cleanup */ });
             reject(err);
           });
         }).on('error', reject);
