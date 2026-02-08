@@ -116,4 +116,20 @@ describe('CoreSelectDialog', () => {
     const checkbox = screen.getByRole('checkbox') as HTMLInputElement
     expect(checkbox.checked).toBe(false)
   })
+
+  it('shows loading state when cores array is empty', () => {
+    renderDialog({ cores: [] })
+
+    expect(screen.getByText('Loading available cores\u2026')).toBeTruthy()
+    // Should not show core buttons
+    expect(screen.queryByText('Snes9x')).toBeNull()
+    expect(screen.queryByText('bsnes')).toBeNull()
+  })
+
+  it('disables the remember checkbox during loading', () => {
+    renderDialog({ cores: [] })
+
+    const checkbox = screen.getByRole('checkbox') as HTMLInputElement
+    expect(checkbox.disabled).toBe(true)
+  })
 })

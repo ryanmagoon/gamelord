@@ -173,22 +173,35 @@ function App() {
    */
   const handleChangeCore = async (game: UiGame) => {
     const systemId = getSystemId(game)
+
+    // Show the dialog overlay immediately (with loading state) so the
+    // dark backdrop stays visible while cores are fetched, avoiding a
+    // jarring flash of the library between the dropdown closing and
+    // the core-select dialog appearing.
+    setCoreSelectDialog({
+      open: true,
+      systemId,
+      systemName: systemId.toUpperCase(),
+      cores: [],
+      pendingGame: game,
+    })
+
     try {
       const cores = await api.emulator.getCoresForSystem(systemId)
-      if (cores.length <= 1) return // Nothing to change
+      if (cores.length <= 1) {
+        // Only one core available — close dialog, nothing to change
+        setCoreSelectDialog((previous) => ({ ...previous, open: false }))
+        return
+      }
 
       // Clear any saved preference so the dialog doesn't auto-skip
       localStorage.removeItem(`gamelord:core-preference:${systemId}`)
 
-      setCoreSelectDialog({
-        open: true,
-        systemId,
-        systemName: systemId.toUpperCase(),
-        cores,
-        pendingGame: game,
-      })
+      // Populate the cores now that they've loaded
+      setCoreSelectDialog((previous) => ({ ...previous, cores }))
     } catch (error) {
       console.error('Error fetching cores:', error)
+      setCoreSelectDialog((previous) => ({ ...previous, open: false }))
     }
   }
 
