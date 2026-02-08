@@ -1,8 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { GameLibrary, Button, Badge } from '@gamelord/ui'
-import { Plus, FolderOpen, RefreshCw, Download } from 'lucide-react'
+import {
+  GameLibrary,
+  Button,
+  Badge,
+  Input,
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@gamelord/ui'
+import { Plus, FolderOpen, RefreshCw, Download, ImageDown, X } from 'lucide-react'
 import type { Game, Game as UiGame } from '@gamelord/ui'
 import type { Game as AppGame, GameSystem } from '../../types/library'
+import type { ArtworkProgress } from '../../types/artwork'
 import type { GamelordAPI } from '../types/global'
 import { EmptyLibrary } from './EmptyLibrary'
 
@@ -26,12 +40,21 @@ export const LibraryView: React.FC<{
   const [isScanning, setIsScanning] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState<CoreDownloadProgress | null>(null)
 
+  // Artwork sync state
+  const [artworkProgress, setArtworkProgress] = useState<ArtworkProgress | null>(null)
+  const [showCredentialsDialog, setShowCredentialsDialog] = useState(false)
+  const [credentialUserId, setCredentialUserId] = useState('')
+  const [credentialPassword, setCredentialPassword] = useState('')
+  const [credentialError, setCredentialError] = useState('')
+
+  // Game options menu state
+  const [optionsMenuGame, setOptionsMenuGame] = useState<AppGame | null>(null)
+
   useEffect(() => {
     loadLibrary()
 
     api.on('core:downloadProgress', (progress: CoreDownloadProgress) => {
       if (progress.phase === 'done' || progress.phase === 'error') {
-        // Keep visible briefly so user sees completion
         setDownloadProgress(progress)
         setTimeout(() => setDownloadProgress(null), 2000)
       } else {
@@ -39,8 +62,19 @@ export const LibraryView: React.FC<{
       }
     })
 
+    api.on('artwork:progress', (progress: ArtworkProgress) => {
+      setArtworkProgress(progress)
+    })
+
+    api.on('artwork:syncComplete', () => {
+      setArtworkProgress(null)
+      loadLibrary()
+    })
+
     return () => {
       api.removeAllListeners('core:downloadProgress')
+      api.removeAllListeners('artwork:progress')
+      api.removeAllListeners('artwork:syncComplete')
     }
   }, [])
 
@@ -64,21 +98,17 @@ export const LibraryView: React.FC<{
     setIsScanning(true)
     try {
       const config = await api.library.getConfig()
-      // In a properly secured Electron renderer (contextIsolation: true, nodeIntegration: false),
-      // `process` is not available. If no base path is configured, prompt the user instead.
       if (!config.romsBasePath) {
         await handleSelectDirectory()
         return
       }
       const basePath = config.romsBasePath
 
-      // Scan the base path
       const foundGames = await api.library.scanDirectory(basePath)
 
       if (foundGames.length > 0) {
         await loadLibrary()
       } else {
-        // If no games found, prompt to select a directory
         await handleSelectDirectory()
       }
     } catch (error) {
@@ -104,15 +134,12 @@ export const LibraryView: React.FC<{
   }
 
   const handleAddSystem = async (system: GameSystem) => {
-    // First add the system
     await api.library.addSystem(system)
 
-    // Then prompt for ROM directory
     const directory = await api.dialog.selectDirectory()
     if (directory) {
       await api.library.updateSystemPath(system.id, directory)
 
-      // Scan the directory for games
       setIsScanning(true)
       try {
         await api.library.scanDirectory(directory, system.id)
@@ -147,12 +174,53 @@ export const LibraryView: React.FC<{
     }
   }
 
+  const handleDownloadArtwork = async () => {
+    const { hasCredentials } = await api.artwork.getCredentials()
+    if (!hasCredentials) {
+      setShowCredentialsDialog(true)
+      return
+    }
+    await api.artwork.syncAll()
+  }
+
+  const handleCancelArtworkSync = async () => {
+    await api.artwork.cancelSync()
+    setArtworkProgress(null)
+  }
+
+  const handleSaveCredentials = async () => {
+    if (!credentialUserId || !credentialPassword) {
+      setCredentialError('Both username and password are required.')
+      return
+    }
+
+    const result = await api.artwork.setCredentials(credentialUserId, credentialPassword)
+    if (result.success) {
+      setShowCredentialsDialog(false)
+      setCredentialUserId('')
+      setCredentialPassword('')
+      setCredentialError('')
+      await api.artwork.syncAll()
+    } else {
+      setCredentialError(result.error ?? 'Failed to save credentials.')
+    }
+  }
+
+  const handleSyncSingleGame = async (gameId: string) => {
+    const { hasCredentials } = await api.artwork.getCredentials()
+    if (!hasCredentials) {
+      setShowCredentialsDialog(true)
+      return
+    }
+    await api.artwork.syncGame(gameId)
+    await loadLibrary()
+  }
+
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
 
   const handlePlayUiGame = async (uiGame: UiGame) => {
     const fullGame = idToGame.get(uiGame.id)
     if (!fullGame) return
-
 
     const result = await api.emulator.launch(
       fullGame.romPath,
@@ -169,7 +237,7 @@ export const LibraryView: React.FC<{
   }
 
   const handleGameOptions = (game: AppGame) => {
-    // TODO: Show game options menu (edit metadata, remove, etc.)
+    setOptionsMenuGame(game)
   }
 
   const handleUiGameOptions = (uiGame: UiGame) => {
@@ -177,6 +245,12 @@ export const LibraryView: React.FC<{
     if (fullGame) {
       handleGameOptions(fullGame)
     }
+  }
+
+  const handleRemoveGame = async (gameId: string) => {
+    await api.library.removeGame(gameId)
+    setOptionsMenuGame(null)
+    await loadLibrary()
   }
 
   const filteredGames = selectedSystem
@@ -216,6 +290,10 @@ export const LibraryView: React.FC<{
           )}
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadArtwork} disabled={!!artworkProgress}>
+            <ImageDown className="h-4 w-4 mr-2" />
+            Download Artwork
+          </Button>
           <Button variant="outline" size="sm" onClick={handleSelectDirectory}>
             <FolderOpen className="h-4 w-4 mr-2" />
             Add Folder
@@ -249,6 +327,42 @@ export const LibraryView: React.FC<{
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Artwork sync progress */}
+      {artworkProgress && (
+        <div className="flex items-center gap-3 px-4 py-3 border-b bg-purple-500/10">
+          <ImageDown className="h-4 w-4 text-purple-500 animate-pulse" />
+          <div className="flex-1">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-purple-300">
+                {artworkProgress.phase === 'error'
+                  ? `Error: ${artworkProgress.error}`
+                  : artworkProgress.phase === 'not-found'
+                    ? `No artwork found for ${artworkProgress.gameTitle}`
+                    : artworkProgress.phase === 'done'
+                      ? `Downloaded artwork for ${artworkProgress.gameTitle}`
+                      : artworkProgress.phase === 'hashing'
+                        ? `Hashing ${artworkProgress.gameTitle}...`
+                        : artworkProgress.phase === 'querying'
+                          ? `Looking up ${artworkProgress.gameTitle}...`
+                          : `Downloading artwork for ${artworkProgress.gameTitle}...`}
+              </span>
+              <span className="text-purple-400">
+                {artworkProgress.current}/{artworkProgress.total}
+              </span>
+            </div>
+            <div className="mt-1 h-1 rounded-full bg-purple-900/50 overflow-hidden">
+              <div
+                className="h-full bg-purple-500 rounded-full transition-all duration-300"
+                style={{ width: `${(artworkProgress.current / artworkProgress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-purple-400 hover:text-purple-200" onClick={handleCancelArtworkSync}>
+            <X className="h-3 w-3" />
+          </Button>
         </div>
       )}
 
@@ -314,6 +428,93 @@ export const LibraryView: React.FC<{
           </div>
         )}
       </div>
+
+      {/* Game options dialog */}
+      <AlertDialog open={!!optionsMenuGame} onOpenChange={(open) => { if (!open) setOptionsMenuGame(null) }}>
+        <AlertDialogContent className="max-w-xs">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base">{optionsMenuGame?.title}</AlertDialogTitle>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-1">
+            <Button
+              variant="ghost"
+              className="justify-start"
+              onClick={() => {
+                const gameId = optionsMenuGame?.id
+                setOptionsMenuGame(null)
+                if (gameId) handleSyncSingleGame(gameId)
+              }}
+            >
+              <ImageDown className="h-4 w-4 mr-2" />
+              Download Artwork
+            </Button>
+            <Button
+              variant="ghost"
+              className="justify-start text-destructive hover:text-destructive"
+              onClick={() => {
+                if (optionsMenuGame) handleRemoveGame(optionsMenuGame.id)
+              }}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Remove from Library
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ScreenScraper credentials dialog */}
+      <AlertDialog open={showCredentialsDialog} onOpenChange={setShowCredentialsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ScreenScraper Account</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  GameLord uses ScreenScraper to download cover art and game metadata.
+                  Enter your free account credentials to get started.
+                </p>
+                <p className="text-xs">
+                  Don't have an account? Register at screenscraper.fr
+                </p>
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Username"
+                    value={credentialUserId}
+                    onChange={(e) => setCredentialUserId(e.target.value)}
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Password"
+                    value={credentialPassword}
+                    onChange={(e) => setCredentialPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveCredentials()
+                    }}
+                  />
+                  {credentialError && (
+                    <p className="text-sm text-destructive">{credentialError}</p>
+                  )}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setCredentialUserId('')
+              setCredentialPassword('')
+              setCredentialError('')
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveCredentials}>
+              Save & Download
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
