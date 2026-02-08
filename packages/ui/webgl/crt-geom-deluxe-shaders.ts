@@ -66,27 +66,8 @@ out vec4 fragColor;
 ${PARAMS_GLSL}
 
 void main() {
-  vec3 current = texture(u_texture, v_texCoord).rgb;
-
-  // Read previous-frame phosphor state
-  vec4 phosphor = texture(u_phosphorFeedback, v_texCoord);
-
-  // Linearize both
-  vec3 cscrn = pow(current, vec3(CRTgamma));
-  vec3 cphos = pow(max(phosphor.rgb, vec3(0.0)), vec3(CRTgamma));
-
-  // Decode elapsed time from alpha channel (matching original encoding)
-  float t = 1.0 + 255.0 * phosphor.a;
-  t = max(t, 1.0);
-
-  // Exponential phosphor decay — zero out if too old
-  float decayScale = (t > 1023.0) ? 0.0 : phosphor_amplitude * pow(t, -phosphor_power);
-  cphos *= decayScale;
-
-  // Composite in linear space, then re-encode to gamma
-  vec3 result = pow(cscrn + cphos, vec3(1.0 / CRTgamma));
-
-  fragColor = vec4(result, 1.0);
+  // Passthrough — just forward the current frame
+  fragColor = vec4(texture(u_texture, v_texCoord).rgb, 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -109,27 +90,8 @@ out vec4 fragColor;
 ${PARAMS_GLSL}
 
 void main() {
-  vec4 screen = texture(u_texture, v_texCoord);
-  vec4 phosphor = texture(u_feedback, v_texCoord);
-
-  vec3 lum = vec3(0.299, 0.587, 0.114);
-  float bscrn = dot(pow(screen.rgb, vec3(CRTgamma)), lum);
-  float bphos = dot(pow(max(phosphor.rgb, vec3(0.0)), vec3(CRTgamma)), lum);
-
-  // Decode elapsed time from alpha channel
-  float t = 1.0 + 255.0 * phosphor.a;
-
-  // Apply phosphor decay to determine if old phosphor is still brighter
-  bphos = (t > 1023.0) ? 0.0 : bphos * pow(t, -phosphor_power);
-
-  if (bscrn >= bphos) {
-    // Current pixel is brighter — stamp new phosphor, reset timer
-    fragColor = vec4(screen.rgb, 1.0 / 255.0);
-  } else {
-    // Old phosphor still brighter — keep decaying, increment timer
-    float newTime = min(t + 1.0, 1023.0);
-    fragColor = vec4(phosphor.rgb, fract(newTime / 256.0) * 256.0 / 255.0);
-  }
+  // Passthrough — just forward the input
+  fragColor = vec4(texture(u_texture, v_texCoord).rgb, 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
