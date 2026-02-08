@@ -55,8 +55,8 @@ const float interlace_detect = 1.0;
 export const phosphorApplyFragmentShader = `#version 300 es
 precision highp float;
 
-uniform sampler2D u_texture;          // Current frame (original)
-uniform sampler2D u_phosphorFeedback; // Pass 1 previous-frame output
+uniform sampler2D u_texture;          // Current frame (original, sRGB)
+uniform sampler2D u_phosphorFeedback; // Pass 1 previous-frame output (sRGB)
 uniform vec2 u_textureSize;
 uniform int u_frameCount;
 
@@ -66,12 +66,13 @@ out vec4 fragColor;
 ${PARAMS_GLSL}
 
 void main() {
-  vec3 current = pow(texture(u_texture, v_texCoord).rgb, vec3(CRTgamma));
+  // Stay in sRGB throughout — pass 4 handles the gamma pipeline
+  vec3 current = texture(u_texture, v_texCoord).rgb;
 
   vec4 phosphorData = texture(u_phosphorFeedback, v_texCoord);
-  vec3 phosphorColor = pow(max(phosphorData.rgb, vec3(0.0)), vec3(CRTgamma));
+  vec3 phosphorColor = max(phosphorData.rgb, vec3(0.0));
 
-  // Decode elapsed time from alpha + blue channel lower bits
+  // Decode elapsed time from alpha channel
   float timeEncoded = phosphorData.a * 255.0;
   float t = max(timeEncoded, 1.0);
 
@@ -82,7 +83,7 @@ void main() {
   // Composite: add decayed phosphor glow to current frame
   vec3 result = current + decayed;
 
-  fragColor = vec4(pow(result, vec3(1.0 / CRTgamma)), 1.0);
+  fragColor = vec4(result, 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -145,7 +146,7 @@ void main() {
 export const gaussxFragmentShader = `#version 300 es
 precision highp float;
 
-uniform sampler2D u_internal1;  // Pass 0 output (phosphor-composited frame)
+uniform sampler2D u_internal1;  // Pass 0 output (phosphor-composited frame, sRGB)
 uniform vec2 u_textureSize;
 uniform vec2 u_originalSize;
 
@@ -154,8 +155,6 @@ out vec4 fragColor;
 
 ${PARAMS_GLSL}
 
-#define TEX2D(v) pow(texture(u_internal1, v).rgb, vec3(CRTgamma))
-
 void main() {
   vec2 texSize = u_textureSize;
   float aspect = texSize.x / texSize.y;
@@ -163,19 +162,20 @@ void main() {
 
   float dx = 1.0 / texSize.x;
 
-  // 9-tap Gaussian blur (horizontal)
+  // 9-tap Gaussian blur (horizontal), stays in sRGB space.
+  // Pass 4 linearizes when it reads via texblur().
   vec3 sum = vec3(0.0);
   float totalWeight = 0.0;
 
   for (int j = -4; j <= 4; j++) {
     float x = float(j);
     float w = exp(-0.5 * (x * x) / (blurWidth * blurWidth));
-    sum += TEX2D(v_texCoord + vec2(dx * x, 0.0)) * w;
+    sum += texture(u_internal1, v_texCoord + vec2(dx * x, 0.0)).rgb * w;
     totalWeight += w;
   }
 
   sum /= totalWeight;
-  fragColor = vec4(pow(sum, vec3(1.0 / CRTgamma)), 1.0);
+  fragColor = vec4(sum, 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -196,7 +196,7 @@ void main() {
 export const gaussyFragmentShader = `#version 300 es
 precision highp float;
 
-uniform sampler2D u_texture;  // Pass 2 output (horizontally blurred)
+uniform sampler2D u_texture;  // Pass 2 output (horizontally blurred, sRGB)
 uniform vec2 u_textureSize;
 uniform vec2 u_originalSize;
 
@@ -205,28 +205,26 @@ out vec4 fragColor;
 
 ${PARAMS_GLSL}
 
-#define TEX2D(v) pow(texture(u_texture, v).rgb, vec3(CRTgamma))
-
 void main() {
   vec2 texSize = u_textureSize;
-  float aspect = texSize.x / texSize.y;
-  float blurHeight = width * texSize.y / (240.0);
+  float blurHeight = width * texSize.y / 240.0;
 
   float dy = 1.0 / texSize.y;
 
-  // 9-tap Gaussian blur (vertical)
+  // 9-tap Gaussian blur (vertical), stays in sRGB space.
+  // Pass 4 linearizes when it reads via texblur().
   vec3 sum = vec3(0.0);
   float totalWeight = 0.0;
 
   for (int j = -4; j <= 4; j++) {
     float y = float(j);
     float w = exp(-0.5 * (y * y) / (blurHeight * blurHeight));
-    sum += TEX2D(v_texCoord + vec2(0.0, dy * y)) * w;
+    sum += texture(u_texture, v_texCoord + vec2(0.0, dy * y)).rgb * w;
     totalWeight += w;
   }
 
   sum /= totalWeight;
-  fragColor = vec4(pow(sum, vec3(1.0 / CRTgamma)), 1.0);
+  fragColor = vec4(sum, 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
