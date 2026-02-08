@@ -24,8 +24,8 @@ describe('crt-geom-deluxe preset', () => {
   describe('pass 0 — phosphor_apply', () => {
     const pass = crtGeomDeluxePreset.passes[0];
 
-    it('uses rgba16f format for float precision', () => {
-      expect(pass.format).toBe('rgba16f');
+    it('uses rgba8 format for 8-bit time encoding', () => {
+      expect(pass.format).toBe('rgba8');
     });
 
     it('has alias "internal1"', () => {
@@ -54,8 +54,8 @@ describe('crt-geom-deluxe preset', () => {
       expect(pass.alias).toBe('phosphor');
     });
 
-    it('uses rgba16f format', () => {
-      expect(pass.format).toBe('rgba16f');
+    it('uses rgba8 format for 8-bit time encoding', () => {
+      expect(pass.format).toBe('rgba8');
     });
   });
 

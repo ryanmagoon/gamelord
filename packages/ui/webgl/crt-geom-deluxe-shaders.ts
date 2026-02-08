@@ -68,19 +68,20 @@ ${PARAMS_GLSL}
 const float gamma = 2.2;
 
 void main() {
-  vec3 screen = texture(u_texture, v_texCoord).rgb;
+  vec4 screen = texture(u_texture, v_texCoord);
   vec4 phosphor = texture(u_phosphorFeedback, v_texCoord);
 
-  // Linearize for correct additive blending
-  vec3 cscrn = pow(screen, vec3(gamma));
+  vec3 cscrn = pow(screen.rgb, vec3(gamma));
   vec3 cphos = pow(phosphor.rgb, vec3(gamma));
 
-  // Alpha stores decay multiplier (starts at 1.0, decays each frame)
-  float decay = phosphor.a * pow(phosphor.a, phosphor_power);
-  cphos *= phosphor_amplitude * decay;
+  // Decode elapsed time from alpha + blue lower bits (matching original encoding)
+  float t = 255.0 * phosphor.a + fract(phosphor.b * 255.0 / 4.0) * 1024.0;
 
-  // Composite and re-encode to sRGB
-  fragColor = vec4(pow(max(cscrn + cphos, vec3(0.0)), vec3(1.0 / gamma)), 1.0);
+  cphos *= vec3(phosphor_amplitude * pow(t, -phosphor_power));
+
+  vec3 col = pow(cscrn + cphos, vec3(1.0 / gamma));
+
+  fragColor = vec4(col, 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -104,26 +105,31 @@ ${PARAMS_GLSL}
 
 const float gamma = 2.2;
 const vec3 lum = vec3(0.299, 0.587, 0.114);
-const float DECAY_RATE = 0.92; // Per-frame decay multiplier
 
 void main() {
-  vec3 screen = texture(u_texture, v_texCoord).rgb;
+  vec4 screen = texture(u_texture, v_texCoord);
   vec4 phosphor = texture(u_feedback, v_texCoord);
 
-  // Compare brightness in linear space
-  float bscrn = dot(pow(screen, vec3(gamma)), lum);
+  float bscrn = dot(pow(screen.rgb, vec3(gamma)), lum);
   float bphos = dot(pow(phosphor.rgb, vec3(gamma)), lum);
 
-  // Alpha stores the cumulative decay factor
-  float decayFactor = phosphor.a * DECAY_RATE;
-  float decayedBright = bphos * phosphor_amplitude * decayFactor;
+  // Decode elapsed time from alpha + blue lower bits (matching original encoding)
+  // t starts at 1 (added here) so first-frame pow(t, -power) = pow(1, -power) = 1
+  float t = 1.0 + 255.0 * phosphor.a + fract(phosphor.b * 255.0 / 4.0) * 1024.0;
 
-  if (bscrn >= decayedBright) {
-    // Screen is brighter: refresh with current frame, reset decay to 1.0
-    fragColor = vec4(screen, 1.0);
+  bphos = (t > 1023.0 ? 0.0 : bphos * pow(t, -phosphor_power));
+
+  if (bscrn >= bphos) {
+    // Screen is brighter: refresh with current frame, reset time to t=1
+    // Clear blue's lower 2 bits, set alpha = 1/255
+    fragColor = vec4(screen.r, screen.g,
+      floor(screen.b * 255.0 / 4.0) * 4.0 / 255.0,
+      1.0 / 255.0);
   } else {
-    // Phosphor still glowing: keep old color, continue decay
-    fragColor = vec4(phosphor.rgb, decayFactor);
+    // Phosphor still glowing: keep old color, encode incremented time
+    fragColor = vec4(phosphor.r, phosphor.g,
+      (floor(phosphor.b * 255.0 / 4.0) * 4.0 + floor(t / 256.0)) / 255.0,
+      fract(t / 256.0) * 256.0 / 255.0);
   }
 }`;
 
@@ -137,10 +143,18 @@ export const gaussxVertexShader = `#version 300 es
 in vec2 a_position;
 in vec2 a_texCoord;
 out vec2 v_texCoord;
+out vec4 v_coeffs;
+
+uniform vec2 u_textureSize;
+
+${PARAMS_GLSL}
 
 void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
   v_texCoord = a_texCoord;
+  // Precompute Gaussian coefficients (matching original)
+  float wid = width * u_textureSize.x / (320.0 * aspect_x);
+  v_coeffs = exp(vec4(1.0, 4.0, 9.0, 16.0) * vec4(-1.0 / wid / wid));
 }`;
 
 export const gaussxFragmentShader = `#version 300 es
@@ -151,31 +165,34 @@ uniform vec2 u_textureSize;
 uniform vec2 u_originalSize;
 
 in vec2 v_texCoord;
+in vec4 v_coeffs;
 out vec4 fragColor;
 
 ${PARAMS_GLSL}
 
+const float gamma = 2.2;
+
+// Linearize sample (matching original TEX2D in gaussx)
+#define TEX2D(v) pow(texture(u_internal1, v).rgb, vec3(gamma))
+
 void main() {
-  vec2 texSize = u_textureSize;
-  float aspect = texSize.x / texSize.y;
-  float blurWidth = width * texSize.x / (320.0 * aspect);
-
-  float dx = 1.0 / texSize.x;
-
-  // 9-tap Gaussian blur (horizontal), stays in sRGB space.
-  // Pass 4 linearizes when it reads via texblur().
   vec3 sum = vec3(0.0);
-  float totalWeight = 0.0;
+  float onex = 1.0 / u_textureSize.x;
 
-  for (int j = -4; j <= 4; j++) {
-    float x = float(j);
-    float w = exp(-0.5 * (x * x) / (blurWidth * blurWidth));
-    sum += texture(u_internal1, v_texCoord + vec2(dx * x, 0.0)).rgb * w;
-    totalWeight += w;
-  }
+  sum += TEX2D(v_texCoord + vec2(-4.0 * onex, 0.0)) * vec3(v_coeffs.w);
+  sum += TEX2D(v_texCoord + vec2(-3.0 * onex, 0.0)) * vec3(v_coeffs.z);
+  sum += TEX2D(v_texCoord + vec2(-2.0 * onex, 0.0)) * vec3(v_coeffs.y);
+  sum += TEX2D(v_texCoord + vec2(-1.0 * onex, 0.0)) * vec3(v_coeffs.x);
+  sum += TEX2D(v_texCoord);
+  sum += TEX2D(v_texCoord + vec2(+1.0 * onex, 0.0)) * vec3(v_coeffs.x);
+  sum += TEX2D(v_texCoord + vec2(+2.0 * onex, 0.0)) * vec3(v_coeffs.y);
+  sum += TEX2D(v_texCoord + vec2(+3.0 * onex, 0.0)) * vec3(v_coeffs.z);
+  sum += TEX2D(v_texCoord + vec2(+4.0 * onex, 0.0)) * vec3(v_coeffs.w);
 
-  sum /= totalWeight;
-  fragColor = vec4(sum, 1.0);
+  float norm = 1.0 / (1.0 + 2.0 * (v_coeffs.x + v_coeffs.y + v_coeffs.z + v_coeffs.w));
+
+  // Output back to sRGB (matching original)
+  fragColor = vec4(pow(sum * vec3(norm), vec3(1.0 / gamma)), 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -187,10 +204,18 @@ export const gaussyVertexShader = `#version 300 es
 in vec2 a_position;
 in vec2 a_texCoord;
 out vec2 v_texCoord;
+out vec4 v_coeffs;
+
+uniform vec2 u_textureSize;
+
+${PARAMS_GLSL}
 
 void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
   v_texCoord = a_texCoord;
+  // Precompute Gaussian coefficients (matching original, uses y axis)
+  float wid = width * u_textureSize.y / (320.0 * aspect_y);
+  v_coeffs = exp(vec4(1.0, 4.0, 9.0, 16.0) * vec4(-1.0 / wid / wid));
 }`;
 
 export const gaussyFragmentShader = `#version 300 es
@@ -201,30 +226,34 @@ uniform vec2 u_textureSize;
 uniform vec2 u_originalSize;
 
 in vec2 v_texCoord;
+in vec4 v_coeffs;
 out vec4 fragColor;
 
 ${PARAMS_GLSL}
 
+const float gamma = 2.2;
+
+// Linearize sample (matching original TEX2D in gaussy)
+#define TEX2D(v) pow(texture(u_texture, v).rgb, vec3(gamma))
+
 void main() {
-  vec2 texSize = u_textureSize;
-  float blurHeight = width * texSize.y / 240.0;
-
-  float dy = 1.0 / texSize.y;
-
-  // 9-tap Gaussian blur (vertical), stays in sRGB space.
-  // Pass 4 linearizes when it reads via texblur().
   vec3 sum = vec3(0.0);
-  float totalWeight = 0.0;
+  float oney = 1.0 / u_textureSize.y;
 
-  for (int j = -4; j <= 4; j++) {
-    float y = float(j);
-    float w = exp(-0.5 * (y * y) / (blurHeight * blurHeight));
-    sum += texture(u_texture, v_texCoord + vec2(0.0, dy * y)).rgb * w;
-    totalWeight += w;
-  }
+  sum += TEX2D(v_texCoord + vec2(0.0, -4.0 * oney)) * vec3(v_coeffs.w);
+  sum += TEX2D(v_texCoord + vec2(0.0, -3.0 * oney)) * vec3(v_coeffs.z);
+  sum += TEX2D(v_texCoord + vec2(0.0, -2.0 * oney)) * vec3(v_coeffs.y);
+  sum += TEX2D(v_texCoord + vec2(0.0, -1.0 * oney)) * vec3(v_coeffs.x);
+  sum += TEX2D(v_texCoord);
+  sum += TEX2D(v_texCoord + vec2(0.0, +1.0 * oney)) * vec3(v_coeffs.x);
+  sum += TEX2D(v_texCoord + vec2(0.0, +2.0 * oney)) * vec3(v_coeffs.y);
+  sum += TEX2D(v_texCoord + vec2(0.0, +3.0 * oney)) * vec3(v_coeffs.z);
+  sum += TEX2D(v_texCoord + vec2(0.0, +4.0 * oney)) * vec3(v_coeffs.w);
 
-  sum /= totalWeight;
-  fragColor = vec4(sum, 1.0);
+  float norm = 1.0 / (1.0 + 2.0 * (v_coeffs.x + v_coeffs.y + v_coeffs.z + v_coeffs.w));
+
+  // Output back to sRGB (matching original)
+  fragColor = vec4(pow(sum * vec3(norm), vec3(1.0 / gamma)), 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -419,12 +448,12 @@ ${PARAMS_GLSL}
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
 
-// Linearize input (sRGB → linear) and zero out-of-bounds via underscan check.
-// Our pipeline is sRGB-in, sRGB-out. We linearize here and re-encode at output
-// via sqrt (matching the working crt-geom shader's approach).
+// LINEAR_PROCESSING: linearize in TEX2D, output via pow(1/monitorgamma).
+// This matches the original crt-geom-deluxe which defines LINEAR_PROCESSING.
 vec4 TEX2D(vec2 c) {
   vec2 underscan = step(0.0, c) * step(0.0, vec2(1.0) - c);
-  return pow(texture(u_internal1, c), vec4(CRTgamma)) * vec4(underscan.x * underscan.y);
+  vec4 col = texture(u_internal1, c) * vec4(underscan.x * underscan.y);
+  return pow(col, vec4(CRTgamma));
 }
 
 ${SUBPIXEL_MASKS_GLSL}
@@ -456,7 +485,7 @@ float corner(vec2 coord) {
   vec2 cdist = vec2(cornersize);
   coord = (cdist - min(coord, cdist));
   float dist_ = sqrt(dot(coord, coord));
-  return clamp((cdist.x - dist_) * cornersmooth, 0.0, 1.0);
+  return clamp((max(cdist.x, 1e-3) - dist_) * cornersmooth, 0.0, 1.0);
 }
 
 vec4 scanlineWeights(float distance_, vec4 color) {
@@ -468,7 +497,6 @@ vec4 scanlineWeights(float distance_, vec4 color) {
 vec3 texblur(vec2 coord) {
   vec3 blur = pow(texture(u_blur_texture, coord).rgb, vec3(CRTgamma));
 
-  // Edge taper: erf-based falloff matching the original geom-deluxe texblur.
   float w = width / 320.0;
   vec2 c = min(coord, vec2(1.0) - coord) * vec2(aspect_x, aspect_y) * vec2(1.0 / w);
   vec2 e2c = exp(-c * c);
@@ -478,7 +506,7 @@ vec3 texblur(vec2 coord) {
 }
 
 void main() {
-  // Apply barrel distortion (matching original crt-geom-deluxe transform())
+  // Apply barrel distortion (matching original transform())
   vec2 xy;
   if (curvature > 0.5) {
     vec2 cd = v_texCoord - vec2(0.5);
@@ -490,25 +518,27 @@ void main() {
 
   float cval = corner(xy);
 
-  // Raster bloom: sample highest available mip for whole-frame average brightness
+  // Raster bloom: average brightness from highest mip level
   float avgbright = dot(textureLod(u_blur_texture, vec2(1.0, 1.0), 9.0).rgb, vec3(1.0)) / 3.0;
   float rbloom = 1.0 - rasterbloom * (avgbright - 0.5);
   xy = (xy - vec2(0.5)) * rbloom + vec2(0.5);
 
+  // Save xy after rbloom for halation lookup (before Lanczos snapping)
+  vec2 xy0 = xy;
+
   // Interlace factor
   vec2 ilfac = v_ilfac;
 
-  // Texel size
-  float SHARPER = 1.0;
-  vec2 one = ilfac / vec2(SHARPER * v_TextureSize.x, v_TextureSize.y);
-
-  // Sub-texel position within the current scanline pair
+  // Sub-texel position
   vec2 ratio_scale = (xy * v_TextureSize - vec2(0.5)) / ilfac;
-  float filter_ = v_TextureSize.y / u_resolution.y;
+
+  // OVERSAMPLE: use fwidth for oversample filter (matches original)
+  float oversample_filter = fwidth(ratio_scale.y);
+
   vec2 uv_ratio = fract(ratio_scale);
 
   // Snap to texel center
-  vec2 texCoord = (floor(ratio_scale) * ilfac + vec2(0.5)) / v_TextureSize;
+  xy = (floor(ratio_scale) * ilfac + vec2(0.5)) / v_TextureSize;
 
   // Lanczos2 horizontal coefficients
   vec4 coeffs = PI * vec4(1.0 + uv_ratio.x, uv_ratio.x, 1.0 - uv_ratio.x, 2.0 - uv_ratio.x);
@@ -517,50 +547,58 @@ void main() {
   coeffs /= dot(coeffs, vec4(1.0));
 
   // Sample current and next scanline with Lanczos2 horizontal filter
-  vec4 col = clamp(mat4(
-    TEX2D(texCoord + vec2(-one.x, 0.0)),
-    TEX2D(texCoord),
-    TEX2D(texCoord + vec2(one.x, 0.0)),
-    TEX2D(texCoord + vec2(2.0 * one.x, 0.0))
-  ) * coeffs, 0.0, 1.0);
+  vec4 col = clamp(
+    TEX2D(xy + vec2(-v_one.x, 0.0)) * coeffs.x +
+    TEX2D(xy) * coeffs.y +
+    TEX2D(xy + vec2(v_one.x, 0.0)) * coeffs.z +
+    TEX2D(xy + vec2(2.0 * v_one.x, 0.0)) * coeffs.w,
+    0.0, 1.0);
 
-  vec4 col2 = clamp(mat4(
-    TEX2D(texCoord + vec2(-one.x, one.y)),
-    TEX2D(texCoord + vec2(0.0, one.y)),
-    TEX2D(texCoord + one),
-    TEX2D(texCoord + vec2(2.0 * one.x, one.y))
-  ) * coeffs, 0.0, 1.0);
+  vec4 col2 = clamp(
+    TEX2D(xy + vec2(-v_one.x, v_one.y)) * coeffs.x +
+    TEX2D(xy + vec2(0.0, v_one.y)) * coeffs.y +
+    TEX2D(xy + v_one) * coeffs.z +
+    TEX2D(xy + vec2(2.0 * v_one.x, v_one.y)) * coeffs.w,
+    0.0, 1.0);
 
-  // Scanline weights with 3x oversampling
+  // Scanline weights
   vec4 weights  = scanlineWeights(uv_ratio.y, col);
   vec4 weights2 = scanlineWeights(1.0 - uv_ratio.y, col2);
 
-  float uy1 = uv_ratio.y + 1.0 / 3.0 * filter_;
-  weights  = (weights  + scanlineWeights(uy1, col)) / 3.0;
-  weights2 = (weights2 + scanlineWeights(abs(1.0 - uy1), col2)) / 3.0;
-
-  float uy2 = uy1 - 2.0 / 3.0 * filter_;
-  weights  = weights  + scanlineWeights(abs(uy2), col) / 3.0;
-  weights2 = weights2 + scanlineWeights(abs(1.0 - uy2), col2) / 3.0;
+  // OVERSAMPLE: 3x oversampling of beam profile (matches original)
+  uv_ratio.y = uv_ratio.y + 1.0 / 3.0 * oversample_filter;
+  weights  = (weights  + scanlineWeights(uv_ratio.y, col)) / 3.0;
+  weights2 = (weights2 + scanlineWeights(abs(1.0 - uv_ratio.y), col2)) / 3.0;
+  uv_ratio.y = uv_ratio.y - 2.0 / 3.0 * oversample_filter;
+  weights  = weights  + scanlineWeights(abs(uv_ratio.y), col) / 3.0;
+  weights2 = weights2 + scanlineWeights(abs(1.0 - uv_ratio.y), col2) / 3.0;
 
   vec3 mul_res = (col * weights + col2 * weights2).rgb;
 
-  // Halation: blend in the Gaussian-blurred image
-  vec3 blur = texblur(xy);
+  // Halation and corners — applied TWICE matching the original exactly:
+  // First pass: halation mix with corner masking (no rbloom)
+  vec3 blur = texblur(xy0);
+  mul_res = mix(mul_res, blur, halation) * vec3(cval);
+  // Second pass: halation mix again with corner * rbloom brightness reduction
   mul_res = mix(mul_res, blur, halation) * vec3(cval * rbloom);
 
-  // Phosphor mask (simple multiply, matching working crt-geom approach)
-  vec4 mask = mask_weights_alpha(gl_FragCoord.xy, aperture_strength, mask_type);
-  mul_res *= mask.rgb;
+  // Shadow mask — use subpixel mask with intensity 1.0 (matching original)
+  // Original: mask_weights_alpha(v_texCoord.xy * OutputSize.xy, 1., mask_picker, alpha)
+  vec4 mask = mask_weights_alpha(v_texCoord * u_resolution, 1.0, mask_type);
 
-  // Re-encode linear → sRGB via pwr/cir/sqrt compensation
-  // (matches working crt-geom shader's gamma output)
-  vec3 pwr = vec3(1.0 / ((-0.7 * (1.0 - scanline_weight) + 1.0) * (-0.5 * aperture_strength + 1.0)) - 1.25);
-  pwr = max(pwr, vec3(0.0));
-  vec3 cir = mul_res - 1.0;
-  cir *= cir;
-  mul_res = mix(sqrt(max(mul_res, vec3(0.0))), sqrt(max(1.0 - cir, vec3(0.0))), pwr);
-  mul_res = clamp(mul_res, 0.0, 1.0);
+  // Energy-conserving mask brightness compensation (matching original exactly)
+  // u_tex_size1 in original = OutputSize / SourceSize (output pixels per source texel)
+  vec2 u_tex_size1 = u_resolution / v_TextureSize;
+  float nbright = 255.0 - 255.0 * mask.a;
+  float fbright = nbright / (u_tex_size1.x * u_tex_size1.y);
+  float aperture_average = mix(1.0 - aperture_strength * (1.0 - aperture_brightboost), 1.0, fbright);
+  vec3 clow = vec3(1.0 - aperture_strength) * mul_res + vec3(aperture_strength * aperture_brightboost) * mul_res * mul_res;
+  float ifbright = 1.0 / fbright;
+  vec3 chi = vec3(ifbright * aperture_average) * mul_res - vec3(ifbright - 1.0) * clow;
+  vec3 cout = mix(clow, chi, mask.rgb);
 
-  fragColor = vec4(mul_res, 1.0);
+  // Convert to display gamma (matching original: pow(1/monitorgamma))
+  cout = pow(cout, vec3(1.0 / monitorgamma));
+
+  fragColor = vec4(cout, col.a);
 }`;
