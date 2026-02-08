@@ -38,7 +38,7 @@ export class CoreManager extends EventEmitter {
     const { port1, port2 } = new MessageChannelMain();
     
     this.coreProcess = utilityProcess.fork(
-      path.join(__dirname, '../workers/core-worker.js'),
+      path.join(__dirname, 'workers/core-worker.js'),
       [],
       {
         serviceName: 'LibretroCore',

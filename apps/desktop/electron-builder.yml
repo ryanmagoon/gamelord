@@ -1,0 +1,45 @@
+appId: com.gamelord.app
+productName: GameLord
+copyright: Copyright © 2025 GameLord
+
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - out/**/*
+
+asarUnpack:
+  - "**/*.node"
+
+extraResources:
+  - from: native/build/Release/gamelord_libretro.node
+    to: gamelord_libretro.node
+
+mac:
+  category: public.app-category.games
+  icon: assets/icons/icon.icns
+  identity: ${env.APPLE_DEVELOPER_ID}
+  entitlementsInherit: entitlements.plist
+  hardenedRuntime: true
+  notarize:
+    teamId: ${env.APPLE_TEAM_ID}
+
+win:
+  target:
+    - nsis
+    - zip
+
+linux:
+  target:
+    - deb
+    - rpm
+    - AppImage
+
+electronFuses:
+  RunAsNode: false
+  EnableCookieEncryption: true
+  EnableNodeOptionsEnvironmentVariable: false
+  EnableNodeCliInspectArguments: false
+  EnableEmbeddedAsarIntegrityValidation: true
+  OnlyLoadAppFromAsar: false

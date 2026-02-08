@@ -75,11 +75,11 @@ export class GameWindowManager {
     // Lock window to the core's aspect ratio
     gameWindow.setAspectRatio(aspectRatio)
 
-    if (GAME_WINDOW_VITE_DEV_SERVER_URL) {
-      gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
+    if (process.env.ELECTRON_RENDERER_URL) {
+      gameWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/game-window.html`)
     } else {
       gameWindow.loadFile(
-        path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/game-window.html`),
+        path.join(__dirname, '../renderer/game-window.html'),
       )
     }
 
@@ -191,11 +191,11 @@ export class GameWindowManager {
       },
     })
 
-    if (GAME_WINDOW_VITE_DEV_SERVER_URL) {
-      gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
+    if (process.env.ELECTRON_RENDERER_URL) {
+      gameWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/game-window.html`)
     } else {
       gameWindow.loadFile(
-        path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/game-window.html`),
+        path.join(__dirname, '../renderer/game-window.html'),
       )
     }
 
