@@ -11,6 +11,7 @@ import {
   VolumeX,
   Settings,
   Monitor,
+  RotateCcw,
   Gamepad2,
 } from 'lucide-react'
 import type { Game } from '../../types/library'
@@ -209,9 +210,16 @@ export const GameWindow: React.FC = () => {
         source.buffer = buffer
         source.connect(gainNodeRef.current!)
 
-        // Schedule seamlessly after the previous chunk
+        // Schedule seamlessly after the previous chunk.
+        // Cap how far ahead we can buffer to prevent audio lag buildup:
+        // if we're more than 80ms ahead of real time, drop this chunk
+        // and reset the schedule to prevent growing desync.
         const now = ctx.currentTime
         if (audioNextTimeRef.current < now) {
+          audioNextTimeRef.current = now
+        }
+        const maxLookahead = 0.08 // 80ms max buffer ahead of real time
+        if (audioNextTimeRef.current > now + maxLookahead) {
           audioNextTimeRef.current = now
         }
         source.start(audioNextTimeRef.current)
@@ -327,6 +335,14 @@ export const GameWindow: React.FC = () => {
     await api.emulation.screenshot()
   }
 
+  const handleReset = async () => {
+    try {
+      await api.emulation.reset()
+    } catch (err) {
+      console.error('Reset failed:', err)
+    }
+  }
+
   // Keyboard shortcuts (overlay mode or general)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -354,11 +370,11 @@ export const GameWindow: React.FC = () => {
   const scheduleHide = useCallback(() => {
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
     hideTimeoutRef.current = setTimeout(() => {
-      if (!isPaused && !isOverControlsRef.current) {
+      if (!isOverControlsRef.current) {
         setShowControls(false)
       }
     }, 3000)
-  }, [isPaused])
+  }, [])
 
   // Show on mouse move, auto-hide after 3s of inactivity
   const handleMouseMove = useCallback(() => {
@@ -368,7 +384,7 @@ export const GameWindow: React.FC = () => {
   }, [mode, isPoweringOn, isPoweringOff, scheduleHide])
 
   const handleMouseLeave = useCallback((event: React.MouseEvent) => {
-    if (mode !== 'native' || isPaused) return
+    if (mode !== 'native') return
     const { clientX, clientY } = event
     const { innerWidth, innerHeight } = window
     if (clientX > 0 && clientX < innerWidth && clientY > 0 && clientY < innerHeight) {
@@ -480,6 +496,15 @@ export const GameWindow: React.FC = () => {
               ) : (
                 <Pause className="h-5 w-5" />
               )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              className="text-white hover:bg-white/10"
+              title="Reset"
+            >
+              <RotateCcw className="h-5 w-5" />
             </Button>
             <Button
               variant="ghost"
@@ -607,15 +632,6 @@ export const GameWindow: React.FC = () => {
         </div>
       </div>
 
-      {/* Pause indicator — fades out on close */}
-      {isPaused && !isPoweringOff && (
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
-          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-sm">
-            <Pause className="h-4 w-4 text-white" />
-            <span className="text-white text-sm font-medium">PAUSED</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

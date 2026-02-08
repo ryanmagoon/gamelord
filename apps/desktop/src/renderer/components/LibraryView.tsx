@@ -324,6 +324,11 @@ export const LibraryView: React.FC<{
     await loadLibrary()
   }
 
+  /** Switches the active system filter. The FLIP hook in GameLibrary handles animation. */
+  const switchSystem = useCallback((nextSystem: string | null) => {
+    setSelectedSystem(nextSystem)
+  }, [])
+
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
 
   /** Delegate to the parent's onPlayGame so App.tsx can handle core selection. */
@@ -445,7 +450,7 @@ export const LibraryView: React.FC<{
           <Button
             variant={selectedSystem === null ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setSelectedSystem(null)}
+            onClick={() => switchSystem(null)}
           >
             All ({games.length})
           </Button>
@@ -456,7 +461,7 @@ export const LibraryView: React.FC<{
                 key={system.id}
                 variant={selectedSystem === system.id ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setSelectedSystem(system.id)}
+                onClick={() => switchSystem(system.id)}
               >
                 {system.shortName} ({systemGames.length})
               </Button>

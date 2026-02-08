@@ -45,6 +45,10 @@ export interface GameCardProps {
    */
   artworkSyncPhase?: ArtworkSyncPhase
   className?: string
+  /** Inline styles forwarded to the root card element (useful for animation delays). */
+  style?: React.CSSProperties
+  /** Ref forwarded to the root Card element (used for FLIP measurements). */
+  ref?: React.Ref<HTMLDivElement>
 }
 
 /** Map sync phases to user-facing status labels. */
@@ -61,6 +65,8 @@ export const GameCard: React.FC<GameCardProps> = ({
   menuItems,
   artworkSyncPhase,
   className,
+  style,
+  ref,
 }) => {
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -84,10 +90,12 @@ export const GameCard: React.FC<GameCardProps> = ({
 
   return (
     <Card
+      ref={ref}
       className={cn(
         'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg w-48',
         className
       )}
+      style={style}
     >
       <CardContent className="p-0">
         <div className="aspect-[3/4] relative bg-muted">
