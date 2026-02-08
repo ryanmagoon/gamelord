@@ -7,7 +7,7 @@ import {
   AlertDialogTitle,
   Button,
 } from '@gamelord/ui'
-import { Download, Check, Cpu } from 'lucide-react'
+import { Download, Check, Cpu, Loader2 } from 'lucide-react'
 import type { CoreInfo } from '../types/global'
 
 export interface CoreSelectDialogProps {
@@ -16,6 +16,12 @@ export interface CoreSelectDialogProps {
   cores: CoreInfo[]
   onSelect: (coreName: string, remember: boolean) => void
   onCancel: () => void
+  /**
+   * When true, the backdrop overlay appears instantly (no fade-in animation).
+   * Use this when transitioning from another overlay (e.g. a dropdown menu)
+   * to prevent a flash of the underlying UI between the two overlays.
+   */
+  suppressOverlayAnimation?: boolean
 }
 
 /**
@@ -29,12 +35,20 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
   cores,
   onSelect,
   onCancel,
+  suppressOverlayAnimation = false,
 }) => {
   const [remember, setRemember] = useState(false)
 
+  const isLoading = cores.length === 0
+
   return (
     <AlertDialog open={open}>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent
+        className="sm:max-w-md"
+        overlayClassName={
+          suppressOverlayAnimation ? '[animation-duration:0ms]' : undefined
+        }
+      >
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Cpu className="h-5 w-5" />
@@ -48,27 +62,36 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
         </AlertDialogHeader>
 
         <div className="flex flex-col gap-2 py-2">
-          {cores.map((core) => (
-            <button
-              key={core.name}
-              onClick={() => onSelect(core.name, remember)}
-              className="flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="font-medium">{core.displayName}</div>
-                {core.description && (
-                  <div className="text-sm text-muted-foreground">
-                    {core.description}
-                  </div>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                Loading cores…
+              </span>
+            </div>
+          ) : (
+            cores.map((core) => (
+              <button
+                key={core.name}
+                onClick={() => onSelect(core.name, remember)}
+                className="flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium">{core.displayName}</div>
+                  {core.description && (
+                    <div className="text-sm text-muted-foreground">
+                      {core.description}
+                    </div>
+                  )}
+                </div>
+                {core.installed ? (
+                  <Check className="h-4 w-4 shrink-0 text-green-500" />
+                ) : (
+                  <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
                 )}
-              </div>
-              {core.installed ? (
-                <Check className="h-4 w-4 shrink-0 text-green-500" />
-              ) : (
-                <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
-              )}
-            </button>
-          ))}
+              </button>
+            ))
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t">

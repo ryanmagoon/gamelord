@@ -1,6 +1,56 @@
 @import "tailwindcss";
 @import "@gamelord/ui/theme.css";
 
+/*
+ * Geist Pixel — a bitmap-inspired display typeface from Vercel.
+ * We load all five variants so they can be mixed for different UI contexts.
+ * "Square" is the default body font; others are available via font-family.
+ */
+@font-face {
+  font-family: 'Geist Pixel Square';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Square.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Grid';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Grid.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Circle';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Circle.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Triangle';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Triangle.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Pixel Line';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Line.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Override the system font stack from theme.css with Geist Pixel Square. */
+body {
+  font-family: 'Geist Pixel Square', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
 /* Scan local renderer components */
 @source "./renderer/**/*.{js,ts,jsx,tsx}";
 /* Scan UI package components (from src/, go up 3 levels to monorepo root) */
@@ -21,4 +71,96 @@
 /* Padding for macOS traffic lights */
 @utility titlebar-inset {
   padding-left: 72px;
+}
+
+/**
+ * Temporarily applied to <body> during theme switches so background, text,
+ * and border colors cross-fade instead of snapping.
+ */
+.theme-transitioning,
+.theme-transitioning * {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease !important;
+}
+
+/* Staggered game-card entrance animation */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-card-enter {
+  animation: card-enter 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Card exit animation for FLIP transitions */
+@keyframes card-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.animate-card-exit {
+  animation: card-exit 200ms cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+}
+
+/*
+ * CRT-inspired dialog scan-in / scan-out animations.
+ * The content materialises from a thin horizontal line that expands
+ * vertically, with a subtle phosphor glow on the border.
+ */
+@keyframes dialog-scan-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scaleY(0.01) scaleX(0.85);
+    box-shadow: 0 0 30px 4px rgba(120, 200, 255, 0.5);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scaleY(0.04) scaleX(1);
+    box-shadow: 0 0 20px 2px rgba(120, 200, 255, 0.35);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scaleY(1) scaleX(1);
+    box-shadow: 0 0 0 0 rgba(120, 200, 255, 0);
+  }
+}
+
+@keyframes dialog-scan-out {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scaleY(1) scaleX(1);
+    box-shadow: 0 0 0 0 rgba(120, 200, 255, 0);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scaleY(0.04) scaleX(1);
+    box-shadow: 0 0 20px 2px rgba(120, 200, 255, 0.35);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scaleY(0.01) scaleX(0.85);
+    box-shadow: 0 0 30px 4px rgba(120, 200, 255, 0.5);
+  }
+}
+
+/* Apply to AlertDialogContent via the data-[state] attributes */
+.animate-dialog-scan-in {
+  animation: dialog-scan-in 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-dialog-scan-out {
+  animation: dialog-scan-out 200ms cubic-bezier(0.7, 0, 0.84, 0) both;
 }
