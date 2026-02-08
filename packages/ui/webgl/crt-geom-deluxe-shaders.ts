@@ -19,8 +19,8 @@ const float phosphor_amplitude = 0.04;
 // CRT geometry
 const float CRTgamma       = 2.4;
 const float monitorgamma   = 2.2;
-const float d              = 2.0;
-const float R              = 3.5;
+const float d              = 1.6;
+const float R              = 2.0;
 const float cornersize     = 0.01;
 const float cornersmooth   = 1000.0;
 const float overscan_x     = 1.0;
@@ -56,7 +56,7 @@ export const phosphorApplyFragmentShader = `#version 300 es
 precision highp float;
 
 uniform sampler2D u_texture;          // Current frame (original, sRGB)
-uniform sampler2D u_phosphorFeedback; // Pass 1 previous-frame output (sRGB)
+uniform sampler2D u_phosphorFeedback; // Pass 1 previous-frame output
 uniform vec2 u_textureSize;
 uniform int u_frameCount;
 
@@ -65,9 +65,26 @@ out vec4 fragColor;
 
 ${PARAMS_GLSL}
 
+const float gamma = 2.2;
+
 void main() {
-  // Passthrough — just forward the current frame
-  fragColor = vec4(texture(u_texture, v_texCoord).rgb, 1.0);
+  vec3 screen = texture(u_texture, v_texCoord).rgb;
+  vec4 phosphor = texture(u_phosphorFeedback, v_texCoord);
+
+  // Linearize both
+  vec3 cscrn = pow(screen, vec3(gamma));
+  vec3 cphos = pow(phosphor.rgb, vec3(gamma));
+
+  // Decay the phosphor: alpha stores a normalized age (0 = fresh, 1 = fully decayed)
+  // Age increments by ~1/60 per frame (assuming 60fps), capped at 1.0
+  float age = phosphor.a;
+  float t = max(1.0, age * 1024.0);
+  cphos *= vec3(phosphor_amplitude * pow(t, -phosphor_power));
+
+  // Composite: add decayed phosphor glow to current frame
+  vec3 col = pow(cscrn + cphos, vec3(1.0 / gamma));
+
+  fragColor = vec4(col, 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -89,9 +106,28 @@ out vec4 fragColor;
 
 ${PARAMS_GLSL}
 
+const float gamma = 2.2;
+const vec3 lum = vec3(0.299, 0.587, 0.114);
+
 void main() {
-  // Passthrough — just forward the input
-  fragColor = vec4(texture(u_texture, v_texCoord).rgb, 1.0);
+  vec4 screen = texture(u_texture, v_texCoord);
+  vec4 phosphor = texture(u_feedback, v_texCoord);
+
+  // Compare brightness in linear space
+  float bscrn = dot(pow(screen.rgb, vec3(gamma)), lum);
+  float bphos = dot(pow(phosphor.rgb, vec3(gamma)), lum);
+
+  // Alpha stores normalized frame count (age / 1024.0)
+  float age = phosphor.a * 1024.0 + 1.0;
+  float decayedPhos = (age > 1023.0) ? 0.0 : bphos * pow(age, -phosphor_power);
+
+  if (bscrn >= decayedPhos) {
+    // Screen is brighter: refresh with current frame, reset age to 1
+    fragColor = vec4(screen.rgb, 1.0 / 1024.0);
+  } else {
+    // Phosphor still glowing: keep old color, increment age
+    fragColor = vec4(phosphor.rgb, min(age / 1024.0, 1.0));
+  }
 }`;
 
 // ---------------------------------------------------------------------------
@@ -386,11 +422,12 @@ ${PARAMS_GLSL}
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
 
-// Match original: underscan check zeroes out-of-bounds, no gamma linearization
-// (LINEAR_PROCESSING is not defined in the default preset)
+// Linearize input (sRGB → linear) and zero out-of-bounds via underscan check.
+// Our pipeline is sRGB-in, sRGB-out. We linearize here and re-encode at output
+// via sqrt (matching the working crt-geom shader's approach).
 vec4 TEX2D(vec2 c) {
   vec2 underscan = step(0.0, c) * step(0.0, vec2(1.0) - c);
-  return texture(u_internal1, c) * vec4(underscan.x * underscan.y);
+  return pow(texture(u_internal1, c), vec4(CRTgamma)) * vec4(underscan.x * underscan.y);
 }
 
 ${SUBPIXEL_MASKS_GLSL}
@@ -432,7 +469,7 @@ vec4 scanlineWeights(float distance_, vec4 color) {
 }
 
 vec3 texblur(vec2 coord) {
-  vec3 blur = texture(u_blur_texture, coord).rgb;
+  vec3 blur = pow(texture(u_blur_texture, coord).rgb, vec3(CRTgamma));
 
   // Edge taper: erf-based falloff matching the original geom-deluxe texblur.
   float w = width / 320.0;
@@ -515,16 +552,18 @@ void main() {
   vec3 blur = texblur(xy);
   mul_res = mix(mul_res, blur, halation) * vec3(cval * rbloom);
 
-  // Phosphor mask with energy-conserving brightness compensation
+  // Phosphor mask (simple multiply, matching working crt-geom approach)
   vec4 mask = mask_weights_alpha(gl_FragCoord.xy, aperture_strength, mask_type);
-  float fbright = 1.0 / (1.0 - mask.a * aperture_strength);
-  float ifbright = 1.0 / fbright;
-  vec3 clow  = mul_res * (1.0 + aperture_brightboost) * ifbright;
-  vec3 chi   = mul_res * fbright;
-  vec3 cout_ = mix(clow, chi, mask.rgb);
+  mul_res *= mask.rgb;
 
-  // Final gamma: convert to display gamma (matches original geom-deluxe)
-  cout_ = pow(max(cout_, vec3(0.0)), vec3(1.0 / monitorgamma));
+  // Re-encode linear → sRGB via pwr/cir/sqrt compensation
+  // (matches working crt-geom shader's gamma output)
+  vec3 pwr = vec3(1.0 / ((-0.7 * (1.0 - scanline_weight) + 1.0) * (-0.5 * aperture_strength + 1.0)) - 1.25);
+  pwr = max(pwr, vec3(0.0));
+  vec3 cir = mul_res - 1.0;
+  cir *= cir;
+  mul_res = mix(sqrt(max(mul_res, vec3(0.0))), sqrt(max(1.0 - cir, vec3(0.0))), pwr);
+  mul_res = clamp(mul_res, 0.0, 1.0);
 
-  fragColor = vec4(cout_, 1.0);
+  fragColor = vec4(mul_res, 1.0);
 }`;
