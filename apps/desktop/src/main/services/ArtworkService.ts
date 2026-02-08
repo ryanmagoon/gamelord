@@ -289,7 +289,7 @@ export class ArtworkService extends EventEmitter {
             resolve(destPath);
           });
           file.on('error', (err) => {
-            fsSync.unlink(destPath, () => {});
+            fsSync.unlink(destPath, (_err) => { /* best-effort cleanup */ });
             reject(err);
           });
         }).on('error', reject);

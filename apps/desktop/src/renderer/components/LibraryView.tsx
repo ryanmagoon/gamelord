@@ -12,10 +12,11 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
   AlertDialogAction,
+  type Game,
+  type Game as UiGame,
   type GameCardMenuItem,
 } from '@gamelord/ui'
 import { Plus, FolderOpen, RefreshCw, Download, ImageDown, X } from 'lucide-react'
-import type { Game, Game as UiGame } from '@gamelord/ui'
 import type { Game as AppGame, GameSystem } from '../../types/library'
 import type { ArtworkProgress } from '../../types/artwork'
 import type { GamelordAPI } from '../types/global'
