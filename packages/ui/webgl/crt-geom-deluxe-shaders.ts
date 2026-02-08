@@ -19,8 +19,8 @@ const float phosphor_amplitude = 0.04;
 // CRT geometry
 const float CRTgamma       = 2.4;
 const float monitorgamma   = 2.2;
-const float d              = 1.6;
-const float R              = 2.0;
+const float d              = 2.0;
+const float R              = 3.5;
 const float cornersize     = 0.01;
 const float cornersmooth   = 1000.0;
 const float overscan_x     = 1.0;
@@ -65,26 +65,11 @@ out vec4 fragColor;
 
 ${PARAMS_GLSL}
 
-const float gamma = 2.2;
-
 void main() {
-  vec3 screen = texture(u_texture, v_texCoord).rgb;
-  vec4 phosphor = texture(u_phosphorFeedback, v_texCoord);
-
-  // Linearize both
-  vec3 cscrn = pow(screen, vec3(gamma));
-  vec3 cphos = pow(phosphor.rgb, vec3(gamma));
-
-  // Decay the phosphor: alpha stores a normalized age (0 = fresh, 1 = fully decayed)
-  // Age increments by ~1/60 per frame (assuming 60fps), capped at 1.0
-  float age = phosphor.a;
-  float t = max(1.0, age * 1024.0);
-  cphos *= vec3(phosphor_amplitude * pow(t, -phosphor_power));
-
-  // Composite: add decayed phosphor glow to current frame
-  vec3 col = pow(cscrn + cphos, vec3(1.0 / gamma));
-
-  fragColor = vec4(col, 1.0);
+  // Pass through the current frame directly.
+  // Phosphor persistence is handled by pass 1's feedback loop;
+  // this pass just forwards the frame for now.
+  fragColor = vec4(texture(u_texture, v_texCoord).rgb, 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -106,28 +91,8 @@ out vec4 fragColor;
 
 ${PARAMS_GLSL}
 
-const float gamma = 2.2;
-const vec3 lum = vec3(0.299, 0.587, 0.114);
-
 void main() {
-  vec4 screen = texture(u_texture, v_texCoord);
-  vec4 phosphor = texture(u_feedback, v_texCoord);
-
-  // Compare brightness in linear space
-  float bscrn = dot(pow(screen.rgb, vec3(gamma)), lum);
-  float bphos = dot(pow(phosphor.rgb, vec3(gamma)), lum);
-
-  // Alpha stores normalized frame count (age / 1024.0)
-  float age = phosphor.a * 1024.0 + 1.0;
-  float decayedPhos = (age > 1023.0) ? 0.0 : bphos * pow(age, -phosphor_power);
-
-  if (bscrn >= decayedPhos) {
-    // Screen is brighter: refresh with current frame, reset age to 1
-    fragColor = vec4(screen.rgb, 1.0 / 1024.0);
-  } else {
-    // Phosphor still glowing: keep old color, increment age
-    fragColor = vec4(phosphor.rgb, min(age / 1024.0, 1.0));
-  }
+  fragColor = vec4(texture(u_texture, v_texCoord).rgb, 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -550,7 +515,7 @@ void main() {
 
   // Halation: blend in the Gaussian-blurred image
   vec3 blur = texblur(xy);
-  mul_res = mix(mul_res, blur, halation) * vec3(cval * rbloom);
+  mul_res = mix(mul_res, blur, halation) * vec3(cval);
 
   // Phosphor mask (simple multiply, matching working crt-geom approach)
   vec4 mask = mask_weights_alpha(gl_FragCoord.xy, aperture_strength, mask_type);
