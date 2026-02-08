@@ -51,7 +51,31 @@ vi.mock('fs', () => ({
   },
 }));
 
+// vi.hoisted mock for ScreenScraperClient — lets us control API responses per test
+const { mockFetchByHash, mockFetchByName, mockValidateCredentials } = vi.hoisted(() => ({
+  mockFetchByHash: vi.fn(),
+  mockFetchByName: vi.fn(),
+  mockValidateCredentials: vi.fn(),
+}));
+
+vi.mock('./ScreenScraperClient', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./ScreenScraperClient')>();
+
+  // Use a real class so `new ScreenScraperClient(...)` works
+  class MockScreenScraperClient {
+    fetchByHash = mockFetchByHash;
+    fetchByName = mockFetchByName;
+    validateCredentials = mockValidateCredentials;
+  }
+
+  return {
+    ...actual,
+    ScreenScraperClient: MockScreenScraperClient,
+  };
+});
+
 import { ArtworkService } from './ArtworkService';
+import { ScreenScraperError } from './ScreenScraperClient';
 import { LibraryService } from './LibraryService';
 import type { Game } from '../../types/library';
 import type { ArtworkProgress } from '../../types/artwork';
@@ -94,6 +118,14 @@ describe('ArtworkService', () => {
     vi.clearAllMocks();
     mockReadFile.mockResolvedValue('{}');
     mockWriteFile.mockResolvedValue(undefined);
+    mockFetchByHash.mockResolvedValue(null);
+    mockFetchByName.mockResolvedValue(null);
+    mockValidateCredentials.mockResolvedValue(undefined);
+
+    // Stub the internal sleep/rate-limit to avoid real delays in tests.
+    // The prototype methods are patched so every ArtworkService instance is fast.
+    vi.spyOn(ArtworkService.prototype as any, 'sleep').mockResolvedValue(undefined);
+    vi.spyOn(ArtworkService.prototype as any, 'waitForRateLimit').mockResolvedValue(undefined);
   });
 
   describe('computeRomHash', () => {
@@ -289,6 +321,296 @@ describe('ArtworkService', () => {
 
       const result = await service.syncGame('game1');
       expect(result).toBe(false);
+    });
+
+    it('throws ScreenScraperError when hash lookup returns auth error', async () => {
+      const game = makeGame();
+      const service = new ArtworkService(createMockLibraryService([game]));
+      await flushPromises();
+      await service.setCredentials('user', 'pass');
+
+      // Mock ROM hash so we don't hit the filesystem
+      const mockStream = new Readable({
+        read() {
+          this.push(Buffer.from('test ROM'));
+          this.push(null);
+        },
+      });
+      mockCreateReadStream.mockReturnValue(mockStream);
+
+      mockFetchByHash.mockRejectedValue(
+        new ScreenScraperError('Invalid username or password.', 401, 'auth-failed'),
+      );
+
+      await expect(service.syncGame('game1')).rejects.toThrow('Invalid username or password.');
+      // Should NOT fall through to name search after auth failure
+      expect(mockFetchByName).not.toHaveBeenCalled();
+    });
+
+    it('throws ScreenScraperError when name search returns auth error', async () => {
+      const game = makeGame();
+      const service = new ArtworkService(createMockLibraryService([game]));
+      await flushPromises();
+      await service.setCredentials('user', 'pass');
+
+      const mockStream = new Readable({
+        read() {
+          this.push(Buffer.from('test ROM'));
+          this.push(null);
+        },
+      });
+      mockCreateReadStream.mockReturnValue(mockStream);
+
+      // Hash lookup returns null (not found), but name search hits auth error
+      mockFetchByHash.mockResolvedValue(null);
+      mockFetchByName.mockRejectedValue(
+        new ScreenScraperError('Invalid username or password.', 403, 'auth-failed'),
+      );
+
+      await expect(service.syncGame('game1')).rejects.toThrow('Invalid username or password.');
+    });
+
+    it('throws on ROM hash failure with descriptive error', async () => {
+      const game = makeGame();
+      const service = new ArtworkService(createMockLibraryService([game]));
+      await flushPromises();
+      await service.setCredentials('user', 'pass');
+
+      const mockStream = new Readable({
+        read() {
+          this.destroy(new Error('ENOENT: no such file'));
+        },
+      });
+      mockCreateReadStream.mockReturnValue(mockStream);
+
+      await expect(service.syncGame('game1')).rejects.toThrow('Failed to read ROM file');
+    });
+
+    it('falls through to name search on non-auth errors from hash lookup', async () => {
+      const game = makeGame();
+      const service = new ArtworkService(createMockLibraryService([game]));
+      await flushPromises();
+      await service.setCredentials('user', 'pass');
+
+      const mockStream = new Readable({
+        read() {
+          this.push(Buffer.from('test ROM'));
+          this.push(null);
+        },
+      });
+      mockCreateReadStream.mockReturnValue(mockStream);
+
+      // Hash lookup times out, but name search succeeds
+      mockFetchByHash.mockRejectedValue(
+        new ScreenScraperError('Timed out', 0, 'timeout'),
+      );
+      mockFetchByName.mockResolvedValue(null);
+
+      // Should not throw — timeout on hash is recoverable
+      const result = await service.syncGame('game1');
+      expect(result).toBe(false);
+      expect(mockFetchByName).toHaveBeenCalled();
+    });
+  });
+
+  describe('validateCredentials', () => {
+    it('returns valid: true when credentials are accepted', async () => {
+      const service = new ArtworkService(createMockLibraryService());
+      await flushPromises();
+
+      mockValidateCredentials.mockResolvedValue(undefined);
+
+      const result = await service.validateCredentials('user', 'pass');
+      expect(result.valid).toBe(true);
+      expect(result.error).toBeUndefined();
+    });
+
+    it('returns valid: false with auth-failed errorCode on 401', async () => {
+      const service = new ArtworkService(createMockLibraryService());
+      await flushPromises();
+
+      mockValidateCredentials.mockRejectedValue(
+        new ScreenScraperError('Invalid username or password.', 401, 'auth-failed'),
+      );
+
+      const result = await service.validateCredentials('baduser', 'badpass');
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('Invalid username or password.');
+      expect(result.errorCode).toBe('auth-failed');
+    });
+
+    it('returns valid: false with timeout errorCode on timeout', async () => {
+      const service = new ArtworkService(createMockLibraryService());
+      await flushPromises();
+
+      mockValidateCredentials.mockRejectedValue(
+        new ScreenScraperError('Request timed out.', 0, 'timeout'),
+      );
+
+      const result = await service.validateCredentials('user', 'pass');
+      expect(result.valid).toBe(false);
+      expect(result.errorCode).toBe('timeout');
+    });
+
+    it('handles non-ScreenScraperError exceptions', async () => {
+      const service = new ArtworkService(createMockLibraryService());
+      await flushPromises();
+
+      mockValidateCredentials.mockRejectedValue(new Error('DNS resolution failed'));
+
+      const result = await service.validateCredentials('user', 'pass');
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('DNS resolution failed');
+      expect(result.errorCode).toBeUndefined();
+    });
+  });
+
+  describe('syncGames (targeted sync)', () => {
+    it('only processes specified game IDs', async () => {
+      const games = [
+        makeGame({ id: 'game1', title: 'Game 1' }),
+        makeGame({ id: 'game2', title: 'Game 2' }),
+        makeGame({ id: 'game3', title: 'Game 3' }),
+      ];
+      const service = new ArtworkService(createMockLibraryService(games));
+      await flushPromises();
+
+      const progressEvents: ArtworkProgress[] = [];
+      service.on('progress', (p: ArtworkProgress) => progressEvents.push(p));
+
+      const status = await service.syncGames(['game1', 'game3']);
+
+      // Should only have progress for game1 and game3, not game2
+      const syncedIds = new Set(progressEvents.map(p => p.gameId));
+      expect(syncedIds.has('game2')).toBe(false);
+      expect(status.total).toBe(2);
+    });
+
+    it('skips games that already have cover art', async () => {
+      const games = [
+        makeGame({ id: 'game1', title: 'Game 1', coverArt: 'artwork://game1.png' }),
+        makeGame({ id: 'game2', title: 'Game 2' }),
+      ];
+      const service = new ArtworkService(createMockLibraryService(games));
+      await flushPromises();
+
+      const status = await service.syncGames(['game1', 'game2']);
+      // game1 should be filtered out since it has cover art
+      expect(status.total).toBe(1);
+    });
+
+    it('returns immediately if already syncing', async () => {
+      const service = new ArtworkService(createMockLibraryService([]));
+      await flushPromises();
+      (service as any).syncing = true;
+
+      const status = await service.syncGames(['game1']);
+      expect(status.inProgress).toBe(true);
+      expect(status.total).toBe(0);
+    });
+  });
+
+  describe('batch sync error handling', () => {
+    it('stops batch on auth-failed error', async () => {
+      const games = [
+        makeGame({ id: 'game1', title: 'Game 1' }),
+        makeGame({ id: 'game2', title: 'Game 2' }),
+        makeGame({ id: 'game3', title: 'Game 3' }),
+      ];
+      const service = new ArtworkService(createMockLibraryService(games));
+      await flushPromises();
+      await service.setCredentials('baduser', 'badpass');
+
+      // Return a fresh stream per call so each game can compute its hash
+      mockCreateReadStream.mockImplementation(() => {
+        return new Readable({
+          read() {
+            this.push(Buffer.from('test'));
+            this.push(null);
+          },
+        });
+      });
+      mockFetchByHash.mockRejectedValue(
+        new ScreenScraperError('Invalid username or password.', 401, 'auth-failed'),
+      );
+
+      const progressEvents: ArtworkProgress[] = [];
+      service.on('progress', (p: ArtworkProgress) => progressEvents.push(p));
+
+      const status = await service.syncAllGames();
+
+      // Should stop after first game's auth failure — not process all 3
+      expect(status.errors).toBe(1);
+      expect(status.processed).toBeLessThanOrEqual(1);
+
+      // Verify the error event has the correct errorCode
+      const errorEvent = progressEvents.find(p => p.phase === 'error');
+      expect(errorEvent).toBeDefined();
+      expect(errorEvent!.errorCode).toBe('auth-failed');
+    });
+
+    it('continues batch on non-auth errors', async () => {
+      const games = [
+        makeGame({ id: 'game1', title: 'Game 1' }),
+        makeGame({ id: 'game2', title: 'Game 2' }),
+      ];
+      const service = new ArtworkService(createMockLibraryService(games));
+      await flushPromises();
+      await service.setCredentials('user', 'pass');
+
+      mockCreateReadStream.mockImplementation(() => {
+        return new Readable({
+          read() {
+            this.push(Buffer.from('test'));
+            this.push(null);
+          },
+        });
+      });
+
+      // Timeout errors should NOT stop the batch
+      mockFetchByHash.mockRejectedValue(
+        new ScreenScraperError('Timed out', 0, 'timeout'),
+      );
+      mockFetchByName.mockResolvedValue(null);
+
+      const status = await service.syncAllGames();
+
+      // Both games should be processed (not-found, since no artwork URL returned)
+      expect(status.processed).toBe(2);
+    });
+
+    it('emits progress with not-found when API lookups fail with non-auth errors', async () => {
+      const game = makeGame();
+      const service = new ArtworkService(createMockLibraryService([game]));
+      await flushPromises();
+      await service.setCredentials('user', 'pass');
+
+      mockCreateReadStream.mockImplementation(() => {
+        return new Readable({
+          read() {
+            this.push(Buffer.from('test'));
+            this.push(null);
+          },
+        });
+      });
+
+      // Timeout errors are non-fatal and fall through to name search
+      mockFetchByHash.mockRejectedValue(
+        new ScreenScraperError('Timed out', 0, 'timeout'),
+      );
+      // Name search also fails with a non-auth error — gets swallowed
+      mockFetchByName.mockRejectedValue(
+        new ScreenScraperError('Timed out', 0, 'timeout'),
+      );
+
+      const progressEvents: ArtworkProgress[] = [];
+      service.on('progress', (p: ArtworkProgress) => progressEvents.push(p));
+
+      await service.syncAllGames();
+
+      // Game should show as not-found since both lookups failed non-fatally
+      const lastEvent = progressEvents[progressEvents.length - 1];
+      expect(lastEvent.phase).toBe('not-found');
     });
   });
 });

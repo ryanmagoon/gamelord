@@ -11,6 +11,16 @@ const REGION_PRIORITY = ['us', 'wor', 'eu', 'ss', 'jp'];
 /** Language preference order for selecting localized text. */
 const LANGUAGE_PRIORITY = ['en', 'fr', 'es', 'de', 'pt', 'it'];
 
+/** Timeout for API requests in milliseconds (15 seconds). */
+const API_TIMEOUT_MS = 15000;
+
+export type ScreenScraperErrorCode =
+  | 'timeout'
+  | 'auth-failed'
+  | 'rate-limited'
+  | 'network-error'
+  | 'parse-error';
+
 /**
  * Low-level HTTP client for the ScreenScraper API v2.
  * Handles request construction, response parsing, and region/language selection.
@@ -21,6 +31,25 @@ export class ScreenScraperClient {
 
   constructor(credentials: ScreenScraperCredentials) {
     this.credentials = credentials;
+  }
+
+  /**
+   * Validate that the configured credentials are accepted by ScreenScraper.
+   * Uses the lightweight ssuserInfos endpoint which requires auth but
+   * doesn't count against game lookup quotas.
+   */
+  async validateCredentials(): Promise<void> {
+    const params = new URLSearchParams({
+      devid: this.credentials.devId,
+      devpassword: this.credentials.devPassword,
+      ssid: this.credentials.userId,
+      sspassword: this.credentials.userPassword,
+      softname: 'GameLord',
+      output: 'json',
+    });
+
+    const url = `${this.baseUrl}/ssuserInfos.php?${params.toString()}`;
+    await this.httpGet(url);
   }
 
   /**
@@ -215,16 +244,19 @@ export class ScreenScraperClient {
     return candidates.find(media => media.url)?.url;
   }
 
-  /** Make an HTTPS GET request and parse the JSON response. */
+  /**
+   * Make an HTTPS GET request and parse the JSON response.
+   * Includes a 15-second timeout and maps HTTP status codes to structured error codes.
+   */
   private httpGet(url: string): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const follow = (targetUrl: string, redirectCount: number) => {
         if (redirectCount > 5) {
-          reject(new ScreenScraperError('Too many redirects', 0));
+          reject(new ScreenScraperError('Too many redirects', 0, 'network-error'));
           return;
         }
 
-        https.get(targetUrl, (response) => {
+        const request = https.get(targetUrl, (response) => {
           if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
             response.destroy();
             follow(response.headers.location, redirectCount + 1);
@@ -233,13 +265,19 @@ export class ScreenScraperClient {
 
           if (response.statusCode === 429) {
             response.destroy();
-            reject(new ScreenScraperError('Rate limited', 429));
+            reject(new ScreenScraperError('Rate limited by ScreenScraper. Try again later.', 429, 'rate-limited'));
+            return;
+          }
+
+          if (response.statusCode === 401 || response.statusCode === 403) {
+            response.destroy();
+            reject(new ScreenScraperError('Invalid username or password.', response.statusCode, 'auth-failed'));
             return;
           }
 
           if (response.statusCode !== 200) {
             response.destroy();
-            reject(new ScreenScraperError(`HTTP ${response.statusCode}`, response.statusCode ?? 0));
+            reject(new ScreenScraperError(`ScreenScraper returned HTTP ${response.statusCode}`, response.statusCode ?? 0, 'network-error'));
             return;
           }
 
@@ -249,12 +287,27 @@ export class ScreenScraperClient {
             try {
               const body = Buffer.concat(chunks).toString('utf-8');
               resolve(JSON.parse(body));
-            } catch (error) {
-              reject(new ScreenScraperError('Invalid JSON response', 0));
+            } catch {
+              reject(new ScreenScraperError('Invalid JSON response from ScreenScraper.', 0, 'parse-error'));
             }
           });
-          response.on('error', reject);
-        }).on('error', reject);
+          response.on('error', (error) => {
+            reject(new ScreenScraperError(`Network error: ${error.message}`, 0, 'network-error'));
+          });
+        });
+
+        request.on('error', (error) => {
+          reject(new ScreenScraperError(`Network error: ${error.message}`, 0, 'network-error'));
+        });
+
+        request.setTimeout(API_TIMEOUT_MS, () => {
+          request.destroy();
+          reject(new ScreenScraperError(
+            'Request to ScreenScraper timed out. The server may be slow or unreachable.',
+            0,
+            'timeout',
+          ));
+        });
       };
 
       follow(url, 0);
@@ -262,14 +315,16 @@ export class ScreenScraperClient {
   }
 }
 
-/** Custom error class for ScreenScraper API errors. */
+/** Custom error class for ScreenScraper API errors with structured error codes. */
 export class ScreenScraperError extends Error {
   statusCode: number;
+  errorCode: ScreenScraperErrorCode;
 
-  constructor(message: string, statusCode: number) {
+  constructor(message: string, statusCode: number, errorCode: ScreenScraperErrorCode = 'network-error') {
     super(message);
     this.name = 'ScreenScraperError';
     this.statusCode = statusCode;
+    this.errorCode = errorCode;
   }
 }
 

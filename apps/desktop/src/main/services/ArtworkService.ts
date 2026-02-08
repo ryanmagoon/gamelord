@@ -9,6 +9,7 @@ import { LibraryService } from './LibraryService';
 import { ScreenScraperClient, ScreenScraperError } from './ScreenScraperClient';
 import {
   ArtworkConfig,
+  ArtworkErrorCode,
   ArtworkProgress,
   ArtworkSyncStatus,
   ScreenScraperCredentials,
@@ -20,6 +21,9 @@ const RATE_LIMIT_DELAY_MS = 1100;
 
 /** Backoff delay after a rate limit (429) response. */
 const RATE_LIMIT_BACKOFF_MS = 10000;
+
+/** Timeout for image downloads in milliseconds (30 seconds). */
+const DOWNLOAD_TIMEOUT_MS = 30000;
 
 /**
  * Orchestrates the artwork and metadata pipeline:
@@ -54,7 +58,42 @@ export class ArtworkService extends EventEmitter {
     return this.artworkDirectory;
   }
 
-  /** Store ScreenScraper user credentials to disk. */
+  /**
+   * Validate credentials against ScreenScraper before storing them.
+   * Makes a lightweight API call to check if the credentials are accepted.
+   */
+  async validateCredentials(
+    userId: string,
+    userPassword: string,
+  ): Promise<{ valid: boolean; error?: string; errorCode?: ArtworkErrorCode }> {
+    const credentials: ScreenScraperCredentials = {
+      devId: process.env.SCREENSCRAPER_DEV_ID ?? '',
+      devPassword: process.env.SCREENSCRAPER_DEV_PASSWORD ?? '',
+      userId,
+      userPassword,
+    };
+
+    const client = new ScreenScraperClient(credentials);
+
+    try {
+      await client.validateCredentials();
+      return { valid: true };
+    } catch (error) {
+      if (error instanceof ScreenScraperError) {
+        return { valid: false, error: error.message, errorCode: error.errorCode as ArtworkErrorCode };
+      }
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : 'Unknown error validating credentials.',
+      };
+    }
+  }
+
+  /**
+   * Store ScreenScraper user credentials to disk.
+   * Credentials are validated before saving — call validateCredentials() first
+   * if you want to check them, or use this directly to persist already-validated creds.
+   */
   async setCredentials(userId: string, userPassword: string): Promise<void> {
     this.config.screenscraper = { userId, userPassword };
     await this.saveConfig();
@@ -74,6 +113,7 @@ export class ArtworkService extends EventEmitter {
   /**
    * Run the full artwork pipeline for a single game.
    * Returns true if artwork was found and downloaded.
+   * Throws ScreenScraperError with errorCode 'auth-failed' if credentials are invalid.
    */
   async syncGame(gameId: string, force = false): Promise<boolean> {
     const game = this.libraryService.getGame(gameId);
@@ -92,19 +132,32 @@ export class ArtworkService extends EventEmitter {
         await this.libraryService.updateGame(gameId, {
           romHashes: { ...game.romHashes, md5 },
         });
-      } catch {
-        return false;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new ScreenScraperError(
+          `Failed to read ROM file: ${message}`,
+          0,
+          'network-error',
+        );
       }
     }
 
-    // Step 2: Query ScreenScraper
+    // Step 2: Query ScreenScraper by hash
     let gameInfo: ScreenScraperGameInfo | null = null;
     try {
       await this.waitForRateLimit();
       gameInfo = await client.fetchByHash(md5, game.systemId);
     } catch (error) {
-      if (error instanceof ScreenScraperError && error.statusCode === 429) {
-        await this.sleep(RATE_LIMIT_BACKOFF_MS);
+      if (error instanceof ScreenScraperError) {
+        if (error.errorCode === 'auth-failed') {
+          throw error; // Auth errors must propagate — never swallow
+        }
+        if (error.errorCode === 'rate-limited') {
+          await this.sleep(RATE_LIMIT_BACKOFF_MS);
+        }
+        // Other errors (timeout, network): fall through to name search
+      } else {
+        throw error;
       }
     }
 
@@ -113,8 +166,11 @@ export class ArtworkService extends EventEmitter {
       try {
         await this.waitForRateLimit();
         gameInfo = await client.fetchByName(game.title, game.systemId);
-      } catch {
-        // Name search also failed
+      } catch (error) {
+        if (error instanceof ScreenScraperError && error.errorCode === 'auth-failed') {
+          throw error; // Auth errors must propagate
+        }
+        // Other errors: game is genuinely not found via name search
       }
     }
 
@@ -127,8 +183,9 @@ export class ArtworkService extends EventEmitter {
       try {
         const extension = this.getImageExtension(artworkUrl);
         coverArtPath = await this.downloadArtwork(artworkUrl, `${gameId}${extension}`);
-      } catch {
-        // Download failed, still save metadata
+      } catch (error) {
+        // Download failed — log but still save metadata
+        console.error(`Artwork download failed for ${game.title}:`, error instanceof Error ? error.message : error);
       }
     }
 
@@ -163,14 +220,143 @@ export class ArtworkService extends EventEmitter {
 
     const allGames = this.libraryService.getGames();
     const gamesToSync = allGames.filter(game => !game.coverArt);
-    const total = gamesToSync.length;
+
+    return this.runSyncBatch(gamesToSync.map(game => game.id));
+  }
+
+  /**
+   * Sync artwork for a specific list of game IDs.
+   * Used for auto-sync after ROM import to avoid re-syncing the entire library.
+   */
+  async syncGames(gameIds: string[]): Promise<ArtworkSyncStatus> {
+    if (this.syncing) {
+      return { inProgress: true, processed: 0, total: 0, found: 0, notFound: 0, errors: 0 };
+    }
+
+    this.syncing = true;
+    this.cancelled = false;
+
+    // Filter to only games that exist and don't already have cover art
+    const filteredIds = gameIds.filter(id => {
+      const game = this.libraryService.getGame(id);
+      return game && !game.coverArt;
+    });
+
+    return this.runSyncBatch(filteredIds);
+  }
+
+  /** Cancel an in-progress bulk sync. */
+  cancelSync(): void {
+    this.cancelled = true;
+  }
+
+  /** Get current sync status. */
+  getSyncStatus(): { inProgress: boolean } {
+    return { inProgress: this.syncing };
+  }
+
+  /**
+   * Compute the MD5 hash of a ROM file's contents using a stream.
+   * This is non-blocking and works with large files (PSP ISOs, etc.).
+   */
+  computeRomHash(romPath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const hash = crypto.createHash('md5');
+      const stream = fsSync.createReadStream(romPath);
+      stream.on('data', (chunk) => hash.update(chunk));
+      stream.on('end', () => resolve(hash.digest('hex')));
+      stream.on('error', reject);
+    });
+  }
+
+  /**
+   * Download an image from a URL to the local artwork directory.
+   * Includes a 30-second timeout. Returns the full local path to the saved file.
+   */
+  downloadArtwork(imageUrl: string, filename: string): Promise<string> {
+    const destPath = path.join(this.getArtworkDirectory(), filename);
+
+    return new Promise((resolve, reject) => {
+      const follow = (targetUrl: string, redirectCount: number) => {
+        if (redirectCount > 5) {
+          reject(new Error('Too many redirects while downloading artwork'));
+          return;
+        }
+
+        const request = https.get(targetUrl, (response) => {
+          if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+            response.destroy();
+            follow(response.headers.location, redirectCount + 1);
+            return;
+          }
+
+          if (response.statusCode !== 200) {
+            response.destroy();
+            reject(new Error(`Artwork download failed with HTTP ${response.statusCode}`));
+            return;
+          }
+
+          const file = fsSync.createWriteStream(destPath);
+          response.pipe(file);
+          file.on('finish', () => {
+            file.close();
+            resolve(destPath);
+          });
+          file.on('error', (err) => {
+            fsSync.unlink(destPath, (_err) => { /* best-effort cleanup */ });
+            reject(err);
+          });
+        });
+
+        request.on('error', (error) => {
+          reject(new Error(`Network error downloading artwork: ${error.message}`));
+        });
+
+        request.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
+          request.destroy();
+          reject(new Error('Artwork download timed out after 30 seconds'));
+        });
+      };
+
+      follow(imageUrl, 0);
+    });
+  }
+
+  /** Create a ScreenScraperClient with the stored credentials. */
+  private createClient(): ScreenScraperClient | null {
+    if (!this.config.screenscraper?.userId || !this.config.screenscraper?.userPassword) {
+      return null;
+    }
+
+    const credentials: ScreenScraperCredentials = {
+      devId: process.env.SCREENSCRAPER_DEV_ID ?? '',
+      devPassword: process.env.SCREENSCRAPER_DEV_PASSWORD ?? '',
+      userId: this.config.screenscraper.userId,
+      userPassword: this.config.screenscraper.userPassword,
+    };
+
+    return new ScreenScraperClient(credentials);
+  }
+
+  /**
+   * Internal batch sync implementation shared by syncAllGames() and syncGames().
+   * Processes game IDs serially with rate limiting, progress emission, and cancellation.
+   */
+  private async runSyncBatch(gameIds: string[]): Promise<ArtworkSyncStatus> {
+    const total = gameIds.length;
     let processed = 0;
     let found = 0;
     let notFound = 0;
     let errors = 0;
 
-    for (const game of gamesToSync) {
+    for (const gameId of gameIds) {
       if (this.cancelled) break;
+
+      const game = this.libraryService.getGame(gameId);
+      if (!game) {
+        processed++;
+        continue;
+      }
 
       this.emitProgress({
         gameId: game.id,
@@ -212,6 +398,12 @@ export class ArtworkService extends EventEmitter {
         }
       } catch (error) {
         errors++;
+
+        const errorCode: ArtworkErrorCode | undefined =
+          error instanceof ScreenScraperError
+            ? (error.errorCode as ArtworkErrorCode)
+            : undefined;
+
         this.emitProgress({
           gameId: game.id,
           gameTitle: game.title,
@@ -219,7 +411,13 @@ export class ArtworkService extends EventEmitter {
           current: processed + 1,
           total,
           error: error instanceof Error ? error.message : String(error),
+          errorCode,
         });
+
+        // Auth failures should stop the entire batch — no point continuing
+        if (errorCode === 'auth-failed') {
+          break;
+        }
       }
 
       processed++;
@@ -229,90 +427,6 @@ export class ArtworkService extends EventEmitter {
     const status: ArtworkSyncStatus = { inProgress: false, processed, total, found, notFound, errors };
     this.emit('syncComplete', status);
     return status;
-  }
-
-  /** Cancel an in-progress bulk sync. */
-  cancelSync(): void {
-    this.cancelled = true;
-  }
-
-  /** Get current sync status. */
-  getSyncStatus(): { inProgress: boolean } {
-    return { inProgress: this.syncing };
-  }
-
-  /**
-   * Compute the MD5 hash of a ROM file's contents using a stream.
-   * This is non-blocking and works with large files (PSP ISOs, etc.).
-   */
-  computeRomHash(romPath: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const hash = crypto.createHash('md5');
-      const stream = fsSync.createReadStream(romPath);
-      stream.on('data', (chunk) => hash.update(chunk));
-      stream.on('end', () => resolve(hash.digest('hex')));
-      stream.on('error', reject);
-    });
-  }
-
-  /**
-   * Download an image from a URL to the local artwork directory.
-   * Returns the full local path to the saved file.
-   */
-  downloadArtwork(imageUrl: string, filename: string): Promise<string> {
-    const destPath = path.join(this.getArtworkDirectory(), filename);
-
-    return new Promise((resolve, reject) => {
-      const follow = (targetUrl: string, redirectCount: number) => {
-        if (redirectCount > 5) {
-          reject(new Error('Too many redirects'));
-          return;
-        }
-
-        https.get(targetUrl, (response) => {
-          if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-            response.destroy();
-            follow(response.headers.location, redirectCount + 1);
-            return;
-          }
-
-          if (response.statusCode !== 200) {
-            response.destroy();
-            reject(new Error(`Download failed with status ${response.statusCode}`));
-            return;
-          }
-
-          const file = fsSync.createWriteStream(destPath);
-          response.pipe(file);
-          file.on('finish', () => {
-            file.close();
-            resolve(destPath);
-          });
-          file.on('error', (err) => {
-            fsSync.unlink(destPath, (_err) => { /* best-effort cleanup */ });
-            reject(err);
-          });
-        }).on('error', reject);
-      };
-
-      follow(imageUrl, 0);
-    });
-  }
-
-  /** Create a ScreenScraperClient with the stored credentials. */
-  private createClient(): ScreenScraperClient | null {
-    if (!this.config.screenscraper?.userId || !this.config.screenscraper?.userPassword) {
-      return null;
-    }
-
-    const credentials: ScreenScraperCredentials = {
-      devId: process.env.SCREENSCRAPER_DEV_ID ?? '',
-      devPassword: process.env.SCREENSCRAPER_DEV_PASSWORD ?? '',
-      userId: this.config.screenscraper.userId,
-      userPassword: this.config.screenscraper.userPassword,
-    };
-
-    return new ScreenScraperClient(credentials);
   }
 
   /** Enforce rate limiting by waiting if needed since the last API request. */

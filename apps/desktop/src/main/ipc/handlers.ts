@@ -301,7 +301,7 @@ export class IPCHandlers {
 
   private setupArtworkHandlers(): void {
     // Forward artwork progress events to all renderer windows
-    const forwardEvent = (eventName: string, data?: any) => {
+    const forwardEvent = (eventName: string, data?: unknown) => {
       const windows = BrowserWindow.getAllWindows();
       windows.forEach((window: BrowserWindow) => {
         window.webContents.send(eventName, data);
@@ -311,7 +311,7 @@ export class IPCHandlers {
     this.artworkService.on('progress', (data) => forwardEvent('artwork:progress', data));
     this.artworkService.on('syncComplete', (data) => forwardEvent('artwork:syncComplete', data));
 
-    ipcMain.handle('artwork:syncGame', async (event, gameId: string) => {
+    ipcMain.handle('artwork:syncGame', async (_event, gameId: string) => {
       try {
         const success = await this.artworkService.syncGame(gameId);
         return { success };
@@ -320,14 +320,28 @@ export class IPCHandlers {
       }
     });
 
-    ipcMain.handle('artwork:syncAll', async () => {
-      try {
-        // Run in background — don't await the full sync
-        this.artworkService.syncAllGames();
-        return { success: true };
-      } catch (error) {
-        return { success: false, error: (error as Error).message };
-      }
+    ipcMain.handle('artwork:syncAll', () => {
+      // Start sync in background — attach error handler to catch unhandled rejections
+      const syncPromise = this.artworkService.syncAllGames();
+      syncPromise.catch((error) => {
+        console.error('Artwork sync failed:', error);
+        forwardEvent('artwork:syncError', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+      return { success: true };
+    });
+
+    ipcMain.handle('artwork:syncGames', (_event, gameIds: string[]) => {
+      // Start targeted sync in background for auto-sync after import
+      const syncPromise = this.artworkService.syncGames(gameIds);
+      syncPromise.catch((error) => {
+        console.error('Artwork sync for imported games failed:', error);
+        forwardEvent('artwork:syncError', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+      return { success: true };
     });
 
     ipcMain.handle('artwork:cancelSync', () => {
@@ -343,8 +357,14 @@ export class IPCHandlers {
       return { hasCredentials: this.artworkService.hasCredentials() };
     });
 
-    ipcMain.handle('artwork:setCredentials', async (event, userId: string, userPassword: string) => {
+    ipcMain.handle('artwork:setCredentials', async (_event, userId: string, userPassword: string) => {
       try {
+        // Validate credentials against ScreenScraper before saving
+        const validation = await this.artworkService.validateCredentials(userId, userPassword);
+        if (!validation.valid) {
+          return { success: false, error: validation.error, errorCode: validation.errorCode };
+        }
+
         await this.artworkService.setCredentials(userId, userPassword);
         return { success: true };
       } catch (error) {

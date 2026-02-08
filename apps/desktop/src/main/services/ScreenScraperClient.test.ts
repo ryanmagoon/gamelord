@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { ScreenScraperClient } from './ScreenScraperClient';
+import { ScreenScraperClient, ScreenScraperError } from './ScreenScraperClient';
 
 const dummyCredentials = {
   devId: 'testdev',
@@ -285,6 +285,32 @@ describe('ScreenScraperClient', () => {
       });
       const result = client.parseGameResponse(fixture);
       expect(result!.media.boxArt2d).toBe('https://example.com/box-eu.png');
+    });
+  });
+
+  describe('ScreenScraperError', () => {
+    it('carries errorCode and statusCode', () => {
+      const error = new ScreenScraperError('Auth failed', 401, 'auth-failed');
+
+      expect(error.message).toBe('Auth failed');
+      expect(error.statusCode).toBe(401);
+      expect(error.errorCode).toBe('auth-failed');
+      expect(error.name).toBe('ScreenScraperError');
+      expect(error).toBeInstanceOf(Error);
+    });
+
+    it('defaults errorCode to network-error', () => {
+      const error = new ScreenScraperError('Something broke', 500);
+
+      expect(error.errorCode).toBe('network-error');
+    });
+
+    it('supports all defined error codes', () => {
+      const codes = ['timeout', 'auth-failed', 'rate-limited', 'network-error', 'parse-error'] as const;
+      for (const code of codes) {
+        const error = new ScreenScraperError(`Error: ${code}`, 0, code);
+        expect(error.errorCode).toBe(code);
+      }
     });
   });
 });

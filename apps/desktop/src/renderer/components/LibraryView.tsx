@@ -74,10 +74,16 @@ export const LibraryView: React.FC<{
       loadLibrary()
     })
 
+    api.on('artwork:syncError', (data: { error: string }) => {
+      console.error('Artwork sync error:', data.error)
+      setArtworkProgress(null)
+    })
+
     return () => {
       api.removeAllListeners('core:downloadProgress')
       api.removeAllListeners('artwork:progress')
       api.removeAllListeners('artwork:syncComplete')
+      api.removeAllListeners('artwork:syncError')
     }
   }, [])
 
@@ -197,6 +203,7 @@ export const LibraryView: React.FC<{
       return
     }
 
+    setCredentialError('') // Clear previous errors
     const result = await api.artwork.setCredentials(credentialUserId, credentialPassword)
     if (result.success) {
       setShowCredentialsDialog(false)
@@ -205,7 +212,16 @@ export const LibraryView: React.FC<{
       setCredentialError('')
       await api.artwork.syncAll()
     } else {
-      setCredentialError(result.error ?? 'Failed to save credentials.')
+      // Show specific error messages based on error code
+      if (result.errorCode === 'auth-failed') {
+        setCredentialError('Invalid username or password. Please check your ScreenScraper credentials.')
+      } else if (result.errorCode === 'timeout') {
+        setCredentialError('Could not reach ScreenScraper. The server may be down — try again later.')
+      } else if (result.errorCode === 'rate-limited') {
+        setCredentialError('ScreenScraper is rate limiting requests. Please wait a moment and try again.')
+      } else {
+        setCredentialError(result.error ?? 'Failed to validate credentials.')
+      }
     }
   }
 
@@ -215,7 +231,10 @@ export const LibraryView: React.FC<{
       setShowCredentialsDialog(true)
       return
     }
-    await api.artwork.syncGame(gameId)
+    const result = await api.artwork.syncGame(gameId)
+    if (!result.success) {
+      console.error(`Artwork sync failed for game ${gameId}:`, result.error)
+    }
     await loadLibrary()
   }
 

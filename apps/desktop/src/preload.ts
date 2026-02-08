@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('gamelord', {
       'core:downloadProgress',
       'artwork:progress',
       'artwork:syncComplete',
+      'artwork:syncError',
       'dialog:showResumeGame',
       'game:prepare-close',
       'game:emulation-error'
@@ -111,6 +112,7 @@ contextBridge.exposeInMainWorld('gamelord', {
   artwork: {
     syncGame: (gameId: string) => ipcRenderer.invoke('artwork:syncGame', gameId),
     syncAll: () => ipcRenderer.invoke('artwork:syncAll'),
+    syncGames: (gameIds: string[]) => ipcRenderer.invoke('artwork:syncGames', gameIds),
     cancelSync: () => ipcRenderer.invoke('artwork:cancelSync'),
     getSyncStatus: () => ipcRenderer.invoke('artwork:getSyncStatus'),
     getCredentials: () => ipcRenderer.invoke('artwork:getCredentials'),

@@ -19,6 +19,14 @@ export interface ScreenScraperCredentials {
   userPassword: string;
 }
 
+export type ArtworkErrorCode =
+  | 'auth-failed'
+  | 'rate-limited'
+  | 'timeout'
+  | 'network-error'
+  | 'hash-failed'
+  | 'not-found';
+
 export interface ArtworkProgress {
   gameId: string;
   gameTitle: string;
@@ -26,6 +34,7 @@ export interface ArtworkProgress {
   current: number;
   total: number;
   error?: string;
+  errorCode?: ArtworkErrorCode;
 }
 
 export interface ArtworkSyncStatus {
