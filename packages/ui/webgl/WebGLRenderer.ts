@@ -114,6 +114,20 @@ export class WebGLRenderer {
     const passes = this.compiledPasses;
     const passCount = passes.length;
 
+    // Pre-allocate feedback pairs so cross-pass feedback references resolve
+    // on the very first frame (before the owning pass has run).
+    for (let i = 0; i < passCount; i++) {
+      const def = passes[i].definition;
+      if (def.feedback) {
+        // Use source frame size for the first pass in the chain; for later
+        // passes the previous output size would be more accurate, but at
+        // pre-allocation time we don't have the chain yet. Source-scaled
+        // passes (the common case) always match the frame dimensions.
+        const { width: w, height: h } = this.computePassSize(def, this.frameWidth, this.frameHeight);
+        this.framebufferManager.getFeedbackPair(`feedback_${i}`, w, h, def.format);
+      }
+    }
+
     // Track previous pass output texture for chaining
     let previousTexture: WebGLTexture = this.originalTexture;
     let previousWidth = this.frameWidth;
@@ -154,7 +168,7 @@ export class WebGLRenderer {
         gl.viewport(0, 0, this.canvas.width, this.canvas.height);
       } else {
         const fboKey = `pass_${i}`;
-        const fbo = this.framebufferManager.getFramebuffer(fboKey, outputWidth, outputHeight, definition.format);
+        const fbo = this.framebufferManager.getFramebuffer(fboKey, outputWidth, outputHeight, definition.format, !!definition.mipmap);
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.framebuffer);
         gl.viewport(0, 0, outputWidth, outputHeight);
       }
@@ -219,20 +233,35 @@ export class WebGLRenderer {
         }
       }
 
-      // Extra inputs (alias references to other pass outputs)
+      // Extra inputs (alias references to other pass outputs or cross-pass feedback)
       if (definition.extraInputs) {
-        for (const [uniformName, aliasName] of Object.entries(definition.extraInputs)) {
-          const aliasPassIndex = this.compiledPasses.findIndex(
-            (p) => p.definition.alias === aliasName,
-          );
-          if (aliasPassIndex >= 0) {
-            const aliasTexture = this.framebufferManager.getTexture(`pass_${aliasPassIndex}`);
-            if (aliasTexture) {
-              gl.activeTexture(gl.TEXTURE0 + textureUnit);
-              gl.bindTexture(gl.TEXTURE_2D, aliasTexture);
-              gl.uniform1i(gl.getUniformLocation(program, uniformName), textureUnit);
-              textureUnit++;
+        for (const [uniformName, ref] of Object.entries(definition.extraInputs)) {
+          let tex: WebGLTexture | null = null;
+
+          if (ref.startsWith('feedback:')) {
+            // Cross-pass feedback: read another pass's previous-frame output
+            const targetAlias = ref.slice('feedback:'.length);
+            const targetPassIndex = this.compiledPasses.findIndex(
+              (p) => p.definition.alias === targetAlias,
+            );
+            if (targetPassIndex >= 0) {
+              tex = this.framebufferManager.getFeedbackTexture(`feedback_${targetPassIndex}`);
             }
+          } else {
+            // Regular alias: read another pass's current-frame output
+            const aliasPassIndex = this.compiledPasses.findIndex(
+              (p) => p.definition.alias === ref,
+            );
+            if (aliasPassIndex >= 0) {
+              tex = this.framebufferManager.getTexture(`pass_${aliasPassIndex}`);
+            }
+          }
+
+          if (tex) {
+            gl.activeTexture(gl.TEXTURE0 + textureUnit);
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.uniform1i(gl.getUniformLocation(program, uniformName), textureUnit);
+            textureUnit++;
           }
         }
       }
@@ -270,6 +299,11 @@ export class WebGLRenderer {
 
       if (hasFeedback) {
         this.framebufferManager.swapFeedback(`feedback_${i}`);
+      }
+
+      // Generate mipmaps if this pass's output needs them (e.g. for textureLod)
+      if (definition.mipmap && !isLastPass) {
+        this.framebufferManager.generateMipmaps(`pass_${i}`);
       }
 
       // Update previous pass tracking for next iteration
