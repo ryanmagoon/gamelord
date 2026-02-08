@@ -418,12 +418,7 @@ ${PARAMS_GLSL}
 
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
-
-// Underscan check: clamp out-of-bounds samples to black (matches original)
-vec4 TEX2D(vec2 c) {
-  vec2 underscan = step(0.0, c) * step(0.0, vec2(1.0) - c);
-  return texture(u_internal1, c) * vec4(underscan.x * underscan.y);
-}
+#define TEX2D(c) pow(texture(u_internal1, clamp((c), vec2(0.0), vec2(1.0))), vec4(CRTgamma))
 
 ${SUBPIXEL_MASKS_GLSL}
 
@@ -464,10 +459,9 @@ vec4 scanlineWeights(float distance_, vec4 color) {
 }
 
 vec3 texblur(vec2 coord) {
-  vec3 blur = texture(u_blur_texture, coord).rgb;
+  vec3 blur = pow(texture(u_blur_texture, coord).rgb, vec3(CRTgamma));
 
   // Edge taper: erf-based falloff matching the original geom-deluxe texblur.
-  // Approximation: sqrt(1 - exp(-c*c)) * (1 + 0.1749*exp(-c*c)) mapped to [0,1].
   float w = width / 320.0;
   vec2 c = min(coord, vec2(1.0) - coord) * vec2(aspect_x, aspect_y) * vec2(1.0 / w);
   vec2 e2c = exp(-c * c);
@@ -551,21 +545,16 @@ void main() {
   vec3 blur = texblur(xy);
   mul_res = mix(mul_res, blur, halation) * vec3(cval * rbloom);
 
-  // Phosphor mask (returns rgb weights + alpha = fraction of off subpixels)
+  // Phosphor mask
   vec4 mask = mask_weights_alpha(gl_FragCoord.xy, aperture_strength, mask_type);
+  mul_res *= mask.rgb;
 
-  // Energy-conserving mask application (matches libretro crt-geom-deluxe).
-  // fbright = fraction of bright subpixels scaled by output/source ratio.
-  // u_tex_size1 in the original = OutputSize * (1/SourceSize) = scale factor.
-  vec2 scaleRatio = u_resolution / v_TextureSize;
-  float nbright = 255.0 - 255.0 * mask.a;
-  float fbright = nbright / (scaleRatio.x * scaleRatio.y);
-  float aperture_average = mix(1.0 - aperture_strength * (1.0 - aperture_brightboost), 1.0, fbright);
-  vec3 clow = vec3(1.0 - aperture_strength) * mul_res + vec3(aperture_strength * aperture_brightboost) * mul_res * mul_res;
-  float ifbright = 1.0 / fbright;
-  vec3 chi = vec3(ifbright * aperture_average) * mul_res - vec3(ifbright - 1.0) * clow;
-  vec3 cout = mix(clow, chi, mask.rgb);
+  // Gamma compensation for scanline + mask darkening (matches working crt-geom)
+  vec3 pwr = vec3(1.0 / ((-0.7 * (1.0 - scanline_weight) + 1.0) * (-0.5 * aperture_strength + 1.0)) - 1.25);
+  pwr = max(pwr, vec3(0.0));
+  vec3 cir = mul_res - 1.0;
+  cir *= cir;
+  mul_res = mix(sqrt(max(mul_res, vec3(0.0))), sqrt(max(1.0 - cir, vec3(0.0))), pwr);
 
-  // Gamma correction: convert from working space to display gamma
-  fragColor = vec4(pow(max(cout, vec3(0.0)), vec3(1.0 / monitorgamma)), 1.0);
+  fragColor = vec4(mul_res, 1.0);
 }`;
