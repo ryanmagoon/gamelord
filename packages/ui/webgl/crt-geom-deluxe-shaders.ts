@@ -535,7 +535,7 @@ void main() {
   // Phosphor mask
   vec3 mask = mask_weights(gl_FragCoord.xy, aperture_strength, mask_type);
 
-  // Energy-conserving mask application
+  // Energy-conserving mask application (matches libretro crt-geom-deluxe)
   float fbright = dot(mul_res, vec3(0.2126, 0.7152, 0.0722));
   float ifbright = 1.0 / max(fbright, 0.001);
   float aperture_average = mix(1.0 - aperture_strength * (1.0 - aperture_brightboost), 1.0, fbright);
@@ -543,12 +543,6 @@ void main() {
   vec3 chi = vec3(ifbright * aperture_average) * mul_res - vec3(ifbright - 1.0) * clow;
   vec3 cout = mix(clow, chi, mask);
 
-  // Gamma correction — compensate for scanline + mask embedded gamma
-  vec3 pwr = vec3(1.0 / ((-0.7 * (1.0 - scanline_weight) + 1.0) * (-0.5 * aperture_strength + 1.0)) - 1.25);
-  pwr = max(pwr, vec3(0.0));
-  vec3 cir = cout - 1.0;
-  cir *= cir;
-  cout = mix(sqrt(max(cout, vec3(0.0))), sqrt(max(1.0 - cir, vec3(0.0))), pwr);
-
-  fragColor = vec4(pow(cout, vec3(1.0 / monitorgamma)), 1.0);
+  // Convert from linear (CRTgamma) space to display gamma
+  fragColor = vec4(pow(max(cout, vec3(0.0)), vec3(1.0 / monitorgamma)), 1.0);
 }`;
