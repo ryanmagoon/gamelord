@@ -72,9 +72,18 @@ function App() {
 
   const toggleTheme = useCallback(() => {
     const next = !isDark
+
+    // Enable cross-fade transitions before toggling
+    document.body.classList.add('theme-transitioning')
+
     setIsDark(next)
     document.documentElement.classList.toggle('dark', next)
     localStorage.setItem('gamelord:theme', next ? 'dark' : 'light')
+
+    // Remove the transition class after the 200ms cross-fade completes
+    setTimeout(() => {
+      document.body.classList.remove('theme-transitioning')
+    }, 200)
   }, [isDark])
 
   /** Resolves the machine-readable system ID from a UiGame. */

@@ -22,3 +22,12 @@
 @utility titlebar-inset {
   padding-left: 72px;
 }
+
+/**
+ * Temporarily applied to <body> during theme switches so background, text,
+ * and border colors cross-fade instead of snapping.
+ */
+.theme-transitioning,
+.theme-transitioning * {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease !important;
+}
