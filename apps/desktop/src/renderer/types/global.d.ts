@@ -1,5 +1,12 @@
 import type { GameSystem, Game, LibraryConfig } from '../../types/library'
 
+export interface CoreInfo {
+  name: string
+  displayName: string
+  description: string
+  installed: boolean
+}
+
 export interface GamelordAPI {
   // Emulator management (matches preload API)
   emulator: {
@@ -7,10 +14,16 @@ export interface GamelordAPI {
       romPath: string,
       systemId: string,
       emulatorId?: string,
+      coreName?: string,
     ) => Promise<{ success: boolean; error?: string }>
     stop: () => Promise<{ success: boolean; error?: string }>
     getAvailable: () => Promise<any>
     isRunning: () => Promise<boolean>
+    getCoresForSystem: (systemId: string) => Promise<CoreInfo[]>
+    downloadCore: (
+      coreName: string,
+      systemId: string,
+    ) => Promise<{ success: boolean; corePath?: string; error?: string }>
   }
   emulation: {
     pause: () => Promise<{ success: boolean }>
@@ -58,6 +71,7 @@ export interface GamelordAPI {
     toggleFullscreen: () => void
     setClickThrough: (value: boolean) => void
     setTrafficLightVisible: (visible: boolean) => void
+    readyToClose: () => void
   }
 
   // Game input (native mode)

@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { GameCard, Game } from './GameCard';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
+import { GameCard, Game, GameCardMenuItem } from './GameCard';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -12,11 +12,14 @@ import {
 } from './ui/select';
 import { Search, Filter, Grid, List } from 'lucide-react';
 import { cn } from '../utils';
+import { useFlipAnimation } from '../hooks/useFlipAnimation';
 
 export interface GameLibraryProps {
   games: Game[];
   onPlayGame: (game: Game) => void;
   onGameOptions?: (game: Game) => void;
+  /** Returns menu items for a specific game's dropdown. */
+  getMenuItems?: (game: Game) => GameCardMenuItem[];
   className?: string;
 }
 
@@ -27,12 +30,15 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   games,
   onPlayGame,
   onGameOptions,
+  getMenuItems,
   className
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortBy>('title');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const gridRef = useRef<HTMLDivElement>(null);
+  const getGameKey = useCallback((game: Game) => game.id, []);
 
   // Extract unique platforms
   const platforms = useMemo(() => {
@@ -78,6 +84,8 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
 
     return filtered;
   }, [games, searchQuery, selectedPlatform, sortBy]);
+
+  const flipItems = useFlipAnimation(filteredGames, getGameKey, { gridRef });
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -159,13 +167,28 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
 
       {/* Games Grid/List */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {filteredGames.map(game => (
+        <div
+          ref={gridRef}
+          className="relative grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+        >
+          {flipItems.map((flipItem) => (
             <GameCard
-              key={game.id}
-              game={game}
+              key={flipItem.key}
+              ref={flipItem.ref}
+              game={flipItem.item}
               onPlay={onPlayGame}
               onOptions={onGameOptions}
+              menuItems={getMenuItems?.(flipItem.item)}
+              className={cn(
+                flipItem.animationState === 'entering' && 'animate-card-enter',
+                flipItem.animationState === 'exiting' && 'animate-card-exit',
+              )}
+              style={{
+                ...flipItem.style,
+                ...(flipItem.animationState === 'entering'
+                  ? { animationDelay: `${flipItem.enterDelay}ms` }
+                  : undefined),
+              }}
             />
           ))}
         </div>

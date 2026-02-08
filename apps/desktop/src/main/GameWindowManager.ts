@@ -4,6 +4,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import type { Game } from '../types/library'
 import type { LibretroNativeCore } from './emulator/LibretroNativeCore'
+import { animateWindowClose } from './windowCloseAnimation'
 
 const execFileAsync = promisify(execFile)
 
@@ -12,12 +13,19 @@ const POLL_INTERVAL = 200 // ms
 
 export type GameWindowMode = 'overlay' | 'native'
 
+/** Max time to wait for the renderer's shutdown animation + OS window fade before force-closing. */
+const SHUTDOWN_ANIMATION_TIMEOUT = 2000
+
 export class GameWindowManager {
   private gameWindows = new Map<string, BrowserWindow>()
   private trackingIntervals = new Map<string, ReturnType<typeof setInterval>>()
   private frameIntervals = new Map<string, ReturnType<typeof setInterval>>()
   private readonly preloadPath: string
   private activeNativeCore: LibretroNativeCore | null = null
+  /** Windows that have completed their shutdown animation and are ready to be destroyed. */
+  private readyToCloseWindows = new Set<number>()
+  /** Safety timeout handles so we can clear them on cleanup. */
+  private shutdownTimeouts = new Map<number, ReturnType<typeof setTimeout>>()
 
   constructor(preloadPath: string) {
     this.preloadPath = preloadPath
@@ -67,11 +75,11 @@ export class GameWindowManager {
     // Lock window to the core's aspect ratio
     gameWindow.setAspectRatio(aspectRatio)
 
-    if (GAME_WINDOW_VITE_DEV_SERVER_URL) {
-      gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
+    if (process.env.ELECTRON_RENDERER_URL) {
+      gameWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/game-window.html`)
     } else {
       gameWindow.loadFile(
-        path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/game-window.html`),
+        path.join(__dirname, '../renderer/game-window.html'),
       )
     }
 
@@ -94,22 +102,58 @@ export class GameWindowManager {
 
     this.activeNativeCore = nativeCore
 
-    gameWindow.on('close', () => {
-      // Flush battery-backed SRAM (in-game saves) to disk
+    gameWindow.on('close', (event) => {
+      const windowId = gameWindow.id
+
+      // If renderer already signalled ready-to-close, allow the close to proceed
+      if (this.readyToCloseWindows.has(windowId)) {
+        this.readyToCloseWindows.delete(windowId)
+        return
+      }
+
+      // Prevent the default close so we can play the shutdown animation
+      event.preventDefault()
+
+      // Stop the emulation loop immediately — no more frames while animating
+      this.stopEmulationLoop(game.id)
+
+      // Save game data right away (data is safe before animation begins)
       try {
         nativeCore.saveSram()
       } catch (error) {
         console.error('Failed to save SRAM on close:', error)
       }
-      // Auto-save state before the window is destroyed
       try {
         nativeCore.saveState(99)
       } catch (error) {
         console.error('Failed to autosave on close:', error)
       }
+
+      // Tell the renderer to start the shutdown animation
+      if (!gameWindow.isDestroyed()) {
+        gameWindow.webContents.send('game:prepare-close')
+      }
+
+      // Safety timeout: force-close if the renderer doesn't respond in time
+      const timeout = setTimeout(() => {
+        this.shutdownTimeouts.delete(windowId)
+        if (!gameWindow.isDestroyed()) {
+          this.readyToCloseWindows.add(windowId)
+          gameWindow.close()
+        }
+      }, SHUTDOWN_ANIMATION_TIMEOUT)
+      this.shutdownTimeouts.set(windowId, timeout)
     })
 
     gameWindow.on('closed', () => {
+      const windowId = gameWindow.id
+      // Clean up any pending shutdown timeout
+      const timeout = this.shutdownTimeouts.get(windowId)
+      if (timeout) {
+        clearTimeout(timeout)
+        this.shutdownTimeouts.delete(windowId)
+      }
+      this.readyToCloseWindows.delete(windowId)
       this.stopEmulationLoop(game.id)
       this.activeNativeCore = null
       this.gameWindows.delete(game.id)
@@ -147,11 +191,11 @@ export class GameWindowManager {
       },
     })
 
-    if (GAME_WINDOW_VITE_DEV_SERVER_URL) {
-      gameWindow.loadURL(`${GAME_WINDOW_VITE_DEV_SERVER_URL}/game-window.html`)
+    if (process.env.ELECTRON_RENDERER_URL) {
+      gameWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/game-window.html`)
     } else {
       gameWindow.loadFile(
-        path.join(__dirname, `../renderer/${GAME_WINDOW_VITE_NAME}/game-window.html`),
+        path.join(__dirname, '../renderer/game-window.html'),
       )
     }
 
@@ -309,6 +353,8 @@ export class GameWindowManager {
     const sampleRate = avInfo?.timing.sampleRate || 44100
 
     let lastTime = performance.now()
+    let consecutiveErrors = 0
+    const MAX_CONSECUTIVE_ERRORS = 5
 
     const tick = () => {
       if (win.isDestroyed()) return
@@ -319,7 +365,24 @@ export class GameWindowManager {
       if (elapsed >= frameTimeMs) {
         lastTime = now - (elapsed % frameTimeMs) // account for drift
 
-        core.runFrame()
+        try {
+          core.runFrame()
+          consecutiveErrors = 0
+        } catch (error) {
+          consecutiveErrors++
+          console.error(`Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, error)
+
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            console.error('Emulation loop terminated after repeated frame errors')
+            this.stopEmulationLoop(gameId)
+            if (!win.isDestroyed()) {
+              win.webContents.send('game:emulation-error', {
+                message: `Emulation crashed: ${error instanceof Error ? error.message : String(error)}`,
+              })
+            }
+            return
+          }
+        }
 
         const frame = core.getVideoFrame()
         const audio = core.getAudioBuffer()
@@ -426,6 +489,27 @@ export class GameWindowManager {
       }
     })
 
+    // Renderer signals that the shutdown animation has completed
+    ipcMain.on('game-window:ready-to-close', (event) => {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      if (window && !window.isDestroyed()) {
+        const windowId = window.id
+        // Clear the safety timeout since the renderer responded in time
+        const timeout = this.shutdownTimeouts.get(windowId)
+        if (timeout) {
+          clearTimeout(timeout)
+          this.shutdownTimeouts.delete(windowId)
+        }
+        // Fade/shrink the OS window, then destroy it
+        animateWindowClose(window).then(() => {
+          if (!window.isDestroyed()) {
+            this.readyToCloseWindows.add(windowId)
+            window.close()
+          }
+        })
+      }
+    })
+
     // Input forwarding from renderer to native core
     ipcMain.on('game:input', (event, port: number, id: number, pressed: boolean) => {
       this.emit('input', port, id, pressed)
@@ -452,6 +536,13 @@ export class GameWindowManager {
   }
 
   destroy(): void {
+    // Clear all pending shutdown timeouts
+    for (const timeout of this.shutdownTimeouts.values()) {
+      clearTimeout(timeout)
+    }
+    this.shutdownTimeouts.clear()
+    this.readyToCloseWindows.clear()
+
     this.closeAllGameWindows()
     this.activeNativeCore = null
     this.inputListeners = []
@@ -463,6 +554,8 @@ export class GameWindowManager {
     ipcMain.removeAllListeners('game-window:close')
     ipcMain.removeAllListeners('game-window:toggle-fullscreen')
     ipcMain.removeAllListeners('game-window:set-click-through')
+    ipcMain.removeAllListeners('game-window:set-traffic-light-visible')
+    ipcMain.removeAllListeners('game-window:ready-to-close')
     ipcMain.removeAllListeners('game:input')
   }
 }

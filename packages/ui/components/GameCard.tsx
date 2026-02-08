@@ -2,6 +2,12 @@ import React from 'react'
 import { Card, CardContent } from './ui/card'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu'
 import { cn } from '../utils'
 import { Play, MoreVertical } from 'lucide-react'
 
@@ -9,6 +15,8 @@ export interface Game {
   id: string
   title: string
   platform: string
+  /** Machine-readable system identifier (e.g. "snes", "nes"). Used for launch. */
+  systemId?: string
   genre?: string
   coverArt?: string
   romPath: string
@@ -16,36 +24,50 @@ export interface Game {
   playTime?: number
 }
 
+export interface GameCardMenuItem {
+  label: string
+  icon?: React.ReactNode
+  onClick: () => void
+}
+
 export interface GameCardProps {
   game: Game
   onPlay: (game: Game) => void
+  /** @deprecated Use menuItems instead for dropdown menu support. */
   onOptions?: (game: Game) => void
+  /** Menu items shown in the options dropdown on hover. */
+  menuItems?: GameCardMenuItem[]
   className?: string
+  /** Inline styles forwarded to the root card element (useful for animation delays). */
+  style?: React.CSSProperties
+  /** Ref forwarded to the root Card element (used for FLIP measurements). */
+  ref?: React.Ref<HTMLDivElement>
 }
 
 export const GameCard: React.FC<GameCardProps> = ({
   game,
   onPlay,
   onOptions,
+  menuItems,
   className,
+  style,
+  ref,
 }) => {
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault()
     onPlay(game)
   }
 
-  const handleOptions = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onOptions?.(game)
-  }
+  const hasMenu = (menuItems && menuItems.length > 0) || onOptions
 
   return (
     <Card
+      ref={ref}
       className={cn(
         'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg w-48',
         className
       )}
+      style={style}
     >
       <CardContent className="p-0">
         <div className="aspect-[3/4] relative">
@@ -85,17 +107,49 @@ export const GameCard: React.FC<GameCardProps> = ({
             </div>
           </div>
 
-          {/* Options button */}
-          {onOptions && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity bg-black/50 hover:bg-black/70 text-white"
-              onClick={handleOptions}
-              aria-label={`Options for ${game.title}`}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
+          {/* Options dropdown menu */}
+          {hasMenu && (
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+              {menuItems && menuItems.length > 0 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
+                      aria-label={`Options for ${game.title}`}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {menuItems.map((item) => (
+                      <DropdownMenuItem
+                        key={item.label}
+                        onClick={item.onClick}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onOptions?.(game)
+                  }}
+                  aria-label={`Options for ${game.title}`}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </CardContent>

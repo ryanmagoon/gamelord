@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { GameLibrary, Button, Badge } from '@gamelord/ui'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { GameLibrary, Button, Badge, type GameCardMenuItem } from '@gamelord/ui'
 import { Plus, FolderOpen, RefreshCw, Download } from 'lucide-react'
 import type { Game, Game as UiGame } from '@gamelord/ui'
 import type { Game as AppGame, GameSystem } from '../../types/library'
@@ -16,7 +16,8 @@ interface CoreDownloadProgress {
 
 export const LibraryView: React.FC<{
   onPlayGame: (game: Game) => void
-}> = ({ onPlayGame }) => {
+  getMenuItems?: (game: Game) => GameCardMenuItem[]
+}> = ({ onPlayGame, getMenuItems }) => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
 
   const [games, setGames] = useState<AppGame[]>([])
@@ -147,25 +148,16 @@ export const LibraryView: React.FC<{
     }
   }
 
+  /** Switches the active system filter. The FLIP hook in GameLibrary handles animation. */
+  const switchSystem = useCallback((nextSystem: string | null) => {
+    setSelectedSystem(nextSystem)
+  }, [])
+
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
 
-  const handlePlayUiGame = async (uiGame: UiGame) => {
-    const fullGame = idToGame.get(uiGame.id)
-    if (!fullGame) return
-
-
-    const result = await api.emulator.launch(
-      fullGame.romPath,
-      fullGame.systemId,
-    )
-
-    if (!result.success) {
-      console.error('Failed to launch game:', result.error)
-      const message = result.error?.includes('No known core')
-        ? `No emulator core available for this system. The core could not be downloaded automatically.`
-        : result.error;
-      alert(`Failed to launch ${fullGame.title}: ${message}`)
-    }
+  /** Delegate to the parent's onPlayGame so App.tsx can handle core selection. */
+  const handlePlayUiGame = (uiGame: UiGame) => {
+    onPlayGame(uiGame)
   }
 
   const handleGameOptions = (game: AppGame) => {
@@ -258,7 +250,7 @@ export const LibraryView: React.FC<{
           <Button
             variant={selectedSystem === null ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setSelectedSystem(null)}
+            onClick={() => switchSystem(null)}
           >
             All ({games.length})
           </Button>
@@ -269,7 +261,7 @@ export const LibraryView: React.FC<{
                 key={system.id}
                 variant={selectedSystem === system.id ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setSelectedSystem(system.id)}
+                onClick={() => switchSystem(system.id)}
               >
                 {system.shortName} ({systemGames.length})
               </Button>
@@ -286,6 +278,7 @@ export const LibraryView: React.FC<{
               id: game.id,
               title: game.title,
               platform: game.system,
+              systemId: game.systemId,
               genre: game.metadata?.genre,
               coverArt: game.coverArt,
               romPath: game.romPath,
@@ -296,6 +289,7 @@ export const LibraryView: React.FC<{
               void handlePlayUiGame(g)
             }}
             onGameOptions={handleUiGameOptions}
+            getMenuItems={getMenuItems}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">

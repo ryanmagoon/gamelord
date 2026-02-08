@@ -12,11 +12,14 @@ import {
   Settings,
   Monitor,
   RotateCcw,
+  Gamepad2,
 } from 'lucide-react'
 import type { Game } from '../../types/library'
 import type { GamelordAPI } from '../types/global'
 import { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from '@gamelord/ui'
-import { CRTPowerOn } from './CRTPowerOn'
+import { PowerAnimation } from './animations'
+import { getDisplayType } from '../../types/displayType'
+import { useGamepad } from '../hooks/useGamepad'
 
 // Keyboard → libretro joypad button mapping
 const KEY_MAP: Record<string, number> = {
@@ -40,7 +43,7 @@ export const GameWindow: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false)
   const [showControls, setShowControls] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState(0)
-  const [mode, setMode] = useState<'overlay' | 'native'>('overlay')
+  const [mode, setMode] = useState<'overlay' | 'native'>('native')
   const [volume, setVolume] = useState(() => {
     const saved = localStorage.getItem('gamelord:volume')
     return saved !== null ? parseFloat(saved) : 0.5
@@ -55,6 +58,7 @@ export const GameWindow: React.FC = () => {
   })
   const [showShaderMenu, setShowShaderMenu] = useState(false)
   const [isPoweringOn, setIsPoweringOn] = useState(true)
+  const [isPoweringOff, setIsPoweringOff] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -63,6 +67,12 @@ export const GameWindow: React.FC = () => {
   const audioNextTimeRef = useRef(0)
   const gainNodeRef = useRef<GainNode | null>(null)
   const [gameAspectRatio, setGameAspectRatio] = useState<number | null>(null)
+
+  // Gamepad polling — uses same api.gameInput() pipeline as keyboard
+  const { connectedCount: connectedGamepads } = useGamepad({
+    gameInput: api.gameInput,
+    enabled: mode === 'native' && !isPaused,
+  })
 
   // Resize handler extracted so it can be called from multiple places
   const updateCanvasSize = useCallback(() => {
@@ -126,6 +136,12 @@ export const GameWindow: React.FC = () => {
 
     api.on('emulator:paused', () => setIsPaused(true))
     api.on('emulator:resumed', () => setIsPaused(false))
+
+    api.on('game:prepare-close', () => {
+      setIsPoweringOff(true)
+      setShowControls(false)
+      setShowShaderMenu(false)
+    })
 
     api.on('game:av-info', (avInfo: any) => {
       const canvas = canvasRef.current
@@ -220,6 +236,7 @@ export const GameWindow: React.FC = () => {
       api.removeAllListeners('game:av-info')
       api.removeAllListeners('game:video-frame')
       api.removeAllListeners('game:audio-samples')
+      api.removeAllListeners('game:prepare-close')
 
       rendererRef.current?.destroy()
       rendererRef.current = null
@@ -258,12 +275,12 @@ export const GameWindow: React.FC = () => {
     localStorage.setItem('gamelord:muted', String(isMuted))
   }, [volume, isMuted])
 
-  // Sync traffic light visibility with controls overlay
+  // Sync traffic light visibility with controls overlay (hide during shutdown)
   useEffect(() => {
     if (mode === 'native') {
-      api.gameWindow.setTrafficLightVisible(showControls)
+      api.gameWindow.setTrafficLightVisible(showControls && !isPoweringOff)
     }
-  }, [showControls, mode, api])
+  }, [showControls, isPoweringOff, mode, api])
 
   // Keyboard input for native mode
   useEffect(() => {
@@ -361,10 +378,10 @@ export const GameWindow: React.FC = () => {
 
   // Show on mouse move, auto-hide after 3s of inactivity
   const handleMouseMove = useCallback(() => {
-    if (mode !== 'native' || isPoweringOn) return
+    if (mode !== 'native' || isPoweringOn || isPoweringOff) return
     setShowControls(true)
     scheduleHide()
-  }, [mode, isPoweringOn, scheduleHide])
+  }, [mode, isPoweringOn, isPoweringOff, scheduleHide])
 
   const handleMouseLeave = useCallback((event: React.MouseEvent) => {
     if (mode !== 'native') return
@@ -391,6 +408,7 @@ export const GameWindow: React.FC = () => {
   }
 
   const isNative = mode === 'native'
+  const displayType = getDisplayType(game.systemId)
 
   return (
     <div
@@ -399,9 +417,22 @@ export const GameWindow: React.FC = () => {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
-      {/* CRT Power-on animation */}
+      {/* Power-on animation (system-specific) */}
       {isNative && isPoweringOn && (
-        <CRTPowerOn onComplete={() => setIsPoweringOn(false)} duration={600} />
+        <PowerAnimation
+          displayType={displayType}
+          direction="on"
+          onComplete={() => setIsPoweringOn(false)}
+        />
+      )}
+
+      {/* Power-off / shutdown animation (system-specific) */}
+      {isNative && isPoweringOff && (
+        <PowerAnimation
+          displayType={displayType}
+          direction="off"
+          onComplete={() => api.gameWindow.readyToClose()}
+        />
       )}
 
       {/* Canvas container for native mode rendering */}
@@ -421,10 +452,12 @@ export const GameWindow: React.FC = () => {
         </div>
       )}
 
-      {/* Top control bar (draggable title area) */}
+      {/* Top control bar (draggable title area) — slides up on close */}
       <div
-        className={`absolute top-0 left-0 right-0 z-50 transition-opacity duration-150 ${
-          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`absolute top-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
+          showControls && !isPoweringOff
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 -translate-y-full pointer-events-none'
         }`}
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         onMouseEnter={handleControlsEnter}
@@ -438,10 +471,12 @@ export const GameWindow: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom control bar */}
+      {/* Bottom control bar — slides down on close */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-50 transition-opacity duration-150 ${
-          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`absolute bottom-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
+          showControls && !isPoweringOff
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-full pointer-events-none'
         }`}
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         onMouseEnter={handleControlsEnter}
@@ -578,6 +613,14 @@ export const GameWindow: React.FC = () => {
                 </div>
               )}
             </div>
+            {connectedGamepads > 0 && (
+              <div
+                className="flex items-center gap-1 text-green-400 px-1"
+                title={`${connectedGamepads} gamepad${connectedGamepads > 1 ? 's' : ''} connected`}
+              >
+                <Gamepad2 className="h-4 w-4" />
+              </div>
+            )}
             <Button
               variant="ghost"
               size="sm"
