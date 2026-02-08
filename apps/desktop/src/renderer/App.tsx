@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { Button, WebGLRendererComponent, Game as UiGame, type GameCardMenuItem } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
 import { Monitor, Tv, Sun, Moon, Cpu } from 'lucide-react'
@@ -21,11 +21,26 @@ interface CoreSelectDialogState {
   cores: CoreInfo[]
   /** The game that triggered the core selection dialog. */
   pendingGame: UiGame | null
+  /** True when the dialog was opened from a dropdown menu (suppresses overlay animation). */
+  fromDropdown: boolean
 }
+
+/**
+ * View state machine for crossfade transitions between library and game views.
+ * - `library`   — Only the library is rendered.
+ * - `to-game`   — Both views rendered; library fading out, game fading in.
+ * - `game`      — Only the game view is rendered.
+ * - `to-library` — Both views rendered; game fading out, library fading in.
+ */
+type ViewState = 'library' | 'to-game' | 'game' | 'to-library'
+
+/** Duration of the crossfade transition in milliseconds. */
+const VIEW_TRANSITION_MS = 300
 
 function App() {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [viewState, setViewState] = useState<ViewState>('library')
+  const viewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [currentGame, setCurrentGame] = useState<Game | null>(null)
   const { isReady, currentShader, handleRendererReady, changeShader } =
     useWebGLRenderer()
@@ -43,6 +58,7 @@ function App() {
     systemName: '',
     cores: [],
     pendingGame: null,
+    fromDropdown: false,
   })
 
   // Listen for resume game dialog requests from main process
@@ -69,9 +85,18 @@ function App() {
 
   const toggleTheme = useCallback(() => {
     const next = !isDark
+
+    // Enable cross-fade transitions before toggling
+    document.body.classList.add('theme-transitioning')
+
     setIsDark(next)
     document.documentElement.classList.toggle('dark', next)
     localStorage.setItem('gamelord:theme', next ? 'dark' : 'light')
+
+    // Remove the transition class after the 200ms cross-fade completes
+    setTimeout(() => {
+      document.body.classList.remove('theme-transitioning')
+    }, 200)
   }, [isDark])
 
   /** Resolves the machine-readable system ID from a UiGame. */
@@ -141,6 +166,7 @@ function App() {
         systemName: systemId.toUpperCase(),
         cores,
         pendingGame: game,
+        fromDropdown: false,
       })
     } catch (error) {
       console.error('Error launching game:', error)
@@ -173,22 +199,35 @@ function App() {
    */
   const handleChangeCore = async (game: UiGame) => {
     const systemId = getSystemId(game)
+
+    // Show the dialog immediately (with an empty cores list so it displays a
+    // loading state) and suppress the overlay animation so there's no flash
+    // between the dropdown menu closing and this dialog opening.
+    setCoreSelectDialog({
+      open: true,
+      systemId,
+      systemName: systemId.toUpperCase(),
+      cores: [],
+      pendingGame: game,
+      fromDropdown: true,
+    })
+
     try {
       const cores = await api.emulator.getCoresForSystem(systemId)
-      if (cores.length <= 1) return // Nothing to change
+      if (cores.length <= 1) {
+        // Nothing to change — close the dialog
+        setCoreSelectDialog((previous) => ({ ...previous, open: false, pendingGame: null }))
+        return
+      }
 
       // Clear any saved preference so the dialog doesn't auto-skip
       localStorage.removeItem(`gamelord:core-preference:${systemId}`)
 
-      setCoreSelectDialog({
-        open: true,
-        systemId,
-        systemName: systemId.toUpperCase(),
-        cores,
-        pendingGame: game,
-      })
+      // Populate the dialog with the fetched cores
+      setCoreSelectDialog((previous) => ({ ...previous, cores }))
     } catch (error) {
       console.error('Error fetching cores:', error)
+      setCoreSelectDialog((previous) => ({ ...previous, open: false, pendingGame: null }))
     }
   }
 
@@ -205,79 +244,119 @@ function App() {
     return items
   }, [])
 
+  /** Transition to the game view with a crossfade. */
+  const transitionToGame = useCallback(() => {
+    if (viewTimerRef.current) clearTimeout(viewTimerRef.current)
+    setViewState('to-game')
+    viewTimerRef.current = setTimeout(() => {
+      setViewState('game')
+      viewTimerRef.current = null
+    }, VIEW_TRANSITION_MS)
+  }, [])
+
   const handleStop = async () => {
     try {
       await api.emulator.stop()
-      setIsPlaying(false)
+      if (viewTimerRef.current) clearTimeout(viewTimerRef.current)
+      setViewState('to-library')
+      viewTimerRef.current = setTimeout(() => {
+        setViewState('library')
+        viewTimerRef.current = null
+      }, VIEW_TRANSITION_MS)
     } catch (error) {
       console.error('Error stopping emulator:', error)
     }
   }
 
-  if (isPlaying) {
-    return (
-      <div className="flex flex-col h-screen bg-background">
-        <div className="flex items-center justify-between p-4 border-b drag-region titlebar-inset">
-          <h1 className="text-2xl font-bold">GameLord</h1>
-          <div className="flex gap-2 no-drag">
-            <Button
-              variant={currentShader === 'default' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => changeShader('default')}
-            >
-              <Monitor className="h-4 w-4 mr-2" />
-              Default
-            </Button>
-            <Button
-              variant={currentShader === 'crt' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => changeShader('crt')}
-            >
-              <Tv className="h-4 w-4 mr-2" />
-              CRT
-            </Button>
-            <Button variant="destructive" size="sm" onClick={handleStop}>
-              Stop
-            </Button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <WebGLRendererComponent
-            className="h-full"
-            onReady={handleRendererReady}
-          />
-        </div>
-      </div>
-    )
-  }
+  const showLibrary = viewState === 'library' || viewState === 'to-game' || viewState === 'to-library'
+  const showGame = viewState === 'game' || viewState === 'to-game' || viewState === 'to-library'
+
+  const libraryOpacity = viewState === 'to-game' ? 0 : viewState === 'to-library' ? 1 : viewState === 'library' ? 1 : 0
+  const gameOpacity = viewState === 'to-game' ? 1 : viewState === 'to-library' ? 0 : viewState === 'game' ? 1 : 0
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <div className="drag-region titlebar-inset h-10 border-b flex items-center justify-end px-4">
-        <Button variant="ghost" size="icon" className="no-drag h-7 w-7" onClick={toggleTheme}>
-          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </Button>
-      </div>
-      <div className="flex-1 overflow-hidden">
-        <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} />
-      </div>
+    <div className="relative min-h-screen bg-background">
+      {/* Library view layer */}
+      {showLibrary && (
+        <div
+          className="absolute inset-0 flex flex-col"
+          style={{
+            opacity: libraryOpacity,
+            transition: `opacity ${VIEW_TRANSITION_MS}ms ease`,
+            pointerEvents: viewState === 'library' ? 'auto' : 'none',
+          }}
+        >
+          <div className="drag-region titlebar-inset h-10 border-b flex items-center justify-end px-4">
+            <Button variant="ghost" size="icon" className="no-drag h-7 w-7" onClick={toggleTheme}>
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} />
+          </div>
 
-      {/* Resume game dialog */}
-      <ResumeGameDialog
-        open={resumeDialog.open}
-        gameTitle={resumeDialog.gameTitle}
-        onResume={() => handleResumeDialogResponse(true)}
-        onStartFresh={() => handleResumeDialogResponse(false)}
-      />
+          {/* Resume game dialog */}
+          <ResumeGameDialog
+            open={resumeDialog.open}
+            gameTitle={resumeDialog.gameTitle}
+            onResume={() => handleResumeDialogResponse(true)}
+            onStartFresh={() => handleResumeDialogResponse(false)}
+          />
 
-      {/* Core selection dialog */}
-      <CoreSelectDialog
-        open={coreSelectDialog.open}
-        systemName={coreSelectDialog.systemName}
-        cores={coreSelectDialog.cores}
-        onSelect={handleCoreSelect}
-        onCancel={handleCoreSelectCancel}
-      />
+          {/* Core selection dialog */}
+          <CoreSelectDialog
+            open={coreSelectDialog.open}
+            systemName={coreSelectDialog.systemName}
+            cores={coreSelectDialog.cores}
+            onSelect={handleCoreSelect}
+            onCancel={handleCoreSelectCancel}
+            suppressOverlayAnimation={coreSelectDialog.fromDropdown}
+          />
+        </div>
+      )}
+
+      {/* Game view layer */}
+      {showGame && (
+        <div
+          className="absolute inset-0 flex flex-col"
+          style={{
+            opacity: gameOpacity,
+            transition: `opacity ${VIEW_TRANSITION_MS}ms ease`,
+            pointerEvents: viewState === 'game' ? 'auto' : 'none',
+          }}
+        >
+          <div className="flex items-center justify-between p-4 border-b drag-region titlebar-inset">
+            <h1 className="text-2xl font-bold">GameLord</h1>
+            <div className="flex gap-2 no-drag">
+              <Button
+                variant={currentShader === 'default' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => changeShader('default')}
+              >
+                <Monitor className="h-4 w-4 mr-2" />
+                Default
+              </Button>
+              <Button
+                variant={currentShader === 'crt' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => changeShader('crt')}
+              >
+                <Tv className="h-4 w-4 mr-2" />
+                CRT
+              </Button>
+              <Button variant="destructive" size="sm" onClick={handleStop}>
+                Stop
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <WebGLRendererComponent
+              className="h-full"
+              onReady={handleRendererReady}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,19 @@
 @import "tailwindcss";
 @import "@gamelord/ui/theme.css";
 
+/* Geist Pixel Square for game window UI text */
+@font-face {
+  font-family: 'Geist Pixel Square';
+  src: url('./assets/fonts/geist-pixel/GeistPixel-Square.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+body {
+  font-family: 'Geist Pixel Square', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
 /* Scan local game-window components */
 @source "./game-window/**/*.{js,ts,jsx,tsx}";
 /* Scan UI package components (from src/, go up 3 levels to monorepo root) */
