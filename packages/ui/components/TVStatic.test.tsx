@@ -13,6 +13,12 @@ describe('TVStatic', () => {
     expect(screen.getByLabelText('Loading artwork')).toBeInTheDocument()
   })
 
+  it('renders a canvas element for noise when active', () => {
+    const { container } = render(<TVStatic active={true} />)
+    const canvas = container.querySelector('canvas')
+    expect(canvas).not.toBeNull()
+  })
+
   it('shows status text when provided', () => {
     render(<TVStatic active={true} statusText="Searching..." />)
     expect(screen.getByText('Searching...')).toBeInTheDocument()
@@ -32,19 +38,19 @@ describe('TVStatic', () => {
 
   it('applies red tint for error phase', () => {
     const { container } = render(<TVStatic active={true} phase="error" />)
-    const redOverlay = container.querySelector('.bg-red-500\\/8')
+    const redOverlay = container.querySelector('.bg-red-500\\/15')
     expect(redOverlay).not.toBeNull()
   })
 
   it('applies amber tint for not-found phase', () => {
     const { container } = render(<TVStatic active={true} phase="not-found" />)
-    const amberOverlay = container.querySelector('.bg-amber-500\\/8')
+    const amberOverlay = container.querySelector('.bg-amber-500\\/15')
     expect(amberOverlay).not.toBeNull()
   })
 
   it('does not apply color tint for normal sync phases', () => {
     const { container } = render(<TVStatic active={true} phase="querying" />)
-    expect(container.querySelector('.bg-red-500\\/8')).toBeNull()
-    expect(container.querySelector('.bg-amber-500\\/8')).toBeNull()
+    expect(container.querySelector('.bg-red-500\\/15')).toBeNull()
+    expect(container.querySelector('.bg-amber-500\\/15')).toBeNull()
   })
 })

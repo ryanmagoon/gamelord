@@ -11,7 +11,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogCancel,
-  AlertDialogAction,
+  cn,
   type Game,
   type Game as UiGame,
   type GameCardMenuItem,
@@ -48,10 +48,15 @@ export const LibraryView: React.FC<{
   const [artworkSyncPhases, setArtworkSyncPhases] = useState<Map<string, ArtworkSyncPhase>>(new Map())
   const [syncCounter, setSyncCounter] = useState<{ current: number; total: number } | null>(null)
   const phaseCleanupTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  /** Track sync results for the notification summary. */
+  const syncResults = useRef<{ found: number; notFound: number; errors: number; lastErrorCode?: string; lastError?: string }>({ found: 0, notFound: 0, errors: 0 })
   const [showCredentialsDialog, setShowCredentialsDialog] = useState(false)
   const [credentialUserId, setCredentialUserId] = useState('')
   const [credentialPassword, setCredentialPassword] = useState('')
   const [credentialError, setCredentialError] = useState('')
+  const [isValidatingCredentials, setIsValidatingCredentials] = useState(false)
+  /** Notification banner shown after sync completes or errors. */
+  const [syncNotification, setSyncNotification] = useState<{ message: string; variant: 'error' | 'warning' | 'success' } | null>(null)
 
   // Game options menu state
   const [optionsMenuGame, setOptionsMenuGame] = useState<AppGame | null>(null)
@@ -118,22 +123,87 @@ export const LibraryView: React.FC<{
       // Update counter for header badge
       setSyncCounter({ current: progress.current, total: progress.total })
 
-      // Reload game data when artwork is done so cover art appears
+      // Track results for summary notification
       if (progress.phase === 'done') {
+        syncResults.current.found++
         loadLibrary()
+      } else if (progress.phase === 'not-found') {
+        syncResults.current.notFound++
+      } else if (progress.phase === 'error') {
+        syncResults.current.errors++
+        syncResults.current.lastErrorCode = progress.errorCode
+        syncResults.current.lastError = progress.error
       }
     })
 
     api.on('artwork:syncComplete', () => {
       setSyncCounter(null)
       loadLibrary()
+
+      // Show summary notification
+      const { found, notFound, errors, lastErrorCode, lastError } = syncResults.current
+      const total = found + notFound + errors
+      if (total > 0) {
+        if (lastErrorCode === 'auth-failed') {
+          // Clear bad credentials so the dialog reopens on next attempt
+          api.artwork.clearCredentials()
+          setSyncNotification({
+            message: 'Artwork sync stopped: invalid ScreenScraper credentials. Click "Download Artwork" to update your account.',
+            variant: 'error',
+          })
+        } else if (lastErrorCode === 'timeout') {
+          setSyncNotification({
+            message: 'Artwork sync stopped: ScreenScraper is not responding. Try again later.',
+            variant: 'error',
+          })
+        } else if (lastErrorCode === 'rate-limited') {
+          setSyncNotification({
+            message: 'Artwork sync stopped: ScreenScraper is rate limiting requests. Please wait a few minutes and try again.',
+            variant: 'error',
+          })
+        } else if (errors > 0) {
+          setSyncNotification({
+            message: `Artwork sync finished with errors: ${found} found, ${errors} failed${lastError ? ` (${lastError})` : ''}, ${notFound} not in database.`,
+            variant: 'warning',
+          })
+        } else if (notFound > 0 && found === 0) {
+          setSyncNotification({
+            message: `No artwork found. ${notFound} game${notFound === 1 ? '' : 's'} not recognized by ScreenScraper.`,
+            variant: 'warning',
+          })
+        } else if (found > 0) {
+          setSyncNotification({
+            message: `Downloaded artwork for ${found} game${found === 1 ? '' : 's'}.${notFound > 0 ? ` ${notFound} not found.` : ''}`,
+            variant: 'success',
+          })
+        }
+      }
+      // Reset for next sync
+      syncResults.current = { found: 0, notFound: 0, errors: 0 }
     })
 
     api.on('artwork:syncError', (data: { error: string }) => {
-      console.error('Artwork sync error:', data.error)
       setSyncCounter(null)
-      // Clear all active phases
       setArtworkSyncPhases(new Map())
+      syncResults.current = { found: 0, notFound: 0, errors: 0 }
+
+      // Show actionable error to the user
+      if (data.error.includes('auth') || data.error.includes('credential') || data.error.includes('401') || data.error.includes('403')) {
+        setSyncNotification({
+          message: 'Artwork sync failed: invalid credentials. Please update your ScreenScraper account settings.',
+          variant: 'error',
+        })
+      } else if (data.error.includes('timeout') || data.error.includes('ETIMEDOUT')) {
+        setSyncNotification({
+          message: 'Artwork sync failed: ScreenScraper is not responding. Try again later.',
+          variant: 'error',
+        })
+      } else {
+        setSyncNotification({
+          message: `Artwork sync failed: ${data.error}`,
+          variant: 'error',
+        })
+      }
     })
 
     return () => {
@@ -289,25 +359,30 @@ export const LibraryView: React.FC<{
       return
     }
 
-    setCredentialError('') // Clear previous errors
-    const result = await api.artwork.setCredentials(credentialUserId, credentialPassword)
-    if (result.success) {
-      setShowCredentialsDialog(false)
-      setCredentialUserId('')
-      setCredentialPassword('')
-      setCredentialError('')
-      await api.artwork.syncAll()
-    } else {
-      // Show specific error messages based on error code
-      if (result.errorCode === 'auth-failed') {
-        setCredentialError('Invalid username or password. Please check your ScreenScraper credentials.')
-      } else if (result.errorCode === 'timeout') {
-        setCredentialError('Could not reach ScreenScraper. The server may be down — try again later.')
-      } else if (result.errorCode === 'rate-limited') {
-        setCredentialError('ScreenScraper is rate limiting requests. Please wait a moment and try again.')
+    setCredentialError('')
+    setIsValidatingCredentials(true)
+    try {
+      const result = await api.artwork.setCredentials(credentialUserId, credentialPassword)
+      if (result.success) {
+        setShowCredentialsDialog(false)
+        setCredentialUserId('')
+        setCredentialPassword('')
+        setCredentialError('')
+        await api.artwork.syncAll()
       } else {
-        setCredentialError(result.error ?? 'Failed to validate credentials.')
+        // Show specific error messages based on error code
+        if (result.errorCode === 'auth-failed') {
+          setCredentialError('Invalid username or password. Please check your ScreenScraper credentials.')
+        } else if (result.errorCode === 'timeout') {
+          setCredentialError('Could not reach ScreenScraper. The server may be down — try again later.')
+        } else if (result.errorCode === 'rate-limited') {
+          setCredentialError('ScreenScraper is rate limiting requests. Please wait a moment and try again.')
+        } else {
+          setCredentialError(result.error ?? 'Failed to validate credentials.')
+        }
       }
+    } finally {
+      setIsValidatingCredentials(false)
     }
   }
 
@@ -418,6 +493,25 @@ export const LibraryView: React.FC<{
           </Button>
         </div>
       </div>
+
+      {/* Sync result notification */}
+      {syncNotification && (
+        <div className={cn(
+          'flex items-center gap-3 px-4 py-3 border-b text-sm',
+          syncNotification.variant === 'error' && 'bg-destructive/10 text-destructive',
+          syncNotification.variant === 'warning' && 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+          syncNotification.variant === 'success' && 'bg-green-500/10 text-green-700 dark:text-green-400',
+        )}>
+          <span className="flex-1">{syncNotification.message}</span>
+          <button
+            onClick={() => setSyncNotification(null)}
+            className="hover:opacity-70 transition-opacity"
+            aria-label="Dismiss notification"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Core download progress */}
       {downloadProgress && downloadProgress.phase !== 'done' && (
@@ -590,9 +684,18 @@ export const LibraryView: React.FC<{
             }}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleSaveCredentials}>
-              Save & Download
-            </AlertDialogAction>
+            {/* Use a regular Button instead of AlertDialogAction to prevent
+                the dialog from auto-closing when validation fails. */}
+            <Button onClick={handleSaveCredentials} disabled={isValidatingCredentials}>
+              {isValidatingCredentials ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Validating...
+                </>
+              ) : (
+                'Save & Download'
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
