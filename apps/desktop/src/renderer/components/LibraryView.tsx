@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { GameLibrary, Button, Badge, type GameCardMenuItem } from '@gamelord/ui'
 import { Plus, FolderOpen, RefreshCw, Download } from 'lucide-react'
 import type { Game, Game as UiGame } from '@gamelord/ui'
@@ -26,6 +26,8 @@ export const LibraryView: React.FC<{
   const [loading, setLoading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState<CoreDownloadProgress | null>(null)
+  const [gridOpacity, setGridOpacity] = useState(1)
+  const pendingSystemRef = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
     loadLibrary()
@@ -148,6 +150,31 @@ export const LibraryView: React.FC<{
     }
   }
 
+  /**
+   * Switches the system filter with a brief opacity cross-fade so the grid
+   * doesn't pop instantly.
+   */
+  const switchSystem = useCallback((nextSystem: string | null) => {
+    if (nextSystem === selectedSystem) return
+
+    // If a transition is already in progress, queue the latest request
+    if (gridOpacity < 1) {
+      pendingSystemRef.current = nextSystem
+      return
+    }
+
+    // Fade out
+    setGridOpacity(0)
+    pendingSystemRef.current = nextSystem
+
+    // After the opacity transition completes, swap the filter and fade in
+    setTimeout(() => {
+      setSelectedSystem(pendingSystemRef.current ?? null)
+      pendingSystemRef.current = undefined
+      setGridOpacity(1)
+    }, 150)
+  }, [selectedSystem, gridOpacity])
+
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
 
   /** Delegate to the parent's onPlayGame so App.tsx can handle core selection. */
@@ -245,7 +272,7 @@ export const LibraryView: React.FC<{
           <Button
             variant={selectedSystem === null ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setSelectedSystem(null)}
+            onClick={() => switchSystem(null)}
           >
             All ({games.length})
           </Button>
@@ -256,7 +283,7 @@ export const LibraryView: React.FC<{
                 key={system.id}
                 variant={selectedSystem === system.id ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setSelectedSystem(system.id)}
+                onClick={() => switchSystem(system.id)}
               >
                 {system.shortName} ({systemGames.length})
               </Button>
@@ -266,7 +293,10 @@ export const LibraryView: React.FC<{
       )}
 
       {/* Game library */}
-      <div className="flex-1 overflow-auto p-4">
+      <div
+        className="flex-1 overflow-auto p-4 transition-opacity duration-150"
+        style={{ opacity: gridOpacity }}
+      >
         {filteredGames.length > 0 ? (
           <GameLibrary
             key={selectedSystem ?? 'all'}
