@@ -98,6 +98,23 @@ body {
   animation: card-enter 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Card exit animation for FLIP transitions */
+@keyframes card-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.animate-card-exit {
+  animation: card-exit 200ms cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+}
+
 /*
  * CRT-inspired dialog scan-in / scan-out animations.
  * The content materialises from a thin horizontal line that expands

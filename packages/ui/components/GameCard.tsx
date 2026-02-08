@@ -40,6 +40,8 @@ export interface GameCardProps {
   className?: string
   /** Inline styles forwarded to the root card element (useful for animation delays). */
   style?: React.CSSProperties
+  /** Ref forwarded to the root Card element (used for FLIP measurements). */
+  ref?: React.Ref<HTMLDivElement>
 }
 
 export const GameCard: React.FC<GameCardProps> = ({
@@ -49,6 +51,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   menuItems,
   className,
   style,
+  ref,
 }) => {
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -59,6 +62,7 @@ export const GameCard: React.FC<GameCardProps> = ({
 
   return (
     <Card
+      ref={ref}
       className={cn(
         'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg w-48',
         className

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { GameLibrary, Button, Badge, type GameCardMenuItem } from '@gamelord/ui'
 import { Plus, FolderOpen, RefreshCw, Download } from 'lucide-react'
 import type { Game, Game as UiGame } from '@gamelord/ui'
@@ -26,8 +26,6 @@ export const LibraryView: React.FC<{
   const [loading, setLoading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState<CoreDownloadProgress | null>(null)
-  const [gridOpacity, setGridOpacity] = useState(1)
-  const pendingSystemRef = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
     loadLibrary()
@@ -150,30 +148,10 @@ export const LibraryView: React.FC<{
     }
   }
 
-  /**
-   * Switches the system filter with a brief opacity cross-fade so the grid
-   * doesn't pop instantly.
-   */
+  /** Switches the active system filter. The FLIP hook in GameLibrary handles animation. */
   const switchSystem = useCallback((nextSystem: string | null) => {
-    if (nextSystem === selectedSystem) return
-
-    // If a transition is already in progress, queue the latest request
-    if (gridOpacity < 1) {
-      pendingSystemRef.current = nextSystem
-      return
-    }
-
-    // Fade out
-    setGridOpacity(0)
-    pendingSystemRef.current = nextSystem
-
-    // After the opacity transition completes, swap the filter and fade in
-    setTimeout(() => {
-      setSelectedSystem(pendingSystemRef.current ?? null)
-      pendingSystemRef.current = undefined
-      setGridOpacity(1)
-    }, 150)
-  }, [selectedSystem, gridOpacity])
+    setSelectedSystem(nextSystem)
+  }, [])
 
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
 
@@ -293,13 +271,9 @@ export const LibraryView: React.FC<{
       )}
 
       {/* Game library */}
-      <div
-        className="flex-1 overflow-auto p-4 transition-opacity duration-150"
-        style={{ opacity: gridOpacity }}
-      >
+      <div className="flex-1 overflow-auto p-4">
         {filteredGames.length > 0 ? (
           <GameLibrary
-            key={selectedSystem ?? 'all'}
             games={filteredGames.map<UiGame>((game) => ({
               id: game.id,
               title: game.title,
