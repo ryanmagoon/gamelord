@@ -14,5 +14,5 @@
     "plugin:storybook/recommended"
   ],
   "parser": "@typescript-eslint/parser",
-  "ignorePatterns": ["vitest.config.ts"]
+  "ignorePatterns": ["vitest.config.ts", "electron.vite.config.ts"]
 }
