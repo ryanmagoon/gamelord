@@ -314,7 +314,7 @@ export class CoreDownloader extends EventEmitter {
             resolve();
           });
           file.on('error', (err) => {
-            fs.unlink(dest, () => {});
+            fs.unlink(dest, () => { /* ignore unlink errors during cleanup */ });
             reject(err);
           });
         }).on('error', reject);

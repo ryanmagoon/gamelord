@@ -47,9 +47,10 @@ export class CoreManager extends EventEmitter {
     );
 
     this.coreProcess.on('spawn', () => {
+      // Process started — no action needed
     });
 
-    this.coreProcess.on('exit', (code) => {
+    this.coreProcess.on('exit', (_code) => {
       this.cleanup();
     });
 

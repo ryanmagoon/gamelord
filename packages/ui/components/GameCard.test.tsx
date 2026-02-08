@@ -38,13 +38,14 @@ describe('GameCard', () => {
       expect(optionsButton).not.toBeInTheDocument()
     })
 
-    it('Options button has focus:opacity-100 class for keyboard accessibility', () => {
+    it('Options button container uses focus-within to reveal on keyboard focus', () => {
       const onPlay = vi.fn()
       const onOptions = vi.fn()
       render(<GameCard game={mockGame} onPlay={onPlay} onOptions={onOptions} />)
 
       const optionsButton = screen.getByRole('button', { name: /options for super mario bros/i })
-      expect(optionsButton.className).toContain('focus:opacity-100')
+      const container = optionsButton.parentElement!
+      expect(container.className).toContain('focus-within:opacity-100')
     })
 
     it('all interactive elements are keyboard focusable', async () => {

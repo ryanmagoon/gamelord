@@ -107,6 +107,9 @@ private:
   bool video_frame_ready_ = false;
 
   // Audio buffer (written by callback, read by JS)
+  // Capped at ~100ms of stereo audio at 48kHz (9600 samples) to prevent
+  // unbounded growth when the renderer falls behind.
+  static constexpr size_t MAX_AUDIO_BUFFER_SAMPLES = 48000 / 10 * 2; // ~100ms stereo
   std::mutex audio_mutex_;
   std::vector<int16_t> audio_buffer_;
 
