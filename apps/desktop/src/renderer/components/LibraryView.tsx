@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   GameLibrary,
   Button,
@@ -15,6 +15,7 @@ import {
   type Game,
   type Game as UiGame,
   type GameCardMenuItem,
+  type ArtworkSyncPhase,
 } from '@gamelord/ui'
 import { Plus, FolderOpen, RefreshCw, Download, ImageDown, X } from 'lucide-react'
 import type { Game as AppGame, GameSystem } from '../../types/library'
@@ -43,8 +44,10 @@ export const LibraryView: React.FC<{
   const [isScanning, setIsScanning] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState<CoreDownloadProgress | null>(null)
 
-  // Artwork sync state
-  const [artworkProgress, setArtworkProgress] = useState<ArtworkProgress | null>(null)
+  // Artwork sync state — per-card progress map replaces the old banner
+  const [artworkSyncPhases, setArtworkSyncPhases] = useState<Map<string, ArtworkSyncPhase>>(new Map())
+  const [syncCounter, setSyncCounter] = useState<{ current: number; total: number } | null>(null)
+  const phaseCleanupTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const [showCredentialsDialog, setShowCredentialsDialog] = useState(false)
   const [credentialUserId, setCredentialUserId] = useState('')
   const [credentialPassword, setCredentialPassword] = useState('')
@@ -52,6 +55,49 @@ export const LibraryView: React.FC<{
 
   // Game options menu state
   const [optionsMenuGame, setOptionsMenuGame] = useState<AppGame | null>(null)
+
+  /**
+   * Set a sync phase for a game card and optionally schedule its cleanup.
+   * Terminal phases ('done', 'error', 'not-found') auto-clear after a delay.
+   */
+  const setCardPhase = useCallback((gameId: string, phase: ArtworkSyncPhase) => {
+    // Clear any pending cleanup timer for this card
+    const existing = phaseCleanupTimers.current.get(gameId)
+    if (existing) clearTimeout(existing)
+
+    setArtworkSyncPhases(prev => {
+      const next = new Map(prev)
+      if (phase === null) {
+        next.delete(gameId)
+      } else {
+        next.set(gameId, phase)
+      }
+      return next
+    })
+
+    // Schedule auto-cleanup for terminal states
+    if (phase === 'done') {
+      const timer = setTimeout(() => {
+        setArtworkSyncPhases(prev => {
+          const next = new Map(prev)
+          next.delete(gameId)
+          return next
+        })
+        phaseCleanupTimers.current.delete(gameId)
+      }, 1500) // Hold 'done' for dissolve animation
+      phaseCleanupTimers.current.set(gameId, timer)
+    } else if (phase === 'error' || phase === 'not-found') {
+      const timer = setTimeout(() => {
+        setArtworkSyncPhases(prev => {
+          const next = new Map(prev)
+          next.delete(gameId)
+          return next
+        })
+        phaseCleanupTimers.current.delete(gameId)
+      }, 2500) // Hold error/not-found briefly
+      phaseCleanupTimers.current.set(gameId, timer)
+    }
+  }, [])
 
   useEffect(() => {
     loadLibrary()
@@ -66,17 +112,28 @@ export const LibraryView: React.FC<{
     })
 
     api.on('artwork:progress', (progress: ArtworkProgress) => {
-      setArtworkProgress(progress)
+      // Update per-card sync phase
+      setCardPhase(progress.gameId, progress.phase as ArtworkSyncPhase)
+
+      // Update counter for header badge
+      setSyncCounter({ current: progress.current, total: progress.total })
+
+      // Reload game data when artwork is done so cover art appears
+      if (progress.phase === 'done') {
+        loadLibrary()
+      }
     })
 
     api.on('artwork:syncComplete', () => {
-      setArtworkProgress(null)
+      setSyncCounter(null)
       loadLibrary()
     })
 
     api.on('artwork:syncError', (data: { error: string }) => {
       console.error('Artwork sync error:', data.error)
-      setArtworkProgress(null)
+      setSyncCounter(null)
+      // Clear all active phases
+      setArtworkSyncPhases(new Map())
     })
 
     return () => {
@@ -84,6 +141,9 @@ export const LibraryView: React.FC<{
       api.removeAllListeners('artwork:progress')
       api.removeAllListeners('artwork:syncComplete')
       api.removeAllListeners('artwork:syncError')
+      // Clear all cleanup timers
+      phaseCleanupTimers.current.forEach(timer => clearTimeout(timer))
+      phaseCleanupTimers.current.clear()
     }
   }, [])
 
@@ -103,6 +163,24 @@ export const LibraryView: React.FC<{
     }
   }
 
+  /**
+   * Auto-sync artwork for newly imported games.
+   * Only triggers if the user has configured ScreenScraper credentials.
+   */
+  const autoSyncNewGames = useCallback(async (newGames: AppGame[]) => {
+    if (newGames.length === 0) return
+
+    try {
+      const { hasCredentials } = await api.artwork.getCredentials()
+      if (!hasCredentials) return
+
+      const gameIds = newGames.map(g => g.id)
+      await api.artwork.syncGames(gameIds)
+    } catch (error) {
+      console.error('Auto-sync failed:', error)
+    }
+  }, [api])
+
   const handleQuickScan = async () => {
     setIsScanning(true)
     try {
@@ -117,6 +195,7 @@ export const LibraryView: React.FC<{
 
       if (foundGames.length > 0) {
         await loadLibrary()
+        autoSyncNewGames(foundGames)
       } else {
         await handleSelectDirectory()
       }
@@ -132,8 +211,9 @@ export const LibraryView: React.FC<{
     if (directory) {
       setIsScanning(true)
       try {
-        await api.library.scanDirectory(directory)
+        const foundGames = await api.library.scanDirectory(directory)
         await loadLibrary()
+        autoSyncNewGames(foundGames)
       } catch (error) {
         console.error('Directory scan failed:', error)
       } finally {
@@ -151,8 +231,9 @@ export const LibraryView: React.FC<{
 
       setIsScanning(true)
       try {
-        await api.library.scanDirectory(directory, system.id)
+        const foundGames = await api.library.scanDirectory(directory, system.id)
         await loadLibrary()
+        autoSyncNewGames(foundGames)
       } catch (error) {
         console.error('Failed to scan system directory:', error)
       } finally {
@@ -164,8 +245,9 @@ export const LibraryView: React.FC<{
   const handleScanSystemFolders = async () => {
     setIsScanning(true)
     try {
-      await api.library.scanSystemFolders()
+      const foundGames = await api.library.scanSystemFolders()
       await loadLibrary()
+      autoSyncNewGames(foundGames)
     } catch (error) {
       console.error('System folder scan failed:', error)
     } finally {
@@ -179,9 +261,12 @@ export const LibraryView: React.FC<{
       const game = await api.library.addGame(romPath, systemId)
       if (game) {
         setGames([...games, game])
+        autoSyncNewGames([game])
       }
     }
   }
+
+  const isSyncing = syncCounter !== null
 
   const handleDownloadArtwork = async () => {
     const { hasCredentials } = await api.artwork.getCredentials()
@@ -194,7 +279,8 @@ export const LibraryView: React.FC<{
 
   const handleCancelArtworkSync = async () => {
     await api.artwork.cancelSync()
-    setArtworkProgress(null)
+    setSyncCounter(null)
+    setArtworkSyncPhases(new Map())
   }
 
   const handleSaveCredentials = async () => {
@@ -298,8 +384,22 @@ export const LibraryView: React.FC<{
             </Badge>
           )}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleDownloadArtwork} disabled={!!artworkProgress}>
+        <div className="flex items-center gap-2">
+          {/* Sync progress badge — replaces the old purple banner */}
+          {isSyncing && (
+            <Badge variant="secondary" className="gap-1.5 text-xs font-normal">
+              <ImageDown className="h-3 w-3 animate-pulse" />
+              Syncing {syncCounter.current}/{syncCounter.total}
+              <button
+                onClick={handleCancelArtworkSync}
+                className="ml-1 hover:text-destructive transition-colors"
+                aria-label="Cancel artwork sync"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          <Button variant="outline" size="sm" onClick={handleDownloadArtwork} disabled={isSyncing}>
             <ImageDown className="h-4 w-4 mr-2" />
             Download Artwork
           </Button>
@@ -336,42 +436,6 @@ export const LibraryView: React.FC<{
               />
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Artwork sync progress */}
-      {artworkProgress && (
-        <div className="flex items-center gap-3 px-4 py-3 border-b bg-purple-500/10">
-          <ImageDown className="h-4 w-4 text-purple-500 animate-pulse" />
-          <div className="flex-1">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-purple-300">
-                {artworkProgress.phase === 'error'
-                  ? `Error: ${artworkProgress.error}`
-                  : artworkProgress.phase === 'not-found'
-                    ? `No artwork found for ${artworkProgress.gameTitle}`
-                    : artworkProgress.phase === 'done'
-                      ? `Downloaded artwork for ${artworkProgress.gameTitle}`
-                      : artworkProgress.phase === 'hashing'
-                        ? `Hashing ${artworkProgress.gameTitle}...`
-                        : artworkProgress.phase === 'querying'
-                          ? `Looking up ${artworkProgress.gameTitle}...`
-                          : `Downloading artwork for ${artworkProgress.gameTitle}...`}
-              </span>
-              <span className="text-purple-400">
-                {artworkProgress.current}/{artworkProgress.total}
-              </span>
-            </div>
-            <div className="mt-1 h-1 rounded-full bg-purple-900/50 overflow-hidden">
-              <div
-                className="h-full bg-purple-500 rounded-full transition-all duration-300"
-                style={{ width: `${(artworkProgress.current / artworkProgress.total) * 100}%` }}
-              />
-            </div>
-          </div>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-purple-400 hover:text-purple-200" onClick={handleCancelArtworkSync}>
-            <X className="h-3 w-3" />
-          </Button>
         </div>
       )}
 
@@ -421,6 +485,7 @@ export const LibraryView: React.FC<{
             }}
             onGameOptions={handleUiGameOptions}
             getMenuItems={getMenuItems}
+            artworkSyncPhases={artworkSyncPhases}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">

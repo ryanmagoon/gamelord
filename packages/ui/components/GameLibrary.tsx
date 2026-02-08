@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { GameCard, Game, GameCardMenuItem } from './GameCard';
+import type { ArtworkSyncPhase } from './TVStatic';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -19,6 +20,8 @@ export interface GameLibraryProps {
   onGameOptions?: (game: Game) => void;
   /** Returns menu items for a specific game's dropdown. */
   getMenuItems?: (game: Game) => GameCardMenuItem[];
+  /** Per-game artwork sync phases. Key is game ID, value is current phase. */
+  artworkSyncPhases?: Map<string, ArtworkSyncPhase>;
   className?: string;
 }
 
@@ -30,6 +33,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   onPlayGame,
   onGameOptions,
   getMenuItems,
+  artworkSyncPhases,
   className
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -170,6 +174,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
               onPlay={onPlayGame}
               onOptions={onGameOptions}
               menuItems={getMenuItems?.(game)}
+              artworkSyncPhase={artworkSyncPhases?.get(game.id)}
             />
           ))}
         </div>

@@ -10,6 +10,7 @@ import {
 } from './ui/dropdown-menu'
 import { cn } from '../utils'
 import { Play, MoreVertical } from 'lucide-react'
+import { TVStatic, type ArtworkSyncPhase } from './TVStatic'
 
 export interface Game {
   id: string
@@ -37,7 +38,20 @@ export interface GameCardProps {
   onOptions?: (game: Game) => void
   /** Menu items shown in the options dropdown on hover. */
   menuItems?: GameCardMenuItem[]
+  /**
+   * Current artwork sync phase for this card.
+   * Active phases show TV static, 'done' triggers a dissolve-in transition,
+   * null/undefined shows the normal placeholder or cover art.
+   */
+  artworkSyncPhase?: ArtworkSyncPhase
   className?: string
+}
+
+/** Map sync phases to user-facing status labels. */
+const PHASE_STATUS_TEXT: Partial<Record<NonNullable<ArtworkSyncPhase>, string>> = {
+  hashing: 'Reading...',
+  querying: 'Searching...',
+  downloading: 'Downloading...',
 }
 
 export const GameCard: React.FC<GameCardProps> = ({
@@ -45,6 +59,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   onPlay,
   onOptions,
   menuItems,
+  artworkSyncPhase,
   className,
 }) => {
   const handlePlay = (e: React.MouseEvent) => {
@@ -54,6 +69,19 @@ export const GameCard: React.FC<GameCardProps> = ({
 
   const hasMenu = (menuItems && menuItems.length > 0) || onOptions
 
+  // Active sync phases that should show TV static
+  const isActivelySyncing =
+    artworkSyncPhase === 'hashing' ||
+    artworkSyncPhase === 'querying' ||
+    artworkSyncPhase === 'downloading'
+
+  // Brief flash states for error/not-found
+  const isTerminalPhase =
+    artworkSyncPhase === 'error' || artworkSyncPhase === 'not-found'
+
+  // 'done' phase: cover art just arrived — show dissolve-in
+  const isDone = artworkSyncPhase === 'done'
+
   return (
     <Card
       className={cn(
@@ -62,16 +90,29 @@ export const GameCard: React.FC<GameCardProps> = ({
       )}
     >
       <CardContent className="p-0">
-        <div className="aspect-[3/4] relative">
+        <div className="aspect-[3/4] relative bg-muted">
+          {/* Cover art image — fades in with dissolve when phase is 'done' */}
           {game.coverArt ? (
             <img
               src={game.coverArt}
               alt={game.title}
-              className="w-full h-full object-cover"
+              className={cn(
+                'w-full h-full object-cover transition-opacity',
+                isDone ? 'animate-artwork-dissolve-in' : 'opacity-100',
+              )}
             />
           ) : (
-            <div className="w-full h-full bg-muted" />
+            !isActivelySyncing && !isTerminalPhase && (
+              <div className="w-full h-full bg-muted" />
+            )
           )}
+
+          {/* TV static overlay — shown during active sync or terminal flash */}
+          <TVStatic
+            active={isActivelySyncing || isTerminalPhase}
+            phase={artworkSyncPhase}
+            statusText={artworkSyncPhase ? PHASE_STATUS_TEXT[artworkSyncPhase] : undefined}
+          />
 
           {/* Always visible overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
@@ -144,6 +185,19 @@ export const GameCard: React.FC<GameCardProps> = ({
             </div>
           )}
         </div>
+
+        {/* Dissolve animation keyframes for artwork reveal */}
+        {isDone && (
+          <style>{`
+            @keyframes artwork-dissolve-in {
+              0% { opacity: 0; }
+              100% { opacity: 1; }
+            }
+            .animate-artwork-dissolve-in {
+              animation: artwork-dissolve-in 600ms ease-out forwards;
+            }
+          `}</style>
+        )}
       </CardContent>
     </Card>
   )
