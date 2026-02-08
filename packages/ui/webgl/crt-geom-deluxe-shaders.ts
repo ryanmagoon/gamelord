@@ -65,11 +65,22 @@ out vec4 fragColor;
 
 ${PARAMS_GLSL}
 
+const float gamma = 2.2;
+
 void main() {
-  // Pass through the current frame directly.
-  // Phosphor persistence is handled by pass 1's feedback loop;
-  // this pass just forwards the frame for now.
-  fragColor = vec4(texture(u_texture, v_texCoord).rgb, 1.0);
+  vec3 screen = texture(u_texture, v_texCoord).rgb;
+  vec4 phosphor = texture(u_phosphorFeedback, v_texCoord);
+
+  // Linearize for correct additive blending
+  vec3 cscrn = pow(screen, vec3(gamma));
+  vec3 cphos = pow(phosphor.rgb, vec3(gamma));
+
+  // Alpha stores decay multiplier (starts at 1.0, decays each frame)
+  float decay = phosphor.a * pow(phosphor.a, phosphor_power);
+  cphos *= phosphor_amplitude * decay;
+
+  // Composite and re-encode to sRGB
+  fragColor = vec4(pow(max(cscrn + cphos, vec3(0.0)), vec3(1.0 / gamma)), 1.0);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -91,8 +102,29 @@ out vec4 fragColor;
 
 ${PARAMS_GLSL}
 
+const float gamma = 2.2;
+const vec3 lum = vec3(0.299, 0.587, 0.114);
+const float DECAY_RATE = 0.92; // Per-frame decay multiplier
+
 void main() {
-  fragColor = vec4(texture(u_texture, v_texCoord).rgb, 1.0);
+  vec3 screen = texture(u_texture, v_texCoord).rgb;
+  vec4 phosphor = texture(u_feedback, v_texCoord);
+
+  // Compare brightness in linear space
+  float bscrn = dot(pow(screen, vec3(gamma)), lum);
+  float bphos = dot(pow(phosphor.rgb, vec3(gamma)), lum);
+
+  // Alpha stores the cumulative decay factor
+  float decayFactor = phosphor.a * DECAY_RATE;
+  float decayedBright = bphos * phosphor_amplitude * decayFactor;
+
+  if (bscrn >= decayedBright) {
+    // Screen is brighter: refresh with current frame, reset decay to 1.0
+    fragColor = vec4(screen, 1.0);
+  } else {
+    // Phosphor still glowing: keep old color, continue decay
+    fragColor = vec4(phosphor.rgb, decayFactor);
+  }
 }`;
 
 // ---------------------------------------------------------------------------
@@ -515,7 +547,7 @@ void main() {
 
   // Halation: blend in the Gaussian-blurred image
   vec3 blur = texblur(xy);
-  mul_res = mix(mul_res, blur, halation) * vec3(cval);
+  mul_res = mix(mul_res, blur, halation) * vec3(cval * rbloom);
 
   // Phosphor mask (simple multiply, matching working crt-geom approach)
   vec4 mask = mask_weights_alpha(gl_FragCoord.xy, aperture_strength, mask_type);

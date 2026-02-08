@@ -136,13 +136,13 @@ describe('crt-geom-deluxe GLSL sources', () => {
     expect(pass4.fragmentSource).toContain('textureLod');
   });
 
-  it('pass 0 fragment shader samples u_texture', () => {
+  it('pass 0 fragment shader references phosphor decay', () => {
     const pass0 = crtGeomDeluxePreset.passes[0];
-    expect(pass0.fragmentSource).toContain('u_texture');
+    expect(pass0.fragmentSource).toContain('phosphor_amplitude');
   });
 
-  it('pass 1 fragment shader samples u_texture', () => {
+  it('pass 1 fragment shader references u_feedback for self-feedback', () => {
     const pass1 = crtGeomDeluxePreset.passes[1];
-    expect(pass1.fragmentSource).toContain('u_texture');
+    expect(pass1.fragmentSource).toContain('u_feedback');
   });
 });
