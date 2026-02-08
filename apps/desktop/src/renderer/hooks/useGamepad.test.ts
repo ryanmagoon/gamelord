@@ -80,7 +80,9 @@ describe('useGamepad', () => {
       return ++rafIdCounter
     })
 
-    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {
+      // noop — cancellation is not exercised in these tests
+    })
   })
 
   afterEach(() => {

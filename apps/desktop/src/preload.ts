@@ -56,7 +56,9 @@ contextBridge.exposeInMainWorld('gamelord', {
       'game:audio-samples',
       'overlay:show-controls',
       'core:downloadProgress',
-      'dialog:showResumeGame'
+      'dialog:showResumeGame',
+      'game:prepare-close',
+      'game:emulation-error'
     ];
 
     if (validChannels.includes(channel)) {
@@ -75,7 +77,8 @@ contextBridge.exposeInMainWorld('gamelord', {
     close: () => ipcRenderer.send('game-window:close'),
     toggleFullscreen: () => ipcRenderer.send('game-window:toggle-fullscreen'),
     setClickThrough: (value: boolean) => ipcRenderer.send('game-window:set-click-through', value),
-    setTrafficLightVisible: (visible: boolean) => ipcRenderer.send('game-window:set-traffic-light-visible', visible)
+    setTrafficLightVisible: (visible: boolean) => ipcRenderer.send('game-window:set-traffic-light-visible', visible),
+    readyToClose: () => ipcRenderer.send('game-window:ready-to-close')
   },
 
   // Library management

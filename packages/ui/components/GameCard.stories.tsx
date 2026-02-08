@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within, userEvent, fn } from 'storybook/test';
 import { GameCard } from './GameCard';
 import superMarioBrosBox from '../assets/super-mario-bros-box.png';
@@ -29,7 +29,7 @@ export const Default: Story = {
       coverArt: superMarioBrosBox,
       romPath: '/roms/smb.nes',
     },
-    onPlay: () => {},
+    onPlay() { /* storybook action placeholder */ },
   },
 };
 
@@ -43,7 +43,7 @@ export const WithCoverArt: Story = {
       coverArt: superMarioBrosBox,
       romPath: '/roms/zelda.nes',
     },
-    onPlay: () => {},
+    onPlay() { /* storybook action placeholder */ },
   },
 };
 
@@ -56,7 +56,7 @@ export const LongTitle: Story = {
       genre: 'Platform',
       romPath: '/roms/yoshi.smc',
     },
-    onPlay: () => {},
+    onPlay() { /* storybook action placeholder */ },
   },
 };
 
@@ -72,7 +72,7 @@ export const RecentlyPlayed: Story = {
       lastPlayed: new Date(),
       playTime: 7200, // 2 hours
     },
-    onPlay: () => {},
+    onPlay() { /* storybook action placeholder */ },
   },
 };
 

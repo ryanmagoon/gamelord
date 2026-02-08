@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gamepad2, Disc, Package } from 'lucide-react';
+import { Gamepad2, Disc } from 'lucide-react';
 import { cn } from '../utils';
 
 interface PlatformIconProps {

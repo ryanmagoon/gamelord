@@ -13,5 +13,6 @@
     "plugin:import/typescript",
     "plugin:storybook/recommended"
   ],
-  "parser": "@typescript-eslint/parser"
+  "parser": "@typescript-eslint/parser",
+  "ignorePatterns": ["vitest.config.ts"]
 }
