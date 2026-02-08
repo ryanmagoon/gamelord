@@ -233,26 +233,32 @@ void main() {
 // ---------------------------------------------------------------------------
 
 const SUBPIXEL_MASKS_GLSL = `
-vec3 mask_weights(vec2 coord, float maskIntensity, int layout_type) {
+// Returns vec4: rgb = mask weights, a = fraction of "off" subpixels in the
+// mask pattern (used for energy-conserving brightness compensation).
+vec4 mask_weights_alpha(vec2 coord, float maskIntensity, int layout_type) {
   vec3 weights = vec3(1.0);
+  float alpha = 0.0; // fraction of off subpixels
+
   float on  = 1.0;
   float off = 1.0 - maskIntensity;
 
-  vec2 xy = coord * vec2(1.0); // fragment coord in output pixels
-  int ix = int(mod(xy.x, 6.0));
-  int iy = int(mod(xy.y, 4.0));
+  vec2 xy = coord;
 
   if (layout_type == 0) {
     // No mask
     weights = vec3(1.0);
+    alpha = 0.0;
   } else if (layout_type == 1) {
     // Classic aperture grille (RGB vertical stripes, 3-pixel period)
+    // Each pixel: 1 channel on, 2 off → alpha = 2/3
     int col = int(mod(xy.x, 3.0));
     if (col == 0) weights = vec3(on, off, off);
     else if (col == 1) weights = vec3(off, on, off);
     else weights = vec3(off, off, on);
+    alpha = 2.0 / 3.0;
   } else if (layout_type == 2) {
     // 2x2 shadow mask (checkerboard-ish RGB)
+    // Same subpixel ratio as aperture grille: 1 on, 2 off per pixel
     int col = int(mod(xy.x, 3.0));
     int row = int(mod(xy.y, 2.0));
     if (row == 0) {
@@ -264,8 +270,10 @@ vec3 mask_weights(vec2 coord, float maskIntensity, int layout_type) {
       else if (col == 1) weights = vec3(on, off, off);
       else weights = vec3(off, on, off);
     }
+    alpha = 2.0 / 3.0;
   } else if (layout_type == 3) {
     // Slot mask (3x4 pattern with gaps)
+    // 4-wide period: 3 lit columns + 1 dark, each lit has 1/3 on → alpha = 3/4
     int col = int(mod(xy.x, 4.0));
     int row = int(mod(xy.y, 4.0));
     if (row < 2) {
@@ -279,22 +287,26 @@ vec3 mask_weights(vec2 coord, float maskIntensity, int layout_type) {
       else if (col == 2) weights = vec3(off, on, off);
       else weights = vec3(off, off, off);
     }
+    alpha = 3.0 / 4.0;
   } else if (layout_type == 4) {
     // Fine aperture grille (1-pixel subpixels, 4-pixel period)
+    // 4-wide: 3 lit + 1 dark, each lit has 1/3 on → alpha = 3/4
     int col = int(mod(xy.x, 4.0));
     if (col == 0) weights = vec3(on, off, off);
     else if (col == 1) weights = vec3(off, on, off);
     else if (col == 2) weights = vec3(off, off, on);
     else weights = vec3(off, off, off);
+    alpha = 3.0 / 4.0;
   } else if (layout_type == 5) {
     // BGR aperture grille (reversed subpixel order)
     int col = int(mod(xy.x, 3.0));
     if (col == 0) weights = vec3(off, off, on);
     else if (col == 1) weights = vec3(off, on, off);
     else weights = vec3(on, off, off);
+    alpha = 2.0 / 3.0;
   }
 
-  return weights;
+  return vec4(weights, alpha);
 }
 `;
 
@@ -406,7 +418,12 @@ ${PARAMS_GLSL}
 
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
-#define TEX2D(c) pow(texture(u_internal1, (c)), vec4(CRTgamma))
+
+// Underscan check: clamp out-of-bounds samples to black (matches original)
+vec4 TEX2D(vec2 c) {
+  vec2 underscan = step(0.0, c) * step(0.0, vec2(1.0) - c);
+  return texture(u_internal1, c) * vec4(underscan.x * underscan.y);
+}
 
 ${SUBPIXEL_MASKS_GLSL}
 
@@ -447,14 +464,16 @@ vec4 scanlineWeights(float distance_, vec4 color) {
 }
 
 vec3 texblur(vec2 coord) {
-  // Sample blur texture with edge taper
-  vec3 blur = pow(texture(u_blur_texture, coord).rgb, vec3(CRTgamma));
+  vec3 blur = texture(u_blur_texture, coord).rgb;
 
-  // Edge taper using erf approximation for smooth border falloff
-  vec2 borderCoord = coord * 2.0 - 1.0; // [-1, 1]
-  float edgeFade = (1.0 - smoothstep(0.85, 1.0, abs(borderCoord.x))) *
-                   (1.0 - smoothstep(0.85, 1.0, abs(borderCoord.y)));
-  return blur * edgeFade;
+  // Edge taper: erf-based falloff matching the original geom-deluxe texblur.
+  // Approximation: sqrt(1 - exp(-c*c)) * (1 + 0.1749*exp(-c*c)) mapped to [0,1].
+  float w = width / 320.0;
+  vec2 c = min(coord, vec2(1.0) - coord) * vec2(aspect_x, aspect_y) * vec2(1.0 / w);
+  vec2 e2c = exp(-c * c);
+  c = (step(0.0, c) - vec2(0.5)) * sqrt(vec2(1.0) - e2c) *
+      (vec2(1.0) + vec2(0.1749) * e2c) + vec2(0.5);
+  return blur * vec3(c.x * c.y);
 }
 
 void main() {
@@ -532,17 +551,21 @@ void main() {
   vec3 blur = texblur(xy);
   mul_res = mix(mul_res, blur, halation) * vec3(cval * rbloom);
 
-  // Phosphor mask
-  vec3 mask = mask_weights(gl_FragCoord.xy, aperture_strength, mask_type);
+  // Phosphor mask (returns rgb weights + alpha = fraction of off subpixels)
+  vec4 mask = mask_weights_alpha(gl_FragCoord.xy, aperture_strength, mask_type);
 
-  // Energy-conserving mask application (matches libretro crt-geom-deluxe)
-  float fbright = dot(mul_res, vec3(0.2126, 0.7152, 0.0722));
-  float ifbright = 1.0 / max(fbright, 0.001);
+  // Energy-conserving mask application (matches libretro crt-geom-deluxe).
+  // fbright = fraction of bright subpixels scaled by output/source ratio.
+  // u_tex_size1 in the original = OutputSize * (1/SourceSize) = scale factor.
+  vec2 scaleRatio = u_resolution / v_TextureSize;
+  float nbright = 255.0 - 255.0 * mask.a;
+  float fbright = nbright / (scaleRatio.x * scaleRatio.y);
   float aperture_average = mix(1.0 - aperture_strength * (1.0 - aperture_brightboost), 1.0, fbright);
   vec3 clow = vec3(1.0 - aperture_strength) * mul_res + vec3(aperture_strength * aperture_brightboost) * mul_res * mul_res;
+  float ifbright = 1.0 / fbright;
   vec3 chi = vec3(ifbright * aperture_average) * mul_res - vec3(ifbright - 1.0) * clow;
-  vec3 cout = mix(clow, chi, mask);
+  vec3 cout = mix(clow, chi, mask.rgb);
 
-  // Convert from linear (CRTgamma) space to display gamma
+  // Gamma correction: convert from working space to display gamma
   fragColor = vec4(pow(max(cout, vec3(0.0)), vec3(1.0 / monitorgamma)), 1.0);
 }`;
