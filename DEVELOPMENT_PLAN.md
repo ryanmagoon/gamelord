@@ -86,6 +86,9 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P2 — Performance
 
+- [x] **Vsync-aligned rendering** — Buffer IPC video frames and draw in a `requestAnimationFrame` loop instead of rendering directly from IPC handlers. Aligns WebGL draws with display vsync; multiple IPC frames between vsyncs are naturally skipped.
+- [x] **Remove backdrop-blur from game window** — Replaced `backdrop-blur-md` on all game window overlays with solid backgrounds to eliminate GPU compositing overhead during gameplay.
+- [x] **FPS counter** — Settings menu toggle for an FPS overlay (EMA of rAF timestamp deltas, updated every 30 frames). Persisted in localStorage.
 - [ ] **Worker thread emulation** — Move emulation loop from main process `setTimeout` to a dedicated Worker thread; finish the `core-worker.ts` stub
 - [ ] **SharedArrayBuffer for frame transfer** — Zero-copy video/audio push between worker and renderer (unlocked by worker thread migration)
 - [ ] **Lock-free audio buffer** — Replace `std::mutex`-guarded audio buffer in native addon with a lock-free SPSC ring buffer
@@ -102,8 +105,8 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P4 — Library & Metadata
 
-- [ ] Integrate metadata API (TheGamesDB or IGDB) for cover art and game info
-- [ ] Cover art downloading and caching
+- [x] Integrate metadata API (ScreenScraper) for cover art and game info
+- [x] Cover art downloading and caching (artwork:// custom protocol, per-game and bulk sync)
 - [ ] Grid view with cover art thumbnails
 - [ ] Search, filter, and sorting
 - [ ] Recently played tracking
@@ -133,6 +136,15 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Friend list and invite system
 - [ ] Per-game netplay compatibility metadata (supported cores, input latency settings)
 
+### RetroAchievements
+
+- [ ] MD5-based ROM identification (shares hash infrastructure with artwork service)
+- [ ] RetroAchievements API integration — authenticate, fetch achievement lists per game
+- [ ] Achievement unlocking via rcheevos runtime (memory inspection each frame)
+- [ ] Achievement unlock notifications in game window overlay
+- [ ] Per-game achievement list and progress tracking in library UI
+- [ ] Hardcore mode support (disable save states/rewind when active)
+
 ### Developer Tools
 
 - [ ] Toggleable debug overlay for the game window (keyboard shortcut or settings toggle)
@@ -155,6 +167,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Screenshot gallery per game
 - [ ] Playtime tracking and statistics
 - [ ] Settings panel
+- [ ] **Graphics quality setting** — A simple quality preference (e.g. "Quality" / "Performance") that controls shader complexity and cosmetic effects. "Performance" disables multi-pass CRT shaders (falls back to single-pass or nearest), simplifies the VHS pause screen, and strips heavy overlays. Lets users on lower-end hardware or high-refresh displays trade eye candy for consistent frame pacing.
 
 ### P9 — Packaging & Distribution
 
