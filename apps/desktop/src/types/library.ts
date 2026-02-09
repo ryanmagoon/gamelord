@@ -15,6 +15,9 @@ export interface Game {
   systemId: string;
   romPath: string;
   coverArt?: string;
+  romHashes?: {
+    md5?: string;
+  };
   lastPlayed?: Date;
   playTime?: number;
   favorite?: boolean;

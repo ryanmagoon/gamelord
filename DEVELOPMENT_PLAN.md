@@ -103,8 +103,8 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P4 — Library & Metadata
 
-- [ ] Integrate metadata API (TheGamesDB or IGDB) for cover art and game info
-- [ ] Cover art downloading and caching
+- [x] Integrate metadata API (ScreenScraper) for cover art and game info
+- [x] Cover art downloading and caching (artwork:// custom protocol, per-game and bulk sync)
 - [ ] Grid view with cover art thumbnails
 - [ ] Search, filter, and sorting
 - [ ] Recently played tracking
@@ -133,6 +133,15 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Rollback-based netcode using save state serialization for latency hiding
 - [ ] Friend list and invite system
 - [ ] Per-game netplay compatibility metadata (supported cores, input latency settings)
+
+### RetroAchievements
+
+- [ ] MD5-based ROM identification (shares hash infrastructure with artwork service)
+- [ ] RetroAchievements API integration — authenticate, fetch achievement lists per game
+- [ ] Achievement unlocking via rcheevos runtime (memory inspection each frame)
+- [ ] Achievement unlock notifications in game window overlay
+- [ ] Per-game achievement list and progress tracking in library UI
+- [ ] Hardcore mode support (disable save states/rewind when active)
 
 ### Developer Tools
 
