@@ -57,6 +57,11 @@ export const GameWindow: React.FC = () => {
     return (saved as string) || 'default'
   })
   const [showShaderMenu, setShowShaderMenu] = useState(false)
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false)
+  const [showFps, setShowFps] = useState(() => {
+    return localStorage.getItem('gamelord:showFps') === 'true'
+  })
+  const [fps, setFps] = useState(0)
   const [isPoweringOn, setIsPoweringOn] = useState(true)
   const [isPoweringOff, setIsPoweringOff] = useState(false)
 
@@ -68,6 +73,9 @@ export const GameWindow: React.FC = () => {
   const gainNodeRef = useRef<GainNode | null>(null)
   const pendingFrameRef = useRef<any>(null)
   const rafIdRef = useRef<number>(0)
+  const lastFrameTimeRef = useRef(0)
+  const fpsEmaRef = useRef(0)
+  const rafFrameCountRef = useRef(0)
   const [gameAspectRatio, setGameAspectRatio] = useState<number | null>(null)
 
   // Gamepad polling — uses same api.gameInput() pipeline as keyboard
@@ -143,6 +151,7 @@ export const GameWindow: React.FC = () => {
       setIsPoweringOff(true)
       setShowControls(false)
       setShowShaderMenu(false)
+      setShowSettingsMenu(false)
     })
 
     api.on('game:av-info', (avInfo: any) => {
@@ -178,8 +187,25 @@ export const GameWindow: React.FC = () => {
           requestAnimationFrame(() => updateCanvasSize())
 
           // Start the rAF render loop — draws the latest buffered frame
-          // each display vsync instead of rendering directly from IPC events
-          const renderLoop = () => {
+          // each display vsync instead of rendering directly from IPC events.
+          // Also measures FPS via exponential moving average of frame deltas.
+          const renderLoop = (timestamp: number) => {
+            if (lastFrameTimeRef.current > 0) {
+              const delta = timestamp - lastFrameTimeRef.current
+              if (delta > 0) {
+                const instantFps = 1000 / delta
+                fpsEmaRef.current = fpsEmaRef.current === 0
+                  ? instantFps
+                  : 0.9 * fpsEmaRef.current + 0.1 * instantFps
+                rafFrameCountRef.current++
+                // Update React state every 30 frames (~500ms) to avoid re-render overhead
+                if (rafFrameCountRef.current % 30 === 0) {
+                  setFps(Math.round(fpsEmaRef.current))
+                }
+              }
+            }
+            lastFrameTimeRef.current = timestamp
+
             const frame = pendingFrameRef.current
             if (frame && rendererRef.current) {
               pendingFrameRef.current = null
@@ -294,6 +320,11 @@ export const GameWindow: React.FC = () => {
     localStorage.setItem('gamelord:volume', String(volume))
     localStorage.setItem('gamelord:muted', String(isMuted))
   }, [volume, isMuted])
+
+  // Persist FPS overlay preference
+  useEffect(() => {
+    localStorage.setItem('gamelord:showFps', String(showFps))
+  }, [showFps])
 
   // Sync traffic light visibility with controls overlay (hide during shutdown)
   useEffect(() => {
@@ -472,6 +503,13 @@ export const GameWindow: React.FC = () => {
         </div>
       )}
 
+      {/* FPS overlay */}
+      {isNative && showFps && (
+        <div className="absolute top-2 left-2 z-40 px-2 py-1 bg-black/60 rounded text-xs font-mono text-green-400 pointer-events-none select-none">
+          {fps} FPS
+        </div>
+      )}
+
       {/* Top control bar (draggable title area) — slides up on close */}
       <div
         className={`absolute top-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
@@ -641,13 +679,30 @@ export const GameWindow: React.FC = () => {
                 <Gamepad2 className="h-4 w-4" />
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/10"
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSettingsMenu((v) => !v)}
+                className="text-white hover:bg-white/10"
+                title="Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+              {showSettingsMenu && (
+                <div className="absolute bottom-full right-0 mb-2 bg-black/95 rounded-lg shadow-lg py-1 min-w-[160px]">
+                  <button
+                    onClick={() => setShowFps((v) => !v)}
+                    className="w-full flex items-center justify-between px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                  >
+                    <span>Show FPS</span>
+                    <span className={`ml-3 text-xs font-medium ${showFps ? 'text-green-400' : 'text-white/40'}`}>
+                      {showFps ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
