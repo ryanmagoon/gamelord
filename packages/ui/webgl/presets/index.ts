@@ -6,6 +6,7 @@ import { crtAperturePreset } from './crt-aperture';
 import { crtFastPreset } from './crt-fast';
 import { crtCaligariPreset } from './crt-caligari';
 import { crtGeomPreset } from './crt-geom';
+import { crtGeomDeluxePreset } from './crt-geom-deluxe';
 import { pixellatePreset } from './pixellate';
 import { sabrPreset } from './sabr';
 import { xbrzFreescalePreset } from './xbrz-freescale';
@@ -24,6 +25,7 @@ export const PRESET_LIST: ShaderPresetDefinition[] = [
   crtFastPreset,
   crtCaligariPreset,
   crtGeomPreset,
+  crtGeomDeluxePreset,
   pixellatePreset,
   sabrPreset,
   xbrzFreescalePreset,

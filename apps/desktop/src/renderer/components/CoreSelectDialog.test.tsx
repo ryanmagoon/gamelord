@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CoreSelectDialog, CoreSelectDialogProps } from './CoreSelectDialog'
 import type { CoreInfo } from '../types/global'
@@ -131,5 +131,12 @@ describe('CoreSelectDialog', () => {
 
     const checkbox = screen.getByRole('checkbox') as HTMLInputElement
     expect(checkbox.disabled).toBe(true)
+  })
+
+  it('does not show loading state when cores are provided', () => {
+    renderDialog()
+
+    expect(screen.queryByText('Loading available cores\u2026')).toBeNull()
+    expect(screen.getByText('Snes9x')).toBeTruthy()
   })
 })

@@ -16,6 +16,12 @@ export interface CoreSelectDialogProps {
   cores: CoreInfo[]
   onSelect: (coreName: string, remember: boolean) => void
   onCancel: () => void
+  /**
+   * When true, the backdrop overlay appears instantly (no fade-in animation).
+   * Use this when transitioning from another overlay (e.g. a dropdown menu)
+   * to prevent a flash of the underlying UI between the two overlays.
+   */
+  suppressOverlayAnimation?: boolean
 }
 
 /**
@@ -33,13 +39,19 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
   cores,
   onSelect,
   onCancel,
+  suppressOverlayAnimation = false,
 }) => {
   const [remember, setRemember] = useState(false)
   const isLoading = cores.length === 0
 
   return (
     <AlertDialog open={open}>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent
+        className="sm:max-w-md"
+        overlayClassName={
+          suppressOverlayAnimation ? '[animation-duration:0ms]' : undefined
+        }
+      >
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Cpu className="h-5 w-5" />
