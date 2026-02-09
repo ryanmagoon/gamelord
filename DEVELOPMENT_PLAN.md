@@ -152,6 +152,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Screenshot gallery per game
 - [ ] Playtime tracking and statistics
 - [ ] Settings panel
+- [ ] **Graphics quality setting** — A simple quality preference (e.g. "Quality" / "Performance") that controls shader complexity and cosmetic effects. "Performance" disables multi-pass CRT shaders (falls back to single-pass or nearest), simplifies the VHS pause screen, and strips heavy overlays. Lets users on lower-end hardware or high-refresh displays trade eye candy for consistent frame pacing.
 
 ### P9 — Packaging & Distribution
 

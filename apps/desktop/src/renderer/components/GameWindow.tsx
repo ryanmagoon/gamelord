@@ -66,6 +66,8 @@ export const GameWindow: React.FC = () => {
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioNextTimeRef = useRef(0)
   const gainNodeRef = useRef<GainNode | null>(null)
+  const pendingFrameRef = useRef<any>(null)
+  const rafIdRef = useRef<number>(0)
   const [gameAspectRatio, setGameAspectRatio] = useState<number | null>(null)
 
   // Gamepad polling — uses same api.gameInput() pipeline as keyboard
@@ -174,13 +176,28 @@ export const GameWindow: React.FC = () => {
 
           // Ensure canvas is properly sized after renderer is ready
           requestAnimationFrame(() => updateCanvasSize())
+
+          // Start the rAF render loop — draws the latest buffered frame
+          // each display vsync instead of rendering directly from IPC events
+          const renderLoop = () => {
+            const frame = pendingFrameRef.current
+            if (frame && rendererRef.current) {
+              pendingFrameRef.current = null
+              rendererRef.current.renderFrame(frame)
+            }
+            rafIdRef.current = requestAnimationFrame(renderLoop)
+          }
+          rafIdRef.current = requestAnimationFrame(renderLoop)
         } catch (error) {
           console.error('Failed to initialize WebGL renderer:', error)
           return
         }
       }
 
-      rendererRef.current.renderFrame(frameData)
+      // Buffer the latest frame — the rAF loop will pick it up on the
+      // next display vsync. If multiple IPC frames arrive between vsyncs,
+      // only the most recent one is drawn (natural frame skipping).
+      pendingFrameRef.current = frameData
     })
 
     api.on('game:audio-samples', (audioData: any) => {
@@ -237,6 +254,9 @@ export const GameWindow: React.FC = () => {
       api.removeAllListeners('game:video-frame')
       api.removeAllListeners('game:audio-samples')
       api.removeAllListeners('game:prepare-close')
+
+      cancelAnimationFrame(rafIdRef.current)
+      pendingFrameRef.current = null
 
       rendererRef.current?.destroy()
       rendererRef.current = null
@@ -463,7 +483,7 @@ export const GameWindow: React.FC = () => {
         onMouseEnter={handleControlsEnter}
         onMouseLeave={handleControlsLeave}
       >
-        <div className="flex items-center justify-center px-4 py-2 bg-black/75 backdrop-blur-md shadow-lg select-none">
+        <div className="flex items-center justify-center px-4 py-2 bg-black/80 shadow-lg select-none">
           <div className="flex items-center gap-3">
             <h1 className="text-white font-semibold">{game.title}</h1>
             <span className="text-gray-400 text-sm">{game.system}</span>
@@ -482,7 +502,7 @@ export const GameWindow: React.FC = () => {
         onMouseEnter={handleControlsEnter}
         onMouseLeave={handleControlsLeave}
       >
-        <div className="flex items-center justify-between px-6 py-4 bg-black/75 backdrop-blur-md shadow-lg">
+        <div className="flex items-center justify-between px-6 py-4 bg-black/80 shadow-lg">
           {/* Playback controls */}
           <div className="flex items-center gap-2">
             <Button
@@ -596,7 +616,7 @@ export const GameWindow: React.FC = () => {
                 <Monitor className="h-5 w-5" />
               </Button>
               {showShaderMenu && (
-                <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-md rounded-lg shadow-lg py-1 min-w-[160px]">
+                <div className="absolute bottom-full right-0 mb-2 bg-black/95 rounded-lg shadow-lg py-1 min-w-[160px]">
                   {SHADER_PRESETS.map((preset) => (
                     <button
                       key={preset}
