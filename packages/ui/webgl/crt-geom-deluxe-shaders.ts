@@ -24,7 +24,7 @@ const float R              = 3.5;
 const float cornersize     = 0.01;
 const float cornersmooth   = 1000.0;
 const float overscan_x     = 1.0;
-const float overscan_y     = 1.0;
+const float overscan_y     = 0.98;
 const float aspect_x       = 1.0;
 const float aspect_y       = 0.75;
 
