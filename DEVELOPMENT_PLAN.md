@@ -82,12 +82,14 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] **Test suite — WebGL renderer** — Shader compilation, preset switching, fallback behavior
 - [ ] **Fix test environment** — Switch vitest config from jsdom to happy-dom (per project conventions)
 - [ ] **Fix game ID hashing** — Replace `MD5(romPath)` in `LibraryService.ts` with `SHA-256(fileContent)` so IDs survive file moves
+- [ ] **ROM checksum validation** — Compute CRC32/SHA-1 checksums on ROM files for integrity verification and database lookups (e.g. No-Intro DAT matching)
 
 ### P2 — Performance
 
 - [ ] **Worker thread emulation** — Move emulation loop from main process `setTimeout` to a dedicated Worker thread; finish the `core-worker.ts` stub
 - [ ] **SharedArrayBuffer for frame transfer** — Zero-copy video/audio push between worker and renderer (unlocked by worker thread migration)
 - [ ] **Lock-free audio buffer** — Replace `std::mutex`-guarded audio buffer in native addon with a lock-free SPSC ring buffer
+- [ ] **Native audio sample conversion** — Move Int16 → Float32 stereo deinterleaving from JavaScript (`GameWindow.tsx`) into the native addon so frames arrive renderer-ready, eliminating ~42K JS loop iterations/sec
 - [ ] **Audio resampling** — Handle cases where core sample rate differs from `AudioContext.sampleRate`
 - [ ] **Frame skipping / frame pacing** — Catch-up mechanism when rendering lags; handle display refresh != core FPS
 
@@ -149,6 +151,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Persist shader choice per core (e.g. CRT for SNES/snes9x, Sharp Bilinear for GBA/mgba)
 - [x] Dark mode (default) with light/dark toggle and localStorage persistence
 - [ ] **VHS-style pause screen** — Replace the minimal pause badge with a nostalgic VHS aesthetic: large "PAUSE" text in the corner (VCR-style monospace font, blue/white), horizontal beam warping/tracking distortion across the screen, subtle static crackle noise overlay, and scanline drift. Should feel like pausing a VHS tape in the '90s. Only applies to CRT-display-type systems; LCD systems keep a clean digital pause indicator.
+- [ ] **Native screenshot encoding** — Encode screenshots as PNG/JPEG in the native addon (e.g. via `stb_image_write`) instead of saving raw RGBA, reducing file size and avoiding JS-side encoding overhead
 - [ ] Screenshot gallery per game
 - [ ] Playtime tracking and statistics
 - [ ] Settings panel
