@@ -85,6 +85,9 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P2 — Performance
 
+- [x] **Vsync-aligned rendering** — Buffer IPC video frames and draw in a `requestAnimationFrame` loop instead of rendering directly from IPC handlers. Aligns WebGL draws with display vsync; multiple IPC frames between vsyncs are naturally skipped.
+- [x] **Remove backdrop-blur from game window** — Replaced `backdrop-blur-md` on all game window overlays with solid backgrounds to eliminate GPU compositing overhead during gameplay.
+- [x] **FPS counter** — Settings menu toggle for an FPS overlay (EMA of rAF timestamp deltas, updated every 30 frames). Persisted in localStorage.
 - [ ] **Worker thread emulation** — Move emulation loop from main process `setTimeout` to a dedicated Worker thread; finish the `core-worker.ts` stub
 - [ ] **SharedArrayBuffer for frame transfer** — Zero-copy video/audio push between worker and renderer (unlocked by worker thread migration)
 - [ ] **Lock-free audio buffer** — Replace `std::mutex`-guarded audio buffer in native addon with a lock-free SPSC ring buffer
