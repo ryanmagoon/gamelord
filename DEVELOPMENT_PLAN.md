@@ -6,9 +6,10 @@ GameLord is a native emulator frontend (OpenEmu-style) where Electron handles UI
 
 ### How It Works
 1. **Native addon** (`apps/desktop/native/src/libretro_core.cc`) loads libretro `.dylib` cores directly, implementing the full libretro frontend API (environment callbacks, video/audio/input)
-2. **Main process** runs an emulation loop at the core's native FPS, pushing video frames and audio samples to the renderer via `webContents.send` with `Buffer` for efficient transfer
-3. **Renderer** displays frames on a `<canvas>` via `putImageData` and plays audio via Web Audio API with seamless chunk scheduling
-4. **Input** is captured in the renderer (keyboard events) and forwarded to the native core via IPC
+2. **Utility process** (`core-worker.ts`) runs the emulation loop in a dedicated Electron utility process with hybrid sleep+spin frame pacing (~0.1-0.5ms jitter), sending video frames and audio samples to the main process via `postMessage`
+3. **Main process** forwards frames/audio to the renderer via `webContents.send` with `Buffer`. `EmulationWorkerClient` manages the worker lifecycle and request/response protocol.
+4. **Renderer** displays frames on a `<canvas>` via `putImageData` and plays audio via Web Audio API with seamless chunk scheduling
+5. **Input** is captured in the renderer (keyboard events) and forwarded through the main process to the utility process worker via IPC
 
 ### Key Files
 ```
@@ -19,12 +20,16 @@ apps/desktop/native/src/
 └── addon.cc                  - N-API module registration
 
 apps/desktop/src/main/
-├── GameWindowManager.ts      - Game window lifecycle, emulation loop, frame push
+├── GameWindowManager.ts      - Game window lifecycle, frame/audio forwarding to renderer
 ├── emulator/
 │   ├── EmulatorCore.ts       - Abstract base class
-│   ├── LibretroNativeCore.ts - Native core wrapper (runFrame, getVideoFrame, etc.)
+│   ├── LibretroNativeCore.ts - Path validation & config for native mode
+│   ├── EmulationWorkerClient.ts - Spawns & communicates with utility process worker
 │   ├── RetroArchCore.ts      - Legacy RetroArch process mode (overlay)
 │   └── EmulatorManager.ts    - Core selection & orchestration
+├── workers/
+│   ├── core-worker.ts        - Utility process: emulation loop, native addon, frame pacing
+│   └── core-worker-protocol.ts - Shared message types (worker ↔ main)
 └── ipc/
     └── handlers.ts           - IPC endpoints
 
@@ -89,7 +94,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] **Vsync-aligned rendering** — Buffer IPC video frames and draw in a `requestAnimationFrame` loop instead of rendering directly from IPC handlers. Aligns WebGL draws with display vsync; multiple IPC frames between vsyncs are naturally skipped.
 - [x] **Remove backdrop-blur from game window** — Replaced `backdrop-blur-md` on all game window overlays with solid backgrounds to eliminate GPU compositing overhead during gameplay.
 - [x] **FPS counter** — Settings menu toggle for an FPS overlay (EMA of rAF timestamp deltas, updated every 30 frames). Persisted in localStorage.
-- [ ] **Worker thread emulation** — Move emulation loop from main process `setTimeout` to a dedicated Worker thread; finish the `core-worker.ts` stub
+- [x] **Worker thread emulation** — Moved emulation loop from main process to a dedicated Electron utility process (`core-worker.ts`) with hybrid sleep+spin frame pacing. `EmulationWorkerClient` manages the worker lifecycle and message protocol.
 - [ ] **SharedArrayBuffer for frame transfer** — Zero-copy video/audio push between worker and renderer (unlocked by worker thread migration)
 - [ ] **Lock-free audio buffer** — Replace `std::mutex`-guarded audio buffer in native addon with a lock-free SPSC ring buffer
 - [ ] **Native audio sample conversion** — Move Int16 → Float32 stereo deinterleaving from JavaScript (`GameWindow.tsx`) into the native addon so frames arrive renderer-ready, eliminating ~42K JS loop iterations/sec

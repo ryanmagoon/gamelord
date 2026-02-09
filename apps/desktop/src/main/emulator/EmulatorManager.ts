@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import { EmulatorCore, EmulatorInfo } from './EmulatorCore';
 import { RetroArchCore } from './RetroArchCore';
 import { LibretroNativeCore } from './LibretroNativeCore';
+import { EmulationWorkerClient } from './EmulationWorkerClient';
 import { CoreDownloader, CoreInfo } from './CoreDownloader';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -13,6 +14,7 @@ import * as os from 'os';
  */
 export class EmulatorManager extends EventEmitter {
   private currentEmulator: EmulatorCore | null = null;
+  private workerClient: EmulationWorkerClient | null = null;
   private availableEmulators: Map<string, EmulatorInfo> = new Map();
   private coreDownloader: CoreDownloader;
 
@@ -321,13 +323,31 @@ export class EmulatorManager extends EventEmitter {
   }
 
   /**
+   * Set the worker client for native mode emulation.
+   * Called by IPCHandlers after spawning the utility process.
+   */
+  setWorkerClient(client: EmulationWorkerClient | null): void {
+    this.workerClient = client;
+  }
+
+  /**
+   * Get the current worker client (if in native mode).
+   */
+  getWorkerClient(): EmulationWorkerClient | null {
+    return this.workerClient;
+  }
+
+  /**
    * Save state to a specific slot
    */
   async saveState(slot: number): Promise<void> {
+    if (this.workerClient?.isRunning()) {
+      await this.workerClient.saveState(slot);
+      return;
+    }
     if (!this.currentEmulator?.isActive()) {
       throw new Error('No emulator is currently running');
     }
-
     await this.currentEmulator.saveState(slot);
   }
 
@@ -335,10 +355,13 @@ export class EmulatorManager extends EventEmitter {
    * Load state from a specific slot
    */
   async loadState(slot: number): Promise<void> {
+    if (this.workerClient?.isRunning()) {
+      await this.workerClient.loadState(slot);
+      return;
+    }
     if (!this.currentEmulator?.isActive()) {
       throw new Error('No emulator is currently running');
     }
-
     await this.currentEmulator.loadState(slot);
   }
 
@@ -346,10 +369,12 @@ export class EmulatorManager extends EventEmitter {
    * Take a screenshot
    */
   async screenshot(outputPath?: string): Promise<string> {
+    if (this.workerClient?.isRunning()) {
+      return await this.workerClient.screenshot(outputPath);
+    }
     if (!this.currentEmulator?.isActive()) {
       throw new Error('No emulator is currently running');
     }
-
     return await this.currentEmulator.screenshot(outputPath);
   }
 
@@ -357,10 +382,13 @@ export class EmulatorManager extends EventEmitter {
    * Pause the current emulator
    */
   async pause(): Promise<void> {
+    if (this.workerClient?.isRunning()) {
+      this.workerClient.pause();
+      return;
+    }
     if (!this.currentEmulator?.isActive()) {
       throw new Error('No emulator is currently running');
     }
-
     await this.currentEmulator.pause();
   }
 
@@ -368,10 +396,13 @@ export class EmulatorManager extends EventEmitter {
    * Resume the current emulator
    */
   async resume(): Promise<void> {
+    if (this.workerClient?.isRunning()) {
+      this.workerClient.resume();
+      return;
+    }
     if (!this.currentEmulator?.isActive()) {
       throw new Error('No emulator is currently running');
     }
-
     await this.currentEmulator.resume();
   }
 
@@ -379,10 +410,13 @@ export class EmulatorManager extends EventEmitter {
    * Reset the current emulator
    */
   async reset(): Promise<void> {
+    if (this.workerClient?.isRunning()) {
+      this.workerClient.reset();
+      return;
+    }
     if (!this.currentEmulator?.isActive()) {
       throw new Error('No emulator is currently running');
     }
-
     await this.currentEmulator.reset();
   }
 
@@ -390,6 +424,10 @@ export class EmulatorManager extends EventEmitter {
    * Stop the current emulator
    */
   async stopEmulator(): Promise<void> {
+    if (this.workerClient?.isRunning()) {
+      await this.workerClient.shutdown();
+      this.workerClient = null;
+    }
     if (this.currentEmulator?.isActive()) {
       await this.currentEmulator.terminate();
       this.currentEmulator = null;
@@ -400,6 +438,7 @@ export class EmulatorManager extends EventEmitter {
    * Check if an emulator is currently running
    */
   isEmulatorRunning(): boolean {
+    if (this.workerClient?.isRunning()) return true;
     return this.currentEmulator?.isActive() ?? false;
   }
 
