@@ -379,12 +379,15 @@ export class ArtworkService extends EventEmitter {
 
         if (success) {
           found++;
+          // Re-fetch the game to get the coverArt URL that syncGame() just set
+          const updatedGame = this.libraryService.getGame(game.id);
           this.emitProgress({
             gameId: game.id,
             gameTitle: game.title,
             phase: 'done',
             current: processed + 1,
             total,
+            coverArt: updatedGame?.coverArt,
           });
         } else {
           notFound++;

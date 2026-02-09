@@ -35,6 +35,8 @@ export interface ArtworkProgress {
   total: number;
   error?: string;
   errorCode?: ArtworkErrorCode;
+  /** The artwork:// URL for the downloaded cover art. Present when phase is 'done'. */
+  coverArt?: string;
 }
 
 export interface ArtworkSyncStatus {

@@ -122,10 +122,13 @@ export const GameCard: React.FC<GameCardProps> = ({
             statusText={artworkSyncPhase ? PHASE_STATUS_TEXT[artworkSyncPhase] : undefined}
           />
 
-          {/* Always visible overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+          {/* Always visible overlay — strong gradient for text legibility over any cover art */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 via-40% to-transparent">
             <div className="absolute bottom-0 left-0 right-0 p-4">
-              <h3 className="text-white font-semibold text-sm mb-2 line-clamp-2">
+              <h3
+                className="text-white font-semibold text-sm mb-2 line-clamp-2"
+                style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
+              >
                 {game.title}
               </h3>
               <div className="flex gap-2 mb-3">
@@ -135,7 +138,7 @@ export const GameCard: React.FC<GameCardProps> = ({
                 {game.genre && (
                   <Badge
                     variant="outline"
-                    className="text-xs text-white border-white/30"
+                    className="text-xs text-white border-white/40 backdrop-blur-sm"
                   >
                     {game.genre}
                   </Badge>
