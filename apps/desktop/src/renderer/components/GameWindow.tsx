@@ -236,7 +236,12 @@ export const GameWindow: React.FC = () => {
       }
 
       const ctx = audioContextRef.current
-      const samples = new Int16Array(audioData.samples.buffer)
+      const rawSamples = audioData.samples
+      const samples = new Int16Array(
+        rawSamples.buffer,
+        rawSamples.byteOffset,
+        rawSamples.byteLength / 2,
+      )
       const frames = samples.length / 2
 
       if (frames > 0) {
