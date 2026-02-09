@@ -327,7 +327,17 @@ export class EmulatorManager extends EventEmitter {
    * Called by IPCHandlers after spawning the utility process.
    */
   setWorkerClient(client: EmulationWorkerClient | null): void {
+    // Remove listeners from the previous worker client
+    this.workerClient?.removeAllListeners();
+
     this.workerClient = client;
+
+    // Forward worker client events through the same event chain as EmulatorCore
+    if (client) {
+      client.on('paused', () => this.emit('emulator:paused'));
+      client.on('resumed', () => this.emit('emulator:resumed'));
+      client.on('reset', () => this.emit('emulator:reset'));
+    }
   }
 
   /**

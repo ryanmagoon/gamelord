@@ -270,31 +270,34 @@ function startEmulationLoop(): void {
         }
       }
 
-      // Send video frame
+      // Send video frame — same slice() pattern as audio to ensure clean
+      // contiguous data survives IPC serialization without byteOffset issues.
       const frame = native.getVideoFrame()
       if (frame) {
         send({
           type: 'videoFrame',
-          data: Buffer.from(
-            frame.data.buffer,
+          data: Buffer.from(frame.data.buffer.slice(
             frame.data.byteOffset,
-            frame.data.byteLength,
-          ),
+            frame.data.byteOffset + frame.data.byteLength,
+          )),
           width: frame.width,
           height: frame.height,
         })
       }
 
-      // Send audio samples
+      // Send audio samples — use slice() to copy only the valid bytes into
+      // a clean contiguous buffer. Buffer.from() with byteOffset creates a
+      // view into the shared ArrayBuffer, but the offset doesn't survive
+      // Electron's IPC serialization (postMessage + webContents.send),
+      // causing misaligned reads and audio distortion in the renderer.
       const audio = native.getAudioBuffer()
       if (audio && audio.length > 0) {
         send({
           type: 'audioSamples',
-          samples: Buffer.from(
-            audio.buffer,
+          samples: Buffer.from(audio.buffer.slice(
             audio.byteOffset,
-            audio.byteLength,
-          ),
+            audio.byteOffset + audio.byteLength,
+          )),
           sampleRate,
         })
       }

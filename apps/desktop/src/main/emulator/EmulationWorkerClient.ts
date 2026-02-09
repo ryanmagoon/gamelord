@@ -118,14 +118,17 @@ export class EmulationWorkerClient extends EventEmitter {
 
   pause(): void {
     this.postCommand({ action: 'pause' })
+    this.emit('paused')
   }
 
   resume(): void {
     this.postCommand({ action: 'resume' })
+    this.emit('resumed')
   }
 
   reset(): void {
     this.postCommand({ action: 'reset' })
+    this.emit('reset')
   }
 
   async saveState(slot: number): Promise<void> {
