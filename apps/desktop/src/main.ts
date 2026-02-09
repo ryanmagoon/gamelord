@@ -1,6 +1,12 @@
-import { app, BrowserWindow } from 'electron';
+import { config as loadDotenv } from 'dotenv';
+import { app, BrowserWindow, net, protocol } from 'electron';
 import path from 'node:path';
 import { IPCHandlers } from './main/ipc/handlers';
+import { getSavedWindowBounds, manageWindowState } from './main/utils/windowState';
+
+// Load .env from the desktop app root (apps/desktop/.env) before anything
+// reads process.env. This provides SCREENSCRAPER_DEV_ID / DEV_PASSWORD, etc.
+loadDotenv({ path: path.join(__dirname, '../../.env') });
 
 // Set app name for macOS menu bar (must be called before app is ready)
 app.setName('GameLord');
@@ -9,10 +15,11 @@ app.setName('GameLord');
 let ipcHandlers: IPCHandlers;
 
 const createWindow = () => {
-  // Create the browser window.
+  const savedBounds = getSavedWindowBounds();
+
+  // Create the browser window with saved position/size.
   const mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...savedBounds,
     minWidth: 800,
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
@@ -23,6 +30,9 @@ const createWindow = () => {
       sandbox: true
     },
   });
+
+  // Persist window position, size, and maximize state across sessions.
+  manageWindowState(mainWindow);
 
   // and load the index.html of the app.
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -39,6 +49,14 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
+  // Register artwork:// protocol to serve cached cover art images
+  // from the sandboxed renderer via <img src="artwork://gameId.png">
+  protocol.handle('artwork', (request) => {
+    const filename = request.url.slice('artwork://'.length);
+    const filePath = path.join(app.getPath('userData'), 'artwork', filename);
+    return net.fetch(`file://${filePath}`);
+  });
+
   // Initialize IPC handlers before creating window
   const preloadPath = path.join(__dirname, '../preload/index.js');
   ipcHandlers = new IPCHandlers(preloadPath);

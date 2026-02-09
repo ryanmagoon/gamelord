@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { GameCard, Game, GameCardMenuItem } from './GameCard';
+import type { ArtworkSyncPhase } from './TVStatic';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -20,6 +21,8 @@ export interface GameLibraryProps {
   onGameOptions?: (game: Game) => void;
   /** Returns menu items for a specific game's dropdown. */
   getMenuItems?: (game: Game) => GameCardMenuItem[];
+  /** Per-game artwork sync phases. Key is game ID, value is current phase. */
+  artworkSyncPhases?: Map<string, ArtworkSyncPhase>;
   className?: string;
 }
 
@@ -31,6 +34,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   onPlayGame,
   onGameOptions,
   getMenuItems,
+  artworkSyncPhases,
   className
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -179,6 +183,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
               onPlay={onPlayGame}
               onOptions={onGameOptions}
               menuItems={getMenuItems?.(flipItem.item)}
+              artworkSyncPhase={artworkSyncPhases?.get(flipItem.item.id)}
               className={cn(
                 flipItem.animationState === 'entering' && 'animate-card-enter',
                 flipItem.animationState === 'exiting' && 'animate-card-exit',

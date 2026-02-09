@@ -94,4 +94,59 @@ describe('GameCard', () => {
       expect(onPlay).toHaveBeenCalledWith(mockGame)
     })
   })
+
+  describe('artworkSyncPhase', () => {
+    it('shows TV static during hashing phase', () => {
+      const onPlay = vi.fn()
+      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncPhase="hashing" />)
+
+      expect(screen.getByText('Reading...')).toBeInTheDocument()
+    })
+
+    it('shows TV static during querying phase', () => {
+      const onPlay = vi.fn()
+      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncPhase="querying" />)
+
+      expect(screen.getByText('Searching...')).toBeInTheDocument()
+    })
+
+    it('shows TV static during downloading phase', () => {
+      const onPlay = vi.fn()
+      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncPhase="downloading" />)
+
+      expect(screen.getByText('Downloading...')).toBeInTheDocument()
+    })
+
+    it('shows clean placeholder when no sync phase and no cover art', () => {
+      const onPlay = vi.fn()
+      render(<GameCard game={mockGame} onPlay={onPlay} />)
+
+      // No TV static visible
+      expect(screen.queryByLabelText(/loading artwork/i)).not.toBeInTheDocument()
+    })
+
+    it('shows dissolve animation class when phase is done and has cover art', () => {
+      const onPlay = vi.fn()
+      const gameWithArt = { ...mockGame, coverArt: 'artwork://test.png' }
+      const { container } = render(
+        <GameCard game={gameWithArt} onPlay={onPlay} artworkSyncPhase="done" />
+      )
+
+      const img = container.querySelector('img')
+      expect(img).not.toBeNull()
+      expect(img!.className).toContain('animate-artwork-dissolve-in')
+    })
+
+    it('does not show dissolve animation class when no sync phase', () => {
+      const onPlay = vi.fn()
+      const gameWithArt = { ...mockGame, coverArt: 'artwork://test.png' }
+      const { container } = render(
+        <GameCard game={gameWithArt} onPlay={onPlay} />
+      )
+
+      const img = container.querySelector('img')
+      expect(img).not.toBeNull()
+      expect(img!.className).not.toContain('animate-artwork-dissolve-in')
+    })
+  })
 })

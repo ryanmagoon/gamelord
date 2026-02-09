@@ -10,6 +10,7 @@ export * from './components/ui/dropdown-menu';
 export * from './components/GameCard';
 export * from './components/GameLibrary';
 export * from './components/GameDetails';
+export * from './components/TVStatic';
 export * from './components/PlatformIcon';
 export * from './components/WebGLRenderer';
 export { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from './webgl/WebGLRenderer';

@@ -4,22 +4,26 @@ import fs from 'fs';
 import { EmulatorManager } from '../emulator/EmulatorManager';
 import { LibretroNativeCore } from '../emulator/LibretroNativeCore';
 import { LibraryService } from '../services/LibraryService';
+import { ArtworkService } from '../services/ArtworkService';
 import { GameWindowManager } from '../GameWindowManager';
 import { GameSystem } from '../../types/library';
 
 export class IPCHandlers {
   private emulatorManager: EmulatorManager;
   private libraryService: LibraryService;
+  private artworkService: ArtworkService;
   private gameWindowManager: GameWindowManager;
   private pendingResumeDialogs = new Map<string, (shouldResume: boolean) => void>();
 
   constructor(preloadPath: string) {
     this.emulatorManager = new EmulatorManager();
     this.libraryService = new LibraryService();
+    this.artworkService = new ArtworkService(this.libraryService);
     this.gameWindowManager = new GameWindowManager(preloadPath);
     this.setupHandlers();
     this.setupEmulatorEventForwarding();
     this.setupLibraryHandlers();
+    this.setupArtworkHandlers();
     this.setupDialogHandlers();
   }
 
@@ -292,6 +296,89 @@ export class IPCHandlers {
         return result.filePaths[0];
       }
       return null;
+    });
+  }
+
+  private setupArtworkHandlers(): void {
+    // Forward artwork progress events to all renderer windows
+    const forwardEvent = (eventName: string, data?: unknown) => {
+      const windows = BrowserWindow.getAllWindows();
+      windows.forEach((window: BrowserWindow) => {
+        window.webContents.send(eventName, data);
+      });
+    };
+
+    this.artworkService.on('progress', (data) => forwardEvent('artwork:progress', data));
+    this.artworkService.on('syncComplete', (data) => forwardEvent('artwork:syncComplete', data));
+
+    ipcMain.handle('artwork:syncGame', async (_event, gameId: string) => {
+      try {
+        const success = await this.artworkService.syncGame(gameId);
+        return { success };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('artwork:syncAll', () => {
+      // Start sync in background — attach error handler to catch unhandled rejections
+      const syncPromise = this.artworkService.syncAllGames();
+      syncPromise.catch((error) => {
+        console.error('Artwork sync failed:', error);
+        forwardEvent('artwork:syncError', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+      return { success: true };
+    });
+
+    ipcMain.handle('artwork:syncGames', (_event, gameIds: string[]) => {
+      // Start targeted sync in background for auto-sync after import
+      const syncPromise = this.artworkService.syncGames(gameIds);
+      syncPromise.catch((error) => {
+        console.error('Artwork sync for imported games failed:', error);
+        forwardEvent('artwork:syncError', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+      return { success: true };
+    });
+
+    ipcMain.handle('artwork:cancelSync', () => {
+      this.artworkService.cancelSync();
+      return { success: true };
+    });
+
+    ipcMain.handle('artwork:getSyncStatus', () => {
+      return this.artworkService.getSyncStatus();
+    });
+
+    ipcMain.handle('artwork:getCredentials', () => {
+      return { hasCredentials: this.artworkService.hasCredentials() };
+    });
+
+    ipcMain.handle('artwork:setCredentials', async (_event, userId: string, userPassword: string) => {
+      try {
+        // Validate credentials against ScreenScraper before saving
+        const validation = await this.artworkService.validateCredentials(userId, userPassword);
+        if (!validation.valid) {
+          return { success: false, error: validation.error, errorCode: validation.errorCode };
+        }
+
+        await this.artworkService.setCredentials(userId, userPassword);
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('artwork:clearCredentials', async () => {
+      try {
+        await this.artworkService.clearCredentials();
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
     });
   }
 
