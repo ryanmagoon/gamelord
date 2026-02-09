@@ -126,7 +126,13 @@ export const LibraryView: React.FC<{
       // Track results for summary notification
       if (progress.phase === 'done') {
         syncResults.current.found++
-        loadLibrary()
+        // Update just this game's coverArt in-place to avoid full library
+        // reload, which causes layout reflow and FLIP recalculation jank.
+        if (progress.coverArt) {
+          setGames(prev => prev.map(g =>
+            g.id === progress.gameId ? { ...g, coverArt: progress.coverArt } : g
+          ))
+        }
       } else if (progress.phase === 'not-found') {
         syncResults.current.notFound++
       } else if (progress.phase === 'error') {
