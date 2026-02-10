@@ -18,6 +18,8 @@ interface TVStaticProps {
   statusText?: string
   /** Current sync phase — controls tint color for error/not-found states. */
   phase?: ArtworkSyncPhase
+  /** Width/height ratio of the container, used to set canvas proportions. @default 0.75 */
+  aspectRatio?: number
   className?: string
 }
 
@@ -33,6 +35,7 @@ export const TVStatic: React.FC<TVStaticProps> = ({
   active,
   statusText,
   phase,
+  aspectRatio = 0.75,
   className,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -48,7 +51,7 @@ export const TVStatic: React.FC<TVStaticProps> = ({
 
     // Low-res noise — renders at this size, CSS scales it up for chunky pixels
     const noiseWidth = 64
-    const noiseHeight = 86 // ≈ 3:4 aspect
+    const noiseHeight = Math.round(noiseWidth / aspectRatio)
     canvas.width = noiseWidth
     canvas.height = noiseHeight
 
@@ -82,7 +85,7 @@ export const TVStatic: React.FC<TVStaticProps> = ({
     return () => {
       cancelAnimationFrame(animFrameRef.current)
     }
-  }, [active])
+  }, [active, aspectRatio])
 
   if (!active) return null
 

@@ -20,6 +20,8 @@ export interface Game {
   systemId?: string
   genre?: string
   coverArt?: string
+  /** Width/height ratio of cover art (e.g. 0.714). Used for dynamic card sizing. */
+  coverArtAspectRatio?: number
   romPath: string
   lastPlayed?: Date
   playTime?: number
@@ -88,17 +90,20 @@ export const GameCard: React.FC<GameCardProps> = ({
   // 'done' phase: cover art just arrived — show dissolve-in
   const isDone = artworkSyncPhase === 'done'
 
+  // Use the actual cover art aspect ratio when available, otherwise default to 3:4
+  const aspectRatio = game.coverArtAspectRatio ?? 0.75
+
   return (
     <Card
       ref={ref}
       className={cn(
-        'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg w-48',
+        'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg w-full',
         className
       )}
       style={style}
     >
       <CardContent className="p-0">
-        <div className="aspect-[3/4] relative bg-muted">
+        <div className="relative bg-muted" style={{ aspectRatio }}>
           {/* Cover art image — fades in with dissolve when phase is 'done' */}
           {game.coverArt ? (
             <img
@@ -120,6 +125,7 @@ export const GameCard: React.FC<GameCardProps> = ({
             active={isActivelySyncing || isTerminalPhase}
             phase={artworkSyncPhase}
             statusText={artworkSyncPhase ? PHASE_STATUS_TEXT[artworkSyncPhase] : undefined}
+            aspectRatio={aspectRatio}
           />
 
           {/* Always visible overlay — strong gradient for text legibility over any cover art */}
