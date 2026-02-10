@@ -12,6 +12,7 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
   cn,
+  ArtworkSyncStore,
   type Game,
   type Game as UiGame,
   type GameCardMenuItem,
@@ -44,8 +45,9 @@ export const LibraryView: React.FC<{
   const [isScanning, setIsScanning] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState<CoreDownloadProgress | null>(null)
 
-  // Artwork sync state — per-card progress map replaces the old banner
-  const [artworkSyncPhases, setArtworkSyncPhases] = useState<Map<string, ArtworkSyncPhase>>(new Map())
+  // Artwork sync state — external store so phase updates bypass React re-renders.
+  // Each GameCard subscribes to its own phase via useSyncExternalStore.
+  const [artworkSyncStore] = useState(() => new ArtworkSyncStore())
   const [syncCounter, setSyncCounter] = useState<{ current: number; total: number } | null>(null)
   const phaseCleanupTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   /** Track sync results for the notification summary. */
@@ -70,39 +72,23 @@ export const LibraryView: React.FC<{
     const existing = phaseCleanupTimers.current.get(gameId)
     if (existing) clearTimeout(existing)
 
-    setArtworkSyncPhases(prev => {
-      const next = new Map(prev)
-      if (phase === null) {
-        next.delete(gameId)
-      } else {
-        next.set(gameId, phase)
-      }
-      return next
-    })
+    artworkSyncStore.setPhase(gameId, phase)
 
     // Schedule auto-cleanup for terminal states
     if (phase === 'done') {
       const timer = setTimeout(() => {
-        setArtworkSyncPhases(prev => {
-          const next = new Map(prev)
-          next.delete(gameId)
-          return next
-        })
+        artworkSyncStore.setPhase(gameId, null)
         phaseCleanupTimers.current.delete(gameId)
       }, 1500) // Hold 'done' for dissolve animation
       phaseCleanupTimers.current.set(gameId, timer)
     } else if (phase === 'error' || phase === 'not-found') {
       const timer = setTimeout(() => {
-        setArtworkSyncPhases(prev => {
-          const next = new Map(prev)
-          next.delete(gameId)
-          return next
-        })
+        artworkSyncStore.setPhase(gameId, null)
         phaseCleanupTimers.current.delete(gameId)
       }, 2500) // Hold error/not-found briefly
       phaseCleanupTimers.current.set(gameId, timer)
     }
-  }, [])
+  }, [artworkSyncStore])
 
   useEffect(() => {
     loadLibrary()
@@ -192,7 +178,7 @@ export const LibraryView: React.FC<{
 
     api.on('artwork:syncError', (data: { error: string }) => {
       setSyncCounter(null)
-      setArtworkSyncPhases(new Map())
+      artworkSyncStore.clear()
       syncResults.current = { found: 0, notFound: 0, errors: 0 }
 
       // Show actionable error to the user
@@ -362,7 +348,7 @@ export const LibraryView: React.FC<{
   const handleCancelArtworkSync = async () => {
     await api.artwork.cancelSync()
     setSyncCounter(null)
-    setArtworkSyncPhases(new Map())
+    artworkSyncStore.clear()
   }
 
   const handleSaveCredentials = async () => {
@@ -621,7 +607,7 @@ export const LibraryView: React.FC<{
             }}
             onGameOptions={handleUiGameOptions}
             getMenuItems={getMenuItems}
-            artworkSyncPhases={artworkSyncPhases}
+            artworkSyncStore={artworkSyncStore}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">

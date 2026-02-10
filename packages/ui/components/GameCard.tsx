@@ -11,6 +11,7 @@ import { cn } from '../utils'
 import { MoreVertical } from 'lucide-react'
 import { TVStatic, type ArtworkSyncPhase } from './TVStatic'
 import { useAspectRatioTransition } from '../hooks/useAspectRatioTransition'
+import { useArtworkSyncPhase, type ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
 
 /** Duration of the cross-fade (static out, image in) in ms. */
 const CROSS_FADE_DURATION = 500
@@ -45,12 +46,8 @@ export interface GameCardProps {
   menuItems?: GameCardMenuItem[]
   /** Factory function that returns menu items. Called lazily when dropdown opens. Preferred over menuItems for memoization. */
   getMenuItems?: (game: Game) => GameCardMenuItem[]
-  /**
-   * Current artwork sync phase for this card.
-   * Active phases show TV static, 'done' triggers a dissolve-in transition,
-   * null/undefined shows the normal placeholder or cover art.
-   */
-  artworkSyncPhase?: ArtworkSyncPhase
+  /** External store for artwork sync phases. The card subscribes to its own game's phase. */
+  artworkSyncStore?: ArtworkSyncStore
   className?: string
   /** Inline styles forwarded to the root card element (useful for animation delays). */
   style?: React.CSSProperties
@@ -71,11 +68,13 @@ export const GameCard: React.FC<GameCardProps> = React.memo(({
   onOptions,
   menuItems: menuItemsProp,
   getMenuItems,
-  artworkSyncPhase,
+  artworkSyncStore,
   className,
   style,
   ref,
 }) => {
+  // Subscribe to this game's sync phase — only re-renders when THIS game's phase changes
+  const artworkSyncPhase = useArtworkSyncPhase(artworkSyncStore, game.id)
   // Resolve menu items: prefer lazy factory over static array
   const menuItems = menuItemsProp ?? (getMenuItems ? getMenuItems(game) : undefined)
   const handlePlay = (e: React.MouseEvent) => {
@@ -189,7 +188,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(({
     <Card
       ref={ref}
       className={cn(
-        'group relative overflow-hidden rounded-none border-0 transition-all hover:scale-105 hover:shadow-lg w-full cursor-pointer',
+        'group relative overflow-hidden rounded-none border-0 transition-[transform,box-shadow] duration-200 hover:scale-105 hover:shadow-lg w-full cursor-pointer',
         className
       )}
       style={style}
@@ -292,12 +291,14 @@ export const GameCard: React.FC<GameCardProps> = React.memo(({
   )
 }, (prev, next) => {
   // Custom comparator: skip menuItems/getMenuItems reference checks
-  // (menuItems are generated lazily, getMenuItems is a stable factory)
+  // (menuItems are generated lazily, getMenuItems is a stable factory).
+  // artworkSyncStore is a stable singleton — never changes.
+  // artworkSyncPhase is managed internally via useSyncExternalStore.
   return (
     prev.game === next.game &&
     prev.onPlay === next.onPlay &&
     prev.onOptions === next.onOptions &&
-    prev.artworkSyncPhase === next.artworkSyncPhase &&
+    prev.artworkSyncStore === next.artworkSyncStore &&
     prev.className === next.className &&
     prev.style === next.style &&
     prev.ref === next.ref

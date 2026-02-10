@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameCard, Game } from './GameCard'
+import { ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
+import type { ArtworkSyncPhase } from './TVStatic'
 
 const mockGame: Game = {
   id: '1',
@@ -9,6 +11,13 @@ const mockGame: Game = {
   platform: 'NES',
   genre: 'Platform',
   romPath: '/roms/smb.nes',
+}
+
+/** Creates a store with a preset phase for the mock game. */
+function storeWithPhase(phase: ArtworkSyncPhase): ArtworkSyncStore {
+  const store = new ArtworkSyncStore()
+  if (phase !== null) store.setPhase(mockGame.id, phase)
+  return store
 }
 
 describe('GameCard', () => {
@@ -117,21 +126,21 @@ describe('GameCard', () => {
   describe('artworkSyncPhase', () => {
     it('shows TV static during hashing phase', () => {
       const onPlay = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncPhase="hashing" />)
+      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('hashing')} />)
 
       expect(screen.getByText('Reading...')).toBeInTheDocument()
     })
 
     it('shows TV static during querying phase', () => {
       const onPlay = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncPhase="querying" />)
+      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('querying')} />)
 
       expect(screen.getByText('Searching...')).toBeInTheDocument()
     })
 
     it('shows TV static during downloading phase', () => {
       const onPlay = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncPhase="downloading" />)
+      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('downloading')} />)
 
       expect(screen.getByText('Downloading...')).toBeInTheDocument()
     })
@@ -166,7 +175,7 @@ describe('GameCard', () => {
       const onPlay = vi.fn()
       const gameWithArt = { ...mockGame, coverArt: 'artwork://test.png' }
       const { container } = render(
-        <GameCard game={gameWithArt} onPlay={onPlay} artworkSyncPhase="done" />
+        <GameCard game={gameWithArt} onPlay={onPlay} artworkSyncStore={storeWithPhase('done')} />
       )
 
       // Image is rendered but hidden (opacity-0) while the height transition
