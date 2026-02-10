@@ -1,6 +1,5 @@
-import React from 'react'
+import React, { useRef, useCallback, useEffect } from 'react'
 import { Card, CardContent } from './ui/card'
-import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import {
   DropdownMenu,
@@ -9,8 +8,12 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 import { cn } from '../utils'
-import { Play, MoreVertical } from 'lucide-react'
+import { MoreVertical } from 'lucide-react'
 import { TVStatic, type ArtworkSyncPhase } from './TVStatic'
+import { useAspectRatioTransition } from '../hooks/useAspectRatioTransition'
+
+/** Duration of the cross-fade (static out, image in) in ms. */
+const CROSS_FADE_DURATION = 500
 
 export interface Game {
   id: string
@@ -75,6 +78,13 @@ export const GameCard: React.FC<GameCardProps> = ({
     onPlay(game)
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onPlay(game)
+    }
+  }
+
   const hasMenu = (menuItems && menuItems.length > 0) || onOptions
 
   // Active sync phases that should show TV static
@@ -87,74 +97,122 @@ export const GameCard: React.FC<GameCardProps> = ({
   const isTerminalPhase =
     artworkSyncPhase === 'error' || artworkSyncPhase === 'not-found'
 
-  // 'done' phase: cover art just arrived — show dissolve-in
+  // 'done' phase: cover art just arrived — resize then cross-fade
   const isDone = artworkSyncPhase === 'done'
 
   // Use the actual cover art aspect ratio when available, otherwise default to 3:4
   const aspectRatio = game.coverArtAspectRatio ?? 0.75
 
+  // Refs for imperative cross-fade (no React re-renders during animation)
+  const imgRef = useRef<HTMLImageElement>(null)
+  const staticWrapperRef = useRef<HTMLDivElement>(null)
+  /** Whether the image has been decoded and is ready to display without jank. */
+  const imageReadyRef = useRef(false)
+  /** Whether the resize has finished (waiting for image to be ready). */
+  const resizeDoneRef = useRef(false)
+
+  /** Imperatively start the cross-fade — only once both resize and image decode are done. */
+  const tryCrossFade = useCallback(() => {
+    if (!imageReadyRef.current || !resizeDoneRef.current) return
+
+    const img = imgRef.current
+    const staticWrapper = staticWrapperRef.current
+
+    if (img) {
+      img.classList.remove('opacity-0')
+      img.classList.add('animate-artwork-dissolve-in')
+    }
+
+    if (staticWrapper) {
+      staticWrapper.style.opacity = '0'
+      staticWrapper.style.transition = `opacity ${CROSS_FADE_DURATION}ms cubic-bezier(0.16, 1, 0.3, 1)`
+    }
+  }, [])
+
+  const handleResizeComplete = useCallback(() => {
+    resizeDoneRef.current = true
+    tryCrossFade()
+  }, [tryCrossFade])
+
+  // Pre-decode the image when coverArt arrives so the browser doesn't stall
+  // the main thread during the cross-fade animation.
+  useEffect(() => {
+    if (!game.coverArt || !isDone) return
+
+    imageReadyRef.current = false
+    resizeDoneRef.current = false
+
+    const img = imgRef.current
+    if (!img) return
+
+    // decode() returns a promise that resolves after the browser has decoded
+    // the image data — subsequent paints won't stall.
+    img.decode?.()
+      .then(() => {
+        imageReadyRef.current = true
+        tryCrossFade()
+      })
+      .catch(() => {
+        // Decode failed (e.g. broken image) — proceed anyway
+        imageReadyRef.current = true
+        tryCrossFade()
+      })
+  }, [game.coverArt, isDone, tryCrossFade])
+
+  const { containerRef } = useAspectRatioTransition({
+    aspectRatio,
+    enabled: isDone,
+    onResizeComplete: handleResizeComplete,
+  })
+
+  // Show the static overlay during any active phase or the done phase
+  const showStatic = isActivelySyncing || isTerminalPhase || isDone
+
   return (
     <Card
       ref={ref}
       className={cn(
-        'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg w-full',
+        'group relative overflow-hidden rounded-none border-0 transition-all hover:scale-105 hover:shadow-lg w-full cursor-pointer',
         className
       )}
       style={style}
+      onClick={handlePlay}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`Play ${game.title}`}
+      title={game.title}
     >
       <CardContent className="p-0">
-        <div className="relative bg-muted" style={{ aspectRatio }}>
-          {/* Cover art image — fades in with dissolve when phase is 'done' */}
-          {game.coverArt ? (
-            <img
-              src={game.coverArt}
-              alt={game.title}
-              className={cn(
-                'w-full h-full object-cover transition-opacity',
-                isDone ? 'animate-artwork-dissolve-in' : 'opacity-100',
-              )}
-            />
-          ) : (
-            !isActivelySyncing && !isTerminalPhase && (
-              <div className="w-full h-full bg-muted" />
-            )
-          )}
-
-          {/* TV static overlay — shown during active sync or terminal flash */}
-          <TVStatic
-            active={isActivelySyncing || isTerminalPhase}
-            phase={artworkSyncPhase}
-            statusText={artworkSyncPhase ? PHASE_STATUS_TEXT[artworkSyncPhase] : undefined}
-            aspectRatio={aspectRatio}
+        <div ref={containerRef} className="relative bg-muted overflow-hidden">
+          {/*
+           * Cover art image — ALWAYS in the DOM so React never has to mount/
+           * unmount it during animation. Hidden via opacity-0 until the
+           * cross-fade starts imperatively.
+           */}
+          <img
+            ref={imgRef}
+            src={game.coverArt ?? undefined}
+            alt={game.title}
+            className={cn(
+              'w-full h-full object-cover',
+              // Visible only if coverArt exists and we're NOT in a done-transition
+              game.coverArt && !isDone ? 'opacity-100' : 'opacity-0',
+            )}
           />
 
-          {/* Always visible overlay — strong gradient for text legibility over any cover art */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 via-40% to-transparent">
-            <div className="absolute bottom-0 left-0 right-0 p-4">
-              <h3
-                className="text-white font-semibold text-sm mb-2 line-clamp-2"
-                style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
-              >
-                {game.title}
-              </h3>
-              <div className="flex gap-2 mb-3">
-                <Badge variant="secondary" className="text-xs">
-                  {game.platform}
-                </Badge>
-                {game.genre && (
-                  <Badge
-                    variant="outline"
-                    className="text-xs text-white border-white/40 backdrop-blur-sm"
-                  >
-                    {game.genre}
-                  </Badge>
-                )}
-              </div>
-              <Button onClick={handlePlay} size="sm" className="w-full" aria-label={`Play ${game.title}`}>
-                <Play className="h-3 w-3 mr-1" />
-                Play
-              </Button>
-            </div>
+          {/*
+           * TV static overlay — always in the DOM, controlled via the wrapper's
+           * opacity. Never changes its aspect ratio during transition to avoid
+           * canvas rebuild. The wrapper ref lets us fade it out imperatively.
+           */}
+          <div ref={staticWrapperRef} className="absolute inset-0">
+            <TVStatic
+              active={showStatic}
+              phase={artworkSyncPhase}
+              statusText={artworkSyncPhase ? PHASE_STATUS_TEXT[artworkSyncPhase] : undefined}
+              aspectRatio={0.75}
+            />
           </div>
 
           {/* Options dropdown menu */}
@@ -168,6 +226,7 @@ export const GameCard: React.FC<GameCardProps> = ({
                       size="icon"
                       className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
                       aria-label={`Options for ${game.title}`}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
@@ -202,19 +261,6 @@ export const GameCard: React.FC<GameCardProps> = ({
             </div>
           )}
         </div>
-
-        {/* Dissolve animation keyframes for artwork reveal */}
-        {isDone && (
-          <style>{`
-            @keyframes artwork-dissolve-in {
-              0% { opacity: 0; }
-              100% { opacity: 1; }
-            }
-            .animate-artwork-dissolve-in {
-              animation: artwork-dissolve-in 600ms ease-out forwards;
-            }
-          `}</style>
-        )}
       </CardContent>
     </Card>
   )

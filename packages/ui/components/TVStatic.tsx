@@ -30,6 +30,9 @@ interface TVStaticProps {
  * CRT feel) with scanline overlay and phosphor glow. Far more convincing
  * than an SVG feTurbulence data URI, which only produces a single static
  * frame.
+ *
+ * The fade-out is controlled imperatively by the parent (via a wrapper div's
+ * opacity/transition) so that no React re-renders occur during animation.
  */
 export const TVStatic: React.FC<TVStaticProps> = ({
   active,
