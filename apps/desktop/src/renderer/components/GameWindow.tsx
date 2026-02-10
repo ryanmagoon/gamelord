@@ -299,23 +299,30 @@ export const GameWindow: React.FC = () => {
         //
         // The emulation worker sends audio chunks every ~16.6ms, but they
         // traverse two IPC hops (utility process → main → renderer) which
-        // adds variable latency. We use a pre-buffer strategy:
+        // adds variable latency. Strategy:
         //
-        // 1. On first chunk (or after an underrun), schedule PRE_BUFFER_S
-        //    ahead of `now` so we build up a cushion that absorbs jitter.
-        // 2. On subsequent chunks, append to the previous chunk's end time.
-        // 3. If we drift too far ahead (>MAX_LOOKAHEAD_S), reset to
-        //    PRE_BUFFER_S ahead to prevent growing audio lag.
-        //
-        // This avoids the micro-gaps that occur when snapping directly to
-        // `now` on every underrun, which sounded like crackling.
-        const PRE_BUFFER_S = 0.04 // 40ms pre-buffer
+        // - On first chunk, schedule slightly ahead (`now + PRE_BUFFER_S`)
+        //   to build a cushion that absorbs jitter.
+        // - On subsequent chunks, append to the previous chunk's end time
+        //   — if the buffer hasn't underrun, chunks queue seamlessly.
+        // - On underrun (audioNextTime fell behind `now`), schedule at
+        //   `now` to avoid an audible gap. The pre-buffer rebuilds
+        //   naturally because the worker's frame-locked timing produces
+        //   samples at the exact hardware rate.
+        // - If too far ahead (>MAX_LOOKAHEAD_S), snap back to avoid
+        //   perceptible audio lag.
+        const PRE_BUFFER_S = 0.06 // 60ms initial pre-buffer
         const MAX_LOOKAHEAD_S = 0.12 // 120ms max ahead before reset
 
         const now = ctx.currentTime
-        if (audioNextTimeRef.current < now) {
-          // Underrun — re-establish the pre-buffer cushion
+        if (audioNextTimeRef.current === 0) {
+          // First chunk — establish the initial pre-buffer
           audioNextTimeRef.current = now + PRE_BUFFER_S
+        } else if (audioNextTimeRef.current < now) {
+          // Underrun — schedule immediately to minimize the gap.
+          // Don't add PRE_BUFFER_S here; that would create a silent gap.
+          // The pre-buffer rebuilds naturally over subsequent chunks.
+          audioNextTimeRef.current = now
         } else if (audioNextTimeRef.current > now + MAX_LOOKAHEAD_S) {
           // Too far ahead — reset to avoid perceptible audio lag
           audioNextTimeRef.current = now + PRE_BUFFER_S

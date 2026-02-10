@@ -216,27 +216,33 @@ function initialize(command: Extract<WorkerCommand, { action: 'init' }>): void {
 // ---------------------------------------------------------------------------
 
 function startEmulationLoop(): void {
-  let lastFrameTime = performance.now()
+  // nextFrameTime tracks when the next frame *should* fire, independent of
+  // when it actually fires. This prevents jitter from accumulating as drift:
+  // if a frame runs 1ms late, nextFrameTime still advances by exactly
+  // frameTimeMs, so the average frame rate stays locked to the target FPS.
+  // This is critical because the AudioContext consumes samples at a hardware-
+  // locked rate — if we produce samples even slightly too slowly, the audio
+  // buffer underruns periodically causing audible gaps.
+  let nextFrameTime = performance.now() + frameTimeMs
 
   const scheduleNext = () => {
     if (!isRunning) return
 
     const now = performance.now()
-    const elapsed = now - lastFrameTime
-    const remaining = frameTimeMs - elapsed
+    const remaining = nextFrameTime - now
 
     if (remaining <= 0) {
       // We're already past the deadline — run immediately
       tick()
     } else if (remaining <= SPIN_THRESHOLD_MS) {
       // Close enough to deadline — spin-wait for precision
-      spinUntil(lastFrameTime + frameTimeMs)
+      spinUntil(nextFrameTime)
       tick()
     } else {
       // Sleep for most of the remaining time, then spin the rest
       const sleepMs = Math.max(0, remaining - SPIN_THRESHOLD_MS)
       loopTimer = setTimeout(() => {
-        spinUntil(lastFrameTime + frameTimeMs)
+        spinUntil(nextFrameTime)
         tick()
       }, sleepMs)
     }
@@ -245,8 +251,15 @@ function startEmulationLoop(): void {
   const tick = () => {
     if (!isRunning) return
 
+    // Advance the ideal next-frame time by exactly one frame period.
+    // If we fell behind (e.g. GC pause), clamp to `now` to avoid a
+    // burst of catch-up frames that would flood the IPC channel.
     const now = performance.now()
-    lastFrameTime = now
+    nextFrameTime += frameTimeMs
+    if (nextFrameTime < now - frameTimeMs) {
+      // More than one full frame behind — reset to avoid catch-up burst
+      nextFrameTime = now + frameTimeMs
+    }
 
     if (!isPaused && native) {
       try {
