@@ -1,8 +1,8 @@
-import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog, app } from 'electron';
-import path from 'path';
-import fs from 'fs';
+import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog } from 'electron';
 import { EmulatorManager } from '../emulator/EmulatorManager';
 import { LibretroNativeCore } from '../emulator/LibretroNativeCore';
+import { EmulationWorkerClient } from '../emulator/EmulationWorkerClient';
+import { resolveAddonPath } from '../emulator/resolveAddonPath';
 import { LibraryService } from '../services/LibraryService';
 import { ArtworkService } from '../services/ArtworkService';
 import { GameWindowManager } from '../GameWindowManager';
@@ -72,12 +72,23 @@ export class IPCHandlers {
             }
           }
 
-          const gameWindow = this.gameWindowManager.createNativeGameWindow(game, nativeCore, shouldResume);
-
-          // Forward input from renderer to native core
-          this.gameWindowManager.on('input', (port: number, id: number, pressed: boolean) => {
-            nativeCore.setInput(port, id, pressed);
+          // Spawn the emulation worker process
+          const workerClient = new EmulationWorkerClient();
+          const addonPath = resolveAddonPath();
+          const avInfo = await workerClient.init({
+            corePath: nativeCore.getCorePath(),
+            romPath: nativeCore.getRomPath(),
+            systemDir: nativeCore.getSystemDir(),
+            saveDir: nativeCore.getSaveDir(),
+            sramDir: nativeCore.getSramDir(),
+            saveStatesDir: nativeCore.getSaveStatesDir(),
+            addonPath,
           });
+
+          // Store the worker client on the emulator manager for control routing
+          this.emulatorManager.setWorkerClient(workerClient);
+
+          this.gameWindowManager.createNativeGameWindow(game, workerClient, avInfo, shouldResume);
         } else {
           // Legacy overlay mode: external RetroArch process
           this.gameWindowManager.createGameWindow(game);
