@@ -74,14 +74,14 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P1 — High Priority (stability & correctness)
 
-- [ ] **Structured logging** — Replace ad-hoc `console.error`/`console.warn` with a logging library (e.g. `electron-log` or `pino`); add log levels, categories, and file output
-- [ ] **Route native addon logs to Node.js** — Replace `fprintf(stderr, ...)` in `libretro_core.cc` with N-API event emission so logs appear in the structured logging system
-- [ ] **Test suite — IPC handlers** — Mock native addon, verify correct dispatch and error responses
-- [ ] **Test suite — LibraryService** — Scanning, deduplication, game ID generation, edge cases
-- [ ] **Test suite — LibretroNativeCore** — Save state round-trip, SRAM persistence, error recovery
-- [ ] **Test suite — WebGL renderer** — Shader compilation, preset switching, fallback behavior
-- [ ] **Fix test environment** — Switch vitest config from jsdom to happy-dom (per project conventions)
-- [ ] **Fix game ID hashing** — Replace `MD5(romPath)` in `LibraryService.ts` with `SHA-256(fileContent)` so IDs survive file moves
+- [x] **Structured logging** — Replace ad-hoc `console.error`/`console.warn` with a logging library (e.g. `electron-log` or `pino`); add log levels, categories, and file output
+- [x] **Route native addon logs to Node.js** — Replace `fprintf(stderr, ...)` in `libretro_core.cc` with N-API event emission so logs appear in the structured logging system
+- [x] **Test suite — IPC handlers** — Mock native addon, verify correct dispatch and error responses
+- [x] **Test suite — LibraryService** — Scanning, deduplication, game ID generation, edge cases
+- [x] **Test suite — LibretroNativeCore** — Save state round-trip, SRAM persistence, error recovery
+- [x] **Test suite — WebGL renderer** — Shader compilation, preset switching, fallback behavior
+- [x] **Fix test environment** — Switch vitest config from jsdom to happy-dom (per project conventions)
+- [x] **Fix game ID hashing** — Replace `MD5(romPath)` in `LibraryService.ts` with `SHA-256(fileContent)` so IDs survive file moves
 
 ### P2 — Performance
 
