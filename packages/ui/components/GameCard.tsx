@@ -20,6 +20,8 @@ export interface Game {
   systemId?: string
   genre?: string
   coverArt?: string
+  /** Width/height ratio of cover art (e.g. 0.714). Used for dynamic card sizing. */
+  coverArtAspectRatio?: number
   romPath: string
   lastPlayed?: Date
   playTime?: number
@@ -88,17 +90,20 @@ export const GameCard: React.FC<GameCardProps> = ({
   // 'done' phase: cover art just arrived — show dissolve-in
   const isDone = artworkSyncPhase === 'done'
 
+  // Use the actual cover art aspect ratio when available, otherwise default to 3:4
+  const aspectRatio = game.coverArtAspectRatio ?? 0.75
+
   return (
     <Card
       ref={ref}
       className={cn(
-        'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg w-48',
+        'group relative overflow-hidden rounded-md transition-all hover:scale-105 hover:shadow-lg w-full',
         className
       )}
       style={style}
     >
       <CardContent className="p-0">
-        <div className="aspect-[3/4] relative bg-muted">
+        <div className="relative bg-muted" style={{ aspectRatio }}>
           {/* Cover art image — fades in with dissolve when phase is 'done' */}
           {game.coverArt ? (
             <img
@@ -120,12 +125,16 @@ export const GameCard: React.FC<GameCardProps> = ({
             active={isActivelySyncing || isTerminalPhase}
             phase={artworkSyncPhase}
             statusText={artworkSyncPhase ? PHASE_STATUS_TEXT[artworkSyncPhase] : undefined}
+            aspectRatio={aspectRatio}
           />
 
-          {/* Always visible overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+          {/* Always visible overlay — strong gradient for text legibility over any cover art */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 via-40% to-transparent">
             <div className="absolute bottom-0 left-0 right-0 p-4">
-              <h3 className="text-white font-semibold text-sm mb-2 line-clamp-2">
+              <h3
+                className="text-white font-semibold text-sm mb-2 line-clamp-2"
+                style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
+              >
                 {game.title}
               </h3>
               <div className="flex gap-2 mb-3">
@@ -135,7 +144,7 @@ export const GameCard: React.FC<GameCardProps> = ({
                 {game.genre && (
                   <Badge
                     variant="outline"
-                    className="text-xs text-white border-white/30"
+                    className="text-xs text-white border-white/40 backdrop-blur-sm"
                   >
                     {game.genre}
                   </Badge>
