@@ -44,6 +44,9 @@ export interface UseFlipAnimationOptions {
   exitDuration?: number
 }
 
+/** Shared style for stable (persisting) items — never changes, so React.memo sees the same reference. */
+const STABLE_STYLE: CSSProperties = { position: 'relative', zIndex: 1 } as const
+
 interface PositionRecord {
   left: number
   top: number
@@ -312,6 +315,10 @@ export function useFlipAnimation<T>(
   const previousItems = previousItemsRef.current
   const isFirstRender = isFirstRenderRef.current
 
+  // Memoize entering item styles keyed by delay so the same delay always
+  // returns the same object reference (React.memo-friendly).
+  const enteringStyleCache = useRef<Map<number, CSSProperties>>(new Map())
+
   let enterIndex = 0
   const result: FlipItem<T>[] = []
 
@@ -321,11 +328,25 @@ export function useFlipAnimation<T>(
     const isEntering = isFirstRender || !previousItems.has(key)
     const delay = isEntering ? Math.min(enterIndex * staggerEnter, maxStaggerDelay) : 0
 
+    let style: CSSProperties
+    if (isEntering) {
+      // Cache entering styles by delay value so the same delay always yields
+      // the same object reference across renders.
+      let cached = enteringStyleCache.current.get(delay)
+      if (!cached) {
+        cached = { position: 'relative', zIndex: 1, animationDelay: `${delay}ms` }
+        enteringStyleCache.current.set(delay, cached)
+      }
+      style = cached
+    } else {
+      style = STABLE_STYLE
+    }
+
     result.push({
       item,
       key,
       ref: getRefCallback(key),
-      style: { position: 'relative', zIndex: 1 },
+      style,
       animationState: isEntering ? 'entering' : 'stable',
       enterDelay: delay,
     })

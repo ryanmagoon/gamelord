@@ -189,12 +189,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
                 flipItem.animationState === 'entering' && 'animate-card-enter',
                 flipItem.animationState === 'exiting' && 'animate-card-exit',
               )}
-              style={{
-                ...flipItem.style,
-                ...(flipItem.animationState === 'entering'
-                  ? { animationDelay: `${flipItem.enterDelay}ms` }
-                  : undefined),
-              }}
+              style={flipItem.style}
             />
           ))}
         </div>
