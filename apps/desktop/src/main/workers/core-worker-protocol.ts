@@ -37,6 +37,7 @@ export interface NativeLibretroCore {
   getMemoryData(memType?: number): Uint8Array | null
   getMemorySize(memType?: number): number
   setMemoryData(data: Uint8Array, memType?: number): void
+  getLogMessages(): Array<{ level: number; message: string }>
 }
 
 export interface NativeAddon {
@@ -95,6 +96,7 @@ export type WorkerEvent =
   | { type: 'videoFrame'; data: Buffer; width: number; height: number }
   | { type: 'audioSamples'; samples: Buffer; sampleRate: number }
   | { type: 'error'; message: string; fatal: boolean }
+  | { type: 'log'; level: number; message: string }
   | {
       type: 'response'
       requestId: string

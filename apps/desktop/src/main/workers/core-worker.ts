@@ -268,9 +268,11 @@ function startEmulationLoop(): void {
       } catch (error) {
         consecutiveErrors++
         const message = error instanceof Error ? error.message : String(error)
-        console.error(
-          `Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${message}`,
-        )
+        send({
+          type: 'log',
+          level: 3,
+          message: `Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${message}`,
+        })
 
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
           send({
@@ -313,6 +315,12 @@ function startEmulationLoop(): void {
           )),
           sampleRate,
         })
+      }
+
+      // Drain buffered log messages from the native addon
+      const logs = native.getLogMessages()
+      for (const entry of logs) {
+        send({ type: 'log', level: entry.level, message: entry.message })
       }
     }
 
