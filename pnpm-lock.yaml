@@ -26,6 +26,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.1.6
         version: 19.1.6(@types/react@19.1.8)
+      electron-log:
+        specifier: ^5.4.3
+        version: 5.4.3
       lucide-react:
         specifier: ^0.525.0
         version: 0.525.0(react@19.1.0)
@@ -190,9 +193,9 @@ importers:
       eslint-plugin-storybook:
         specifier: ^10.2.4
         version: 10.2.4(eslint@8.57.1)(storybook@10.2.4(@testing-library/dom@10.4.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(typescript@5.8.3)
-      jsdom:
-        specifier: ^28.0.0
-        version: 28.0.0
+      happy-dom:
+        specifier: ^20.5.0
+        version: 20.5.0
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -2754,6 +2757,10 @@ packages:
     engines: {node: '>=14.0.0'}
     hasBin: true
 
+  electron-log@5.4.3:
+    resolution: {integrity: sha512-sOUsM3LjZdugatazSQ/XTyNcw8dfvH1SYhXWiJyfYodAAKOZdHs0txPiLDXFzOZbhXgAgshQkshH2ccq0feyLQ==}
+    engines: {node: '>= 14'}
+
   electron-publish@25.1.7:
     resolution: {integrity: sha512-+jbTkR9m39eDBMP4gfbqglDd6UvBC7RLh5Y0MhFSsc6UkGHj9Vj9TWobxevHYMMqmoujL11ZLjfPpMX+Pt6YEg==}
 
@@ -5139,7 +5146,8 @@ snapshots:
 
   7zip-bin@5.2.0: {}
 
-  '@acemir/cssom@0.9.31': {}
+  '@acemir/cssom@0.9.31':
+    optional: true
 
   '@adobe/css-tools@4.4.3': {}
 
@@ -5157,6 +5165,7 @@ snapshots:
       '@csstools/css-parser-algorithms': 3.0.5(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-tokenizer': 3.0.4
       lru-cache: 11.2.5
+    optional: true
 
   '@asamuzakjp/dom-selector@6.7.7':
     dependencies:
@@ -5165,8 +5174,10 @@ snapshots:
       css-tree: 3.1.0
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.2.5
+    optional: true
 
-  '@asamuzakjp/nwsapi@2.3.9': {}
+  '@asamuzakjp/nwsapi@2.3.9':
+    optional: true
 
   '@babel/code-frame@7.27.1':
     dependencies:
@@ -5378,12 +5389,14 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@csstools/color-helpers@5.1.0': {}
+  '@csstools/color-helpers@5.1.0':
+    optional: true
 
   '@csstools/css-calc@2.1.4(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)':
     dependencies:
       '@csstools/css-parser-algorithms': 3.0.5(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-tokenizer': 3.0.4
+    optional: true
 
   '@csstools/css-color-parser@3.1.0(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)':
     dependencies:
@@ -5391,14 +5404,18 @@ snapshots:
       '@csstools/css-calc': 2.1.4(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-parser-algorithms': 3.0.5(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-tokenizer': 3.0.4
+    optional: true
 
   '@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4)':
     dependencies:
       '@csstools/css-tokenizer': 3.0.4
+    optional: true
 
-  '@csstools/css-syntax-patches-for-csstree@1.0.26': {}
+  '@csstools/css-syntax-patches-for-csstree@1.0.26':
+    optional: true
 
-  '@csstools/css-tokenizer@3.0.4': {}
+  '@csstools/css-tokenizer@3.0.4':
+    optional: true
 
   '@develar/schema-utils@2.6.5':
     dependencies:
@@ -5730,7 +5747,8 @@ snapshots:
 
   '@eslint/js@8.57.1': {}
 
-  '@exodus/bytes@1.11.0': {}
+  '@exodus/bytes@1.11.0':
+    optional: true
 
   '@floating-ui/core@1.7.2':
     dependencies:
@@ -6918,10 +6936,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/browser-playwright@4.0.18(playwright@1.58.1)(vite@7.3.1(@types/node@24.1.0)(jiti@2.6.1)(lightningcss@1.30.2))(vitest@4.0.18)':
+  '@vitest/browser-playwright@4.0.18(playwright@1.58.1)(vite@5.4.19(@types/node@24.1.0)(lightningcss@1.30.2))(vitest@4.0.18)':
     dependencies:
-      '@vitest/browser': 4.0.18(vite@7.3.1(@types/node@24.1.0)(jiti@2.6.1)(lightningcss@1.30.2))(vitest@4.0.18)
-      '@vitest/mocker': 4.0.18(vite@7.3.1(@types/node@24.1.0)(jiti@2.6.1)(lightningcss@1.30.2))
+      '@vitest/browser': 4.0.18(vite@5.4.19(@types/node@24.1.0)(lightningcss@1.30.2))(vitest@4.0.18)
+      '@vitest/mocker': 4.0.18(vite@5.4.19(@types/node@24.1.0)(lightningcss@1.30.2))
       playwright: 1.58.1
       tinyrainbow: 3.0.3
       vitest: 4.0.18(@types/node@24.1.0)(@vitest/browser-playwright@4.0.18)(happy-dom@20.5.0)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)
@@ -6932,9 +6950,9 @@ snapshots:
       - vite
     optional: true
 
-  '@vitest/browser@4.0.18(vite@7.3.1(@types/node@24.1.0)(jiti@2.6.1)(lightningcss@1.30.2))(vitest@4.0.18)':
+  '@vitest/browser@4.0.18(vite@5.4.19(@types/node@24.1.0)(lightningcss@1.30.2))(vitest@4.0.18)':
     dependencies:
-      '@vitest/mocker': 4.0.18(vite@7.3.1(@types/node@24.1.0)(jiti@2.6.1)(lightningcss@1.30.2))
+      '@vitest/mocker': 4.0.18(vite@5.4.19(@types/node@24.1.0)(lightningcss@1.30.2))
       '@vitest/utils': 4.0.18
       magic-string: 0.30.21
       pixelmatch: 7.1.0
@@ -6966,6 +6984,15 @@ snapshots:
       '@vitest/utils': 4.0.18
       chai: 6.2.2
       tinyrainbow: 3.0.3
+
+  '@vitest/mocker@4.0.18(vite@5.4.19(@types/node@24.1.0)(lightningcss@1.30.2))':
+    dependencies:
+      '@vitest/spy': 4.0.18
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 5.4.19(@types/node@24.1.0)(lightningcss@1.30.2)
+    optional: true
 
   '@vitest/mocker@4.0.18(vite@7.3.1(@types/node@24.1.0)(jiti@2.6.1)(lightningcss@1.30.2))':
     dependencies:
@@ -7278,6 +7305,7 @@ snapshots:
   bidi-js@1.0.3:
     dependencies:
       require-from-string: 2.0.2
+    optional: true
 
   bl@4.1.0:
     dependencies:
@@ -7548,6 +7576,7 @@ snapshots:
     dependencies:
       mdn-data: 2.12.2
       source-map-js: 1.2.1
+    optional: true
 
   css.escape@1.5.1: {}
 
@@ -7557,6 +7586,7 @@ snapshots:
       '@csstools/css-syntax-patches-for-csstree': 1.0.26
       css-tree: 3.1.0
       lru-cache: 11.2.5
+    optional: true
 
   csstype@3.1.3: {}
 
@@ -7566,6 +7596,7 @@ snapshots:
       whatwg-url: 16.0.0
     transitivePeerDependencies:
       - '@noble/hashes'
+    optional: true
 
   data-view-buffer@1.0.2:
     dependencies:
@@ -7593,7 +7624,8 @@ snapshots:
     dependencies:
       ms: 2.1.3
 
-  decimal.js@10.6.0: {}
+  decimal.js@10.6.0:
+    optional: true
 
   decompress-response@6.0.0:
     dependencies:
@@ -7739,6 +7771,8 @@ snapshots:
       - electron-builder-squirrel-windows
       - supports-color
 
+  electron-log@5.4.3: {}
+
   electron-publish@25.1.7:
     dependencies:
       '@types/fs-extra': 9.0.13
@@ -7797,7 +7831,8 @@ snapshots:
 
   entities@4.5.0: {}
 
-  entities@6.0.1: {}
+  entities@6.0.1:
+    optional: true
 
   env-paths@2.2.1: {}
 
@@ -8488,6 +8523,7 @@ snapshots:
       '@exodus/bytes': 1.11.0
     transitivePeerDependencies:
       - '@noble/hashes'
+    optional: true
 
   http-cache-semantics@4.2.0: {}
 
@@ -8658,7 +8694,8 @@ snapshots:
 
   is-path-inside@3.0.3: {}
 
-  is-potential-custom-element-name@1.0.1: {}
+  is-potential-custom-element-name@1.0.1:
+    optional: true
 
   is-regex@1.2.1:
     dependencies:
@@ -8777,6 +8814,7 @@ snapshots:
     transitivePeerDependencies:
       - '@noble/hashes'
       - supports-color
+    optional: true
 
   jsesc@3.1.0: {}
 
@@ -9024,7 +9062,8 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
-  mdn-data@2.12.2: {}
+  mdn-data@2.12.2:
+    optional: true
 
   merge2@1.4.1: {}
 
@@ -9314,6 +9353,7 @@ snapshots:
   parse5@8.0.0:
     dependencies:
       entities: 6.0.1
+    optional: true
 
   path-exists@4.0.0: {}
 
@@ -9541,7 +9581,8 @@ snapshots:
 
   require-directory@2.1.1: {}
 
-  require-from-string@2.0.2: {}
+  require-from-string@2.0.2:
+    optional: true
 
   resedit@1.7.2:
     dependencies:
@@ -9656,6 +9697,7 @@ snapshots:
   saxes@6.0.0:
     dependencies:
       xmlchars: 2.2.0
+    optional: true
 
   scheduler@0.26.0: {}
 
@@ -9925,7 +9967,8 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  symbol-tree@3.2.4: {}
+  symbol-tree@3.2.4:
+    optional: true
 
   tailwind-merge@3.3.1: {}
 
@@ -9985,11 +10028,13 @@ snapshots:
 
   tinyspy@4.0.3: {}
 
-  tldts-core@7.0.22: {}
+  tldts-core@7.0.22:
+    optional: true
 
   tldts@7.0.22:
     dependencies:
       tldts-core: 7.0.22
+    optional: true
 
   tmp-promise@3.0.3:
     dependencies:
@@ -10007,10 +10052,12 @@ snapshots:
   tough-cookie@6.0.0:
     dependencies:
       tldts: 7.0.22
+    optional: true
 
   tr46@6.0.0:
     dependencies:
       punycode: 2.3.1
+    optional: true
 
   truncate-utf8-bytes@1.0.2:
     dependencies:
@@ -10146,7 +10193,8 @@ snapshots:
 
   undici-types@7.8.0: {}
 
-  undici@7.20.0: {}
+  undici@7.20.0:
+    optional: true
 
   unique-filename@2.0.1:
     dependencies:
@@ -10265,7 +10313,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 24.1.0
-      '@vitest/browser-playwright': 4.0.18(playwright@1.58.1)(vite@7.3.1(@types/node@24.1.0)(jiti@2.6.1)(lightningcss@1.30.2))(vitest@4.0.18)
+      '@vitest/browser-playwright': 4.0.18(playwright@1.58.1)(vite@5.4.19(@types/node@24.1.0)(lightningcss@1.30.2))(vitest@4.0.18)
       happy-dom: 20.5.0
       jsdom: 28.0.0
     transitivePeerDependencies:
@@ -10284,18 +10332,21 @@ snapshots:
   w3c-xmlserializer@5.0.0:
     dependencies:
       xml-name-validator: 5.0.0
+    optional: true
 
   wcwidth@1.0.1:
     dependencies:
       defaults: 1.0.4
 
-  webidl-conversions@8.0.1: {}
+  webidl-conversions@8.0.1:
+    optional: true
 
   webpack-virtual-modules@0.6.2: {}
 
   whatwg-mimetype@3.0.0: {}
 
-  whatwg-mimetype@5.0.0: {}
+  whatwg-mimetype@5.0.0:
+    optional: true
 
   whatwg-url@16.0.0:
     dependencies:
@@ -10304,6 +10355,7 @@ snapshots:
       webidl-conversions: 8.0.1
     transitivePeerDependencies:
       - '@noble/hashes'
+    optional: true
 
   which-boxed-primitive@1.1.1:
     dependencies:
@@ -10385,11 +10437,13 @@ snapshots:
     dependencies:
       is-wsl: 3.1.0
 
-  xml-name-validator@5.0.0: {}
+  xml-name-validator@5.0.0:
+    optional: true
 
   xmlbuilder@15.1.1: {}
 
-  xmlchars@2.2.0: {}
+  xmlchars@2.2.0:
+    optional: true
 
   y18n@5.0.8: {}
 
