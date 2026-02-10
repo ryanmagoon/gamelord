@@ -80,6 +80,8 @@ export function useFlipAnimation<T>(
   const previousPositionsRef = useRef<Map<string, PositionRecord>>(new Map())
   /** Item snapshots from the previous render (needed to render exiters). */
   const previousItemsRef = useRef<Map<string, T>>(new Map())
+  /** Ordered key list from the previous render — used to detect reordering vs property-only changes. */
+  const previousKeyOrderRef = useRef<string[]>([])
   /** Whether any render has committed yet. */
   const isFirstRenderRef = useRef(true)
   /** Active cleanup timeouts. */
@@ -139,7 +141,8 @@ export function useFlipAnimation<T>(
 
   // ---- Single useLayoutEffect for all FLIP logic ----
   useLayoutEffect(() => {
-    const currentKeySet = new Set(items.map(getKey))
+    const currentKeys = items.map(getKey)
+    const currentKeySet = new Set(currentKeys)
 
     if (isFirstRenderRef.current) {
       isFirstRenderRef.current = false
@@ -150,6 +153,7 @@ export function useFlipAnimation<T>(
         itemMap.set(getKey(item), item)
       }
       previousItemsRef.current = itemMap
+      previousKeyOrderRef.current = currentKeys
 
       // Capture initial positions after first paint
       requestAnimationFrame(() => {
@@ -160,6 +164,28 @@ export function useFlipAnimation<T>(
 
     const previousPositions = previousPositionsRef.current
     const previousItems = previousItemsRef.current
+    const previousKeyOrder = previousKeyOrderRef.current
+
+    // Detect whether the key sequence actually changed (items added, removed,
+    // or reordered). If only item properties changed (e.g. coverArtAspectRatio
+    // updated after artwork loads), skip the FLIP animation and just re-capture
+    // positions so the grid reflows naturally without every card sliding around.
+    const keysChanged =
+      currentKeys.length !== previousKeyOrder.length ||
+      currentKeys.some((key, i) => key !== previousKeyOrder[i])
+
+    if (!keysChanged) {
+      // Property-only change — just update refs and re-capture positions
+      const itemMap = new Map<string, T>()
+      for (const item of items) {
+        itemMap.set(getKey(item), item)
+      }
+      previousItemsRef.current = itemMap
+      requestAnimationFrame(() => {
+        previousPositionsRef.current = capturePositions()
+      })
+      return
+    }
 
     // ---- Classify items ----
     const newExiters = new Map<string, { item: T; position: PositionRecord }>()
@@ -278,6 +304,7 @@ export function useFlipAnimation<T>(
       itemMap.set(getKey(item), item)
     }
     previousItemsRef.current = itemMap
+    previousKeyOrderRef.current = currentKeys
   }, [items, getKey, duration, easing, exitDuration, capturePositions, measurePosition, gridRef])
 
   // ---- Build the output list ----
