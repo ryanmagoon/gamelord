@@ -65,6 +65,15 @@ export const GameWindow: React.FC = () => {
   const [isPoweringOn, setIsPoweringOn] = useState(true)
   const [isPoweringOff, setIsPoweringOff] = useState(false)
 
+  // Memoize power animation callbacks so they have stable references.
+  // CRTAnimation's useEffect depends on `onComplete` — an inline arrow
+  // function would create a new reference on every parent re-render,
+  // restarting the animation's timers each time GameWindow re-renders
+  // (e.g., when game:loaded, game:mode, or game:av-info events arrive
+  // and trigger state updates during the power-on sequence).
+  const handlePowerOnComplete = useCallback(() => setIsPoweringOn(false), [])
+  const handlePowerOffComplete = useCallback(() => api.gameWindow.readyToClose(), [api])
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const rendererRef = useRef<WebGLRenderer | null>(null)
@@ -83,6 +92,11 @@ export const GameWindow: React.FC = () => {
     gameInput: api.gameInput,
     enabled: mode === 'native' && !isPaused,
   })
+
+  // Ref to the latest updateCanvasSize — allows the IPC effect to call
+  // it without depending on it (which would cause listener re-registration).
+  // noop placeholder — immediately overwritten on the next line
+  const updateCanvasSizeRef = useRef<() => void>(Function.prototype as () => void)
 
   // Resize handler extracted so it can be called from multiple places
   const updateCanvasSize = useCallback(() => {
@@ -130,7 +144,26 @@ export const GameWindow: React.FC = () => {
     }
   }, [gameAspectRatio])
 
+  // Keep the ref in sync with the latest callback identity
+  updateCanvasSizeRef.current = updateCanvasSize
+
   useEffect(() => {
+    // Remove any stale listeners BEFORE registering new ones. This is
+    // critical because React Strict Mode (dev) double-mounts components,
+    // and Vite HMR can re-execute modules without triggering cleanup.
+    // Without this, listeners accumulate and each IPC event fires
+    // multiple callbacks — causing audio to play 2-3x simultaneously
+    // and animations to replay.
+    api.removeAllListeners('game:loaded')
+    api.removeAllListeners('game:mode')
+    api.removeAllListeners('overlay:show-controls')
+    api.removeAllListeners('emulator:paused')
+    api.removeAllListeners('emulator:resumed')
+    api.removeAllListeners('game:av-info')
+    api.removeAllListeners('game:video-frame')
+    api.removeAllListeners('game:audio-samples')
+    api.removeAllListeners('game:prepare-close')
+
     api.on('game:loaded', (gameData: Game) => {
       setGame(gameData)
     })
@@ -175,7 +208,7 @@ export const GameWindow: React.FC = () => {
       if (!rendererRef.current) {
         try {
           // Set initial canvas size based on container
-          updateCanvasSize()
+          updateCanvasSizeRef.current()
 
           const renderer = new WebGLRenderer(canvas)
           renderer.initialize()
@@ -184,7 +217,7 @@ export const GameWindow: React.FC = () => {
           rendererRef.current = renderer
 
           // Ensure canvas is properly sized after renderer is ready
-          requestAnimationFrame(() => updateCanvasSize())
+          requestAnimationFrame(() => updateCanvasSizeRef.current())
 
           // Start the rAF render loop — draws the latest buffered frame
           // each display vsync instead of rendering directly from IPC events.
@@ -229,6 +262,12 @@ export const GameWindow: React.FC = () => {
     api.on('game:audio-samples', (audioData: any) => {
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext({ sampleRate: audioData.sampleRate })
+        // Pre-buffer: schedule the first chunk slightly in the future so
+        // subsequent chunks arrive before their playback time, absorbing
+        // the jitter introduced by the utility-process → main → renderer
+        // double-IPC hop. Without this, chunks arrive too late and we
+        // constantly snap to `now`, creating micro-gaps that sound like
+        // crackling.
         audioNextTimeRef.current = 0
         gainNodeRef.current = audioContextRef.current.createGain()
         gainNodeRef.current.gain.value = isMuted ? 0 : volume
@@ -236,12 +275,10 @@ export const GameWindow: React.FC = () => {
       }
 
       const ctx = audioContextRef.current
-      const rawSamples = audioData.samples
-      const samples = new Int16Array(
-        rawSamples.buffer,
-        rawSamples.byteOffset,
-        rawSamples.byteLength / 2,
-      )
+      // audioData.samples arrives as Uint8Array after Electron IPC.
+      // Interpret the raw bytes as interleaved stereo Int16 samples.
+      const raw: Uint8Array = audioData.samples
+      const samples = new Int16Array(raw.buffer, raw.byteOffset, raw.byteLength / 2)
       const frames = samples.length / 2
 
       if (frames > 0) {
@@ -259,16 +296,29 @@ export const GameWindow: React.FC = () => {
         source.connect(gainNodeRef.current!)
 
         // Schedule seamlessly after the previous chunk.
-        // Cap how far ahead we can buffer to prevent audio lag buildup:
-        // if we're more than 80ms ahead of real time, drop this chunk
-        // and reset the schedule to prevent growing desync.
+        //
+        // The emulation worker sends audio chunks every ~16.6ms, but they
+        // traverse two IPC hops (utility process → main → renderer) which
+        // adds variable latency. We use a pre-buffer strategy:
+        //
+        // 1. On first chunk (or after an underrun), schedule PRE_BUFFER_S
+        //    ahead of `now` so we build up a cushion that absorbs jitter.
+        // 2. On subsequent chunks, append to the previous chunk's end time.
+        // 3. If we drift too far ahead (>MAX_LOOKAHEAD_S), reset to
+        //    PRE_BUFFER_S ahead to prevent growing audio lag.
+        //
+        // This avoids the micro-gaps that occur when snapping directly to
+        // `now` on every underrun, which sounded like crackling.
+        const PRE_BUFFER_S = 0.04 // 40ms pre-buffer
+        const MAX_LOOKAHEAD_S = 0.12 // 120ms max ahead before reset
+
         const now = ctx.currentTime
         if (audioNextTimeRef.current < now) {
-          audioNextTimeRef.current = now
-        }
-        const maxLookahead = 0.08 // 80ms max buffer ahead of real time
-        if (audioNextTimeRef.current > now + maxLookahead) {
-          audioNextTimeRef.current = now
+          // Underrun — re-establish the pre-buffer cushion
+          audioNextTimeRef.current = now + PRE_BUFFER_S
+        } else if (audioNextTimeRef.current > now + MAX_LOOKAHEAD_S) {
+          // Too far ahead — reset to avoid perceptible audio lag
+          audioNextTimeRef.current = now + PRE_BUFFER_S
         }
         source.start(audioNextTimeRef.current)
         audioNextTimeRef.current += buffer.duration
@@ -297,7 +347,10 @@ export const GameWindow: React.FC = () => {
         audioContextRef.current = null
       }
     }
-  }, [api, updateCanvasSize])
+  // IPC listeners must only be registered once. updateCanvasSize is accessed
+  // via ref to avoid re-registering listeners when gameAspectRatio changes.
+  // Dependencies intentionally limited to [api] (stable singleton).
+  }, [api])
 
   // Handle canvas resize for WebGL viewport
   useEffect(() => {
@@ -478,7 +531,7 @@ export const GameWindow: React.FC = () => {
         <PowerAnimation
           displayType={displayType}
           direction="on"
-          onComplete={() => setIsPoweringOn(false)}
+          onComplete={handlePowerOnComplete}
         />
       )}
 
@@ -487,7 +540,7 @@ export const GameWindow: React.FC = () => {
         <PowerAnimation
           displayType={displayType}
           direction="off"
-          onComplete={() => api.gameWindow.readyToClose()}
+          onComplete={handlePowerOffComplete}
         />
       )}
 

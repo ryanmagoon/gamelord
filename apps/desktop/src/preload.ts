@@ -65,6 +65,9 @@ contextBridge.exposeInMainWorld('gamelord', {
     ];
 
     if (validChannels.includes(channel)) {
+      // Remove any existing listeners first to prevent accumulation
+      // from React Strict Mode double-mounts and Vite HMR reloads.
+      ipcRenderer.removeAllListeners(channel);
       ipcRenderer.on(channel, (event, ...args) => callback(...args));
     }
   },
