@@ -445,21 +445,39 @@ export const LibraryView: React.FC<{
     [games, selectedSystem],
   )
 
-  const uiGames = useMemo<UiGame[]>(
-    () => filteredGames.map((game) => ({
-      id: game.id,
-      title: game.title,
-      platform: game.system,
-      systemId: game.systemId,
-      genre: game.metadata?.genre,
-      coverArt: game.coverArt,
-      coverArtAspectRatio: game.coverArtAspectRatio,
-      romPath: game.romPath,
-      lastPlayed: game.lastPlayed,
-      playTime: game.playTime,
-    })),
-    [filteredGames],
-  )
+  // Per-game UI object cache — only recreates a UiGame when its source
+  // AppGame object reference changes. This prevents ALL cards from
+  // re-rendering when only one game's coverArt is updated.
+  const uiGameCacheRef = useRef<Map<AppGame, UiGame>>(new Map())
+
+  const uiGames = useMemo<UiGame[]>(() => {
+    const cache = uiGameCacheRef.current
+    const nextCache = new Map<AppGame, UiGame>()
+    const result: UiGame[] = []
+
+    for (const game of filteredGames) {
+      let uiGame = cache.get(game)
+      if (!uiGame) {
+        uiGame = {
+          id: game.id,
+          title: game.title,
+          platform: game.system,
+          systemId: game.systemId,
+          genre: game.metadata?.genre,
+          coverArt: game.coverArt,
+          coverArtAspectRatio: game.coverArtAspectRatio,
+          romPath: game.romPath,
+          lastPlayed: game.lastPlayed,
+          playTime: game.playTime,
+        }
+      }
+      nextCache.set(game, uiGame)
+      result.push(uiGame)
+    }
+
+    uiGameCacheRef.current = nextCache
+    return result
+  }, [filteredGames])
 
   if (loading) {
     return (
