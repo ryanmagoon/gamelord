@@ -165,8 +165,10 @@ export const GameCard: React.FC<GameCardProps> = ({
     onResizeComplete: handleResizeComplete,
   })
 
-  // Show the static overlay during any active phase or the done phase
-  const showStatic = isActivelySyncing || isTerminalPhase || isDone
+  // Show the static overlay during active sync phases, done phase, OR as
+  // an idle placeholder when there's no cover art at all.
+  const isFallback = !game.coverArt && !isActivelySyncing && !isTerminalPhase && !isDone
+  const showStatic = isActivelySyncing || isTerminalPhase || isDone || isFallback
 
   return (
     <Card
@@ -214,6 +216,15 @@ export const GameCard: React.FC<GameCardProps> = ({
               aspectRatio={0.75}
             />
           </div>
+
+          {/* Fallback: game title over static when no cover art */}
+          {isFallback && (
+            <div className="absolute inset-0 flex items-end p-2 pointer-events-none">
+              <span className="text-xs font-medium text-white/90 leading-tight line-clamp-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+                {game.title}
+              </span>
+            </div>
+          )}
 
           {/* Options dropdown menu */}
           {hasMenu && (

@@ -136,12 +136,30 @@ describe('GameCard', () => {
       expect(screen.getByText('Downloading...')).toBeInTheDocument()
     })
 
-    it('shows clean placeholder when no sync phase and no cover art', () => {
+    it('shows TV static as fallback when no sync phase and no cover art', () => {
       const onPlay = vi.fn()
       render(<GameCard game={mockGame} onPlay={onPlay} />)
 
-      // No TV static visible
-      expect(screen.queryByLabelText(/loading artwork/i)).not.toBeInTheDocument()
+      // Fallback static is active (aria-label from TVStatic)
+      expect(screen.getByLabelText(/loading artwork/i)).toBeInTheDocument()
+    })
+
+    it('shows game title on fallback card without cover art', () => {
+      const onPlay = vi.fn()
+      render(<GameCard game={mockGame} onPlay={onPlay} />)
+
+      expect(screen.getByText('Super Mario Bros.')).toBeInTheDocument()
+    })
+
+    it('does not show fallback title when cover art exists', () => {
+      const onPlay = vi.fn()
+      const gameWithArt = { ...mockGame, coverArt: 'artwork://test.png' }
+      render(<GameCard game={gameWithArt} onPlay={onPlay} />)
+
+      // The title text overlay should not be rendered (game name only in aria-label/title)
+      const titleOverlay = screen.queryByText('Super Mario Bros.')
+      // The title exists as aria-label and title attribute, but not as visible text content
+      expect(titleOverlay).not.toBeInTheDocument()
     })
 
     it('hides image behind static while resize is in progress during done phase', () => {
