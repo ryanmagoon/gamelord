@@ -5,6 +5,7 @@ import { promisify } from 'util'
 import type { Game } from '../types/library'
 import type { LibretroNativeCore } from './emulator/LibretroNativeCore'
 import { animateWindowClose } from './windowCloseAnimation'
+import { gameWindowLog } from './logger'
 
 const execFileAsync = promisify(execFile)
 
@@ -95,7 +96,7 @@ export class GameWindowManager {
 
       if (shouldResume) {
         nativeCore.loadState(99).catch((error) => {
-          console.error('Failed to load autosave:', error)
+          gameWindowLog.error('Failed to load autosave:', error)
         })
       }
     })
@@ -121,12 +122,12 @@ export class GameWindowManager {
       try {
         nativeCore.saveSram()
       } catch (error) {
-        console.error('Failed to save SRAM on close:', error)
+        gameWindowLog.error('Failed to save SRAM on close:', error)
       }
       try {
         nativeCore.saveState(99)
       } catch (error) {
-        console.error('Failed to autosave on close:', error)
+        gameWindowLog.error('Failed to autosave on close:', error)
       }
 
       // Tell the renderer to start the shutdown animation
@@ -240,7 +241,7 @@ export class GameWindowManager {
   startTrackingRetroArchWindow(gameId: string, pid: number): void {
     const gameWindow = this.gameWindows.get(gameId)
     if (!gameWindow || gameWindow.isDestroyed()) {
-      console.warn(`Game window for ${gameId} not found or destroyed`)
+      gameWindowLog.warn(`Game window for ${gameId} not found or destroyed`)
       return
     }
 
@@ -370,10 +371,10 @@ export class GameWindowManager {
           consecutiveErrors = 0
         } catch (error) {
           consecutiveErrors++
-          console.error(`Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, error)
+          gameWindowLog.error(`Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, error)
 
           if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-            console.error('Emulation loop terminated after repeated frame errors')
+            gameWindowLog.error('Emulation loop terminated after repeated frame errors')
             this.stopEmulationLoop(gameId)
             if (!win.isDestroyed()) {
               win.webContents.send('game:emulation-error', {

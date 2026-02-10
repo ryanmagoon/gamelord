@@ -1,6 +1,7 @@
 import { spawn } from 'child_process'
 import { createSocket, Socket } from 'dgram'
 import { EmulatorCore, EmulatorLaunchOptions } from './EmulatorCore'
+import { retroArchLog } from '../logger'
 
 /**
  * RetroArch emulator implementation using UDP network commands for control.
@@ -85,7 +86,7 @@ export class RetroArchCore extends EmulatorCore {
     })
 
     this.process.stderr?.on('data', (data) => {
-      console.error(`[RetroArch Error] ${data.toString()}`)
+      retroArchLog.error(data.toString())
       this.emit('error', new Error(data.toString()))
     })
 
@@ -95,7 +96,7 @@ export class RetroArchCore extends EmulatorCore {
     })
 
     this.process.on('error', (err) => {
-      console.error('Failed to start RetroArch:', err)
+      retroArchLog.error('Failed to start RetroArch:', err)
       this.emit('error', err)
       this.cleanup()
     })
@@ -174,7 +175,7 @@ export class RetroArchCore extends EmulatorCore {
     this.udpClient = createSocket('udp4')
 
     this.udpClient.on('error', (err) => {
-      console.error('UDP client error:', err)
+      retroArchLog.error('UDP client error:', err)
       this.emit('error', err)
     })
   }
@@ -193,7 +194,7 @@ export class RetroArchCore extends EmulatorCore {
 
       client.send(message, this.networkPort, this.networkHost, (err) => {
         if (err) {
-          console.error(`Failed to send command "${command}":`, err)
+          retroArchLog.error(`Failed to send command "${command}":`, err)
           reject(err)
         } else {
           resolve()
@@ -318,7 +319,7 @@ export class RetroArchCore extends EmulatorCore {
     try {
       await this.sendCommand('QUIT')
     } catch (err) {
-      console.error('Failed to send quit command, forcing termination')
+      retroArchLog.error('Failed to send quit command, forcing termination')
       await this.terminate()
     }
   }

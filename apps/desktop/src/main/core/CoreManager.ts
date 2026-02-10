@@ -1,6 +1,7 @@
 import { utilityProcess, MessageChannelMain, UtilityProcess, MessagePortMain } from 'electron';
 import * as path from 'path';
 import { EventEmitter } from 'events';
+import { coreLog } from '../logger';
 
 export interface CoreOptions {
   corePath: string;
@@ -99,7 +100,7 @@ export class CoreManager extends EventEmitter {
   }
 
   private handleError(error: Error): void {
-    console.error('Core error:', error);
+    coreLog.error('Core error:', error);
     this.emit('error', error);
   }
 

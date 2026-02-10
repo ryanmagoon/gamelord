@@ -6,6 +6,7 @@ import { LibretroNativeCore } from '../emulator/LibretroNativeCore';
 import { LibraryService } from '../services/LibraryService';
 import { GameWindowManager } from '../GameWindowManager';
 import { GameSystem } from '../../types/library';
+import { ipcLog } from '../logger';
 
 export class IPCHandlers {
   private emulatorManager: EmulatorManager;
@@ -34,7 +35,7 @@ export class IPCHandlers {
         const corePath = await this.emulatorManager.getCoreDownloader().downloadCore(coreName, systemId);
         return { success: true, corePath };
       } catch (error) {
-        console.error('Failed to download core:', error);
+        ipcLog.error('Failed to download core:', error);
         return { success: false, error: (error as Error).message };
       }
     });
@@ -83,13 +84,13 @@ export class IPCHandlers {
           if (pid) {
             this.gameWindowManager.startTrackingRetroArchWindow(game.id, pid);
           } else {
-            console.warn('Could not get emulator PID for window tracking');
+            ipcLog.warn('Could not get emulator PID for window tracking');
           }
         }
 
         return { success: true };
       } catch (error) {
-        console.error('Failed to launch emulator:', error);
+        ipcLog.error('Failed to launch emulator:', error);
         return { success: false, error: (error as Error).message };
       }
     });
@@ -99,7 +100,7 @@ export class IPCHandlers {
         await this.emulatorManager.stopEmulator();
         return { success: true };
       } catch (error) {
-        console.error('Failed to stop emulator:', error);
+        ipcLog.error('Failed to stop emulator:', error);
         return { success: false, error: (error as Error).message };
       }
     });
@@ -118,7 +119,7 @@ export class IPCHandlers {
         await this.emulatorManager.pause();
         return { success: true };
       } catch (error) {
-        console.error('Failed to pause emulation:', error);
+        ipcLog.error('Failed to pause emulation:', error);
         return { success: false, error: (error as Error).message };
       }
     });
@@ -128,7 +129,7 @@ export class IPCHandlers {
         await this.emulatorManager.resume();
         return { success: true };
       } catch (error) {
-        console.error('Failed to resume emulation:', error);
+        ipcLog.error('Failed to resume emulation:', error);
         return { success: false, error: (error as Error).message };
       }
     });
@@ -138,7 +139,7 @@ export class IPCHandlers {
         await this.emulatorManager.reset();
         return { success: true };
       } catch (error) {
-        console.error('Failed to reset emulation:', error);
+        ipcLog.error('Failed to reset emulation:', error);
         return { success: false, error: (error as Error).message };
       }
     });
@@ -149,7 +150,7 @@ export class IPCHandlers {
         await this.emulatorManager.saveState(slot);
         return { success: true };
       } catch (error) {
-        console.error('Failed to save state:', error);
+        ipcLog.error('Failed to save state:', error);
         return { success: false, error: (error as Error).message };
       }
     });
@@ -159,7 +160,7 @@ export class IPCHandlers {
         await this.emulatorManager.loadState(slot);
         return { success: true };
       } catch (error) {
-        console.error('Failed to load state:', error);
+        ipcLog.error('Failed to load state:', error);
         return { success: false, error: (error as Error).message };
       }
     });
@@ -170,7 +171,7 @@ export class IPCHandlers {
         const path = await this.emulatorManager.screenshot(outputPath);
         return { success: true, path };
       } catch (error) {
-        console.error('Failed to take screenshot:', error);
+        ipcLog.error('Failed to take screenshot:', error);
         return { success: false, error: (error as Error).message };
       }
     });
