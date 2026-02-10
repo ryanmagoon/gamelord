@@ -13,5 +13,7 @@ export const gameWindowLog = log.scope('gameWindow')
 export const coreLog = log.scope('core')
 export const retroArchLog = log.scope('retroarch')
 export const libretroLog = log.scope('libretro')
+export const artworkLog = log.scope('artwork')
+export const mainLog = log.scope('main')
 
 export default log

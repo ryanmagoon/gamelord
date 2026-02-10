@@ -1,132 +1,42 @@
-import { EventEmitter } from 'events'
 import { EmulatorCore, EmulatorLaunchOptions } from './EmulatorCore'
 import * as path from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
 import { app } from 'electron'
 import { validateCorePath, validateRomPath } from '../utils/pathValidation'
-import { emulatorLog, libretroLog } from '../logger'
 
 /**
- * Native addon type declarations for the libretro_native module.
- */
-interface NativeLibretroCore {
-  loadCore(corePath: string): boolean
-  loadGame(romPath: string): boolean
-  unloadGame(): void
-  run(): void
-  reset(): void
-  getSystemInfo(): {
-    libraryName: string
-    libraryVersion: string
-    validExtensions: string
-    needFullpath: boolean
-    blockExtract: boolean
-  } | null
-  getAVInfo(): {
-    geometry: {
-      baseWidth: number
-      baseHeight: number
-      maxWidth: number
-      maxHeight: number
-      aspectRatio: number
-    }
-    timing: {
-      fps: number
-      sampleRate: number
-    }
-  } | null
-  getVideoFrame(): {
-    data: Uint8Array
-    width: number
-    height: number
-  } | null
-  getAudioBuffer(): Int16Array | null
-  setInputState(port: number, id: number, value: number): void
-  serializeState(): Uint8Array | null
-  unserializeState(data: Uint8Array): boolean
-  getSerializeSize(): number
-  destroy(): void
-  isLoaded(): boolean
-  setSystemDirectory(dir: string): void
-  setSaveDirectory(dir: string): void
-  getMemoryData(memType?: number): Uint8Array | null
-  getMemorySize(memType?: number): number
-  setMemoryData(data: Uint8Array, memType?: number): void
-  getLogMessages(): Array<{ level: number; message: string }>
-}
-
-interface NativeAddon {
-  LibretroCore: new () => NativeLibretroCore
-}
-
-/**
- * Loads the native addon, trying both development and packaged paths.
- */
-function loadNativeAddon(): NativeAddon {
-  const possiblePaths = [
-    // Development: node-gyp build output
-    path.join(__dirname, '../../native/build/Release/gamelord_libretro.node'),
-    // Packaged: extraResource places it directly in Resources/
-    path.join(process.resourcesPath || '', 'gamelord_libretro.node'),
-    // Fallback: relative to app root
-    path.join(app.getAppPath(), 'native/build/Release/gamelord_libretro.node'),
-  ]
-
-  const errors: string[] = []
-  for (const p of possiblePaths) {
-    const exists = fs.existsSync(p)
-    emulatorLog.debug(`Trying native addon path: ${p} (exists: ${exists})`)
-    if (exists) {
-      try {
-        // Dynamic require is necessary: native .node addons must be loaded at runtime from a path
-        // determined by the packaging context (dev vs packaged). Static import() cannot be used
-        // because Electron's packager rewrites imports but not require() for native modules.
-        // See: https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules
-        // TODO: replace with createRequire or single known path — https://github.com/ryanmagoon/gamelord/issues/10
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const addon = require(p) as NativeAddon
-        emulatorLog.info(`Native addon loaded from: ${p}`)
-        return addon
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : String(err)
-        emulatorLog.error(`Failed to require native addon at ${p}: ${errMsg}`)
-        errors.push(`${p}: ${errMsg}`)
-      }
-    }
-  }
-
-  throw new Error(
-    'Failed to load libretro native addon. Searched:\n' +
-    possiblePaths.join('\n') +
-    (errors.length > 0 ? '\n\nErrors:\n' + errors.join('\n') : '')
-  )
-}
-
-/**
- * EmulatorCore implementation that loads libretro cores directly via a native
- * Node addon, rendering frames into a buffer that the renderer can display.
+ * EmulatorCore implementation for native libretro mode.
  *
- * This replaces the RetroArchCore approach of spawning an external process.
+ * In the current architecture the actual emulation loop runs in a dedicated
+ * utility process (see `core-worker.ts`). This class is responsible for:
+ *
+ * 1. Path validation — ensuring ROM and core paths are safe before handing
+ *    them to the worker process.
+ * 2. Config storage — exposing validated paths so `EmulationWorkerClient`
+ *    can initialize the worker.
+ * 3. Autosave management — filesystem checks for resume-game prompts that
+ *    happen before the worker is spawned.
+ *
+ * It does NOT load the native addon or drive the emulation loop — those
+ * responsibilities belong to the worker process.
  */
 export class LibretroNativeCore extends EmulatorCore {
-  private native: NativeLibretroCore | null = null
-  private addon: NativeAddon | null = null
-  private emulationTimer: ReturnType<typeof setTimeout> | null = null
-  private emulationRunning = false
-  private paused = false
-  private avInfo: ReturnType<NativeLibretroCore['getAVInfo']> = null
-  private saveStatesDir: string
-  private sramDir: string
+  private _corePath: string | null = null
+  private _systemDir: string | null = null
+  private readonly _saveStatesDir: string
+  private readonly _sramDir: string
+  private readonly _saveDir: string
 
   constructor(
     private readonly coresBasePath: string,
   ) {
     super('LibretroNative', coresBasePath)
-    this.saveStatesDir = path.join(app.getPath('userData'), 'savestates')
-    this.sramDir = path.join(app.getPath('userData'), 'saves')
-    fs.mkdirSync(this.saveStatesDir, { recursive: true })
-    fs.mkdirSync(this.sramDir, { recursive: true })
+    this._saveStatesDir = path.join(app.getPath('userData'), 'savestates')
+    this._sramDir = path.join(app.getPath('userData'), 'saves')
+    this._saveDir = path.join(app.getPath('userData'), 'saves')
+    fs.mkdirSync(this._saveStatesDir, { recursive: true })
+    fs.mkdirSync(this._sramDir, { recursive: true })
   }
 
   /**
@@ -151,6 +61,10 @@ export class LibretroNativeCore extends EmulatorCore {
     return dirs.filter((dir) => fs.existsSync(dir))
   }
 
+  /**
+   * Validate ROM/core paths and store them for the worker process.
+   * No native addon is loaded here — that happens inside the worker.
+   */
   async launch(romPath: string, options: EmulatorLaunchOptions = {}): Promise<void> {
     if (this.isRunning) {
       throw new Error('Emulator is already running')
@@ -161,236 +75,63 @@ export class LibretroNativeCore extends EmulatorCore {
       throw new Error('Core path is required')
     }
 
-    // Validate paths before loading anything
+    // Validate paths before passing to the worker
     const validatedRomPath = validateRomPath(romPath)
     const validatedCorePath = validateCorePath(corePath, this.getAllowedCoreDirs())
 
     this.romPath = validatedRomPath
+    this._corePath = validatedCorePath
+    this._systemDir = path.dirname(validatedCorePath)
 
-    // Load addon
-    if (!this.addon) {
-      this.addon = loadNativeAddon()
-    }
-
-    this.native = new this.addon.LibretroCore()
-
-    // Set directories
-    const systemDir = path.dirname(validatedCorePath)
-    const saveDir = path.join(app.getPath('userData'), 'saves')
-    fs.mkdirSync(saveDir, { recursive: true })
-
-    this.native.setSystemDirectory(systemDir)
-    this.native.setSaveDirectory(saveDir)
-
-    // Load core
-    if (!this.native.loadCore(validatedCorePath)) {
-      this.cleanup()
-      throw new Error('Failed to load core: ' + validatedCorePath)
-    }
-
-    // Load game
-    if (!this.native.loadGame(validatedRomPath)) {
-      this.cleanup()
-      throw new Error('Failed to load game: ' + validatedRomPath)
-    }
-
-    // Load battery-backed SRAM from disk if it exists
-    this.loadSram()
-
-    this.avInfo = this.native.getAVInfo()
     this.isRunning = true
-    this.paused = false
-
-    // No emulation loop here — frames are driven by GameWindowManager
-    // which calls runFrame() at display refresh rate
-    this.emulationRunning = true
 
     this.emit('launched', { romPath: validatedRomPath, corePath: validatedCorePath })
   }
 
-  /**
-   * Run one frame of emulation. Called by GameWindowManager at display rate.
-   * Also drains buffered log messages from the native addon.
-   */
-  runFrame(): void {
-    if (!this.paused && this.native && this.emulationRunning) {
-      this.native.run()
-      this.drainNativeLogs()
-    }
+  // -------------------------------------------------------------------------
+  // Path getters — used by EmulationWorkerClient to initialize the worker
+  // -------------------------------------------------------------------------
+
+  getCorePath(): string {
+    if (!this._corePath) throw new Error('Core not launched — no core path available')
+    return this._corePath
   }
 
-  /** Forward buffered native addon log messages to the structured logger. */
-  private drainNativeLogs(): void {
-    if (!this.native) return
-    const messages = this.native.getLogMessages()
-    for (const { level, message } of messages) {
-      switch (level) {
-        case 0: libretroLog.debug(message.trimEnd()); break
-        case 1: libretroLog.info(message.trimEnd()); break
-        case 2: libretroLog.warn(message.trimEnd()); break
-        case 3: libretroLog.error(message.trimEnd()); break
-        default: libretroLog.info(message.trimEnd()); break
-      }
-    }
+  getRomPath(): string {
+    if (!this.romPath) throw new Error('Core not launched — no ROM path available')
+    return this.romPath
   }
 
-  /**
-   * Get the latest video frame from the core. Returns null if no frame ready.
-   */
-  getVideoFrame(): { data: Uint8Array; width: number; height: number } | null {
-    return this.native?.getVideoFrame() ?? null
+  getSystemDir(): string {
+    if (!this._systemDir) throw new Error('Core not launched — no system dir available')
+    return this._systemDir
   }
 
-  /**
-   * Get accumulated audio samples. Returns null if none available.
-   */
-  getAudioBuffer(): Int16Array | null {
-    return this.native?.getAudioBuffer() ?? null
+  getSaveDir(): string {
+    return this._saveDir
   }
 
-  /**
-   * Get AV info (geometry + timing) from the loaded game.
-   */
-  getAVInfo() {
-    return this.avInfo
+  getSramDir(): string {
+    return this._sramDir
   }
 
-  /**
-   * Set input for a specific port/button.
-   */
-  setInput(port: number, id: number, pressed: boolean): void {
-    this.native?.setInputState(port, id, pressed ? 1 : 0)
+  getSaveStatesDir(): string {
+    return this._saveStatesDir
   }
 
-  async saveState(slot: number): Promise<void> {
-    if (!this.native || !this.isRunning) {
-      throw new Error('No game running')
-    }
+  // -------------------------------------------------------------------------
+  // Autosave management — filesystem checks before the worker starts
+  // -------------------------------------------------------------------------
 
-    const stateData = this.native.serializeState()
-    if (!stateData) {
-      throw new Error('Failed to serialize state')
-    }
-
-    const statePath = this.getStatePath(slot)
-    fs.mkdirSync(path.dirname(statePath), { recursive: true })
-    fs.writeFileSync(statePath, Buffer.from(stateData.buffer))
-
-    this.emit('stateSaved', { slot })
-  }
-
-  async loadState(slot: number): Promise<void> {
-    if (!this.native || !this.isRunning) {
-      throw new Error('No game running')
-    }
-
-    const statePath = this.getStatePath(slot)
-    if (!fs.existsSync(statePath)) {
-      throw new Error(`No save state in slot ${slot}`)
-    }
-
-    const data = fs.readFileSync(statePath)
-    const stateData = new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
-
-    if (!this.native.unserializeState(stateData)) {
-      throw new Error('Failed to restore state')
-    }
-
-    this.emit('stateLoaded', { slot })
-  }
-
-  async screenshot(outputPath?: string): Promise<string> {
-    if (!this.native || !this.isRunning) {
-      throw new Error('No game running')
-    }
-
-    const frame = this.native.getVideoFrame()
-    if (!frame) {
-      throw new Error('No frame available')
-    }
-
-    // We'll emit the raw frame data and let the renderer handle saving
-    // For now, save as raw RGBA
-    const screenshotDir = path.join(app.getPath('userData'), 'screenshots')
-    fs.mkdirSync(screenshotDir, { recursive: true })
-    const filePath = outputPath || path.join(screenshotDir, `screenshot-${Date.now()}.raw`)
-    fs.writeFileSync(filePath, Buffer.from(frame.data.buffer))
-
-    this.emit('screenshotTaken', { path: filePath })
-    return filePath
-  }
-
-  async pause(): Promise<void> {
-    if (!this.paused) {
-      this.paused = true
-      this.emit('paused')
-    }
-  }
-
-  async resume(): Promise<void> {
-    if (this.paused) {
-      this.paused = false
-      this.emit('resumed')
-    }
-  }
-
-  async reset(): Promise<void> {
-    this.native?.reset()
-    this.emit('reset')
-  }
-
-  async terminate(): Promise<void> {
-    this.stopEmulationLoop()
-    if (this.native) {
-      this.saveSram()
-      this.native.destroy()
-      this.native = null
-    }
-    this.cleanup()
-  }
-
-  protected cleanup(): void {
-    this.stopEmulationLoop()
-    if (this.native) {
-      try { this.saveSram() } catch { /* ignore */ }
-      try { this.native.destroy() } catch { /* ignore */ }
-      this.native = null
-    }
-    this.paused = false
-    this.avInfo = null
-    this.process = null
-    this.isRunning = false
-    this.emit('terminated')
-  }
-
-  isActive(): boolean {
-    return this.isRunning && this.native !== null
-  }
-
-  private stopEmulationLoop(): void {
-    this.emulationRunning = false
-    if (this.emulationTimer) {
-      clearTimeout(this.emulationTimer)
-      this.emulationTimer = null
-    }
-  }
-
-  /**
-   * Check whether an autosave file exists for the currently loaded ROM.
-   */
   hasAutoSave(): boolean {
     return fs.existsSync(this.getAutoSavePath())
   }
 
-  /**
-   * Check whether an autosave exists for a specific ROM path (without needing a loaded game).
-   */
   hasAutoSaveForRom(romPath: string): boolean {
     const romName = path.basename(romPath, path.extname(romPath))
-    return fs.existsSync(path.join(this.saveStatesDir, romName, 'autosave.sav'))
+    return fs.existsSync(path.join(this._saveStatesDir, romName, 'autosave.sav'))
   }
 
-  /** Delete the autosave file for the currently loaded ROM. */
   deleteAutoSave(): void {
     const autoSavePath = this.getAutoSavePath()
     if (fs.existsSync(autoSavePath)) {
@@ -398,10 +139,9 @@ export class LibretroNativeCore extends EmulatorCore {
     }
   }
 
-  /** Delete the autosave file for a specific ROM path. */
   deleteAutoSaveForRom(romPath: string): void {
     const romName = path.basename(romPath, path.extname(romPath))
-    const autoSavePath = path.join(this.saveStatesDir, romName, 'autosave.sav')
+    const autoSavePath = path.join(this._saveStatesDir, romName, 'autosave.sav')
     if (fs.existsSync(autoSavePath)) {
       fs.unlinkSync(autoSavePath)
     }
@@ -409,44 +149,50 @@ export class LibretroNativeCore extends EmulatorCore {
 
   private getAutoSavePath(): string {
     const romName = this.romPath ? path.basename(this.romPath, path.extname(this.romPath)) : 'unknown'
-    return path.join(this.saveStatesDir, romName, 'autosave.sav')
+    return path.join(this._saveStatesDir, romName, 'autosave.sav')
   }
 
-  /** Flush the core's battery-backed SRAM to disk. */
-  saveSram(): void {
-    if (!this.native || !this.romPath) return
-    const sramData = this.native.getMemoryData()
-    if (!sramData || sramData.length === 0) return
+  // -------------------------------------------------------------------------
+  // EmulatorCore abstract method stubs — emulation is driven by the worker
+  // -------------------------------------------------------------------------
 
-    // Check if SRAM is all zeros (no save data)
-    if (sramData.every((b) => b === 0)) return
-
-    const sramPath = this.getSramPath()
-    fs.mkdirSync(path.dirname(sramPath), { recursive: true })
-    fs.writeFileSync(sramPath, Buffer.from(sramData.buffer, sramData.byteOffset, sramData.byteLength))
+  async saveState(_slot: number): Promise<void> {
+    throw new Error('Save state is handled by the emulation worker')
   }
 
-  /** Restore battery-backed SRAM from disk into the core. */
-  private loadSram(): void {
-    if (!this.native || !this.romPath) return
-    const sramPath = this.getSramPath()
-    if (!fs.existsSync(sramPath)) return
-
-    const data = fs.readFileSync(sramPath)
-    const sramData = new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
-    this.native.setMemoryData(sramData)
+  async loadState(_slot: number): Promise<void> {
+    throw new Error('Load state is handled by the emulation worker')
   }
 
-  private getSramPath(): string {
-    const romName = this.romPath ? path.basename(this.romPath, path.extname(this.romPath)) : 'unknown'
-    return path.join(this.sramDir, `${romName}.srm`)
+  async screenshot(_outputPath?: string): Promise<string> {
+    throw new Error('Screenshot is handled by the emulation worker')
   }
 
-  private getStatePath(slot: number): string {
-    const romName = this.romPath ? path.basename(this.romPath, path.extname(this.romPath)) : 'unknown'
-    if (slot === 99) {
-      return path.join(this.saveStatesDir, romName, 'autosave.sav')
-    }
-    return path.join(this.saveStatesDir, romName, `state-${slot}.sav`)
+  async pause(): Promise<void> {
+    this.emit('paused')
+  }
+
+  async resume(): Promise<void> {
+    this.emit('resumed')
+  }
+
+  async reset(): Promise<void> {
+    this.emit('reset')
+  }
+
+  async terminate(): Promise<void> {
+    this.cleanup()
+  }
+
+  protected cleanup(): void {
+    this._corePath = null
+    this._systemDir = null
+    this.process = null
+    this.isRunning = false
+    this.emit('terminated')
+  }
+
+  isActive(): boolean {
+    return this.isRunning
   }
 }

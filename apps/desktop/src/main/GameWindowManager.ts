@@ -3,7 +3,8 @@ import path from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import type { Game } from '../types/library'
-import type { LibretroNativeCore } from './emulator/LibretroNativeCore'
+import type { EmulationWorkerClient } from './emulator/EmulationWorkerClient'
+import type { AVInfo } from './workers/core-worker-protocol'
 import { animateWindowClose } from './windowCloseAnimation'
 import { gameWindowLog } from './logger'
 
@@ -22,7 +23,7 @@ export class GameWindowManager {
   private trackingIntervals = new Map<string, ReturnType<typeof setInterval>>()
   private frameIntervals = new Map<string, ReturnType<typeof setInterval>>()
   private readonly preloadPath: string
-  private activeNativeCore: LibretroNativeCore | null = null
+  private activeWorkerClient: EmulationWorkerClient | null = null
   /** Windows that have completed their shutdown animation and are ready to be destroyed. */
   private readyToCloseWindows = new Set<number>()
   /** Safety timeout handles so we can clear them on cleanup. */
@@ -36,18 +37,26 @@ export class GameWindowManager {
   /**
    * Create a game window in native mode — the game renders inside the
    * BrowserWindow via canvas. Single window, single title bar.
+   *
+   * The emulation loop runs in a utility process managed by the worker
+   * client. This method wires frame/audio/error events from the worker
+   * to the renderer via IPC.
    */
-  createNativeGameWindow(game: Game, nativeCore: LibretroNativeCore, shouldResume = false): BrowserWindow {
+  createNativeGameWindow(
+    game: Game,
+    workerClient: EmulationWorkerClient,
+    avInfo: AVInfo,
+    shouldResume = false,
+  ): BrowserWindow {
     const existingWindow = this.gameWindows.get(game.id)
     if (existingWindow && !existingWindow.isDestroyed()) {
       existingWindow.close()
     }
 
-    const avInfo = nativeCore.getAVInfo()
-    const baseWidth = avInfo?.geometry.baseWidth || 256
-    const baseHeight = avInfo?.geometry.baseHeight || 240
+    const baseWidth = avInfo.geometry.baseWidth || 256
+    const baseHeight = avInfo.geometry.baseHeight || 240
     // Use the core's reported aspect ratio (accounts for non-square pixels like NES 4:3)
-    const aspectRatio = avInfo?.geometry.aspectRatio && avInfo.geometry.aspectRatio > 0
+    const aspectRatio = avInfo.geometry.aspectRatio && avInfo.geometry.aspectRatio > 0
       ? avInfo.geometry.aspectRatio
       : baseWidth / baseHeight
     // Scale up to a reasonable window size (targeting ~720p height)
@@ -87,21 +96,37 @@ export class GameWindowManager {
     gameWindow.webContents.on('did-finish-load', () => {
       gameWindow.webContents.send('game:loaded', game)
       gameWindow.webContents.send('game:mode', 'native')
-
-      if (avInfo) {
-        gameWindow.webContents.send('game:av-info', avInfo)
-      }
-
-      this.startEmulationLoop(game.id, nativeCore, gameWindow)
+      gameWindow.webContents.send('game:av-info', avInfo)
 
       if (shouldResume) {
-        nativeCore.loadState(99).catch((error) => {
+        workerClient.loadState(99).catch((error) => {
           gameWindowLog.error('Failed to load autosave:', error)
         })
       }
     })
 
-    this.activeNativeCore = nativeCore
+    this.activeWorkerClient = workerClient
+
+    // Forward video frames from worker to renderer
+    workerClient.on('videoFrame', (frame: { data: Buffer; width: number; height: number }) => {
+      if (!gameWindow.isDestroyed()) {
+        gameWindow.webContents.send('game:video-frame', frame)
+      }
+    })
+
+    // Forward audio samples from worker to renderer
+    workerClient.on('audioSamples', (audio: { samples: Buffer; sampleRate: number }) => {
+      if (!gameWindow.isDestroyed()) {
+        gameWindow.webContents.send('game:audio-samples', audio)
+      }
+    })
+
+    // Forward fatal errors to renderer
+    workerClient.on('error', (err: { message: string; fatal: boolean }) => {
+      if (err.fatal && !gameWindow.isDestroyed()) {
+        gameWindow.webContents.send('game:emulation-error', { message: err.message })
+      }
+    })
 
     gameWindow.on('close', (event) => {
       const windowId = gameWindow.id
@@ -115,25 +140,24 @@ export class GameWindowManager {
       // Prevent the default close so we can play the shutdown animation
       event.preventDefault()
 
-      // Stop the emulation loop immediately — no more frames while animating
-      this.stopEmulationLoop(game.id)
+      // Pause the worker to stop new frames while we save + animate
+      workerClient.pause()
 
-      // Save game data right away (data is safe before animation begins)
-      try {
-        nativeCore.saveSram()
-      } catch (error) {
-        gameWindowLog.error('Failed to save SRAM on close:', error)
-      }
-      try {
-        nativeCore.saveState(99)
-      } catch (error) {
-        gameWindowLog.error('Failed to autosave on close:', error)
-      }
-
-      // Tell the renderer to start the shutdown animation
-      if (!gameWindow.isDestroyed()) {
-        gameWindow.webContents.send('game:prepare-close')
-      }
+      // Save game data in the worker (async). We proceed with the close
+      // animation even if saves fail — data loss is better than a hung window.
+      Promise.all([
+        workerClient.saveSram().catch((error) => {
+          gameWindowLog.error('Failed to save SRAM on close:', error)
+        }),
+        workerClient.saveState(99).catch((error) => {
+          gameWindowLog.error('Failed to autosave on close:', error)
+        }),
+      ]).then(() => {
+        // Tell the renderer to start the shutdown animation
+        if (!gameWindow.isDestroyed()) {
+          gameWindow.webContents.send('game:prepare-close')
+        }
+      })
 
       // Safety timeout: force-close if the renderer doesn't respond in time
       const timeout = setTimeout(() => {
@@ -155,8 +179,7 @@ export class GameWindowManager {
         this.shutdownTimeouts.delete(windowId)
       }
       this.readyToCloseWindows.delete(windowId)
-      this.stopEmulationLoop(game.id)
-      this.activeNativeCore = null
+      this.activeWorkerClient = null
       this.gameWindows.delete(game.id)
     })
 
@@ -345,79 +368,6 @@ export class GameWindowManager {
     }
   }
 
-  private emulationTimers = new Map<string, ReturnType<typeof setTimeout>>()
-
-  private startEmulationLoop(gameId: string, core: LibretroNativeCore, win: BrowserWindow): void {
-    const avInfo = core.getAVInfo()
-    const fps = avInfo?.timing.fps || 60
-    const frameTimeMs = 1000 / fps
-    const sampleRate = avInfo?.timing.sampleRate || 44100
-
-    let lastTime = performance.now()
-    let consecutiveErrors = 0
-    const MAX_CONSECUTIVE_ERRORS = 5
-
-    const tick = () => {
-      if (win.isDestroyed()) return
-
-      const now = performance.now()
-      const elapsed = now - lastTime
-
-      if (elapsed >= frameTimeMs) {
-        lastTime = now - (elapsed % frameTimeMs) // account for drift
-
-        try {
-          core.runFrame()
-          consecutiveErrors = 0
-        } catch (error) {
-          consecutiveErrors++
-          gameWindowLog.error(`Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, error)
-
-          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-            gameWindowLog.error('Emulation loop terminated after repeated frame errors')
-            this.stopEmulationLoop(gameId)
-            if (!win.isDestroyed()) {
-              win.webContents.send('game:emulation-error', {
-                message: `Emulation crashed: ${error instanceof Error ? error.message : String(error)}`,
-              })
-            }
-            return
-          }
-        }
-
-        const frame = core.getVideoFrame()
-        const audio = core.getAudioBuffer()
-
-        if (frame && !win.isDestroyed()) {
-          win.webContents.send('game:video-frame', {
-            data: Buffer.from(frame.data.buffer, frame.data.byteOffset, frame.data.byteLength),
-            width: frame.width,
-            height: frame.height,
-          })
-        }
-
-        if (audio && audio.length > 0 && !win.isDestroyed()) {
-          win.webContents.send('game:audio-samples', {
-            samples: Buffer.from(audio.buffer, audio.byteOffset, audio.byteLength),
-            sampleRate,
-          })
-        }
-      }
-
-      this.emulationTimers.set(gameId, setTimeout(tick, 1))
-    }
-
-    this.emulationTimers.set(gameId, setTimeout(tick, 1))
-  }
-
-  private stopEmulationLoop(gameId: string): void {
-    const timer = this.emulationTimers.get(gameId)
-    if (timer) {
-      clearTimeout(timer)
-      this.emulationTimers.delete(gameId)
-    }
-  }
-
   closeGameWindow(gameId: string): void {
     this.stopTracking(gameId)
     this.stopFramePush(gameId)
@@ -511,29 +461,10 @@ export class GameWindowManager {
       }
     })
 
-    // Input forwarding from renderer to native core
-    ipcMain.on('game:input', (event, port: number, id: number, pressed: boolean) => {
-      this.emit('input', port, id, pressed)
+    // Input forwarding from renderer to emulation worker
+    ipcMain.on('game:input', (_event, port: number, id: number, pressed: boolean) => {
+      this.activeWorkerClient?.setInput(port, id, pressed)
     })
-  }
-
-  private inputListeners: Array<(port: number, id: number, pressed: boolean) => void> = []
-
-  on(event: string, listener: (...args: any[]) => void): this {
-    if (event === 'input') {
-      this.inputListeners.push(listener as any)
-    }
-    return this
-  }
-
-  private emit(event: string, ...args: any[]): boolean {
-    if (event === 'input') {
-      for (const listener of this.inputListeners) {
-        listener(...(args as [number, number, boolean]))
-      }
-      return true
-    }
-    return false
   }
 
   destroy(): void {
@@ -545,11 +476,7 @@ export class GameWindowManager {
     this.readyToCloseWindows.clear()
 
     this.closeAllGameWindows()
-    this.activeNativeCore = null
-    this.inputListeners = []
-    for (const [gameId] of this.emulationTimers) {
-      this.stopEmulationLoop(gameId)
-    }
+    this.activeWorkerClient = null
     ipcMain.removeAllListeners('game-window:minimize')
     ipcMain.removeAllListeners('game-window:maximize')
     ipcMain.removeAllListeners('game-window:close')

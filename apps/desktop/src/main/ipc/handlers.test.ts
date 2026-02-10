@@ -24,7 +24,10 @@ vi.mock('path', async () => {
 
 vi.mock('../emulator/EmulatorManager');
 vi.mock('../emulator/LibretroNativeCore');
+vi.mock('../emulator/EmulationWorkerClient');
+vi.mock('../emulator/resolveAddonPath');
 vi.mock('../services/LibraryService');
+vi.mock('../services/ArtworkService');
 vi.mock('../GameWindowManager');
 vi.mock('../logger', () => ({
   ipcLog: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
@@ -32,6 +35,8 @@ vi.mock('../logger', () => ({
 
 import { ipcMain, BrowserWindow, dialog } from 'electron';
 import { EmulatorManager } from '../emulator/EmulatorManager';
+import { EmulationWorkerClient } from '../emulator/EmulationWorkerClient';
+import { resolveAddonPath } from '../emulator/resolveAddonPath';
 import { LibraryService } from '../services/LibraryService';
 import { GameWindowManager } from '../GameWindowManager';
 import { IPCHandlers } from './handlers';
@@ -69,7 +74,13 @@ const fakeEvent = {} as any;
 let emulatorManagerInstance: any;
 let libraryServiceInstance: any;
 let gameWindowManagerInstance: any;
+let workerClientInstance: any;
 let emulatorEmitter: EventEmitter;
+
+const fakeAvInfo = {
+  geometry: { baseWidth: 256, baseHeight: 240, maxWidth: 256, maxHeight: 240, aspectRatio: 1.333 },
+  timing: { fps: 60, sampleRate: 44100 },
+};
 
 beforeEach(() => {
   // Reset mock call history but preserve auto-mock structure
@@ -103,9 +114,33 @@ beforeEach(() => {
       saveState: vi.fn(),
       loadState: vi.fn(),
       screenshot: vi.fn(),
+      setWorkerClient: vi.fn(),
     });
     return emulatorManagerInstance;
   } as any);
+
+  // Configure EmulationWorkerClient mock constructor
+  vi.mocked(EmulationWorkerClient).mockImplementation(function (this: Record<string, unknown>) {
+    workerClientInstance = Object.assign(this, {
+      init: vi.fn().mockResolvedValue(fakeAvInfo),
+      setInput: vi.fn(),
+      pause: vi.fn(),
+      resume: vi.fn(),
+      reset: vi.fn(),
+      saveState: vi.fn().mockResolvedValue(undefined),
+      loadState: vi.fn().mockResolvedValue(undefined),
+      saveSram: vi.fn().mockResolvedValue(undefined),
+      screenshot: vi.fn(),
+      shutdown: vi.fn().mockResolvedValue(undefined),
+      destroy: vi.fn().mockResolvedValue(undefined),
+      isRunning: vi.fn(() => true),
+      on: vi.fn(),
+    });
+    return workerClientInstance;
+  } as any);
+
+  // Configure resolveAddonPath mock
+  vi.mocked(resolveAddonPath).mockReturnValue('/fake/addon.node');
 
   // Configure LibraryService mock constructor
   vi.mocked(LibraryService).mockImplementation(function (this: Record<string, unknown>) {
@@ -195,7 +230,7 @@ describe('IPCHandlers', () => {
 
     it('registers exactly the expected number of handle channels', () => {
       const handleCalls = vi.mocked(ipcMain.handle).mock.calls;
-      expect(handleCalls).toHaveLength(26);
+      expect(handleCalls).toHaveLength(34);
     });
   });
 
@@ -260,7 +295,13 @@ describe('IPCHandlers', () => {
 
       const nativeCoreMock = {
         hasAutoSave: vi.fn(() => false),
-        setInput: vi.fn(),
+        deleteAutoSave: vi.fn(),
+        getCorePath: vi.fn(() => '/cores/fceumm.dylib'),
+        getRomPath: vi.fn(() => '/roms/smb.nes'),
+        getSystemDir: vi.fn(() => '/cores'),
+        getSaveDir: vi.fn(() => '/saves'),
+        getSramDir: vi.fn(() => '/saves'),
+        getSaveStatesDir: vi.fn(() => '/savestates'),
       };
       emulatorManagerInstance.getCurrentEmulator.mockReturnValue(nativeCoreMock);
       gameWindowManagerInstance.createNativeGameWindow.mockReturnValue({});
@@ -272,8 +313,19 @@ describe('IPCHandlers', () => {
       expect(emulatorManagerInstance.launchGame).toHaveBeenCalledWith(
         '/roms/smb.nes', 'nes', undefined, undefined, 'fceumm',
       );
+      // Worker client should have been initialized with paths from the native core
+      expect(workerClientInstance.init).toHaveBeenCalledWith({
+        corePath: '/cores/fceumm.dylib',
+        romPath: '/roms/smb.nes',
+        systemDir: '/cores',
+        saveDir: '/saves',
+        sramDir: '/saves',
+        saveStatesDir: '/savestates',
+        addonPath: '/fake/addon.node',
+      });
+      expect(emulatorManagerInstance.setWorkerClient).toHaveBeenCalledWith(workerClientInstance);
       expect(gameWindowManagerInstance.createNativeGameWindow).toHaveBeenCalledWith(
-        fakeGame, nativeCoreMock, false,
+        fakeGame, workerClientInstance, fakeAvInfo, false,
       );
       expect(result).toEqual({ success: true });
     });

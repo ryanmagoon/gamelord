@@ -57,8 +57,22 @@ export const GameWindow: React.FC = () => {
     return (saved as string) || 'default'
   })
   const [showShaderMenu, setShowShaderMenu] = useState(false)
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false)
+  const [showFps, setShowFps] = useState(() => {
+    return localStorage.getItem('gamelord:showFps') === 'true'
+  })
+  const [fps, setFps] = useState(0)
   const [isPoweringOn, setIsPoweringOn] = useState(true)
   const [isPoweringOff, setIsPoweringOff] = useState(false)
+
+  // Memoize power animation callbacks so they have stable references.
+  // CRTAnimation's useEffect depends on `onComplete` — an inline arrow
+  // function would create a new reference on every parent re-render,
+  // restarting the animation's timers each time GameWindow re-renders
+  // (e.g., when game:loaded, game:mode, or game:av-info events arrive
+  // and trigger state updates during the power-on sequence).
+  const handlePowerOnComplete = useCallback(() => setIsPoweringOn(false), [])
+  const handlePowerOffComplete = useCallback(() => api.gameWindow.readyToClose(), [api])
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -66,6 +80,11 @@ export const GameWindow: React.FC = () => {
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioNextTimeRef = useRef(0)
   const gainNodeRef = useRef<GainNode | null>(null)
+  const pendingFrameRef = useRef<any>(null)
+  const rafIdRef = useRef<number>(0)
+  const lastFrameTimeRef = useRef(0)
+  const fpsEmaRef = useRef(0)
+  const rafFrameCountRef = useRef(0)
   const [gameAspectRatio, setGameAspectRatio] = useState<number | null>(null)
 
   // Gamepad polling — uses same api.gameInput() pipeline as keyboard
@@ -73,6 +92,11 @@ export const GameWindow: React.FC = () => {
     gameInput: api.gameInput,
     enabled: mode === 'native' && !isPaused,
   })
+
+  // Ref to the latest updateCanvasSize — allows the IPC effect to call
+  // it without depending on it (which would cause listener re-registration).
+  // noop placeholder — immediately overwritten on the next line
+  const updateCanvasSizeRef = useRef<() => void>(Function.prototype as () => void)
 
   // Resize handler extracted so it can be called from multiple places
   const updateCanvasSize = useCallback(() => {
@@ -120,7 +144,26 @@ export const GameWindow: React.FC = () => {
     }
   }, [gameAspectRatio])
 
+  // Keep the ref in sync with the latest callback identity
+  updateCanvasSizeRef.current = updateCanvasSize
+
   useEffect(() => {
+    // Remove any stale listeners BEFORE registering new ones. This is
+    // critical because React Strict Mode (dev) double-mounts components,
+    // and Vite HMR can re-execute modules without triggering cleanup.
+    // Without this, listeners accumulate and each IPC event fires
+    // multiple callbacks — causing audio to play 2-3x simultaneously
+    // and animations to replay.
+    api.removeAllListeners('game:loaded')
+    api.removeAllListeners('game:mode')
+    api.removeAllListeners('overlay:show-controls')
+    api.removeAllListeners('emulator:paused')
+    api.removeAllListeners('emulator:resumed')
+    api.removeAllListeners('game:av-info')
+    api.removeAllListeners('game:video-frame')
+    api.removeAllListeners('game:audio-samples')
+    api.removeAllListeners('game:prepare-close')
+
     api.on('game:loaded', (gameData: Game) => {
       setGame(gameData)
     })
@@ -141,6 +184,7 @@ export const GameWindow: React.FC = () => {
       setIsPoweringOff(true)
       setShowControls(false)
       setShowShaderMenu(false)
+      setShowSettingsMenu(false)
     })
 
     api.on('game:av-info', (avInfo: any) => {
@@ -164,7 +208,7 @@ export const GameWindow: React.FC = () => {
       if (!rendererRef.current) {
         try {
           // Set initial canvas size based on container
-          updateCanvasSize()
+          updateCanvasSizeRef.current()
 
           const renderer = new WebGLRenderer(canvas)
           renderer.initialize()
@@ -173,19 +217,57 @@ export const GameWindow: React.FC = () => {
           rendererRef.current = renderer
 
           // Ensure canvas is properly sized after renderer is ready
-          requestAnimationFrame(() => updateCanvasSize())
+          requestAnimationFrame(() => updateCanvasSizeRef.current())
+
+          // Start the rAF render loop — draws the latest buffered frame
+          // each display vsync instead of rendering directly from IPC events.
+          // Also measures FPS via exponential moving average of frame deltas.
+          const renderLoop = (timestamp: number) => {
+            if (lastFrameTimeRef.current > 0) {
+              const delta = timestamp - lastFrameTimeRef.current
+              if (delta > 0) {
+                const instantFps = 1000 / delta
+                fpsEmaRef.current = fpsEmaRef.current === 0
+                  ? instantFps
+                  : 0.9 * fpsEmaRef.current + 0.1 * instantFps
+                rafFrameCountRef.current++
+                // Update React state every 30 frames (~500ms) to avoid re-render overhead
+                if (rafFrameCountRef.current % 30 === 0) {
+                  setFps(Math.round(fpsEmaRef.current))
+                }
+              }
+            }
+            lastFrameTimeRef.current = timestamp
+
+            const frame = pendingFrameRef.current
+            if (frame && rendererRef.current) {
+              pendingFrameRef.current = null
+              rendererRef.current.renderFrame(frame)
+            }
+            rafIdRef.current = requestAnimationFrame(renderLoop)
+          }
+          rafIdRef.current = requestAnimationFrame(renderLoop)
         } catch (error) {
           console.error('Failed to initialize WebGL renderer:', error)
           return
         }
       }
 
-      rendererRef.current.renderFrame(frameData)
+      // Buffer the latest frame — the rAF loop will pick it up on the
+      // next display vsync. If multiple IPC frames arrive between vsyncs,
+      // only the most recent one is drawn (natural frame skipping).
+      pendingFrameRef.current = frameData
     })
 
     api.on('game:audio-samples', (audioData: any) => {
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext({ sampleRate: audioData.sampleRate })
+        // Pre-buffer: schedule the first chunk slightly in the future so
+        // subsequent chunks arrive before their playback time, absorbing
+        // the jitter introduced by the utility-process → main → renderer
+        // double-IPC hop. Without this, chunks arrive too late and we
+        // constantly snap to `now`, creating micro-gaps that sound like
+        // crackling.
         audioNextTimeRef.current = 0
         gainNodeRef.current = audioContextRef.current.createGain()
         gainNodeRef.current.gain.value = isMuted ? 0 : volume
@@ -193,7 +275,10 @@ export const GameWindow: React.FC = () => {
       }
 
       const ctx = audioContextRef.current
-      const samples = new Int16Array(audioData.samples.buffer)
+      // audioData.samples arrives as Uint8Array after Electron IPC.
+      // Interpret the raw bytes as interleaved stereo Int16 samples.
+      const raw: Uint8Array = audioData.samples
+      const samples = new Int16Array(raw.buffer, raw.byteOffset, raw.byteLength / 2)
       const frames = samples.length / 2
 
       if (frames > 0) {
@@ -211,16 +296,36 @@ export const GameWindow: React.FC = () => {
         source.connect(gainNodeRef.current!)
 
         // Schedule seamlessly after the previous chunk.
-        // Cap how far ahead we can buffer to prevent audio lag buildup:
-        // if we're more than 80ms ahead of real time, drop this chunk
-        // and reset the schedule to prevent growing desync.
+        //
+        // The emulation worker sends audio chunks every ~16.6ms, but they
+        // traverse two IPC hops (utility process → main → renderer) which
+        // adds variable latency. Strategy:
+        //
+        // - On first chunk, schedule slightly ahead (`now + PRE_BUFFER_S`)
+        //   to build a cushion that absorbs jitter.
+        // - On subsequent chunks, append to the previous chunk's end time
+        //   — if the buffer hasn't underrun, chunks queue seamlessly.
+        // - On underrun (audioNextTime fell behind `now`), schedule at
+        //   `now` to avoid an audible gap. The pre-buffer rebuilds
+        //   naturally because the worker's frame-locked timing produces
+        //   samples at the exact hardware rate.
+        // - If too far ahead (>MAX_LOOKAHEAD_S), snap back to avoid
+        //   perceptible audio lag.
+        const PRE_BUFFER_S = 0.06 // 60ms initial pre-buffer
+        const MAX_LOOKAHEAD_S = 0.12 // 120ms max ahead before reset
+
         const now = ctx.currentTime
-        if (audioNextTimeRef.current < now) {
+        if (audioNextTimeRef.current === 0) {
+          // First chunk — establish the initial pre-buffer
+          audioNextTimeRef.current = now + PRE_BUFFER_S
+        } else if (audioNextTimeRef.current < now) {
+          // Underrun — schedule immediately to minimize the gap.
+          // Don't add PRE_BUFFER_S here; that would create a silent gap.
+          // The pre-buffer rebuilds naturally over subsequent chunks.
           audioNextTimeRef.current = now
-        }
-        const maxLookahead = 0.08 // 80ms max buffer ahead of real time
-        if (audioNextTimeRef.current > now + maxLookahead) {
-          audioNextTimeRef.current = now
+        } else if (audioNextTimeRef.current > now + MAX_LOOKAHEAD_S) {
+          // Too far ahead — reset to avoid perceptible audio lag
+          audioNextTimeRef.current = now + PRE_BUFFER_S
         }
         source.start(audioNextTimeRef.current)
         audioNextTimeRef.current += buffer.duration
@@ -238,6 +343,9 @@ export const GameWindow: React.FC = () => {
       api.removeAllListeners('game:audio-samples')
       api.removeAllListeners('game:prepare-close')
 
+      cancelAnimationFrame(rafIdRef.current)
+      pendingFrameRef.current = null
+
       rendererRef.current?.destroy()
       rendererRef.current = null
 
@@ -246,7 +354,10 @@ export const GameWindow: React.FC = () => {
         audioContextRef.current = null
       }
     }
-  }, [api, updateCanvasSize])
+  // IPC listeners must only be registered once. updateCanvasSize is accessed
+  // via ref to avoid re-registering listeners when gameAspectRatio changes.
+  // Dependencies intentionally limited to [api] (stable singleton).
+  }, [api])
 
   // Handle canvas resize for WebGL viewport
   useEffect(() => {
@@ -274,6 +385,11 @@ export const GameWindow: React.FC = () => {
     localStorage.setItem('gamelord:volume', String(volume))
     localStorage.setItem('gamelord:muted', String(isMuted))
   }, [volume, isMuted])
+
+  // Persist FPS overlay preference
+  useEffect(() => {
+    localStorage.setItem('gamelord:showFps', String(showFps))
+  }, [showFps])
 
   // Sync traffic light visibility with controls overlay (hide during shutdown)
   useEffect(() => {
@@ -422,7 +538,7 @@ export const GameWindow: React.FC = () => {
         <PowerAnimation
           displayType={displayType}
           direction="on"
-          onComplete={() => setIsPoweringOn(false)}
+          onComplete={handlePowerOnComplete}
         />
       )}
 
@@ -431,7 +547,7 @@ export const GameWindow: React.FC = () => {
         <PowerAnimation
           displayType={displayType}
           direction="off"
-          onComplete={() => api.gameWindow.readyToClose()}
+          onComplete={handlePowerOffComplete}
         />
       )}
 
@@ -452,6 +568,13 @@ export const GameWindow: React.FC = () => {
         </div>
       )}
 
+      {/* FPS overlay */}
+      {isNative && showFps && (
+        <div className="absolute top-2 left-2 z-40 px-2 py-1 bg-black/60 rounded text-xs font-mono text-green-400 pointer-events-none select-none">
+          {fps} FPS
+        </div>
+      )}
+
       {/* Top control bar (draggable title area) — slides up on close */}
       <div
         className={`absolute top-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
@@ -463,7 +586,7 @@ export const GameWindow: React.FC = () => {
         onMouseEnter={handleControlsEnter}
         onMouseLeave={handleControlsLeave}
       >
-        <div className="flex items-center justify-center px-4 py-2 bg-black/75 backdrop-blur-md shadow-lg select-none">
+        <div className="flex items-center justify-center px-4 py-2 bg-black/80 shadow-lg select-none">
           <div className="flex items-center gap-3">
             <h1 className="text-white font-semibold">{game.title}</h1>
             <span className="text-gray-400 text-sm">{game.system}</span>
@@ -482,7 +605,7 @@ export const GameWindow: React.FC = () => {
         onMouseEnter={handleControlsEnter}
         onMouseLeave={handleControlsLeave}
       >
-        <div className="flex items-center justify-between px-6 py-4 bg-black/75 backdrop-blur-md shadow-lg">
+        <div className="flex items-center justify-between px-6 py-4 bg-black/80 shadow-lg">
           {/* Playback controls */}
           <div className="flex items-center gap-2">
             <Button
@@ -596,7 +719,7 @@ export const GameWindow: React.FC = () => {
                 <Monitor className="h-5 w-5" />
               </Button>
               {showShaderMenu && (
-                <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-md rounded-lg shadow-lg py-1 min-w-[160px]">
+                <div className="absolute bottom-full right-0 mb-2 bg-black/95 rounded-lg shadow-lg py-1 min-w-[160px]">
                   {SHADER_PRESETS.map((preset) => (
                     <button
                       key={preset}
@@ -621,13 +744,30 @@ export const GameWindow: React.FC = () => {
                 <Gamepad2 className="h-4 w-4" />
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/10"
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSettingsMenu((v) => !v)}
+                className="text-white hover:bg-white/10"
+                title="Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+              {showSettingsMenu && (
+                <div className="absolute bottom-full right-0 mb-2 bg-black/95 rounded-lg shadow-lg py-1 min-w-[160px]">
+                  <button
+                    onClick={() => setShowFps((v) => !v)}
+                    className="w-full flex items-center justify-between px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                  >
+                    <span>Show FPS</span>
+                    <span className={`ml-3 text-xs font-medium ${showFps ? 'text-green-400' : 'text-white/40'}`}>
+                      {showFps ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

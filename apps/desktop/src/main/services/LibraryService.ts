@@ -119,6 +119,10 @@ export class LibraryService {
     return this.config.systems;
   }
 
+  public getGame(gameId: string): Game | undefined {
+    return this.games.get(gameId);
+  }
+
   public getGames(systemId?: string): Game[] {
     const games = Array.from(this.games.values());
     if (systemId) {
