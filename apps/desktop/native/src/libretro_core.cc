@@ -30,6 +30,7 @@ Napi::Object LibretroCore::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("getMemoryData", &LibretroCore::GetMemoryData),
     InstanceMethod("getMemorySize", &LibretroCore::GetMemorySize),
     InstanceMethod("setMemoryData", &LibretroCore::SetMemoryData),
+    InstanceMethod("getLogMessages", &LibretroCore::GetLogMessages),
   });
 
   Napi::FunctionReference *constructor = new Napi::FunctionReference();
@@ -767,14 +768,30 @@ void LibretroCore::LogCallback(enum retro_log_level level, const char *fmt, ...)
   vsnprintf(buf, sizeof(buf), fmt, args);
   va_end(args);
 
-  const char *level_str = "INFO";
-  switch (level) {
-    case RETRO_LOG_DEBUG: level_str = "DEBUG"; break;
-    case RETRO_LOG_INFO:  level_str = "INFO";  break;
-    case RETRO_LOG_WARN:  level_str = "WARN";  break;
-    case RETRO_LOG_ERROR: level_str = "ERROR"; break;
-    default: break;
+  if (s_instance) {
+    std::lock_guard<std::mutex> lock(s_instance->log_mutex_);
+    if (s_instance->log_buffer_.size() < MAX_LOG_ENTRIES) {
+      s_instance->log_buffer_.push_back({static_cast<int>(level), std::string(buf)});
+    }
+  }
+}
+
+Napi::Value LibretroCore::GetLogMessages(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+
+  std::vector<LogEntry> entries;
+  {
+    std::lock_guard<std::mutex> lock(log_mutex_);
+    entries.swap(log_buffer_);
   }
 
-  fprintf(stderr, "[libretro %s] %s", level_str, buf);
+  Napi::Array result = Napi::Array::New(env, entries.size());
+  for (size_t i = 0; i < entries.size(); i++) {
+    Napi::Object entry = Napi::Object::New(env);
+    entry.Set("level", Napi::Number::New(env, entries[i].level));
+    entry.Set("message", Napi::String::New(env, entries[i].message));
+    result.Set(static_cast<uint32_t>(i), entry);
+  }
+
+  return result;
 }

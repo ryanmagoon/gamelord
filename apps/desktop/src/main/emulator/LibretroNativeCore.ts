@@ -5,6 +5,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import { app } from 'electron'
 import { validateCorePath, validateRomPath } from '../utils/pathValidation'
+import { emulatorLog, libretroLog } from '../logger'
 
 /**
  * Native addon type declarations for the libretro_native module.
@@ -52,6 +53,7 @@ interface NativeLibretroCore {
   getMemoryData(memType?: number): Uint8Array | null
   getMemorySize(memType?: number): number
   setMemoryData(data: Uint8Array, memType?: number): void
+  getLogMessages(): Array<{ level: number; message: string }>
 }
 
 interface NativeAddon {
@@ -74,7 +76,7 @@ function loadNativeAddon(): NativeAddon {
   const errors: string[] = []
   for (const p of possiblePaths) {
     const exists = fs.existsSync(p)
-    console.log(`[LibretroNativeCore] Trying path: ${p} (exists: ${exists})`)
+    emulatorLog.debug(`Trying native addon path: ${p} (exists: ${exists})`)
     if (exists) {
       try {
         // Dynamic require is necessary: native .node addons must be loaded at runtime from a path
@@ -84,11 +86,11 @@ function loadNativeAddon(): NativeAddon {
         // TODO: replace with createRequire or single known path — https://github.com/ryanmagoon/gamelord/issues/10
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const addon = require(p) as NativeAddon
-        console.log(`[LibretroNativeCore] Successfully loaded from: ${p}`)
+        emulatorLog.info(`Native addon loaded from: ${p}`)
         return addon
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err)
-        console.error(`[LibretroNativeCore] Failed to require ${p}: ${errMsg}`)
+        emulatorLog.error(`Failed to require native addon at ${p}: ${errMsg}`)
         errors.push(`${p}: ${errMsg}`)
       }
     }
@@ -208,10 +210,27 @@ export class LibretroNativeCore extends EmulatorCore {
 
   /**
    * Run one frame of emulation. Called by GameWindowManager at display rate.
+   * Also drains buffered log messages from the native addon.
    */
   runFrame(): void {
     if (!this.paused && this.native && this.emulationRunning) {
       this.native.run()
+      this.drainNativeLogs()
+    }
+  }
+
+  /** Forward buffered native addon log messages to the structured logger. */
+  private drainNativeLogs(): void {
+    if (!this.native) return
+    const messages = this.native.getLogMessages()
+    for (const { level, message } of messages) {
+      switch (level) {
+        case 0: libretroLog.debug(message.trimEnd()); break
+        case 1: libretroLog.info(message.trimEnd()); break
+        case 2: libretroLog.warn(message.trimEnd()); break
+        case 3: libretroLog.error(message.trimEnd()); break
+        default: libretroLog.info(message.trimEnd()); break
+      }
     }
   }
 

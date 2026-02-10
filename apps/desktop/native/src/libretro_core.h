@@ -46,6 +46,7 @@ private:
   Napi::Value GetMemoryData(const Napi::CallbackInfo &info);
   Napi::Value GetMemorySize(const Napi::CallbackInfo &info);
   void SetMemoryData(const Napi::CallbackInfo &info);
+  Napi::Value GetLogMessages(const Napi::CallbackInfo &info);
 
   // Internal
   void CloseCore();
@@ -117,6 +118,15 @@ private:
   std::mutex input_mutex_;
   // input_state_[port][id] = pressed
   int16_t input_state_[2][16] = {};
+
+  // Log message buffer (written by callback, read by JS)
+  struct LogEntry {
+    int level; // RETRO_LOG_DEBUG=0, INFO=1, WARN=2, ERROR=3
+    std::string message;
+  };
+  static constexpr size_t MAX_LOG_ENTRIES = 256;
+  std::mutex log_mutex_;
+  std::vector<LogEntry> log_buffer_;
 
   // Directories
   std::string system_directory_;
