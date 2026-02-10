@@ -149,4 +149,30 @@ describe('GameCard', () => {
       expect(img!.className).not.toContain('animate-artwork-dissolve-in')
     })
   })
+
+  describe('dynamic aspect ratio', () => {
+    it('uses coverArtAspectRatio for card aspect ratio when provided', () => {
+      const onPlay = vi.fn()
+      const gameWithRatio = { ...mockGame, coverArtAspectRatio: 0.714 }
+      const { container } = render(
+        <GameCard game={gameWithRatio} onPlay={onPlay} />
+      )
+
+      // The aspect-ratio container div is the first child of CardContent
+      const aspectDiv = container.querySelector('[style*="aspect-ratio"]')
+      expect(aspectDiv).not.toBeNull()
+      expect(aspectDiv!.getAttribute('style')).toContain('0.714')
+    })
+
+    it('defaults to 0.75 (3:4) aspect ratio when coverArtAspectRatio is not provided', () => {
+      const onPlay = vi.fn()
+      const { container } = render(
+        <GameCard game={mockGame} onPlay={onPlay} />
+      )
+
+      const aspectDiv = container.querySelector('[style*="aspect-ratio"]')
+      expect(aspectDiv).not.toBeNull()
+      expect(aspectDiv!.getAttribute('style')).toContain('0.75')
+    })
+  })
 })

@@ -173,7 +173,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
       {viewMode === 'grid' ? (
         <div
           ref={gridRef}
-          className="relative grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+          className="relative grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 items-start"
         >
           {flipItems.map((flipItem) => (
             <GameCard
