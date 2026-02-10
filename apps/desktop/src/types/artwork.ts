@@ -37,6 +37,8 @@ export interface ArtworkProgress {
   errorCode?: ArtworkErrorCode;
   /** The artwork:// URL for the downloaded cover art. Present when phase is 'done'. */
   coverArt?: string;
+  /** Width/height ratio of the downloaded artwork. Present when phase is 'done'. */
+  coverArtAspectRatio?: number;
 }
 
 export interface ArtworkSyncStatus {

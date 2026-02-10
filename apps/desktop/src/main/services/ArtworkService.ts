@@ -16,6 +16,7 @@ import {
   ScreenScraperCredentials,
   ScreenScraperGameInfo,
 } from '../../types/artwork';
+import { readImageDimensions } from '../utils/readImageDimensions';
 
 /** Minimum delay between API requests in milliseconds. */
 const RATE_LIMIT_DELAY_MS = 1100;
@@ -180,10 +181,19 @@ export class ArtworkService extends EventEmitter {
     // Step 4: Download artwork
     const artworkUrl = gameInfo.media.boxArt2d ?? gameInfo.media.boxArt3d ?? gameInfo.media.screenshot;
     let coverArtPath: string | undefined;
+    let coverArtAspectRatio: number | undefined;
     if (artworkUrl) {
       try {
         const extension = this.getImageExtension(artworkUrl);
         coverArtPath = await this.downloadArtwork(artworkUrl, `${gameId}${extension}`);
+
+        // Extract image dimensions to compute aspect ratio for dynamic card sizing
+        const dimensions = await readImageDimensions(coverArtPath);
+        if (dimensions) {
+          const rawRatio = dimensions.width / dimensions.height;
+          // Clamp to [0.5, 1.2] to prevent extreme ratios from bad art
+          coverArtAspectRatio = Math.max(0.5, Math.min(1.2, rawRatio));
+        }
       } catch (error) {
         // Download failed — log but still save metadata
         artworkLog.error(`Artwork download failed for ${game.title}:`, error instanceof Error ? error.message : error);
@@ -193,6 +203,7 @@ export class ArtworkService extends EventEmitter {
     // Step 5: Update game record
     await this.libraryService.updateGame(gameId, {
       ...(coverArtPath ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl!)}` } : {}),
+      ...(coverArtAspectRatio !== undefined ? { coverArtAspectRatio } : {}),
       metadata: {
         developer: gameInfo.developer,
         publisher: gameInfo.publisher,
@@ -389,6 +400,7 @@ export class ArtworkService extends EventEmitter {
             current: processed + 1,
             total,
             coverArt: updatedGame?.coverArt,
+            coverArtAspectRatio: updatedGame?.coverArtAspectRatio,
           });
         } else {
           notFound++;

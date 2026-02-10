@@ -130,7 +130,9 @@ export const LibraryView: React.FC<{
         // reload, which causes layout reflow and FLIP recalculation jank.
         if (progress.coverArt) {
           setGames(prev => prev.map(g =>
-            g.id === progress.gameId ? { ...g, coverArt: progress.coverArt } : g
+            g.id === progress.gameId
+              ? { ...g, coverArt: progress.coverArt, coverArtAspectRatio: progress.coverArtAspectRatio }
+              : g
           ))
         }
       } else if (progress.phase === 'not-found') {
@@ -581,6 +583,7 @@ export const LibraryView: React.FC<{
               systemId: game.systemId,
               genre: game.metadata?.genre,
               coverArt: game.coverArt,
+              coverArtAspectRatio: game.coverArtAspectRatio,
               romPath: game.romPath,
               lastPlayed: game.lastPlayed,
               playTime: game.playTime,
