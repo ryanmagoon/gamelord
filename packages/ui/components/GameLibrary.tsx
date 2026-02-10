@@ -182,7 +182,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
               game={flipItem.item}
               onPlay={onPlayGame}
               onOptions={onGameOptions}
-              menuItems={getMenuItems?.(flipItem.item)}
+              getMenuItems={getMenuItems}
               artworkSyncPhase={artworkSyncPhases?.get(flipItem.item.id)}
               className={cn(
                 (flipItem.item.coverArtAspectRatio ?? 0.75) > 1 ? 'col-span-3' : 'col-span-2',

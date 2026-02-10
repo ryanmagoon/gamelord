@@ -43,6 +43,8 @@ export interface GameCardProps {
   onOptions?: (game: Game) => void
   /** Menu items shown in the options dropdown on hover. */
   menuItems?: GameCardMenuItem[]
+  /** Factory function that returns menu items. Called lazily when dropdown opens. Preferred over menuItems for memoization. */
+  getMenuItems?: (game: Game) => GameCardMenuItem[]
   /**
    * Current artwork sync phase for this card.
    * Active phases show TV static, 'done' triggers a dissolve-in transition,
@@ -63,16 +65,19 @@ const PHASE_STATUS_TEXT: Partial<Record<NonNullable<ArtworkSyncPhase>, string>> 
   downloading: 'Downloading...',
 }
 
-export const GameCard: React.FC<GameCardProps> = ({
+export const GameCard: React.FC<GameCardProps> = React.memo(({
   game,
   onPlay,
   onOptions,
-  menuItems,
+  menuItems: menuItemsProp,
+  getMenuItems,
   artworkSyncPhase,
   className,
   style,
   ref,
 }) => {
+  // Resolve menu items: prefer lazy factory over static array
+  const menuItems = menuItemsProp ?? (getMenuItems ? getMenuItems(game) : undefined)
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault()
     onPlay(game)
@@ -285,4 +290,16 @@ export const GameCard: React.FC<GameCardProps> = ({
       </CardContent>
     </Card>
   )
-}
+}, (prev, next) => {
+  // Custom comparator: skip menuItems/getMenuItems reference checks
+  // (menuItems are generated lazily, getMenuItems is a stable factory)
+  return (
+    prev.game === next.game &&
+    prev.onPlay === next.onPlay &&
+    prev.onOptions === next.onOptions &&
+    prev.artworkSyncPhase === next.artworkSyncPhase &&
+    prev.className === next.className &&
+    prev.style === next.style &&
+    prev.ref === next.ref
+  )
+})
