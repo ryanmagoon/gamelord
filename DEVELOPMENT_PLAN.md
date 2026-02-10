@@ -115,6 +115,16 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Grid view with cover art thumbnails
 - [ ] Search, filter, and sorting
 - [ ] Recently played tracking
+- [ ] **Rating display** — Show ScreenScraper community rating on cards or in a detail view. Already stored as `metadata.rating` (0–1 scale). Consider a 5-star or 10-point visual treatment.
+- [ ] **Game detail panel** — Slide-out or modal panel showing full metadata: description, developer, publisher, release date, genre, player count, rating, and screenshots. Triggered by selecting a game (not launching it).
+- [ ] **Filter by genre** — Genre is already stored per-game from ScreenScraper. Add a genre filter dropdown alongside the existing platform filter.
+- [ ] **Filter by player count** — Filter to show only single-player, multiplayer, or N+ player games using `metadata.players`.
+- [ ] **Filter by decade/era** — Group games by release decade (80s, 90s, 2000s) using `metadata.releaseDate`.
+- [ ] **Sort by rating** — Add rating as a sort option in the library toolbar.
+- [ ] **Favorites** — Toggle favorite on games (field already exists on Game type). Add a "Favorites" filter and sort favorites to the top.
+- [ ] **Play count & stats** — Track number of play sessions (not just total time). Show "most played" sorting and a stats view with play history over time.
+- [ ] **Completion status** — Let users tag games as "Not Started", "In Progress", "Completed", or "Abandoned". Filterable.
+- [ ] **Collections / tags** — User-created collections (e.g. "Couch Co-op", "RPG Marathon", "Childhood Favorites") for organizing games beyond system/genre.
 
 ### P5 — Controls & Input
 
@@ -162,6 +172,7 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P8 — UI Polish
 
+- [ ] **Artwork load animation polish** — The `useAspectRatioTransition` hook and dissolve-in animation exist but the card resize isn't visibly smooth when artwork arrives. Debug and polish: coordinate the art dissolve-in with the card height transition so they feel like one fluid motion, test with both portrait and landscape art, and ensure cards already loaded with art skip the animation entirely.
 - [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers)
 - [x] Shader/filter selection (CRT, CRT Aperture, Scanlines, LCD, Sharp Bilinear via WebGL2)
 - [ ] Explore loading Slang (.slang/.slangp) shaders from the libretro shader ecosystem
