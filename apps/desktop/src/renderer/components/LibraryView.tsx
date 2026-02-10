@@ -352,7 +352,11 @@ export const LibraryView: React.FC<{
       setShowCredentialsDialog(true)
       return
     }
-    await api.artwork.syncAll()
+    // Sort by title so artwork loads in the same order the user sees in the grid
+    const sortedIds = [...games]
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .map(g => g.id)
+    await api.artwork.syncGames(sortedIds)
   }
 
   const handleCancelArtworkSync = async () => {
@@ -436,9 +440,26 @@ export const LibraryView: React.FC<{
     await loadLibrary()
   }
 
-  const filteredGames = selectedSystem
-    ? games.filter((game) => game.systemId === selectedSystem)
-    : games
+  const filteredGames = useMemo(
+    () => selectedSystem ? games.filter((game) => game.systemId === selectedSystem) : games,
+    [games, selectedSystem],
+  )
+
+  const uiGames = useMemo<UiGame[]>(
+    () => filteredGames.map((game) => ({
+      id: game.id,
+      title: game.title,
+      platform: game.system,
+      systemId: game.systemId,
+      genre: game.metadata?.genre,
+      coverArt: game.coverArt,
+      coverArtAspectRatio: game.coverArtAspectRatio,
+      romPath: game.romPath,
+      lastPlayed: game.lastPlayed,
+      playTime: game.playTime,
+    })),
+    [filteredGames],
+  )
 
   if (loading) {
     return (
@@ -573,21 +594,10 @@ export const LibraryView: React.FC<{
       )}
 
       {/* Game library */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-4" style={{ scrollbarGutter: 'stable' }}>
         {filteredGames.length > 0 ? (
           <GameLibrary
-            games={filteredGames.map<UiGame>((game) => ({
-              id: game.id,
-              title: game.title,
-              platform: game.system,
-              systemId: game.systemId,
-              genre: game.metadata?.genre,
-              coverArt: game.coverArt,
-              coverArtAspectRatio: game.coverArtAspectRatio,
-              romPath: game.romPath,
-              lastPlayed: game.lastPlayed,
-              playTime: game.playTime,
-            }))}
+            games={uiGames}
             onPlayGame={(g) => {
               void handlePlayUiGame(g)
             }}

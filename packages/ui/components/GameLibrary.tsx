@@ -173,7 +173,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
       {viewMode === 'grid' ? (
         <div
           ref={gridRef}
-          className="relative grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 items-start"
+          className="relative grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1 items-start"
         >
           {flipItems.map((flipItem) => (
             <GameCard
@@ -185,6 +185,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
               menuItems={getMenuItems?.(flipItem.item)}
               artworkSyncPhase={artworkSyncPhases?.get(flipItem.item.id)}
               className={cn(
+                (flipItem.item.coverArtAspectRatio ?? 0.75) > 1 ? 'col-span-3' : 'col-span-2',
                 flipItem.animationState === 'entering' && 'animate-card-enter',
                 flipItem.animationState === 'exiting' && 'animate-card-exit',
               )}
