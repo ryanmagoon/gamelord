@@ -6,6 +6,7 @@ import type { Game } from '../types/library'
 import type { EmulationWorkerClient } from './emulator/EmulationWorkerClient'
 import type { AVInfo } from './workers/core-worker-protocol'
 import { animateWindowClose } from './windowCloseAnimation'
+import { gameWindowLog } from './logger'
 
 const execFileAsync = promisify(execFile)
 
@@ -99,7 +100,7 @@ export class GameWindowManager {
 
       if (shouldResume) {
         workerClient.loadState(99).catch((error) => {
-          console.error('Failed to load autosave:', error)
+          gameWindowLog.error('Failed to load autosave:', error)
         })
       }
     })
@@ -146,10 +147,10 @@ export class GameWindowManager {
       // animation even if saves fail — data loss is better than a hung window.
       Promise.all([
         workerClient.saveSram().catch((error) => {
-          console.error('Failed to save SRAM on close:', error)
+          gameWindowLog.error('Failed to save SRAM on close:', error)
         }),
         workerClient.saveState(99).catch((error) => {
-          console.error('Failed to autosave on close:', error)
+          gameWindowLog.error('Failed to autosave on close:', error)
         }),
       ]).then(() => {
         // Tell the renderer to start the shutdown animation
@@ -263,7 +264,7 @@ export class GameWindowManager {
   startTrackingRetroArchWindow(gameId: string, pid: number): void {
     const gameWindow = this.gameWindows.get(gameId)
     if (!gameWindow || gameWindow.isDestroyed()) {
-      console.warn(`Game window for ${gameId} not found or destroyed`)
+      gameWindowLog.warn(`Game window for ${gameId} not found or destroyed`)
       return
     }
 

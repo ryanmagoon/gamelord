@@ -1,8 +1,9 @@
-import { promises as fs } from 'fs';
+import { promises as fs, createReadStream } from 'fs';
 import path from 'path';
 import { app } from 'electron';
 import { Game, GameSystem, LibraryConfig, DEFAULT_SYSTEMS } from '../../types/library';
 import crypto from 'crypto';
+import { libraryLog } from '../logger';
 
 export class LibraryService {
   private config: LibraryConfig;
@@ -48,9 +49,36 @@ export class LibraryService {
       const data = await fs.readFile(this.libraryPath, 'utf-8');
       const games: Game[] = JSON.parse(data);
       this.games = new Map(games.map(game => [game.id, game]));
+      await this.migrateGameIds();
     } catch (error) {
       // No library file yet
       this.games = new Map();
+    }
+  }
+
+  private async migrateGameIds(): Promise<void> {
+    let migrated = false;
+    const entriesToMigrate: Array<{ oldId: string; game: Game }> = [];
+
+    for (const [id, game] of this.games.entries()) {
+      // Old MD5 hashes are 32 hex chars; new SHA-256 hashes are 64
+      if (id.length === 32 && /^[0-9a-f]+$/.test(id)) {
+        entriesToMigrate.push({ oldId: id, game });
+      }
+    }
+
+    for (const { oldId, game } of entriesToMigrate) {
+      const newId = await this.generateGameId(game.romPath);
+      if (newId !== oldId) {
+        this.games.delete(oldId);
+        game.id = newId;
+        this.games.set(newId, game);
+        migrated = true;
+      }
+    }
+
+    if (migrated) {
+      await this.saveLibrary();
     }
   }
 
@@ -142,7 +170,7 @@ export class LibraryService {
           
           for (const system of systems) {
             if (system.extensions.includes(ext)) {
-              const gameId = this.generateGameId(fullPath);
+              const gameId = await this.generateGameId(fullPath);
               const game: Game = {
                 id: gameId,
                 title: this.cleanGameTitle(path.basename(entry.name, ext)),
@@ -159,7 +187,7 @@ export class LibraryService {
         }
       }
     } catch (error) {
-      console.error(`Error scanning directory ${directoryPath}:`, error);
+      libraryLog.error(`Error scanning directory ${directoryPath}:`, error);
     }
     
     if (foundGames.length > 0) {
@@ -178,7 +206,7 @@ export class LibraryService {
           const games = await this.scanDirectory(system.romsPath, system.id);
           allGames.push(...games);
         } catch (error) {
-          console.error(`Error scanning ${system.name} folder:`, error);
+          libraryLog.error(`Error scanning ${system.name} folder:`, error);
         }
       }
     }
@@ -193,7 +221,7 @@ export class LibraryService {
     const ext = path.extname(romPath).toLowerCase();
     if (!system.extensions.includes(ext)) return null;
 
-    const gameId = this.generateGameId(romPath);
+    const gameId = await this.generateGameId(romPath);
     const game: Game = {
       id: gameId,
       title: this.cleanGameTitle(path.basename(romPath, ext)),
@@ -229,8 +257,19 @@ export class LibraryService {
     await this.saveConfig();
   }
 
-  private generateGameId(romPath: string): string {
-    return crypto.createHash('md5').update(romPath).digest('hex');
+  private async generateGameId(romPath: string): Promise<string> {
+    try {
+      const hash = crypto.createHash('sha256');
+      const stream = createReadStream(romPath);
+      for await (const chunk of stream) {
+        hash.update(chunk);
+      }
+      return hash.digest('hex');
+    } catch (error) {
+      // Fall back to path-based hash if file can't be read (e.g. permissions, missing)
+      libraryLog.warn(`Could not hash file content for ${romPath}, falling back to path hash:`, error);
+      return crypto.createHash('sha256').update(romPath).digest('hex');
+    }
   }
 
   private cleanGameTitle(filename: string): string {

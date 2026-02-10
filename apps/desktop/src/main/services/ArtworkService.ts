@@ -5,6 +5,7 @@ import path from 'path';
 import https from 'https';
 import crypto from 'crypto';
 import { app } from 'electron';
+import { artworkLog } from '../logger';
 import { LibraryService } from './LibraryService';
 import { ScreenScraperClient, ScreenScraperError } from './ScreenScraperClient';
 import {
@@ -185,7 +186,7 @@ export class ArtworkService extends EventEmitter {
         coverArtPath = await this.downloadArtwork(artworkUrl, `${gameId}${extension}`);
       } catch (error) {
         // Download failed — log but still save metadata
-        console.error(`Artwork download failed for ${game.title}:`, error instanceof Error ? error.message : error);
+        artworkLog.error(`Artwork download failed for ${game.title}:`, error instanceof Error ? error.message : error);
       }
     }
 

@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import * as path from 'path'
 import * as crypto from 'crypto'
 import type { WorkerCommand, WorkerEvent, AVInfo } from '../workers/core-worker-protocol'
+import { libretroLog } from '../logger'
 
 export interface EmulationWorkerInitOptions {
   corePath: string
@@ -257,6 +258,18 @@ export class EmulationWorkerClient extends EventEmitter {
         }
         break
       }
+
+      case 'log':
+        // Route native addon log messages through electron-log.
+        // Libretro log levels: 0=debug, 1=info, 2=warn, 3=error
+        switch (event.level) {
+          case 0: libretroLog.debug(event.message); break
+          case 1: libretroLog.info(event.message); break
+          case 2: libretroLog.warn(event.message); break
+          case 3: libretroLog.error(event.message); break
+          default: libretroLog.info(event.message); break
+        }
+        break
 
       case 'ready':
         // Handled during init — ignore if received after startup

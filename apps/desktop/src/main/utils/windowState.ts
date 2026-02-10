@@ -1,6 +1,7 @@
 import { app, BrowserWindow, screen } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
+import { mainLog } from '../logger'
 
 interface WindowState {
   x: number
@@ -67,7 +68,7 @@ function saveWindowState(state: WindowState): void {
   try {
     fs.writeFileSync(filePath, JSON.stringify(state, null, 2), 'utf-8')
   } catch (error) {
-    console.error('Failed to save window state:', error)
+    mainLog.error('Failed to save window state:', error)
   }
 }
 
