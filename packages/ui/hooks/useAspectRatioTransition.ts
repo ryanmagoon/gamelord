@@ -18,6 +18,11 @@ export interface UseAspectRatioTransitionOptions {
   /** CSS easing for the height transition. @default 'cubic-bezier(0.25, 1, 0.5, 1)' */
   easing?: string
   /**
+   * Called just before the height transition starts, with the current height.
+   * Use this to pin overlay elements so they don't stretch during the resize.
+   */
+  onResizeStart?: (currentHeight: number) => void
+  /**
    * Called once the height transition finishes (or immediately if no height
    * change was needed). Use this to sequence the cross-fade after the resize.
    */
@@ -45,6 +50,7 @@ export function useAspectRatioTransition(
     enabled,
     duration = DEFAULT_DURATION,
     easing = DEFAULT_EASING,
+    onResizeStart,
     onResizeComplete,
   } = options
 
@@ -52,7 +58,9 @@ export function useAspectRatioTransition(
   const previousRatioRef = useRef<number | null>(null)
   /** Active cleanup timeout so we can cancel on unmount. */
   const cleanupRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /** Track the latest callback so the timeout closure always calls the current one. */
+  /** Track the latest callbacks so closures always call the current ones. */
+  const onResizeStartRef = useRef(onResizeStart)
+  onResizeStartRef.current = onResizeStart
   const onResizeCompleteRef = useRef(onResizeComplete)
   onResizeCompleteRef.current = onResizeComplete
 
@@ -105,6 +113,9 @@ export function useAspectRatioTransition(
     }
 
     // --- Imperative FLIP: zero React re-renders ---
+
+    // Notify caller so it can pin overlay elements (e.g. TVStatic canvas)
+    onResizeStartRef.current?.(currentHeight)
 
     // Pin at current height, remove aspect-ratio so height is authoritative
     element.style.aspectRatio = 'auto'

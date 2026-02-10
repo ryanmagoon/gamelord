@@ -129,6 +129,15 @@ export const GameCard: React.FC<GameCardProps> = ({
     }
   }, [])
 
+  /** Pin the static wrapper at its current height so the canvas doesn't resize during the card height transition. */
+  const handleResizeStart = useCallback((currentHeight: number) => {
+    const staticWrapper = staticWrapperRef.current
+    if (staticWrapper) {
+      staticWrapper.style.height = `${currentHeight}px`
+      staticWrapper.style.bottom = 'auto'
+    }
+  }, [])
+
   const handleResizeComplete = useCallback(() => {
     resizeDoneRef.current = true
     tryCrossFade()
@@ -162,6 +171,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   const { containerRef } = useAspectRatioTransition({
     aspectRatio,
     enabled: isDone,
+    onResizeStart: handleResizeStart,
     onResizeComplete: handleResizeComplete,
   })
 
@@ -219,8 +229,8 @@ export const GameCard: React.FC<GameCardProps> = ({
 
           {/* Fallback: game title over static when no cover art */}
           {isFallback && (
-            <div className="absolute inset-0 flex items-end p-2 pointer-events-none">
-              <span className="text-xs font-medium text-white/90 leading-tight line-clamp-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 pb-2 pt-6 pointer-events-none">
+              <span className="text-sm font-semibold text-white leading-tight line-clamp-2">
                 {game.title}
               </span>
             </div>
