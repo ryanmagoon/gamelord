@@ -44,6 +44,9 @@ export interface UseFlipAnimationOptions {
   exitDuration?: number
 }
 
+/** Shared style for stable (persisting) items — never changes, so React.memo sees the same reference. */
+const STABLE_STYLE: CSSProperties = { position: 'relative', zIndex: 1 } as const
+
 interface PositionRecord {
   left: number
   top: number
@@ -80,6 +83,8 @@ export function useFlipAnimation<T>(
   const previousPositionsRef = useRef<Map<string, PositionRecord>>(new Map())
   /** Item snapshots from the previous render (needed to render exiters). */
   const previousItemsRef = useRef<Map<string, T>>(new Map())
+  /** Ordered key list from the previous render — used to detect reordering vs property-only changes. */
+  const previousKeyOrderRef = useRef<string[]>([])
   /** Whether any render has committed yet. */
   const isFirstRenderRef = useRef(true)
   /** Active cleanup timeouts. */
@@ -139,7 +144,8 @@ export function useFlipAnimation<T>(
 
   // ---- Single useLayoutEffect for all FLIP logic ----
   useLayoutEffect(() => {
-    const currentKeySet = new Set(items.map(getKey))
+    const currentKeys = items.map(getKey)
+    const currentKeySet = new Set(currentKeys)
 
     if (isFirstRenderRef.current) {
       isFirstRenderRef.current = false
@@ -150,6 +156,7 @@ export function useFlipAnimation<T>(
         itemMap.set(getKey(item), item)
       }
       previousItemsRef.current = itemMap
+      previousKeyOrderRef.current = currentKeys
 
       // Capture initial positions after first paint
       requestAnimationFrame(() => {
@@ -160,6 +167,28 @@ export function useFlipAnimation<T>(
 
     const previousPositions = previousPositionsRef.current
     const previousItems = previousItemsRef.current
+    const previousKeyOrder = previousKeyOrderRef.current
+
+    // Detect whether the key sequence actually changed (items added, removed,
+    // or reordered). If only item properties changed (e.g. coverArtAspectRatio
+    // updated after artwork loads), skip the FLIP animation and just re-capture
+    // positions so the grid reflows naturally without every card sliding around.
+    const keysChanged =
+      currentKeys.length !== previousKeyOrder.length ||
+      currentKeys.some((key, i) => key !== previousKeyOrder[i])
+
+    if (!keysChanged) {
+      // Property-only change — just update refs and re-capture positions
+      const itemMap = new Map<string, T>()
+      for (const item of items) {
+        itemMap.set(getKey(item), item)
+      }
+      previousItemsRef.current = itemMap
+      requestAnimationFrame(() => {
+        previousPositionsRef.current = capturePositions()
+      })
+      return
+    }
 
     // ---- Classify items ----
     const newExiters = new Map<string, { item: T; position: PositionRecord }>()
@@ -278,12 +307,17 @@ export function useFlipAnimation<T>(
       itemMap.set(getKey(item), item)
     }
     previousItemsRef.current = itemMap
+    previousKeyOrderRef.current = currentKeys
   }, [items, getKey, duration, easing, exitDuration, capturePositions, measurePosition, gridRef])
 
   // ---- Build the output list ----
 
   const previousItems = previousItemsRef.current
   const isFirstRender = isFirstRenderRef.current
+
+  // Memoize entering item styles keyed by delay so the same delay always
+  // returns the same object reference (React.memo-friendly).
+  const enteringStyleCache = useRef<Map<number, CSSProperties>>(new Map())
 
   let enterIndex = 0
   const result: FlipItem<T>[] = []
@@ -294,11 +328,25 @@ export function useFlipAnimation<T>(
     const isEntering = isFirstRender || !previousItems.has(key)
     const delay = isEntering ? Math.min(enterIndex * staggerEnter, maxStaggerDelay) : 0
 
+    let style: CSSProperties
+    if (isEntering) {
+      // Cache entering styles by delay value so the same delay always yields
+      // the same object reference across renders.
+      let cached = enteringStyleCache.current.get(delay)
+      if (!cached) {
+        cached = { position: 'relative', zIndex: 1, animationDelay: `${delay}ms` }
+        enteringStyleCache.current.set(delay, cached)
+      }
+      style = cached
+    } else {
+      style = STABLE_STYLE
+    }
+
     result.push({
       item,
       key,
       ref: getRefCallback(key),
-      style: { position: 'relative', zIndex: 1 },
+      style,
       animationState: isEntering ? 'entering' : 'stable',
       enterDelay: delay,
     })

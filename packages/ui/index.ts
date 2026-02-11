@@ -19,6 +19,7 @@ export type { ShaderPresetDefinition } from './webgl/types';
 // Hooks
 export { useFlipAnimation } from './hooks/useFlipAnimation';
 export type { FlipItem, FlipAnimationState, UseFlipAnimationOptions } from './hooks/useFlipAnimation';
+export { ArtworkSyncStore, useArtworkSyncPhase } from './hooks/useArtworkSyncStore';
 
 // Utils
 export * from './utils';

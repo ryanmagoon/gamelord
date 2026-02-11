@@ -50,6 +50,48 @@ export class ArtworkService extends EventEmitter {
     this.artworkDirectory = path.join(userData, 'artwork');
     this.configPath = path.join(userData, 'artwork-config.json');
     this.loadConfig();
+
+    // Backfill aspect ratios for games that have cover art but no stored ratio
+    void this.backfillAspectRatios();
+  }
+
+  /**
+   * Scans all games with cover art but no `coverArtAspectRatio` and computes
+   * the ratio from the cached image file. Runs once on startup to fix legacy
+   * games that were synced before aspect ratio tracking was added.
+   */
+  private async backfillAspectRatios(): Promise<void> {
+    const games = this.libraryService.getGames();
+    // Also re-check games clamped at the old boundaries (0.5 or 1.2) — they
+    // may have been truncated by a tighter clamp range.
+    const needsBackfill = games.filter(g =>
+      g.coverArt && (
+        g.coverArtAspectRatio === undefined ||
+        g.coverArtAspectRatio === 0.5 ||
+        g.coverArtAspectRatio === 1.2
+      ),
+    );
+
+    if (needsBackfill.length === 0) return;
+
+    artworkLog.info(`Backfilling aspect ratios for ${needsBackfill.length} game(s)`);
+
+    for (const game of needsBackfill) {
+      try {
+        // Resolve artwork:// URL to filesystem path
+        const filename = game.coverArt!.replace('artwork://', '');
+        const filePath = path.join(this.artworkDirectory, filename);
+
+        const dimensions = await readImageDimensions(filePath);
+        if (dimensions) {
+          const rawRatio = dimensions.width / dimensions.height;
+          const coverArtAspectRatio = Math.max(0.4, Math.min(1.8, rawRatio));
+          await this.libraryService.updateGame(game.id, { coverArtAspectRatio });
+        }
+      } catch (error) {
+        artworkLog.error(`Failed to backfill aspect ratio for ${game.title}:`, error instanceof Error ? error.message : error);
+      }
+    }
   }
 
   /** Returns the artwork directory path, creating it if needed. */
@@ -191,8 +233,8 @@ export class ArtworkService extends EventEmitter {
         const dimensions = await readImageDimensions(coverArtPath);
         if (dimensions) {
           const rawRatio = dimensions.width / dimensions.height;
-          // Clamp to [0.5, 1.2] to prevent extreme ratios from bad art
-          coverArtAspectRatio = Math.max(0.5, Math.min(1.2, rawRatio));
+          // Clamp to [0.4, 1.8] to accommodate portrait and landscape box art
+          coverArtAspectRatio = Math.max(0.4, Math.min(1.8, rawRatio));
         }
       } catch (error) {
         // Download failed — log but still save metadata
