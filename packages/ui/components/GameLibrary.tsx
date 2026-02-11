@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { GameCard, Game, GameCardMenuItem } from './GameCard';
-import type { ArtworkSyncPhase } from './TVStatic';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -14,6 +13,7 @@ import {
 import { Search, Filter, Grid, List } from 'lucide-react';
 import { cn } from '../utils';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
+import type { ArtworkSyncStore } from '../hooks/useArtworkSyncStore';
 
 export interface GameLibraryProps {
   games: Game[];
@@ -21,8 +21,8 @@ export interface GameLibraryProps {
   onGameOptions?: (game: Game) => void;
   /** Returns menu items for a specific game's dropdown. */
   getMenuItems?: (game: Game) => GameCardMenuItem[];
-  /** Per-game artwork sync phases. Key is game ID, value is current phase. */
-  artworkSyncPhases?: Map<string, ArtworkSyncPhase>;
+  /** External store for per-game artwork sync phases. Each card subscribes to its own phase. */
+  artworkSyncStore?: ArtworkSyncStore;
   className?: string;
 }
 
@@ -34,7 +34,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   onPlayGame,
   onGameOptions,
   getMenuItems,
-  artworkSyncPhases,
+  artworkSyncStore,
   className
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -173,7 +173,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
       {viewMode === 'grid' ? (
         <div
           ref={gridRef}
-          className="relative grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 items-start"
+          className="relative grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1 items-start"
         >
           {flipItems.map((flipItem) => (
             <GameCard
@@ -182,18 +182,14 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
               game={flipItem.item}
               onPlay={onPlayGame}
               onOptions={onGameOptions}
-              menuItems={getMenuItems?.(flipItem.item)}
-              artworkSyncPhase={artworkSyncPhases?.get(flipItem.item.id)}
+              getMenuItems={getMenuItems}
+              artworkSyncStore={artworkSyncStore}
               className={cn(
+                (flipItem.item.coverArtAspectRatio ?? 0.75) > 1 ? 'col-span-3' : 'col-span-2',
                 flipItem.animationState === 'entering' && 'animate-card-enter',
                 flipItem.animationState === 'exiting' && 'animate-card-exit',
               )}
-              style={{
-                ...flipItem.style,
-                ...(flipItem.animationState === 'entering'
-                  ? { animationDelay: `${flipItem.enterDelay}ms` }
-                  : undefined),
-              }}
+              style={flipItem.style}
             />
           ))}
         </div>

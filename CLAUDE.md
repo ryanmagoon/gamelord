@@ -13,6 +13,10 @@
 - **Record new known issues.** If you encounter a bug, limitation, or quirk during development, add it to the "Known Issues" section at the bottom of the plan.
 - **Reference GitHub issues.** When a GitHub issue is created for deferred work, include the issue URL next to the corresponding item in the plan (e.g., `— see #42`). When closing an issue via PR, update the plan item to `[x]` in the same change.
 
+## Package Manager
+
+This project uses **pnpm**. Always use `pnpm` for installing dependencies, running scripts, etc. — never `npm` or `yarn`.
+
 ## Git Conventions
 
 - Use descriptive branch names: `<type>/<short-descriptive-name>`
@@ -24,6 +28,10 @@
 - **Extremely polished UI.** Every interaction should feel intentional and delightful. Prioritize craft and attention to detail — this is a desktop app, not a throwaway prototype.
 - **Microinteractions and animations.** Use tasteful transitions, hover effects, loading states, and motion to make the app feel alive. Think about easing curves, staggered animations, and subtle feedback on every click, toggle, and navigation.
 - **Ideate novel flourishes.** When implementing a feature, proactively suggest creative UI touches — e.g. a CRT power-on animation when launching a game, particle effects on achievements, satisfying haptic-style feedback on button presses, ambient glow effects. Propose these ideas to the user before implementing.
+
+## Storybook Coverage
+
+All UI components with loading, error, or transitional states **must** have Storybook stories representing each state. This makes states easy to polish, iterate on, and visually verify without needing to reproduce them in the running app. Examples: artwork sync phases (hashing, querying, downloading, done, error, not-found), empty/loading library, form validation errors.
 
 ## Performance — Frame Rate is Sacred
 
