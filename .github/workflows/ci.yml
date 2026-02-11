@@ -3,26 +3,40 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
-      - '.gitignore'
-      - 'docs/**'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
-      - '.gitignore'
-      - 'docs/**'
+
+permissions:
+  contents: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '!**/*.md'
+              - '!LICENSE'
+              - '!.gitignore'
+              - '!docs/**'
+
   lint-and-typecheck:
     name: Lint & Type Check
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,8 +56,18 @@ jobs:
       - name: Type Check
         run: pnpm typecheck
 
+  lint-and-typecheck-skip:
+    name: Lint & Type Check
+    needs: changes
+    if: needs.changes.outputs.code != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No code changes detected — skipping"
+
   test:
     name: Tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,8 +90,18 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+  test-skip:
+    name: Tests
+    needs: changes
+    if: needs.changes.outputs.code != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No code changes detected — skipping"
+
   native-addon:
     name: Native Addon Build (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -88,3 +122,11 @@ jobs:
       - name: Build native addon
         working-directory: apps/desktop/native
         run: npx node-gyp rebuild
+
+  native-addon-skip:
+    name: Native Addon Build (macos-latest)
+    needs: changes
+    if: needs.changes.outputs.code != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No code changes detected — skipping"

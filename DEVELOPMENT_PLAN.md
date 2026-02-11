@@ -180,7 +180,15 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Package as DMG for macOS
 - [ ] Auto-update mechanism
 
-### P10 — Native Addon Hardening
+### P10 — Web Presence (Vercel)
+
+- [ ] Landing page / marketing site (`gamelord.app`) — Next.js app with download links, feature showcase, screenshots, changelog
+- [ ] Documentation site (`docs.gamelord.app`) — Next.js + MDX or Astro
+- [ ] Cloud saves / sync API — serverless functions + blob storage, requires user accounts/auth
+- [ ] User profile dashboard — achievements, play history, library stats (rides on cloud saves infra)
+- [ ] Multiplayer lobby/matchmaking API — pairs with P7 relay server (relay itself should NOT be on Vercel — needs persistent WebSocket connections, use Fly.io/Railway/VPS)
+
+### P11 — Native Addon Hardening
 
 - [ ] **Enable C++ exceptions or remove STL** — `NAPI_DISABLE_CPP_EXCEPTIONS` is set but `std::vector` can throw on allocation failure; either enable exceptions or use pre-allocated fixed buffers
 - [ ] **Cross-platform path handling** — Abstract macOS-specific paths (e.g. `/Applications/RetroArch.app/...` in `EmulatorManager.ts`) behind platform detection
