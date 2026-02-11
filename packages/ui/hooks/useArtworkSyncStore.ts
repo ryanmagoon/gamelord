@@ -59,7 +59,7 @@ export function useArtworkSyncPhase(
 ): ArtworkSyncPhase | undefined {
   const subscribe = useCallback(
     (onStoreChange: () => void) => {
-      if (!store) return () => {}
+      if (!store) return () => { /* intentional no-op */ }
       return store.subscribe(onStoreChange)
     },
     [store],

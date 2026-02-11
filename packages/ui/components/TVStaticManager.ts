@@ -36,7 +36,7 @@ class TVStaticManager {
    */
   register(canvas: HTMLCanvasElement, noiseHeight: number): () => void {
     const ctx = canvas.getContext('2d')
-    if (!ctx) return () => {}
+    if (!ctx) return () => { /* intentional no-op */ }
 
     canvas.width = NOISE_WIDTH
     canvas.height = noiseHeight

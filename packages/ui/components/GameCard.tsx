@@ -62,7 +62,7 @@ const PHASE_STATUS_TEXT: Partial<Record<NonNullable<ArtworkSyncPhase>, string>> 
   downloading: 'Downloading...',
 }
 
-export const GameCard: React.FC<GameCardProps> = React.memo(({
+export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   game,
   onPlay,
   onOptions,
@@ -72,7 +72,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(({
   className,
   style,
   ref,
-}) => {
+}) {
   // Subscribe to this game's sync phase — only re-renders when THIS game's phase changes
   const artworkSyncPhase = useArtworkSyncPhase(artworkSyncStore, game.id)
   // Resolve menu items: prefer lazy factory over static array
@@ -303,4 +303,4 @@ export const GameCard: React.FC<GameCardProps> = React.memo(({
     prev.style === next.style &&
     prev.ref === next.ref
   )
-})
+}) as React.FC<GameCardProps>
