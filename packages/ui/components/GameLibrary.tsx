@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { GameCard, Game, GameCardMenuItem } from './GameCard';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -14,6 +14,7 @@ import { Search, Filter, Grid, List } from 'lucide-react';
 import { cn } from '../utils';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import type { ArtworkSyncStore } from '../hooks/useArtworkSyncStore';
+import { getMosaicSpans, MOSAIC_ROW_UNIT, MOSAIC_GAP } from '../utils/mosaicGrid';
 
 export interface GameLibraryProps {
   games: Game[];
@@ -29,6 +30,33 @@ export interface GameLibraryProps {
 type ViewMode = 'grid' | 'list';
 type SortBy = 'title' | 'platform' | 'lastPlayed' | 'recent';
 
+/** Measures the width of a single grid column using ResizeObserver. */
+function useColumnWidth(
+  gridRef: React.RefObject<HTMLDivElement | null>,
+): number {
+  const [columnWidth, setColumnWidth] = useState(0);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    const observer = new ResizeObserver(() => {
+      const columns = getComputedStyle(grid)
+        .getPropertyValue('grid-template-columns')
+        .split(' ');
+      const columnCount = columns.length;
+      const containerWidth = grid.clientWidth;
+      const totalGap = (columnCount - 1) * MOSAIC_GAP;
+      setColumnWidth((containerWidth - totalGap) / columnCount);
+    });
+
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, [gridRef]);
+
+  return columnWidth;
+}
+
 export const GameLibrary: React.FC<GameLibraryProps> = ({
   games,
   onPlayGame,
@@ -42,6 +70,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   const [sortBy, setSortBy] = useState<SortBy>('title');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const gridRef = useRef<HTMLDivElement>(null);
+  const columnWidth = useColumnWidth(gridRef);
   const getGameKey = useCallback((game: Game) => game.id, []);
 
   // Extract unique platforms
@@ -173,25 +202,36 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
       {viewMode === 'grid' ? (
         <div
           ref={gridRef}
-          className="relative grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1 items-start"
+          className="relative grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1"
+          style={{ gridAutoRows: `${MOSAIC_ROW_UNIT}px`, gridAutoFlow: 'dense' }}
         >
-          {flipItems.map((flipItem) => (
-            <GameCard
-              key={flipItem.key}
-              ref={flipItem.ref}
-              game={flipItem.item}
-              onPlay={onPlayGame}
-              onOptions={onGameOptions}
-              getMenuItems={getMenuItems}
-              artworkSyncStore={artworkSyncStore}
-              className={cn(
-                (flipItem.item.coverArtAspectRatio ?? 0.75) > 1 ? 'col-span-3' : 'col-span-2',
-                flipItem.animationState === 'entering' && 'animate-card-enter',
-                flipItem.animationState === 'exiting' && 'animate-card-exit',
-              )}
-              style={flipItem.style}
-            />
-          ))}
+          {flipItems.map((flipItem) => {
+            const aspectRatio = flipItem.item.coverArtAspectRatio ?? 0.75;
+            const { colSpan, rowSpan } = columnWidth > 0
+              ? getMosaicSpans(aspectRatio, columnWidth)
+              : { colSpan: aspectRatio > 1 ? 3 : 2, rowSpan: 4 };
+
+            return (
+              <GameCard
+                key={flipItem.key}
+                ref={flipItem.ref}
+                game={flipItem.item}
+                onPlay={onPlayGame}
+                onOptions={onGameOptions}
+                getMenuItems={getMenuItems}
+                artworkSyncStore={artworkSyncStore}
+                className={cn(
+                  colSpan === 3 ? 'col-span-3' : 'col-span-2',
+                  flipItem.animationState === 'entering' && 'animate-card-enter',
+                  flipItem.animationState === 'exiting' && 'animate-card-exit',
+                )}
+                style={{
+                  ...flipItem.style,
+                  gridRow: `span ${rowSpan}`,
+                }}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="space-y-2">

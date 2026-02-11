@@ -23,6 +23,7 @@ const sampleGames = [
     title: 'Super Mario Bros.',
     platform: 'NES',
     genre: 'Platform',
+    coverArtAspectRatio: 0.714,
     romPath: '/roms/smb.nes',
     lastPlayed: new Date('2024-01-15'),
   },
@@ -32,6 +33,7 @@ const sampleGames = [
     platform: 'NES',
     genre: 'Adventure',
     coverArt: 'https://via.placeholder.com/300x400',
+    coverArtAspectRatio: 0.75,
     romPath: '/roms/zelda.nes',
     lastPlayed: new Date('2024-01-20'),
   },
@@ -40,7 +42,8 @@ const sampleGames = [
     title: 'Sonic the Hedgehog',
     platform: 'Genesis',
     genre: 'Platform',
-    coverArt: 'https://via.placeholder.com/300x400',
+    coverArt: 'https://via.placeholder.com/400x300',
+    coverArtAspectRatio: 1.33,
     romPath: '/roms/sonic.md',
   },
   {
@@ -49,6 +52,7 @@ const sampleGames = [
     platform: 'SNES',
     genre: 'Action',
     coverArt: 'https://via.placeholder.com/300x400',
+    coverArtAspectRatio: 0.667,
     romPath: '/roms/metroid.smc',
     lastPlayed: new Date('2024-01-10'),
   },
@@ -57,6 +61,7 @@ const sampleGames = [
     title: 'Mega Man X',
     platform: 'SNES',
     genre: 'Action',
+    coverArtAspectRatio: 0.8,
     romPath: '/roms/mmx.smc',
   },
   {
@@ -64,7 +69,8 @@ const sampleGames = [
     title: 'Street Fighter II',
     platform: 'SNES',
     genre: 'Fighting',
-    coverArt: 'https://via.placeholder.com/300x400',
+    coverArt: 'https://via.placeholder.com/400x300',
+    coverArtAspectRatio: 1.4,
     romPath: '/roms/sf2.smc',
   },
   {
@@ -72,6 +78,7 @@ const sampleGames = [
     title: 'Pokemon Red',
     platform: 'GB',
     genre: 'RPG',
+    coverArtAspectRatio: 0.9,
     romPath: '/roms/pokemon_red.gb',
   },
   {
@@ -80,6 +87,7 @@ const sampleGames = [
     platform: 'NES',
     genre: 'Action',
     coverArt: 'https://via.placeholder.com/300x400',
+    coverArtAspectRatio: 0.714,
     romPath: '/roms/castlevania.nes',
   },
 ];
