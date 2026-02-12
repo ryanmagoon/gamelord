@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeRowSpan, getMosaicSpans } from './mosaicGrid'
+import { computeRowSpan, getMosaicSpans, snapAspectRatio } from './mosaicGrid'
 
 describe('computeRowSpan', () => {
   const columnWidth = 120 // typical column width at ~1280px viewport with 12 cols
@@ -41,6 +41,38 @@ describe('computeRowSpan', () => {
     const rowSpan = computeRowSpan(0.5, 2, columnWidth)
     // cardWidth = 244, cardHeight = 488, rawSpan = (488 + 4) / 52 ≈ 9.46 → 9
     expect(rowSpan).toBe(9)
+  })
+})
+
+describe('snapAspectRatio', () => {
+  it('snaps exact bucket values to themselves', () => {
+    expect(snapAspectRatio(0.667)).toBe(0.667)
+    expect(snapAspectRatio(0.750)).toBe(0.750)
+    expect(snapAspectRatio(1.000)).toBe(1.000)
+    expect(snapAspectRatio(1.333)).toBe(1.333)
+  })
+
+  it('snaps similar GBA ratios to the same bucket', () => {
+    // Two GBA games with slightly different image dimensions
+    expect(snapAspectRatio(0.7142857)).toBe(0.700)
+    expect(snapAspectRatio(0.7134670)).toBe(0.700)
+  })
+
+  it('snaps values between buckets to the nearest one', () => {
+    // Midpoint between 0.750 and 0.800 is 0.775 → snaps to 0.800 (closer)
+    expect(snapAspectRatio(0.780)).toBe(0.800)
+    // Closer to 0.750
+    expect(snapAspectRatio(0.760)).toBe(0.750)
+  })
+
+  it('snaps very small ratios to the smallest bucket', () => {
+    expect(snapAspectRatio(0.4)).toBe(0.667)
+    expect(snapAspectRatio(0.5)).toBe(0.667)
+  })
+
+  it('snaps very large ratios to the largest bucket', () => {
+    expect(snapAspectRatio(1.8)).toBe(1.500)
+    expect(snapAspectRatio(2.0)).toBe(1.500)
   })
 })
 
