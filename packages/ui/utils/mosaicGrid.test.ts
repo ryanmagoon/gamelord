@@ -57,9 +57,9 @@ describe('getMosaicSpans', () => {
     expect(colSpan).toBe(2)
   })
 
-  it('returns col-span-3 for landscape aspect ratios (AR > 1)', () => {
+  it('returns col-span-2 for landscape aspect ratios (AR > 1)', () => {
     const { colSpan } = getMosaicSpans(1.4, columnWidth)
-    expect(colSpan).toBe(3)
+    expect(colSpan).toBe(2)
   })
 
   it('returns both colSpan and rowSpan', () => {

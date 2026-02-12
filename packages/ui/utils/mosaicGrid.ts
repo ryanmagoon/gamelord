@@ -26,14 +26,15 @@ export function computeRowSpan(
  * Returns the column span and row span for a game card based on its cover art
  * aspect ratio and the measured column width.
  *
- * - Portrait artwork (AR <= 1): col-span-2
- * - Landscape artwork (AR > 1): col-span-3
+ * All cards use col-span-2 for uniform width. Only row span varies based on
+ * aspect ratio — portrait cards are taller, landscape cards are shorter.
+ * This prevents dramatic size differences between cards while avoiding cropping.
  */
 export function getMosaicSpans(
   aspectRatio: number,
   columnWidth: number,
 ): { colSpan: number; rowSpan: number } {
-  const colSpan = aspectRatio > 1 ? 3 : 2
+  const colSpan = 2
   const rowSpan = computeRowSpan(aspectRatio, colSpan, columnWidth)
   return { colSpan, rowSpan }
 }

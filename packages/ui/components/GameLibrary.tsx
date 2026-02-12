@@ -306,9 +306,9 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
           >
             {flipItems.map((flipItem) => {
               const aspectRatio = flipItem.item.coverArtAspectRatio ?? 0.75;
-              const { colSpan, rowSpan } = columnWidth > 0
+              const { rowSpan } = columnWidth > 0
                 ? getMosaicSpans(aspectRatio, columnWidth)
-                : { colSpan: aspectRatio > 1 ? 3 : 2, rowSpan: 4 };
+                : { rowSpan: 4 };
 
               return (
                 <GameCard
@@ -320,7 +320,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
                   getMenuItems={getMenuItems}
                   artworkSyncStore={artworkSyncStore}
                   className={cn(
-                    colSpan === 3 ? 'col-span-3' : 'col-span-2',
+                    'col-span-2',
                     flipItem.animationState === 'entering' && 'animate-card-enter',
                     flipItem.animationState === 'exiting' && 'animate-card-exit',
                   )}
