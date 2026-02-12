@@ -29,6 +29,13 @@ vi.mock('electron', () => ({
   },
 }))
 
+vi.mock('electron-log/main', () => ({
+  default: {
+    transports: { file: {}, console: {} },
+    scope: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
+  },
+}))
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -355,6 +362,54 @@ describe('EmulationWorkerClient', () => {
 
       // The pending saveState should be rejected
       await expect(savePromise).rejects.toThrow('terminated')
+    })
+  })
+
+  describe('unexpected exit', () => {
+    beforeEach(async () => {
+      const initPromise = client.init(TEST_INIT_OPTIONS)
+      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      await initPromise
+    })
+
+    it('emits error when worker exits while still running', () => {
+      const handler = vi.fn()
+      client.on('error', handler)
+
+      // Simulate worker process exiting (e.g. Electron tearing down on quit)
+      const exitListeners = processListeners['exit'] ?? []
+      for (const listener of exitListeners) {
+        listener(0)
+      }
+
+      expect(handler).toHaveBeenCalledWith({
+        message: 'Emulation worker exited unexpectedly (code 0)',
+        fatal: true,
+      })
+      expect(client.isRunning()).toBe(false)
+    })
+
+    it('does not emit error when worker exits after shutdown', async () => {
+      const handler = vi.fn()
+      client.on('error', handler)
+
+      // Graceful shutdown first
+      const shutdownPromise = client.shutdown()
+      const lastCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      emitWorkerMessage({
+        type: 'response',
+        requestId: lastCall.requestId,
+        success: true,
+      })
+      await shutdownPromise
+
+      // Now simulate process exit
+      const exitListeners = processListeners['exit'] ?? []
+      for (const listener of exitListeners) {
+        listener(0)
+      }
+
+      expect(handler).not.toHaveBeenCalled()
     })
   })
 

@@ -406,6 +406,14 @@ export class IPCHandlers {
   }
 
   /**
+   * Gracefully shut down any running emulator. Called during app quit
+   * to prevent the worker exit handler from emitting an unhandled error.
+   */
+  async cleanup(): Promise<void> {
+    await this.emulatorManager.stopEmulator();
+  }
+
+  /**
    * Show a custom resume game dialog in the renderer and wait for response.
    */
   private showResumeGameDialog(window: BrowserWindow, gameTitle: string): Promise<boolean> {
