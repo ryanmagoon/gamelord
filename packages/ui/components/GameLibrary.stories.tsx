@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { GameLibrary } from './GameLibrary';
 
@@ -132,4 +133,43 @@ export const SinglePlatform: Story = {
       </div>
     ),
   ],
+};
+
+// Generate a large library for virtualization testing
+const platforms = ['NES', 'SNES', 'Genesis', 'GB', 'GBA', 'N64', 'PS1'];
+const genres = ['Platform', 'Action', 'RPG', 'Adventure', 'Fighting', 'Puzzle', 'Sports'];
+const aspectRatios = [0.667, 0.714, 0.75, 0.8, 0.9, 1.0, 1.2, 1.33, 1.4];
+
+const largeLibrary = Array.from({ length: 500 }, (_, i) => ({
+  id: `large-${i}`,
+  title: `Game Title ${String(i + 1).padStart(3, '0')}`,
+  platform: platforms[i % platforms.length],
+  genre: genres[i % genres.length],
+  coverArtAspectRatio: aspectRatios[i % aspectRatios.length],
+  romPath: `/roms/game_${i}.rom`,
+}));
+
+/**
+ * Large library story (500 items) to test virtualization.
+ * Uses a scroll container wrapper to simulate the real LibraryView layout.
+ */
+function LargeLibraryRenderer() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  return (
+    <div ref={scrollRef} className="bg-background h-screen overflow-auto p-4">
+      <GameLibrary
+        games={largeLibrary}
+        onPlayGame={() => { /* storybook action placeholder */ }}
+        scrollContainerRef={scrollRef}
+      />
+    </div>
+  );
+}
+
+export const LargeLibrary: Story = {
+  args: {
+    games: largeLibrary,
+    onPlayGame() { /* storybook action placeholder */ },
+  },
+  render: () => <LargeLibraryRenderer />,
 };

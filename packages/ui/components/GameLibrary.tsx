@@ -13,8 +13,14 @@ import {
 import { Search, Filter, Grid, List } from 'lucide-react';
 import { cn } from '../utils';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
+import { useScrollContainer } from '../hooks/useScrollContainer';
+import { useMosaicVirtualizer } from '../hooks/useMosaicVirtualizer';
 import type { ArtworkSyncStore } from '../hooks/useArtworkSyncStore';
 import { getMosaicSpans, MOSAIC_ROW_UNIT, MOSAIC_GAP } from '../utils/mosaicGrid';
+import { computeMosaicLayout, getColumnCount } from '../utils/mosaicLayout';
+
+/** Threshold: lists larger than this use virtualized rendering. */
+const VIRTUALIZATION_THRESHOLD = 100;
 
 export interface GameLibraryProps {
   games: Game[];
@@ -24,37 +30,36 @@ export interface GameLibraryProps {
   getMenuItems?: (game: Game) => GameCardMenuItem[];
   /** External store for per-game artwork sync phases. Each card subscribes to its own phase. */
   artworkSyncStore?: ArtworkSyncStore;
+  /** Ref to the scrollable container (for virtualization). */
+  scrollContainerRef?: React.RefObject<HTMLElement | null>;
   className?: string;
 }
 
 type ViewMode = 'grid' | 'list';
 type SortBy = 'title' | 'platform' | 'lastPlayed' | 'recent';
 
-/** Measures the width of a single grid column using ResizeObserver. */
-function useColumnWidth(
+/** Measures the grid container and returns column count + column width. */
+function useGridMeasurements(
   gridRef: React.RefObject<HTMLDivElement | null>,
-): number {
-  const [columnWidth, setColumnWidth] = useState(0);
+): { columnCount: number; columnWidth: number } {
+  const [measurements, setMeasurements] = useState({ columnCount: 4, columnWidth: 0 });
 
   useEffect(() => {
     const grid = gridRef.current;
     if (!grid) return;
 
     const observer = new ResizeObserver(() => {
-      const columns = getComputedStyle(grid)
-        .getPropertyValue('grid-template-columns')
-        .split(' ');
-      const columnCount = columns.length;
       const containerWidth = grid.clientWidth;
-      const totalGap = (columnCount - 1) * MOSAIC_GAP;
-      setColumnWidth((containerWidth - totalGap) / columnCount);
+      const colCount = getColumnCount(containerWidth);
+      const colWidth = (containerWidth - (colCount - 1) * MOSAIC_GAP) / colCount;
+      setMeasurements({ columnCount: colCount, columnWidth: colWidth });
     });
 
     observer.observe(grid);
     return () => observer.disconnect();
   }, [gridRef]);
 
-  return columnWidth;
+  return measurements;
 }
 
 export const GameLibrary: React.FC<GameLibraryProps> = ({
@@ -63,6 +68,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   onGameOptions,
   getMenuItems,
   artworkSyncStore,
+  scrollContainerRef,
   className
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,7 +76,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   const [sortBy, setSortBy] = useState<SortBy>('title');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const gridRef = useRef<HTMLDivElement>(null);
-  const columnWidth = useColumnWidth(gridRef);
+  const { columnCount, columnWidth } = useGridMeasurements(gridRef);
   const getGameKey = useCallback((game: Game) => game.id, []);
 
   // Extract unique platforms
@@ -118,7 +124,64 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     return filtered;
   }, [games, searchQuery, selectedPlatform, sortBy]);
 
-  const flipItems = useFlipAnimation(filteredGames, getGameKey, { gridRef });
+  const isLargeList = filteredGames.length > VIRTUALIZATION_THRESHOLD;
+
+  // ---- FLIP animation (small lists only) ----
+  const flipItems = useFlipAnimation(
+    isLargeList ? [] : filteredGames,
+    getGameKey,
+    { gridRef },
+  );
+
+  // ---- Mosaic layout + virtualization (large lists only) ----
+  const spans = useMemo(() => {
+    if (!isLargeList || columnWidth <= 0) return [];
+    return filteredGames.map(game => {
+      const ar = game.coverArtAspectRatio ?? 0.75;
+      return getMosaicSpans(ar, columnWidth);
+    });
+  }, [isLargeList, filteredGames, columnWidth]);
+
+  const layout = useMemo(() => {
+    if (!isLargeList || spans.length === 0 || columnWidth <= 0) {
+      return { items: [], totalHeight: 0 };
+    }
+    return computeMosaicLayout(spans, columnCount, columnWidth);
+  }, [isLargeList, spans, columnCount, columnWidth]);
+
+  const { scrollTop, viewportHeight } = useScrollContainer(scrollContainerRef);
+
+  const gridOffsetTop = gridRef.current?.offsetTop ?? 0;
+  const gridRelativeScrollTop = Math.max(0, scrollTop - gridOffsetTop);
+
+  const { visibleIndices, totalHeight } = useMosaicVirtualizer({
+    layout,
+    scrollTop: gridRelativeScrollTop,
+    viewportHeight,
+  });
+
+  // Scroll to top on filter changes (large lists)
+  const prevFilteredRef = useRef(filteredGames);
+  const [enterGeneration, setEnterGeneration] = useState(0);
+
+  useEffect(() => {
+    if (filteredGames !== prevFilteredRef.current) {
+      prevFilteredRef.current = filteredGames;
+      if (isLargeList) {
+        scrollContainerRef?.current?.scrollTo({ top: 0 });
+        setEnterGeneration(g => g + 1);
+      }
+    }
+  }, [filteredGames, isLargeList, scrollContainerRef]);
+
+  // Clear entrance animation flag after stagger completes
+  const [showEntrance, setShowEntrance] = useState(false);
+  useEffect(() => {
+    if (enterGeneration === 0) return;
+    setShowEntrance(true);
+    const timer = setTimeout(() => setShowEntrance(false), 600);
+    return () => clearTimeout(timer);
+  }, [enterGeneration]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -200,39 +263,76 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
 
       {/* Games Grid/List */}
       {viewMode === 'grid' ? (
-        <div
-          ref={gridRef}
-          className="relative grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1"
-          style={{ gridAutoRows: `${MOSAIC_ROW_UNIT}px`, gridAutoFlow: 'dense' }}
-        >
-          {flipItems.map((flipItem) => {
-            const aspectRatio = flipItem.item.coverArtAspectRatio ?? 0.75;
-            const { colSpan, rowSpan } = columnWidth > 0
-              ? getMosaicSpans(aspectRatio, columnWidth)
-              : { colSpan: aspectRatio > 1 ? 3 : 2, rowSpan: 4 };
+        isLargeList ? (
+          /* ---- Virtualized path (>100 items) ---- */
+          <div
+            ref={gridRef}
+            className="relative"
+            style={{ height: totalHeight > 0 ? totalHeight : undefined }}
+          >
+            {visibleIndices.map((index, visibleIndex) => {
+              const game = filteredGames[index];
+              const pos = layout.items[index];
+              if (!pos) return null;
+              const isEntering = showEntrance && visibleIndex < 30;
 
-            return (
-              <GameCard
-                key={flipItem.key}
-                ref={flipItem.ref}
-                game={flipItem.item}
-                onPlay={onPlayGame}
-                onOptions={onGameOptions}
-                getMenuItems={getMenuItems}
-                artworkSyncStore={artworkSyncStore}
-                className={cn(
-                  colSpan === 3 ? 'col-span-3' : 'col-span-2',
-                  flipItem.animationState === 'entering' && 'animate-card-enter',
-                  flipItem.animationState === 'exiting' && 'animate-card-exit',
-                )}
-                style={{
-                  ...flipItem.style,
-                  gridRow: `span ${rowSpan}`,
-                }}
-              />
-            );
-          })}
-        </div>
+              return (
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  onPlay={onPlayGame}
+                  onOptions={onGameOptions}
+                  getMenuItems={getMenuItems}
+                  artworkSyncStore={artworkSyncStore}
+                  className={cn(isEntering && 'animate-card-enter')}
+                  style={{
+                    position: 'absolute',
+                    left: pos.x,
+                    top: pos.y,
+                    width: pos.width,
+                    height: pos.height,
+                    ...(isEntering ? { animationDelay: `${Math.min(visibleIndex * 30, 400)}ms` } : undefined),
+                  }}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          /* ---- CSS Grid + FLIP path (<=100 items) ---- */
+          <div
+            ref={gridRef}
+            className="relative grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1"
+            style={{ gridAutoRows: `${MOSAIC_ROW_UNIT}px`, gridAutoFlow: 'dense' }}
+          >
+            {flipItems.map((flipItem) => {
+              const aspectRatio = flipItem.item.coverArtAspectRatio ?? 0.75;
+              const { colSpan, rowSpan } = columnWidth > 0
+                ? getMosaicSpans(aspectRatio, columnWidth)
+                : { colSpan: aspectRatio > 1 ? 3 : 2, rowSpan: 4 };
+
+              return (
+                <GameCard
+                  key={flipItem.key}
+                  ref={flipItem.ref}
+                  game={flipItem.item}
+                  onPlay={onPlayGame}
+                  onOptions={onGameOptions}
+                  getMenuItems={getMenuItems}
+                  artworkSyncStore={artworkSyncStore}
+                  className={cn(
+                    colSpan === 3 ? 'col-span-3' : 'col-span-2',
+                    flipItem.animationState === 'entering' && 'animate-card-enter',
+                    flipItem.animationState === 'exiting' && 'animate-card-exit',
+                  )}
+                  style={{
+                    ...flipItem.style,
+                    gridRow: `span ${rowSpan}`,
+                  }}
+                />
+              );
+            })}
+          </div>
+        )
       ) : (
         <div className="space-y-2">
           {/* List view implementation would go here */}
