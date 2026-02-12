@@ -16,6 +16,7 @@ import {
   ScreenScraperCredentials,
   ScreenScraperGameInfo,
 } from '../../types/artwork';
+import { readImageDimensions } from '../utils/readImageDimensions';
 
 /** Minimum delay between API requests in milliseconds. */
 const RATE_LIMIT_DELAY_MS = 1100;
@@ -49,6 +50,48 @@ export class ArtworkService extends EventEmitter {
     this.artworkDirectory = path.join(userData, 'artwork');
     this.configPath = path.join(userData, 'artwork-config.json');
     this.loadConfig();
+
+    // Backfill aspect ratios for games that have cover art but no stored ratio
+    void this.backfillAspectRatios();
+  }
+
+  /**
+   * Scans all games with cover art but no `coverArtAspectRatio` and computes
+   * the ratio from the cached image file. Runs once on startup to fix legacy
+   * games that were synced before aspect ratio tracking was added.
+   */
+  private async backfillAspectRatios(): Promise<void> {
+    const games = this.libraryService.getGames();
+    // Also re-check games clamped at the old boundaries (0.5 or 1.2) — they
+    // may have been truncated by a tighter clamp range.
+    const needsBackfill = games.filter(g =>
+      g.coverArt && (
+        g.coverArtAspectRatio === undefined ||
+        g.coverArtAspectRatio === 0.5 ||
+        g.coverArtAspectRatio === 1.2
+      ),
+    );
+
+    if (needsBackfill.length === 0) return;
+
+    artworkLog.info(`Backfilling aspect ratios for ${needsBackfill.length} game(s)`);
+
+    for (const game of needsBackfill) {
+      try {
+        // Resolve artwork:// URL to filesystem path
+        const filename = game.coverArt!.replace('artwork://', '');
+        const filePath = path.join(this.artworkDirectory, filename);
+
+        const dimensions = await readImageDimensions(filePath);
+        if (dimensions) {
+          const rawRatio = dimensions.width / dimensions.height;
+          const coverArtAspectRatio = Math.max(0.4, Math.min(1.8, rawRatio));
+          await this.libraryService.updateGame(game.id, { coverArtAspectRatio });
+        }
+      } catch (error) {
+        artworkLog.error(`Failed to backfill aspect ratio for ${game.title}:`, error instanceof Error ? error.message : error);
+      }
+    }
   }
 
   /** Returns the artwork directory path, creating it if needed. */
@@ -180,10 +223,19 @@ export class ArtworkService extends EventEmitter {
     // Step 4: Download artwork
     const artworkUrl = gameInfo.media.boxArt2d ?? gameInfo.media.boxArt3d ?? gameInfo.media.screenshot;
     let coverArtPath: string | undefined;
+    let coverArtAspectRatio: number | undefined;
     if (artworkUrl) {
       try {
         const extension = this.getImageExtension(artworkUrl);
         coverArtPath = await this.downloadArtwork(artworkUrl, `${gameId}${extension}`);
+
+        // Extract image dimensions to compute aspect ratio for dynamic card sizing
+        const dimensions = await readImageDimensions(coverArtPath);
+        if (dimensions) {
+          const rawRatio = dimensions.width / dimensions.height;
+          // Clamp to [0.4, 1.8] to accommodate portrait and landscape box art
+          coverArtAspectRatio = Math.max(0.4, Math.min(1.8, rawRatio));
+        }
       } catch (error) {
         // Download failed — log but still save metadata
         artworkLog.error(`Artwork download failed for ${game.title}:`, error instanceof Error ? error.message : error);
@@ -193,6 +245,7 @@ export class ArtworkService extends EventEmitter {
     // Step 5: Update game record
     await this.libraryService.updateGame(gameId, {
       ...(coverArtPath ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl!)}` } : {}),
+      ...(coverArtAspectRatio !== undefined ? { coverArtAspectRatio } : {}),
       metadata: {
         developer: gameInfo.developer,
         publisher: gameInfo.publisher,
@@ -380,12 +433,16 @@ export class ArtworkService extends EventEmitter {
 
         if (success) {
           found++;
+          // Re-fetch the game to get the coverArt URL that syncGame() just set
+          const updatedGame = this.libraryService.getGame(game.id);
           this.emitProgress({
             gameId: game.id,
             gameTitle: game.title,
             phase: 'done',
             current: processed + 1,
             total,
+            coverArt: updatedGame?.coverArt,
+            coverArtAspectRatio: updatedGame?.coverArtAspectRatio,
           });
         } else {
           notFound++;

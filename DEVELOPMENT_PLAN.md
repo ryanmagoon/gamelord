@@ -95,6 +95,8 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] **Remove backdrop-blur from game window** — Replaced `backdrop-blur-md` on all game window overlays with solid backgrounds to eliminate GPU compositing overhead during gameplay.
 - [x] **FPS counter** — Settings menu toggle for an FPS overlay (EMA of rAF timestamp deltas, updated every 30 frames). Persisted in localStorage.
 - [x] **Worker thread emulation** — Moved emulation loop from main process to a dedicated Electron utility process (`core-worker.ts`) with hybrid sleep+spin frame pacing. `EmulationWorkerClient` manages the worker lifecycle and message protocol.
+- [x] **Dense mosaic grid layout** — CSS Grid `dense` packing with computed row-spans per card aspect ratio, eliminating dead space in the game library grid
+- [x] **Virtualized game library** — JS dense packing algorithm + viewport culling for large collections (>100 games). Reduces DOM nodes from 1200+ to ~20-40, with RAF-throttled scroll tracking. Lists <=100 items keep CSS Grid + FLIP animation.
 - [ ] **SharedArrayBuffer for frame transfer** — Zero-copy video/audio push between worker and renderer (unlocked by worker thread migration)
 - [ ] **Lock-free audio buffer** — Replace `std::mutex`-guarded audio buffer in native addon with a lock-free SPSC ring buffer
 - [ ] **Native audio sample conversion** — Move Int16 → Float32 stereo deinterleaving from JavaScript (`GameWindow.tsx`) into the native addon so frames arrive renderer-ready, eliminating ~42K JS loop iterations/sec
@@ -112,9 +114,19 @@ Items are grouped by priority. Work top-down within each tier.
 
 - [x] Integrate metadata API (ScreenScraper) for cover art and game info
 - [x] Cover art downloading and caching (artwork:// custom protocol, per-game and bulk sync)
-- [ ] Grid view with cover art thumbnails
-- [ ] Search, filter, and sorting
+- [x] Grid view with cover art thumbnails
+- [x] Search, filter, and sorting
 - [ ] Recently played tracking
+- [ ] **Rating display** — Show ScreenScraper community rating on cards or in a detail view. Already stored as `metadata.rating` (0–1 scale). Consider a 5-star or 10-point visual treatment.
+- [ ] **Game detail panel** — Slide-out or modal panel showing full metadata: description, developer, publisher, release date, genre, player count, rating, and screenshots. Triggered by selecting a game (not launching it).
+- [ ] **Filter by genre** — Genre is already stored per-game from ScreenScraper. Add a genre filter dropdown alongside the existing platform filter.
+- [ ] **Filter by player count** — Filter to show only single-player, multiplayer, or N+ player games using `metadata.players`.
+- [ ] **Filter by decade/era** — Group games by release decade (80s, 90s, 2000s) using `metadata.releaseDate`.
+- [ ] **Sort by rating** — Add rating as a sort option in the library toolbar.
+- [ ] **Favorites** — Toggle favorite on games (field already exists on Game type). Add a "Favorites" filter and sort favorites to the top.
+- [ ] **Play count & stats** — Track number of play sessions (not just total time). Show "most played" sorting and a stats view with play history over time.
+- [ ] **Completion status** — Let users tag games as "Not Started", "In Progress", "Completed", or "Abandoned". Filterable.
+- [ ] **Collections / tags** — User-created collections (e.g. "Couch Co-op", "RPG Marathon", "Childhood Favorites") for organizing games beyond system/genre.
 
 ### P5 — Controls & Input
 
@@ -162,6 +174,8 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P8 — UI Polish
 
+- [ ] **TV static animation hitches during artwork sync** ([#23](https://github.com/ryanmagoon/gamelord/issues/23)) — When artwork syncs for any card (download, error, or not-found), all other cards' TV static animations freeze momentarily. React-level optimizations already applied: stable style refs for React.memo (`useFlipAnimation`), shared `TVStaticManager` singleton (one rAF loop instead of 50+), per-game `UiGame` object cache, and `ArtworkSyncStore` backed by `useSyncExternalStore` to bypass parent re-renders. Hitches persist — likely caused by browser-level bottleneck: canvas `putImageData` cost across 50+ canvases, forced reflow during `useAspectRatioTransition` height changes, or image decode blocking the main thread. Next steps: profile with Chrome DevTools Performance panel to identify the exact frame-time spike, consider `OffscreenCanvas` in a Web Worker for noise generation, investigate batching `putImageData` calls with `requestIdleCallback`, and test whether pausing static on off-screen cards via `IntersectionObserver` eliminates the jank.
+- [ ] **Artwork load animation polish** — The `useAspectRatioTransition` hook and dissolve-in animation exist but the card resize isn't visibly smooth when artwork arrives. Debug and polish: coordinate the art dissolve-in with the card height transition so they feel like one fluid motion, test with both portrait and landscape art, and ensure cards already loaded with art skip the animation entirely.
 - [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers)
 - [x] Shader/filter selection (CRT, CRT Aperture, Scanlines, LCD, Sharp Bilinear via WebGL2)
 - [ ] Explore loading Slang (.slang/.slangp) shaders from the libretro shader ecosystem
@@ -180,7 +194,15 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Package as DMG for macOS
 - [ ] Auto-update mechanism
 
-### P10 — Native Addon Hardening
+### P10 — Web Presence (Vercel)
+
+- [ ] Landing page / marketing site (`gamelord.app`) — Next.js app with download links, feature showcase, screenshots, changelog
+- [ ] Documentation site (`docs.gamelord.app`) — Next.js + MDX or Astro
+- [ ] Cloud saves / sync API — serverless functions + blob storage, requires user accounts/auth
+- [ ] User profile dashboard — achievements, play history, library stats (rides on cloud saves infra)
+- [ ] Multiplayer lobby/matchmaking API — pairs with P7 relay server (relay itself should NOT be on Vercel — needs persistent WebSocket connections, use Fly.io/Railway/VPS)
+
+### P11 — Native Addon Hardening
 
 - [ ] **Enable C++ exceptions or remove STL** — `NAPI_DISABLE_CPP_EXCEPTIONS` is set but `std::vector` can throw on allocation failure; either enable exceptions or use pre-allocated fixed buffers
 - [ ] **Cross-platform path handling** — Abstract macOS-specific paths (e.g. `/Applications/RetroArch.app/...` in `EmulatorManager.ts`) behind platform detection

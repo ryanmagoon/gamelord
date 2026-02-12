@@ -12,6 +12,7 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
   cn,
+  ArtworkSyncStore,
   type Game,
   type Game as UiGame,
   type GameCardMenuItem,
@@ -44,9 +45,11 @@ export const LibraryView: React.FC<{
   const [isScanning, setIsScanning] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState<CoreDownloadProgress | null>(null)
 
-  // Artwork sync state — per-card progress map replaces the old banner
-  const [artworkSyncPhases, setArtworkSyncPhases] = useState<Map<string, ArtworkSyncPhase>>(new Map())
+  // Artwork sync state — external store so phase updates bypass React re-renders.
+  // Each GameCard subscribes to its own phase via useSyncExternalStore.
+  const [artworkSyncStore] = useState(() => new ArtworkSyncStore())
   const [syncCounter, setSyncCounter] = useState<{ current: number; total: number } | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const phaseCleanupTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   /** Track sync results for the notification summary. */
   const syncResults = useRef<{ found: number; notFound: number; errors: number; lastErrorCode?: string; lastError?: string }>({ found: 0, notFound: 0, errors: 0 })
@@ -70,39 +73,23 @@ export const LibraryView: React.FC<{
     const existing = phaseCleanupTimers.current.get(gameId)
     if (existing) clearTimeout(existing)
 
-    setArtworkSyncPhases(prev => {
-      const next = new Map(prev)
-      if (phase === null) {
-        next.delete(gameId)
-      } else {
-        next.set(gameId, phase)
-      }
-      return next
-    })
+    artworkSyncStore.setPhase(gameId, phase)
 
     // Schedule auto-cleanup for terminal states
     if (phase === 'done') {
       const timer = setTimeout(() => {
-        setArtworkSyncPhases(prev => {
-          const next = new Map(prev)
-          next.delete(gameId)
-          return next
-        })
+        artworkSyncStore.setPhase(gameId, null)
         phaseCleanupTimers.current.delete(gameId)
       }, 1500) // Hold 'done' for dissolve animation
       phaseCleanupTimers.current.set(gameId, timer)
     } else if (phase === 'error' || phase === 'not-found') {
       const timer = setTimeout(() => {
-        setArtworkSyncPhases(prev => {
-          const next = new Map(prev)
-          next.delete(gameId)
-          return next
-        })
+        artworkSyncStore.setPhase(gameId, null)
         phaseCleanupTimers.current.delete(gameId)
       }, 2500) // Hold error/not-found briefly
       phaseCleanupTimers.current.set(gameId, timer)
     }
-  }, [])
+  }, [artworkSyncStore])
 
   useEffect(() => {
     loadLibrary()
@@ -126,7 +113,15 @@ export const LibraryView: React.FC<{
       // Track results for summary notification
       if (progress.phase === 'done') {
         syncResults.current.found++
-        loadLibrary()
+        // Update just this game's coverArt in-place to avoid full library
+        // reload, which causes layout reflow and FLIP recalculation jank.
+        if (progress.coverArt) {
+          setGames(prev => prev.map(g =>
+            g.id === progress.gameId
+              ? { ...g, coverArt: progress.coverArt, coverArtAspectRatio: progress.coverArtAspectRatio }
+              : g
+          ))
+        }
       } else if (progress.phase === 'not-found') {
         syncResults.current.notFound++
       } else if (progress.phase === 'error') {
@@ -184,7 +179,7 @@ export const LibraryView: React.FC<{
 
     api.on('artwork:syncError', (data: { error: string }) => {
       setSyncCounter(null)
-      setArtworkSyncPhases(new Map())
+      artworkSyncStore.clear()
       syncResults.current = { found: 0, notFound: 0, errors: 0 }
 
       // Show actionable error to the user
@@ -344,13 +339,17 @@ export const LibraryView: React.FC<{
       setShowCredentialsDialog(true)
       return
     }
-    await api.artwork.syncAll()
+    // Sort by title so artwork loads in the same order the user sees in the grid
+    const sortedIds = [...games]
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .map(g => g.id)
+    await api.artwork.syncGames(sortedIds)
   }
 
   const handleCancelArtworkSync = async () => {
     await api.artwork.cancelSync()
     setSyncCounter(null)
-    setArtworkSyncPhases(new Map())
+    artworkSyncStore.clear()
   }
 
   const handleSaveCredentials = async () => {
@@ -428,9 +427,44 @@ export const LibraryView: React.FC<{
     await loadLibrary()
   }
 
-  const filteredGames = selectedSystem
-    ? games.filter((game) => game.systemId === selectedSystem)
-    : games
+  const filteredGames = useMemo(
+    () => selectedSystem ? games.filter((game) => game.systemId === selectedSystem) : games,
+    [games, selectedSystem],
+  )
+
+  // Per-game UI object cache — only recreates a UiGame when its source
+  // AppGame object reference changes. This prevents ALL cards from
+  // re-rendering when only one game's coverArt is updated.
+  const uiGameCacheRef = useRef<Map<AppGame, UiGame>>(new Map())
+
+  const uiGames = useMemo<UiGame[]>(() => {
+    const cache = uiGameCacheRef.current
+    const nextCache = new Map<AppGame, UiGame>()
+    const result: UiGame[] = []
+
+    for (const game of filteredGames) {
+      let uiGame = cache.get(game)
+      if (!uiGame) {
+        uiGame = {
+          id: game.id,
+          title: game.title,
+          platform: game.system,
+          systemId: game.systemId,
+          genre: game.metadata?.genre,
+          coverArt: game.coverArt,
+          coverArtAspectRatio: game.coverArtAspectRatio,
+          romPath: game.romPath,
+          lastPlayed: game.lastPlayed,
+          playTime: game.playTime,
+        }
+      }
+      nextCache.set(game, uiGame)
+      result.push(uiGame)
+    }
+
+    uiGameCacheRef.current = nextCache
+    return result
+  }, [filteredGames])
 
   if (loading) {
     return (
@@ -565,26 +599,17 @@ export const LibraryView: React.FC<{
       )}
 
       {/* Game library */}
-      <div className="flex-1 overflow-auto p-4">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto p-4" style={{ scrollbarGutter: 'stable' }}>
         {filteredGames.length > 0 ? (
           <GameLibrary
-            games={filteredGames.map<UiGame>((game) => ({
-              id: game.id,
-              title: game.title,
-              platform: game.system,
-              systemId: game.systemId,
-              genre: game.metadata?.genre,
-              coverArt: game.coverArt,
-              romPath: game.romPath,
-              lastPlayed: game.lastPlayed,
-              playTime: game.playTime,
-            }))}
+            games={uiGames}
             onPlayGame={(g) => {
               void handlePlayUiGame(g)
             }}
             onGameOptions={handleUiGameOptions}
             getMenuItems={getMenuItems}
-            artworkSyncPhases={artworkSyncPhases}
+            artworkSyncStore={artworkSyncStore}
+            scrollContainerRef={scrollContainerRef}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">

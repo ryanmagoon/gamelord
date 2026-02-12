@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { cn } from '../utils'
+import { tvStaticManager } from './TVStaticManager'
 
 /** Possible artwork sync phases that drive the TV static visual state. */
 export type ArtworkSyncPhase =
@@ -18,6 +19,8 @@ interface TVStaticProps {
   statusText?: string
   /** Current sync phase — controls tint color for error/not-found states. */
   phase?: ArtworkSyncPhase
+  /** Width/height ratio of the container, used to set canvas proportions. @default 0.75 */
+  aspectRatio?: number
   className?: string
 }
 
@@ -28,61 +31,29 @@ interface TVStaticProps {
  * CRT feel) with scanline overlay and phosphor glow. Far more convincing
  * than an SVG feTurbulence data URI, which only produces a single static
  * frame.
+ *
+ * The fade-out is controlled imperatively by the parent (via a wrapper div's
+ * opacity/transition) so that no React re-renders occur during animation.
  */
 export const TVStatic: React.FC<TVStaticProps> = ({
   active,
   statusText,
   phase,
+  aspectRatio = 0.75,
   className,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animFrameRef = useRef<number>(0)
 
   useEffect(() => {
     if (!active) return
 
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
 
     // Low-res noise — renders at this size, CSS scales it up for chunky pixels
-    const noiseWidth = 64
-    const noiseHeight = 86 // ≈ 3:4 aspect
-    canvas.width = noiseWidth
-    canvas.height = noiseHeight
-
-    const imageData = ctx.createImageData(noiseWidth, noiseHeight)
-    const data = imageData.data
-
-    let lastFrameTime = 0
-    const targetFps = 15 // CRT static flicker rate
-
-    const drawNoise = (timestamp: number) => {
-      // Throttle to target FPS for authentic CRT feel
-      if (timestamp - lastFrameTime < 1000 / targetFps) {
-        animFrameRef.current = requestAnimationFrame(drawNoise)
-        return
-      }
-      lastFrameTime = timestamp
-
-      for (let i = 0; i < data.length; i += 4) {
-        const value = Math.random() * 255
-        data[i] = value     // R
-        data[i + 1] = value // G
-        data[i + 2] = value // B
-        data[i + 3] = 255   // A
-      }
-      ctx.putImageData(imageData, 0, 0)
-      animFrameRef.current = requestAnimationFrame(drawNoise)
-    }
-
-    animFrameRef.current = requestAnimationFrame(drawNoise)
-
-    return () => {
-      cancelAnimationFrame(animFrameRef.current)
-    }
-  }, [active])
+    const noiseHeight = Math.round(64 / aspectRatio)
+    return tvStaticManager.register(canvas, noiseHeight)
+  }, [active, aspectRatio])
 
   if (!active) return null
 
