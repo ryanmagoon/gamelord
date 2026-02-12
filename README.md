@@ -15,40 +15,6 @@ A modern, elegant emulation frontend built as a spiritual successor to OpenEmu, 
 - 🌈 **Visual Effects** - CRT shaders, scanlines, and other retro visual enhancements via WebGL2
 - 🔒 **Secure Architecture** - Context isolation with Electron preload scripts
 
-## Architecture
-
-GameLord uses a modern, secure architecture with proper process separation:
-
-```
-┌─────────────────────────────────────────┐
-│            Main Process                 │
-│  - Native Addon (libretro core via      │
-│    dlopen + N-API)                      │
-│  - Emulation Loop & Frame Generation    │
-│  - Library & File System Operations     │
-│  - IPC Coordination                     │
-└─────────────────────────────────────────┘
-              │ IPC (webContents.send)
-┌─────────────────────────────────────────┐
-│          Renderer Process               │
-│  - React UI (shadcn/ui)                 │
-│  - Game Library Display                 │
-│  - WebGL2 Video Rendering + Shaders     │
-│  - Web Audio API Playback               │
-│  - Input Capture & Forwarding           │
-└─────────────────────────────────────────┘
-```
-
-## Tech Stack
-
-- **Framework**: Electron + Vite
-- **Frontend**: React 19 + TypeScript
-- **UI Components**: shadcn/ui + Tailwind CSS v4
-- **State Management**: Zustand
-- **Build Tool**: Electron Forge
-- **Package Manager**: pnpm
-- **Emulation**: libretro cores
-
 ## Getting Started
 
 ### Prerequisites
@@ -187,19 +153,3 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
-
-- Inspired by [OpenEmu](https://openemu.org/)
-- Built with [Electron](https://www.electronjs.org/)
-- UI components from [shadcn/ui](https://ui.shadcn.com/)
-- Emulation powered by [libretro](https://www.libretro.com/)
-
-## Support
-
-- **Documentation**: [docs.gamelord.app](https://docs.gamelord.app)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/gamelord/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/gamelord/discussions)
-
----
-
-Made with ❤️ by the GameLord team
