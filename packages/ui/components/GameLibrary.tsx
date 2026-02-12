@@ -124,6 +124,31 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     return filtered;
   }, [games, searchQuery, selectedPlatform, sortBy]);
 
+  // Median aspect ratio per platform — used as fallback for games without cover art
+  // so fallback cards match the size of their platform neighbors.
+  const platformMedianAR = useMemo(() => {
+    const byPlatform = new Map<string, number[]>();
+    for (const game of games) {
+      if (game.coverArtAspectRatio != null) {
+        let list = byPlatform.get(game.platform);
+        if (!list) {
+          list = [];
+          byPlatform.set(game.platform, list);
+        }
+        list.push(game.coverArtAspectRatio);
+      }
+    }
+    const medians = new Map<string, number>();
+    for (const [platform, ratios] of byPlatform) {
+      ratios.sort((a, b) => a - b);
+      const mid = Math.floor(ratios.length / 2);
+      medians.set(platform, ratios.length % 2 === 0
+        ? (ratios[mid - 1] + ratios[mid]) / 2
+        : ratios[mid]);
+    }
+    return medians;
+  }, [games]);
+
   const isLargeList = filteredGames.length > VIRTUALIZATION_THRESHOLD;
 
   // ---- FLIP animation (small lists only) ----
@@ -137,10 +162,10 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   const spans = useMemo(() => {
     if (!isLargeList || columnWidth <= 0) return [];
     return filteredGames.map(game => {
-      const ar = game.coverArtAspectRatio ?? 0.75;
+      const ar = game.coverArtAspectRatio ?? platformMedianAR.get(game.platform) ?? 0.75;
       return getMosaicSpans(ar, columnWidth);
     });
-  }, [isLargeList, filteredGames, columnWidth]);
+  }, [isLargeList, filteredGames, columnWidth, platformMedianAR]);
 
   const layout = useMemo(() => {
     if (!isLargeList || spans.length === 0 || columnWidth <= 0) {
@@ -305,7 +330,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
             style={{ gridAutoRows: `${MOSAIC_ROW_UNIT}px`, gridAutoFlow: 'dense' }}
           >
             {flipItems.map((flipItem) => {
-              const aspectRatio = flipItem.item.coverArtAspectRatio ?? 0.75;
+              const aspectRatio = flipItem.item.coverArtAspectRatio ?? platformMedianAR.get(flipItem.item.platform) ?? 0.75;
               const { rowSpan } = columnWidth > 0
                 ? getMosaicSpans(aspectRatio, columnWidth)
                 : { rowSpan: 4 };
