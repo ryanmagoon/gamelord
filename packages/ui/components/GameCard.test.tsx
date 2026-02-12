@@ -199,8 +199,24 @@ describe('GameCard', () => {
     })
   })
 
-  describe('dynamic aspect ratio', () => {
-    it('uses coverArtAspectRatio for card aspect ratio when provided', () => {
+  describe('mosaic layout', () => {
+    it('card fills its grid area with h-full on all container layers', () => {
+      const onPlay = vi.fn()
+      const { container } = render(
+        <GameCard game={mockGame} onPlay={onPlay} />
+      )
+
+      // The outer Card element
+      const card = screen.getByRole('button', { name: /play super mario bros/i })
+      expect(card.className).toContain('h-full')
+
+      // The inner container div (child of CardContent)
+      const innerContainer = container.querySelector('.bg-muted')
+      expect(innerContainer).not.toBeNull()
+      expect(innerContainer!.className).toContain('h-full')
+    })
+
+    it('does not set aspect-ratio inline style (grid controls height via row-span)', () => {
       const onPlay = vi.fn()
       const gameWithRatio = { ...mockGame, coverArtAspectRatio: 0.714 }
       const { container } = render(
@@ -208,19 +224,7 @@ describe('GameCard', () => {
       )
 
       const aspectDiv = container.querySelector('[style*="aspect-ratio"]')
-      expect(aspectDiv).not.toBeNull()
-      expect(aspectDiv!.getAttribute('style')).toContain('0.714')
-    })
-
-    it('defaults to 0.75 (3:4) aspect ratio when coverArtAspectRatio is not provided', () => {
-      const onPlay = vi.fn()
-      const { container } = render(
-        <GameCard game={mockGame} onPlay={onPlay} />
-      )
-
-      const aspectDiv = container.querySelector('[style*="aspect-ratio"]')
-      expect(aspectDiv).not.toBeNull()
-      expect(aspectDiv!.getAttribute('style')).toContain('0.75')
+      expect(aspectDiv).toBeNull()
     })
   })
 })

@@ -95,6 +95,8 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] **Remove backdrop-blur from game window** — Replaced `backdrop-blur-md` on all game window overlays with solid backgrounds to eliminate GPU compositing overhead during gameplay.
 - [x] **FPS counter** — Settings menu toggle for an FPS overlay (EMA of rAF timestamp deltas, updated every 30 frames). Persisted in localStorage.
 - [x] **Worker thread emulation** — Moved emulation loop from main process to a dedicated Electron utility process (`core-worker.ts`) with hybrid sleep+spin frame pacing. `EmulationWorkerClient` manages the worker lifecycle and message protocol.
+- [x] **Dense mosaic grid layout** — CSS Grid `dense` packing with computed row-spans per card aspect ratio, eliminating dead space in the game library grid
+- [x] **Virtualized game library** — JS dense packing algorithm + viewport culling for large collections (>100 games). Reduces DOM nodes from 1200+ to ~20-40, with RAF-throttled scroll tracking. Lists <=100 items keep CSS Grid + FLIP animation.
 - [ ] **SharedArrayBuffer for frame transfer** — Zero-copy video/audio push between worker and renderer (unlocked by worker thread migration)
 - [ ] **Lock-free audio buffer** — Replace `std::mutex`-guarded audio buffer in native addon with a lock-free SPSC ring buffer
 - [ ] **Native audio sample conversion** — Move Int16 → Float32 stereo deinterleaving from JavaScript (`GameWindow.tsx`) into the native addon so frames arrive renderer-ready, eliminating ~42K JS loop iterations/sec
@@ -112,8 +114,8 @@ Items are grouped by priority. Work top-down within each tier.
 
 - [x] Integrate metadata API (ScreenScraper) for cover art and game info
 - [x] Cover art downloading and caching (artwork:// custom protocol, per-game and bulk sync)
-- [ ] Grid view with cover art thumbnails
-- [ ] Search, filter, and sorting
+- [x] Grid view with cover art thumbnails
+- [x] Search, filter, and sorting
 - [ ] Recently played tracking
 - [ ] **Rating display** — Show ScreenScraper community rating on cards or in a detail view. Already stored as `metadata.rating` (0–1 scale). Consider a 5-star or 10-point visual treatment.
 - [ ] **Game detail panel** — Slide-out or modal panel showing full metadata: description, developer, publisher, release date, genre, player count, rating, and screenshots. Triggered by selecting a game (not launching it).

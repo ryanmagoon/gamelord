@@ -49,6 +49,7 @@ export const LibraryView: React.FC<{
   // Each GameCard subscribes to its own phase via useSyncExternalStore.
   const [artworkSyncStore] = useState(() => new ArtworkSyncStore())
   const [syncCounter, setSyncCounter] = useState<{ current: number; total: number } | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const phaseCleanupTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   /** Track sync results for the notification summary. */
   const syncResults = useRef<{ found: number; notFound: number; errors: number; lastErrorCode?: string; lastError?: string }>({ found: 0, notFound: 0, errors: 0 })
@@ -598,7 +599,7 @@ export const LibraryView: React.FC<{
       )}
 
       {/* Game library */}
-      <div className="flex-1 overflow-auto p-4" style={{ scrollbarGutter: 'stable' }}>
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto p-4" style={{ scrollbarGutter: 'stable' }}>
         {filteredGames.length > 0 ? (
           <GameLibrary
             games={uiGames}
@@ -608,6 +609,7 @@ export const LibraryView: React.FC<{
             onGameOptions={handleUiGameOptions}
             getMenuItems={getMenuItems}
             artworkSyncStore={artworkSyncStore}
+            scrollContainerRef={scrollContainerRef}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">

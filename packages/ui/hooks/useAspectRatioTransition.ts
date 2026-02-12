@@ -27,6 +27,13 @@ export interface UseAspectRatioTransitionOptions {
    * change was needed). Use this to sequence the cross-fade after the resize.
    */
   onResizeComplete?: () => void
+  /**
+   * Whether to animate the container height when the aspect ratio changes.
+   * When `false`, the hook fires `onResizeComplete` immediately without
+   * animating — useful when the grid controls card height via row-span.
+   * @default true
+   */
+  animateHeight?: boolean
 }
 
 export interface UseAspectRatioTransitionResult {
@@ -52,6 +59,7 @@ export function useAspectRatioTransition(
     easing = DEFAULT_EASING,
     onResizeStart,
     onResizeComplete,
+    animateHeight = true,
   } = options
 
   const elementRef = useRef<HTMLElement | null>(null)
@@ -63,11 +71,13 @@ export function useAspectRatioTransition(
   onResizeStartRef.current = onResizeStart
   const onResizeCompleteRef = useRef(onResizeComplete)
   onResizeCompleteRef.current = onResizeComplete
+  const animateHeightRef = useRef(animateHeight)
+  animateHeightRef.current = animateHeight
 
   const containerRef = useCallback((element: HTMLElement | null) => {
     elementRef.current = element
-    // Set initial aspect ratio imperatively
-    if (element) {
+    // Set initial aspect ratio imperatively (skip when grid controls height)
+    if (element && animateHeightRef.current) {
       element.style.aspectRatio = String(previousRatioRef.current ?? options.aspectRatio)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- intentionally stable
@@ -82,7 +92,16 @@ export function useAspectRatioTransition(
 
     // If not enabled or first render, just set the aspect ratio directly
     if (!enabled || previousRatio === null) {
-      element.style.aspectRatio = String(aspectRatio)
+      if (animateHeight) {
+        element.style.aspectRatio = String(aspectRatio)
+      }
+      return
+    }
+
+    // Grid controls height via row-span — skip height animation, just signal
+    // completion so the cross-fade can proceed.
+    if (!animateHeight) {
+      onResizeCompleteRef.current?.()
       return
     }
 
@@ -137,7 +156,7 @@ export function useAspectRatioTransition(
       cleanupRef.current = null
       onResizeCompleteRef.current?.()
     }, duration + 16)
-  }, [aspectRatio, enabled, duration, easing])
+  }, [aspectRatio, enabled, duration, easing, animateHeight])
 
   // Cleanup on unmount
   useEffect(() => {
