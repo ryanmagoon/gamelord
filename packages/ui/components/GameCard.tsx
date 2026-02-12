@@ -175,6 +175,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const { containerRef } = useAspectRatioTransition({
     aspectRatio,
     enabled: isDone,
+    animateHeight: false,
     onResizeStart: handleResizeStart,
     onResizeComplete: handleResizeComplete,
   })
@@ -188,7 +189,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
     <Card
       ref={ref}
       className={cn(
-        'group relative overflow-hidden rounded-none border-0 transition-[transform,box-shadow] duration-200 hover:scale-105 hover:shadow-lg w-full cursor-pointer',
+        'group relative overflow-hidden rounded-none border-0 transition-[transform,box-shadow] duration-200 hover:scale-105 hover:shadow-lg hover:z-10 w-full h-full cursor-pointer',
         className
       )}
       style={style}
@@ -199,8 +200,8 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
       aria-label={`Play ${game.title}`}
       title={game.title}
     >
-      <CardContent className="p-0">
-        <div ref={containerRef} className="relative bg-muted overflow-hidden">
+      <CardContent className="p-0 h-full">
+        <div ref={containerRef} className="relative bg-muted overflow-hidden h-full">
           {/*
            * Cover art image — ALWAYS in the DOM so React never has to mount/
            * unmount it during animation. Hidden via opacity-0 until the
@@ -233,8 +234,8 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
 
           {/* Fallback: game title over static when no cover art */}
           {isFallback && (
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 pb-2 pt-6 pointer-events-none">
-              <span className="text-sm font-semibold text-white leading-tight line-clamp-2">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-3 pt-8 pointer-events-none">
+              <span className="text-lg font-bold text-white leading-tight line-clamp-2">
                 {game.title}
               </span>
             </div>
