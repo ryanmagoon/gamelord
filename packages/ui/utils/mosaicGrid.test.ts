@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeRowSpan, getMosaicSpans, snapAspectRatio } from './mosaicGrid'
+import { computeRowSpan, getMosaicSpans } from './mosaicGrid'
 
 describe('computeRowSpan', () => {
   const columnWidth = 120 // typical column width at ~1280px viewport with 12 cols
@@ -44,38 +44,6 @@ describe('computeRowSpan', () => {
   })
 })
 
-describe('snapAspectRatio', () => {
-  it('snaps exact bucket values to themselves', () => {
-    expect(snapAspectRatio(0.667)).toBe(0.667)
-    expect(snapAspectRatio(0.750)).toBe(0.750)
-    expect(snapAspectRatio(1.000)).toBe(1.000)
-    expect(snapAspectRatio(1.333)).toBe(1.333)
-  })
-
-  it('snaps similar GBA ratios to the same bucket', () => {
-    // Two GBA games with slightly different image dimensions
-    expect(snapAspectRatio(0.7142857)).toBe(0.700)
-    expect(snapAspectRatio(0.7134670)).toBe(0.700)
-  })
-
-  it('snaps values between buckets to the nearest one', () => {
-    // Midpoint between 0.750 and 0.800 is 0.775 → snaps to 0.800 (closer)
-    expect(snapAspectRatio(0.780)).toBe(0.800)
-    // Closer to 0.750
-    expect(snapAspectRatio(0.760)).toBe(0.750)
-  })
-
-  it('snaps very small ratios to the smallest bucket', () => {
-    expect(snapAspectRatio(0.4)).toBe(0.667)
-    expect(snapAspectRatio(0.5)).toBe(0.667)
-  })
-
-  it('snaps very large ratios to the largest bucket', () => {
-    expect(snapAspectRatio(1.8)).toBe(1.500)
-    expect(snapAspectRatio(2.0)).toBe(1.500)
-  })
-})
-
 describe('getMosaicSpans', () => {
   const columnWidth = 120
 
@@ -99,5 +67,14 @@ describe('getMosaicSpans', () => {
     expect(result).toHaveProperty('colSpan')
     expect(result).toHaveProperty('rowSpan')
     expect(result.rowSpan).toBeGreaterThanOrEqual(2)
+  })
+
+  it('produces same rowSpan for very similar aspect ratios', () => {
+    // Two GBA games with slightly different image dimensions should
+    // get the same rowSpan since Math.round absorbs the tiny difference
+    const a = getMosaicSpans(0.7142857, columnWidth)
+    const b = getMosaicSpans(0.7134670, columnWidth)
+    expect(a.colSpan).toBe(b.colSpan)
+    expect(a.rowSpan).toBe(b.rowSpan)
   })
 })
