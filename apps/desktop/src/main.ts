@@ -63,6 +63,19 @@ app.on('ready', () => {
   createWindow();
 });
 
+// Gracefully shut down the emulation worker before quitting so its exit
+// doesn't fire an unhandled error event (the worker exits with code 0
+// when Electron tears down utility processes, but EmulationWorkerClient
+// still has `running = true` if shutdown() was never called).
+let isCleaningUp = false;
+app.on('before-quit', async (event) => {
+  if (isCleaningUp || !ipcHandlers) return;
+  event.preventDefault();
+  isCleaningUp = true;
+  await ipcHandlers.cleanup();
+  app.quit();
+});
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
