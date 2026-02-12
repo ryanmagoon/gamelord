@@ -234,8 +234,8 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
 
           {/* Fallback: game title over static when no cover art */}
           {isFallback && (
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 pb-2 pt-6 pointer-events-none">
-              <span className="text-sm font-semibold text-white leading-tight line-clamp-2">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-3 pt-8 pointer-events-none">
+              <span className="text-lg font-bold text-white leading-tight line-clamp-2">
                 {game.title}
               </span>
             </div>
