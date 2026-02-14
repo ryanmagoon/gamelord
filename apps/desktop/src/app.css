@@ -200,7 +200,7 @@ body {
 }
 
 .animate-card-sync-pulse {
-  animation: card-sync-pulse 1.5s ease-in-out infinite;
+  animation: card-sync-pulse 1.0s ease-in-out infinite;
 }
 
 /* Fade-in for the "Artwork not found" label on cards. */
