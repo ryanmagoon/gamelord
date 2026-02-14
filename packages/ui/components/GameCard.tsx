@@ -103,14 +103,21 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   // Cross-fade: starts after the height transition completes.
   const [crossFadeReady, setCrossFadeReady] = useState(false)
 
+  // Height animation is only safe when the CSS Grid controls sizing via
+  // row-span. The virtualized path sets an explicit pixel height in `style`,
+  // and imperative `el.style.height` overrides would conflict with React's
+  // inline style reconciliation, causing broken layouts.
+  const parentControlsHeight = typeof style?.height === 'number'
+
   // Imperatively animate the card's height from its old value to the new
   // grid-assigned value when artwork arrives. The grid instantly changes
-  // the card's target height (via row-span or absolute positioning), so we
-  // capture the old height, pin it, then transition to the new height.
+  // the card's target height (via row-span), so we capture the old height,
+  // pin it, then transition to the new height.
   const prevHeightRef = useRef<number | null>(null)
 
   // Capture height before React applies the new grid layout
   useEffect(() => {
+    if (parentControlsHeight) return
     if (!isDone) {
       // While not in done phase, keep snapshotting the current height
       // so we know where to animate from when done fires.
@@ -118,22 +125,30 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
       if (el) prevHeightRef.current = el.getBoundingClientRect().height
       setCrossFadeReady(false)
     }
-  }, [isDone, game.coverArtAspectRatio])
+  }, [isDone, game.coverArtAspectRatio, parentControlsHeight])
 
   // When done phase starts, animate height then start cross-fade
   useEffect(() => {
     if (!isDone || !game.coverArt) return
+
+    // Pre-decode the image in parallel with any height transition
+    const img = imgRef.current
+    const noop = () => { /* intentional */ }
+    const decodePromise = img?.decode?.().catch(noop) ?? Promise.resolve()
+
+    // When the parent controls height (virtualized grid), skip the height
+    // animation entirely — just wait for the image to decode then cross-fade.
+    if (parentControlsHeight) {
+      decodePromise.then(() => setCrossFadeReady(true))
+      return
+    }
+
     const el = cardRef.current
     if (!el) return
 
     const oldHeight = prevHeightRef.current
     // Let the browser apply the new grid layout to get the target height
     const newHeight = el.getBoundingClientRect().height
-
-    // Pre-decode the image in parallel with the height transition
-    const img = imgRef.current
-    const noop = () => { /* intentional */ }
-    const decodePromise = img?.decode?.().catch(noop) ?? Promise.resolve()
 
     // If height didn't change meaningfully, skip straight to cross-fade
     if (oldHeight === null || Math.abs(oldHeight - newHeight) < 1) {
@@ -164,7 +179,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
       el.style.transition = ''
       el.style.overflow = ''
     }
-  }, [isDone, game.coverArt])
+  }, [isDone, game.coverArt, parentControlsHeight])
 
   const containerRef = useRef<HTMLDivElement | null>(null)
 
