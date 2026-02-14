@@ -101,14 +101,12 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   // Cross-fade: starts after the height transition completes.
   const [crossFadeReady, setCrossFadeReady] = useState(false)
 
-  // The virtualized path sets an explicit pixel height in `style` — the
-  // inner container shouldn't animate height there since the card is already
-  // absolutely positioned. The CSS Grid path (no explicit height) can animate.
-  const parentControlsHeight = typeof style?.height === 'number'
-
   // Aspect-ratio transition: animates the inner container's height when the
   // aspect ratio changes (artwork just arrived). Uses useLayoutEffect so it
-  // captures the old height before the browser repaints.
+  // captures the old height before the browser repaints. Works for both the
+  // CSS Grid path (height from aspect-ratio) and virtualized path (card has
+  // explicit pixel height, inner container animates within it with overflow
+  // clipped by the card's overflow-hidden).
   const aspectRatio = game.coverArtAspectRatio ?? 0.75
 
   const onResizeComplete = useCallback(() => {
@@ -122,7 +120,6 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const { containerRef } = useAspectRatioTransition({
     aspectRatio,
     enabled: isDone && !!game.coverArt,
-    animateHeight: !parentControlsHeight,
     onResizeComplete,
   })
 
@@ -154,7 +151,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
       title={game.title}
     >
       <CardContent className="p-0 h-full">
-        <div ref={containerRef} className={cn('relative bg-muted overflow-hidden', parentControlsHeight && 'h-full')}>
+        <div ref={containerRef} className="relative bg-muted overflow-hidden">
           {/*
            * Cover art image — ALWAYS in the DOM so React never has to mount/
            * unmount it during animation. Hidden via opacity-0 until the

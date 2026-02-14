@@ -237,33 +237,23 @@ describe('GameCard', () => {
   })
 
   describe('mosaic layout', () => {
-    it('inner container uses aspect-ratio when grid controls height (no explicit style.height)', () => {
+    it('inner container uses aspect-ratio from the transition hook', () => {
       const onPlay = vi.fn()
       const gameWithRatio = { ...mockGame, coverArtAspectRatio: 0.714 }
       const { container } = render(
         <GameCard game={gameWithRatio} onPlay={onPlay} />
       )
 
-      // The outer Card element
+      // The outer Card element has h-full and overflow-hidden
       const card = screen.getByRole('button', { name: /play super mario bros/i })
       expect(card.className).toContain('h-full')
+      expect(card.className).toContain('overflow-hidden')
 
-      // The inner container should have aspect-ratio set by the hook (not h-full)
+      // The inner container gets aspect-ratio from the hook (not h-full)
       const innerContainer = container.querySelector('.bg-muted')
       expect(innerContainer).not.toBeNull()
       expect(innerContainer!.className).not.toContain('h-full')
       expect((innerContainer as HTMLElement).style.aspectRatio).toBeTruthy()
-    })
-
-    it('inner container uses h-full when parent sets explicit pixel height (virtualized)', () => {
-      const onPlay = vi.fn()
-      const { container } = render(
-        <GameCard game={mockGame} onPlay={onPlay} style={{ position: 'absolute', height: 256 }} />
-      )
-
-      const innerContainer = container.querySelector('.bg-muted')
-      expect(innerContainer).not.toBeNull()
-      expect(innerContainer!.className).toContain('h-full')
     })
   })
 })
