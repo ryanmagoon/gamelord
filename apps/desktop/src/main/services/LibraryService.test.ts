@@ -587,6 +587,167 @@ describe('LibraryService', () => {
     })
   })
 
+  describe('scanDirectory — rescan preserves metadata', () => {
+    it('preserves coverArt and metadata when rescanning the same files', async () => {
+      const rescanDir = path.join(TEST_DIR, 'rescan-preserve')
+      fs.mkdirSync(rescanDir, { recursive: true })
+      fs.writeFileSync(path.join(rescanDir, 'zelda.nes'), 'zelda-rom-data')
+
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+
+      // First scan — discover the game
+      const firstScan = await service.scanDirectory(rescanDir)
+      expect(firstScan).toHaveLength(1)
+      const gameId = firstScan[0].id
+
+      // Simulate artwork sync by updating the game with coverArt and metadata
+      await service.updateGame(gameId, {
+        coverArt: 'artwork://zelda.png',
+        coverArtAspectRatio: 0.714,
+        metadata: { developer: 'Nintendo', genre: 'Action-Adventure' },
+        favorite: true,
+      })
+
+      // Verify metadata was set
+      const beforeRescan = service.getGame(gameId)
+      expect(beforeRescan?.coverArt).toBe('artwork://zelda.png')
+      expect(beforeRescan?.favorite).toBe(true)
+
+      // Second scan (rescan) — should preserve metadata
+      const secondScan = await service.scanDirectory(rescanDir)
+      expect(secondScan).toHaveLength(1)
+
+      const afterRescan = service.getGame(gameId)
+      expect(afterRescan?.coverArt).toBe('artwork://zelda.png')
+      expect(afterRescan?.coverArtAspectRatio).toBe(0.714)
+      expect(afterRescan?.metadata?.developer).toBe('Nintendo')
+      expect(afterRescan?.metadata?.genre).toBe('Action-Adventure')
+      expect(afterRescan?.favorite).toBe(true)
+
+      fs.rmSync(rescanDir, { recursive: true, force: true })
+    })
+  })
+
+  describe('scanDirectory — compressed ROM detection', () => {
+    it('detects .zip files inside a system-named folder (e.g. GB)', async () => {
+      const GB_SYSTEM: GameSystem = {
+        id: 'gb',
+        name: 'Game Boy',
+        shortName: 'GB',
+        extensions: ['.gb', '.gbc', '.sgb', '.zip', '.7z'],
+      }
+
+      const zipScanDir = path.join(TEST_DIR, 'zip-scan')
+      const gbFolder = path.join(zipScanDir, 'GB')
+      fs.mkdirSync(gbFolder, { recursive: true })
+      fs.writeFileSync(path.join(gbFolder, 'Pokemon Red.zip'), 'gb-zip-content')
+      fs.writeFileSync(path.join(gbFolder, 'Tetris.gb'), 'gb-native-content')
+
+      const config = {
+        systems: [GB_SYSTEM],
+        scanRecursive: true,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(zipScanDir)
+
+      const titles = games.map(g => g.title)
+      expect(titles).toContain('Pokemon Red')
+      expect(titles).toContain('Tetris')
+
+      const zipGame = games.find(g => g.title === 'Pokemon Red')
+      expect(zipGame?.systemId).toBe('gb')
+
+      fs.rmSync(zipScanDir, { recursive: true, force: true })
+    })
+
+    it('does not match .zip to non-arcade systems without folder context', async () => {
+      const ARCADE_SYSTEM: GameSystem = {
+        id: 'arcade',
+        name: 'Arcade',
+        shortName: 'Arcade',
+        extensions: ['.zip', '.7z'],
+      }
+      const GB_SYSTEM: GameSystem = {
+        id: 'gb',
+        name: 'Game Boy',
+        shortName: 'GB',
+        extensions: ['.gb', '.gbc', '.sgb', '.zip', '.7z'],
+      }
+
+      const ambiguousDir = path.join(TEST_DIR, 'ambiguous-zip')
+      fs.mkdirSync(ambiguousDir, { recursive: true })
+      fs.writeFileSync(path.join(ambiguousDir, 'mystery.zip'), 'some-zip-content')
+
+      const config = {
+        systems: [GB_SYSTEM, ARCADE_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      // Scan without systemId — .zip should fall through to Arcade, not GB
+      const games = await service.scanDirectory(ambiguousDir)
+
+      expect(games).toHaveLength(1)
+      expect(games[0].systemId).toBe('arcade')
+
+      fs.rmSync(ambiguousDir, { recursive: true, force: true })
+    })
+
+    it('detects .zip files when scanning with an explicit systemId', async () => {
+      const GB_SYSTEM: GameSystem = {
+        id: 'gb',
+        name: 'Game Boy',
+        shortName: 'GB',
+        extensions: ['.gb', '.gbc', '.sgb', '.zip', '.7z'],
+      }
+
+      const explicitDir = path.join(TEST_DIR, 'explicit-system-zip')
+      fs.mkdirSync(explicitDir, { recursive: true })
+      fs.writeFileSync(path.join(explicitDir, 'Links Awakening.zip'), 'gb-rom-zip')
+
+      const config = {
+        systems: [GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      // Scan with explicit systemId — .zip should match
+      const games = await service.scanDirectory(explicitDir, 'gb')
+
+      expect(games).toHaveLength(1)
+      expect(games[0].systemId).toBe('gb')
+      expect(games[0].title).toBe('Links Awakening')
+
+      fs.rmSync(explicitDir, { recursive: true, force: true })
+    })
+  })
+
   // ---------------------------------------------------------------------------
   // scanSystemFolders
   // ---------------------------------------------------------------------------

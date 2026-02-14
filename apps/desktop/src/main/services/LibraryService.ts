@@ -162,23 +162,25 @@ export class LibraryService {
           }
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name).toLowerCase();
-          
+          const isArchive = ext === '.zip' || ext === '.7z';
+
           // Find matching system by extension
-          const systems = systemId 
+          const systems = systemId
             ? this.config.systems.filter(s => s.id === systemId)
             : this.config.systems;
-          
+
           for (const system of systems) {
             if (system.extensions.includes(ext)) {
+              // Archive files (.zip/.7z) are ambiguous without folder context.
+              // Only match them when a systemId is set (folder-name detection
+              // or explicit system scan) or for Arcade which natively uses zips.
+              if (isArchive && !systemId && system.id !== 'arcade') continue;
               const gameId = await this.generateGameId(fullPath);
-              const game: Game = {
-                id: gameId,
-                title: this.cleanGameTitle(path.basename(entry.name, ext)),
-                system: system.name,
-                systemId: system.id,
-                romPath: fullPath,
-              };
-              
+              const existing = this.games.get(gameId);
+              const game: Game = existing
+                ? { ...existing, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath }
+                : { id: gameId, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath };
+
               foundGames.push(game);
               this.games.set(gameId, game);
               break;
