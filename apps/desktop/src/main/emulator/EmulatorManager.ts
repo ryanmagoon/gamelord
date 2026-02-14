@@ -431,6 +431,14 @@ export class EmulatorManager extends EventEmitter {
   }
 
   /**
+   * Synchronously mark the worker as shutting down so that a process
+   * exit during the async shutdown sequence doesn't emit an error.
+   */
+  prepareForQuit(): void {
+    this.workerClient?.prepareForQuit();
+  }
+
+  /**
    * Stop the current emulator
    */
   async stopEmulator(): Promise<void> {
