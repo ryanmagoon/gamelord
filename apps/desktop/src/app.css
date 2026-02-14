@@ -184,10 +184,10 @@ body {
 /* Breathing pulse on game cards during artwork sync (replaces text status labels). */
 @keyframes card-sync-pulse {
   0%, 100% {
-    filter: brightness(0.5);
+    filter: brightness(1);
   }
   50% {
-    filter: brightness(1.5);
+    filter: brightness(0.5);
   }
 }
 
