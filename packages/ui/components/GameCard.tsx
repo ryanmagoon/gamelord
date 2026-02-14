@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react'
+import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import {
@@ -9,12 +9,8 @@ import {
 } from './ui/dropdown-menu'
 import { cn } from '../utils'
 import { MoreVertical } from 'lucide-react'
-import { TVStatic, type ArtworkSyncPhase } from './TVStatic'
-import { useAspectRatioTransition } from '../hooks/useAspectRatioTransition'
+import { TVStatic } from './TVStatic'
 import { useArtworkSyncPhase, type ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
-
-/** Duration of the cross-fade (static out, image in) in ms. */
-const CROSS_FADE_DURATION = 500
 
 export interface Game {
   id: string
@@ -53,13 +49,6 @@ export interface GameCardProps {
   style?: React.CSSProperties
   /** Ref forwarded to the root Card element (used for FLIP measurements). */
   ref?: React.Ref<HTMLDivElement>
-}
-
-/** Map sync phases to user-facing status labels. */
-const PHASE_STATUS_TEXT: Partial<Record<NonNullable<ArtworkSyncPhase>, string>> = {
-  hashing: 'Reading...',
-  querying: 'Searching...',
-  downloading: 'Downloading...',
 }
 
 export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
@@ -101,98 +90,51 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const isTerminalPhase =
     artworkSyncPhase === 'error' || artworkSyncPhase === 'not-found'
 
-  // 'done' phase: cover art just arrived — resize then cross-fade
+  // 'done' phase: cover art just arrived — cross-fade image over static
   const isDone = artworkSyncPhase === 'done'
 
-  // Use the actual cover art aspect ratio when available, otherwise default to 3:4
-  const aspectRatio = game.coverArtAspectRatio ?? 0.75
-
-  // Refs for imperative cross-fade (no React re-renders during animation)
   const imgRef = useRef<HTMLImageElement>(null)
   const staticWrapperRef = useRef<HTMLDivElement>(null)
-  /** Whether the image has been decoded and is ready to display without jank. */
-  const imageReadyRef = useRef(false)
-  /** Whether the resize has finished (waiting for image to be ready). */
-  const resizeDoneRef = useRef(false)
+  const cardRef = useRef<HTMLDivElement | null>(null)
 
-  /** Imperatively start the cross-fade — only once both resize and image decode are done. */
-  const tryCrossFade = useCallback(() => {
-    if (!imageReadyRef.current || !resizeDoneRef.current) return
+  // Cross-fade: pre-decode the image then reveal it over the static.
+  const [crossFadeReady, setCrossFadeReady] = useState(false)
 
-    const img = imgRef.current
-    const staticWrapper = staticWrapperRef.current
-
-    if (img) {
-      img.classList.remove('opacity-0')
-      img.classList.add('animate-artwork-dissolve-in')
-    }
-
-    if (staticWrapper) {
-      staticWrapper.style.opacity = '0'
-      staticWrapper.style.transition = `opacity ${CROSS_FADE_DURATION}ms cubic-bezier(0.16, 1, 0.3, 1)`
-    }
-  }, [])
-
-  /** Pin the static wrapper at its current height so the canvas doesn't resize during the card height transition. */
-  const handleResizeStart = useCallback((currentHeight: number) => {
-    const staticWrapper = staticWrapperRef.current
-    if (staticWrapper) {
-      staticWrapper.style.height = `${currentHeight}px`
-      staticWrapper.style.bottom = 'auto'
-    }
-  }, [])
-
-  const handleResizeComplete = useCallback(() => {
-    resizeDoneRef.current = true
-    tryCrossFade()
-  }, [tryCrossFade])
-
-  // Pre-decode the image when coverArt arrives so the browser doesn't stall
-  // the main thread during the cross-fade animation.
   useEffect(() => {
-    if (!game.coverArt || !isDone) return
-
-    imageReadyRef.current = false
-    resizeDoneRef.current = false
-
+    if (!isDone || !game.coverArt) {
+      setCrossFadeReady(false)
+      return
+    }
     const img = imgRef.current
-    if (!img) return
+    const noop = () => { /* intentional */ }
+    const decodePromise = img?.decode?.().catch(noop) ?? Promise.resolve()
+    decodePromise.then(() => setCrossFadeReady(true))
+  }, [isDone, game.coverArt])
 
-    // decode() returns a promise that resolves after the browser has decoded
-    // the image data — subsequent paints won't stall.
-    img.decode?.()
-      .then(() => {
-        imageReadyRef.current = true
-        tryCrossFade()
-      })
-      .catch(() => {
-        // Decode failed (e.g. broken image) — proceed anyway
-        imageReadyRef.current = true
-        tryCrossFade()
-      })
-  }, [game.coverArt, isDone, tryCrossFade])
-
-  const { containerRef } = useAspectRatioTransition({
-    aspectRatio,
-    enabled: isDone,
-    animateHeight: false,
-    onResizeStart: handleResizeStart,
-    onResizeComplete: handleResizeComplete,
-  })
-
-  // Show the static overlay during active sync phases, done phase, OR as
-  // an idle placeholder when there's no cover art at all.
+  // During the done phase, keep the static and title running normally
+  // underneath while the cover art fades in on top. Only treat the
+  // underlying layers as "inactive" after the cross-fade completes.
   const isFallback = !game.coverArt && !isActivelySyncing && !isTerminalPhase && !isDone
   const showStatic = isActivelySyncing || isTerminalPhase || isDone || isFallback
 
+  // Merge forwarded ref and internal cardRef
+  const mergedCardRef = useCallback((el: HTMLDivElement | null) => {
+    cardRef.current = el
+    if (typeof ref === 'function') ref(el)
+    else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el
+  }, [ref])
+
   return (
     <Card
-      ref={ref}
+      ref={mergedCardRef}
       className={cn(
-        'group relative overflow-hidden rounded-none border-0 transition-[transform,box-shadow] duration-200 hover:scale-105 hover:shadow-lg hover:z-10 w-full h-full cursor-pointer',
+        'group relative overflow-hidden rounded-none border-0 hover:scale-105 hover:shadow-lg hover:z-10 w-full h-full cursor-pointer',
         className
       )}
-      style={style}
+      style={{
+        ...style,
+        transition: 'transform 200ms, box-shadow 200ms, height 400ms cubic-bezier(0.25, 1, 0.5, 1)',
+      }}
       onClick={handlePlay}
       onKeyDown={handleKeyDown}
       role="button"
@@ -201,7 +143,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
       title={game.title}
     >
       <CardContent className="p-0 h-full">
-        <div ref={containerRef} className="relative bg-muted overflow-hidden h-full">
+        <div className="relative bg-muted overflow-hidden h-full">
           {/*
            * Cover art image — ALWAYS in the DOM so React never has to mount/
            * unmount it during animation. Hidden via opacity-0 until the
@@ -212,9 +154,10 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
             src={game.coverArt ?? undefined}
             alt={game.title}
             className={cn(
-              'w-full h-full object-cover',
-              // Visible only if coverArt exists and we're NOT in a done-transition
-              game.coverArt && !isDone ? 'opacity-100' : 'opacity-0',
+              'w-full h-full object-cover transition-opacity duration-500 ease-out',
+              // During done phase: hidden until crossFadeReady, then fade in.
+              // Steady state: visible when coverArt exists.
+              game.coverArt && (isDone ? crossFadeReady : true) ? 'opacity-100' : 'opacity-0',
             )}
           />
 
@@ -223,18 +166,40 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
            * opacity. Never changes its aspect ratio during transition to avoid
            * canvas rebuild. The wrapper ref lets us fade it out imperatively.
            */}
-          <div ref={staticWrapperRef} className="absolute inset-0">
+          <div
+            ref={staticWrapperRef}
+            className={cn(
+              'absolute inset-0 transition-opacity duration-500 ease-out',
+              // Keep pulsing during done phase until the image covers it
+              (isActivelySyncing || (isDone && !crossFadeReady)) && 'animate-card-sync-pulse',
+              crossFadeReady && 'opacity-0',
+            )}
+          >
             <TVStatic
               active={showStatic}
-              phase={artworkSyncPhase}
-              statusText={artworkSyncPhase ? PHASE_STATUS_TEXT[artworkSyncPhase] : undefined}
+              // During done phase, keep the static looking like it's still
+              // downloading so it doesn't freeze — the image fades over it.
+              phase={isDone ? 'downloading' : artworkSyncPhase}
               aspectRatio={0.75}
             />
           </div>
 
-          {/* Fallback: game title over static when no cover art */}
-          {isFallback && (
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-3 pt-8 pointer-events-none">
+          {/* "Artwork not found" label — persists so the user knows not to retry */}
+          {artworkSyncPhase === 'not-found' && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="text-xs font-mono font-bold text-amber-300/90 uppercase tracking-wider select-none animate-not-found-fade-in drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                Artwork not found
+              </span>
+            </div>
+          )}
+
+          {/* Game title over static — visible during fallback, sync, not-found,
+              and done (until cross-fade covers it). Fades out with the static wrapper. */}
+          {(isFallback || isActivelySyncing || artworkSyncPhase === 'not-found' || (isDone && !crossFadeReady)) && (
+            <div className={cn(
+              'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-3 pt-8 pointer-events-none transition-opacity duration-500 ease-out',
+              crossFadeReady && 'opacity-0',
+            )}>
               <span className="text-lg font-bold text-white leading-tight line-clamp-2">
                 {game.title}
               </span>

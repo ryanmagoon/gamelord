@@ -116,6 +116,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] Cover art downloading and caching (artwork:// custom protocol, per-game and bulk sync)
 - [x] Grid view with cover art thumbnails
 - [x] Search, filter, and sorting
+- [x] **Scan-time zip extraction** — Library scanner extracts ROMs from `.zip` archives at scan time for all non-arcade systems. Extracted ROMs cached in `<userData>/roms-cache/` with hash-prefixed filenames. Arcade `.zip` files are passed through natively (MAME expects zips). Cache cleaned up on game removal.
 - [ ] Recently played tracking
 - [ ] **Rating display** — Show ScreenScraper community rating on cards or in a detail view. Already stored as `metadata.rating` (0–1 scale). Consider a 5-star or 10-point visual treatment.
 - [ ] **Game detail panel** — Slide-out or modal panel showing full metadata: description, developer, publisher, release date, genre, player count, rating, and screenshots. Triggered by selecting a game (not launching it).

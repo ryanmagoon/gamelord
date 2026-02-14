@@ -14,6 +14,8 @@ export interface Game {
   system: string;
   systemId: string;
   romPath: string;
+  /** Original archive path if this ROM was extracted from a .zip during scan. */
+  sourceArchivePath?: string;
   coverArt?: string;
   /** Width / height ratio of the downloaded cover art (e.g. 0.714 for a 3:4.2 box). */
   coverArtAspectRatio?: number;
@@ -46,55 +48,55 @@ export const DEFAULT_SYSTEMS: GameSystem[] = [
     id: 'nes',
     name: 'Nintendo Entertainment System',
     shortName: 'NES',
-    extensions: ['.nes', '.fds', '.unf', '.unif', '.zip', '.7z'],
+    extensions: ['.nes', '.fds', '.unf', '.unif'],
   },
   {
     id: 'snes',
     name: 'Super Nintendo Entertainment System',
     shortName: 'SNES',
-    extensions: ['.sfc', '.smc', '.swc', '.fig', '.zip', '.7z'],
+    extensions: ['.sfc', '.smc', '.swc', '.fig'],
   },
   {
     id: 'genesis',
     name: 'Sega Genesis',
     shortName: 'Genesis',
-    extensions: ['.md', '.smd', '.gen', '.bin', '.zip', '.7z'],
+    extensions: ['.md', '.smd', '.gen', '.bin'],
   },
   {
     id: 'gb',
     name: 'Game Boy',
     shortName: 'GB',
-    extensions: ['.gb', '.gbc', '.sgb', '.zip', '.7z'],
+    extensions: ['.gb', '.gbc', '.sgb'],
   },
   {
     id: 'gba',
     name: 'Game Boy Advance',
     shortName: 'GBA',
-    extensions: ['.gba', '.agb', '.zip', '.7z'],
+    extensions: ['.gba', '.agb'],
   },
   {
     id: 'n64',
     name: 'Nintendo 64',
     shortName: 'N64',
-    extensions: ['.n64', '.z64', '.v64', '.zip', '.7z'],
+    extensions: ['.n64', '.z64', '.v64'],
   },
   {
     id: 'psx',
     name: 'PlayStation',
     shortName: 'PS1',
-    extensions: ['.cue', '.bin', '.iso', '.chd', '.pbp', '.zip', '.7z'],
+    extensions: ['.cue', '.bin', '.iso', '.chd', '.pbp'],
   },
   {
     id: 'psp',
     name: 'PlayStation Portable',
     shortName: 'PSP',
-    extensions: ['.iso', '.cso', '.pbp', '.zip', '.7z'],
+    extensions: ['.iso', '.cso', '.pbp'],
   },
   {
     id: 'nds',
     name: 'Nintendo DS',
     shortName: 'NDS',
-    extensions: ['.nds', '.dsi', '.ids', '.zip', '.7z'],
+    extensions: ['.nds', '.dsi', '.ids'],
   },
   {
     id: 'arcade',
