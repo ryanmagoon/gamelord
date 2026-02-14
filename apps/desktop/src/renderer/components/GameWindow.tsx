@@ -598,6 +598,16 @@ export const GameWindow: React.FC = () => {
         </div>
       )}
 
+      {/* Persistent drag region — always allows window dragging from the top
+          edge, even when the visible controls overlay is hidden. Sits below the
+          controls (z-40) so it doesn't intercept clicks on visible buttons. */}
+      {isNative && !isPoweringOff && (
+        <div
+          className="absolute top-0 left-0 right-0 h-8 z-40"
+          style={{ WebkitAppRegion: 'drag', cursor: 'default' } as React.CSSProperties}
+        />
+      )}
+
       {/* Top control bar (draggable title area) — slides up on close */}
       <div
         className={`absolute top-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
