@@ -62,9 +62,13 @@ export class GameWindowManager {
     const aspectRatio = avInfo.geometry.aspectRatio && avInfo.geometry.aspectRatio > 0
       ? avInfo.geometry.aspectRatio
       : baseWidth / baseHeight
-    // Scale up to a reasonable window size (targeting ~720p height)
-    const scale = Math.max(2, Math.floor(720 / baseHeight))
-    const defaultHeight = baseHeight * scale
+    // Size the window to fill ~80% of the primary display height so it's
+    // immediately prominent instead of feeling tiny on large monitors.
+    // Floor is baseHeight * 3 (~720p for NES) so the window never opens
+    // smaller than it used to. The WebGL renderer handles arbitrary sizes
+    // cleanly via its viewport/shader pipeline — integer scaling isn't required.
+    const displayHeight = screen.getPrimaryDisplay().workAreaSize.height
+    const defaultHeight = Math.max(baseHeight * 3, Math.round(displayHeight * 0.8))
     // Width is calculated from height using the correct aspect ratio
     const defaultWidth = Math.round(defaultHeight * aspectRatio)
 
