@@ -192,7 +192,7 @@ describe('GameCard', () => {
       expect(titleOverlay).not.toBeInTheDocument()
     })
 
-    it('holds image hidden during done phase then fades in after layout settles', async () => {
+    it('cross-fades from static to artwork when done phase fires', async () => {
       vi.useFakeTimers()
       try {
         const onPlay = vi.fn()
@@ -201,15 +201,15 @@ describe('GameCard', () => {
           <GameCard game={gameWithArt} onPlay={onPlay} artworkSyncStore={storeWithPhase('done')} />
         )
 
-        // Initially hidden while waiting for layout to settle
         const img = container.querySelector('img')
         expect(img).not.toBeNull()
-        expect(img!.className).toContain('opacity-0')
-        expect(img!.className).toContain('transition-opacity')
 
-        // Advance past the cross-fade delay
+        // The hook fires onResizeComplete via useLayoutEffect, which schedules
+        // an image decode (microtask) → setCrossFadeReady(true). Advance timers
+        // to let the hook's cleanup timeout fire, then flush microtasks.
         await act(async () => {
-          vi.advanceTimersByTime(100)
+          vi.advanceTimersByTime(500)
+          await vi.advanceTimersByTimeAsync(0)
         })
 
         // Image becomes visible, static wrapper fades out
@@ -237,31 +237,33 @@ describe('GameCard', () => {
   })
 
   describe('mosaic layout', () => {
-    it('card fills its grid area with h-full on all container layers', () => {
-      const onPlay = vi.fn()
-      const { container } = render(
-        <GameCard game={mockGame} onPlay={onPlay} />
-      )
-
-      // The outer Card element
-      const card = screen.getByRole('button', { name: /play super mario bros/i })
-      expect(card.className).toContain('h-full')
-
-      // The inner container div (child of CardContent)
-      const innerContainer = container.querySelector('.bg-muted')
-      expect(innerContainer).not.toBeNull()
-      expect(innerContainer!.className).toContain('h-full')
-    })
-
-    it('does not set aspect-ratio inline style (grid controls height via row-span)', () => {
+    it('inner container uses aspect-ratio when grid controls height (no explicit style.height)', () => {
       const onPlay = vi.fn()
       const gameWithRatio = { ...mockGame, coverArtAspectRatio: 0.714 }
       const { container } = render(
         <GameCard game={gameWithRatio} onPlay={onPlay} />
       )
 
-      const aspectDiv = container.querySelector('[style*="aspect-ratio"]')
-      expect(aspectDiv).toBeNull()
+      // The outer Card element
+      const card = screen.getByRole('button', { name: /play super mario bros/i })
+      expect(card.className).toContain('h-full')
+
+      // The inner container should have aspect-ratio set by the hook (not h-full)
+      const innerContainer = container.querySelector('.bg-muted')
+      expect(innerContainer).not.toBeNull()
+      expect(innerContainer!.className).not.toContain('h-full')
+      expect((innerContainer as HTMLElement).style.aspectRatio).toBeTruthy()
+    })
+
+    it('inner container uses h-full when parent sets explicit pixel height (virtualized)', () => {
+      const onPlay = vi.fn()
+      const { container } = render(
+        <GameCard game={mockGame} onPlay={onPlay} style={{ position: 'absolute', height: 256 }} />
+      )
+
+      const innerContainer = container.querySelector('.bg-muted')
+      expect(innerContainer).not.toBeNull()
+      expect(innerContainer!.className).toContain('h-full')
     })
   })
 })

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react'
+import React, { useRef, useState, useCallback } from 'react'
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import {
@@ -11,9 +11,7 @@ import { cn } from '../utils'
 import { MoreVertical } from 'lucide-react'
 import { TVStatic } from './TVStatic'
 import { useArtworkSyncPhase, type ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
-
-/** Duration of the height transition when artwork arrives (ms). */
-const HEIGHT_TRANSITION_MS = 400
+import { useAspectRatioTransition } from '../hooks/useAspectRatioTransition'
 
 export interface Game {
   id: string
@@ -103,85 +101,30 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   // Cross-fade: starts after the height transition completes.
   const [crossFadeReady, setCrossFadeReady] = useState(false)
 
-  // Height animation is only safe when the CSS Grid controls sizing via
-  // row-span. The virtualized path sets an explicit pixel height in `style`,
-  // and imperative `el.style.height` overrides would conflict with React's
-  // inline style reconciliation, causing broken layouts.
+  // The virtualized path sets an explicit pixel height in `style` — the
+  // inner container shouldn't animate height there since the card is already
+  // absolutely positioned. The CSS Grid path (no explicit height) can animate.
   const parentControlsHeight = typeof style?.height === 'number'
 
-  // Imperatively animate the card's height from its old value to the new
-  // grid-assigned value when artwork arrives. The grid instantly changes
-  // the card's target height (via row-span), so we capture the old height,
-  // pin it, then transition to the new height.
-  const prevHeightRef = useRef<number | null>(null)
+  // Aspect-ratio transition: animates the inner container's height when the
+  // aspect ratio changes (artwork just arrived). Uses useLayoutEffect so it
+  // captures the old height before the browser repaints.
+  const aspectRatio = game.coverArtAspectRatio ?? 0.75
 
-  // Capture height before React applies the new grid layout
-  useEffect(() => {
-    if (parentControlsHeight) return
-    if (!isDone) {
-      // While not in done phase, keep snapshotting the current height
-      // so we know where to animate from when done fires.
-      const el = cardRef.current
-      if (el) prevHeightRef.current = el.getBoundingClientRect().height
-      setCrossFadeReady(false)
-    }
-  }, [isDone, game.coverArtAspectRatio, parentControlsHeight])
-
-  // When done phase starts, animate height then start cross-fade
-  useEffect(() => {
-    if (!isDone || !game.coverArt) return
-
-    // Pre-decode the image in parallel with any height transition
+  const onResizeComplete = useCallback(() => {
+    // Pre-decode the image before starting the cross-fade
     const img = imgRef.current
     const noop = () => { /* intentional */ }
     const decodePromise = img?.decode?.().catch(noop) ?? Promise.resolve()
+    decodePromise.then(() => setCrossFadeReady(true))
+  }, [])
 
-    // When the parent controls height (virtualized grid), skip the height
-    // animation entirely — just wait for the image to decode then cross-fade.
-    if (parentControlsHeight) {
-      decodePromise.then(() => setCrossFadeReady(true))
-      return
-    }
-
-    const el = cardRef.current
-    if (!el) return
-
-    const oldHeight = prevHeightRef.current
-    // Let the browser apply the new grid layout to get the target height
-    const newHeight = el.getBoundingClientRect().height
-
-    // If height didn't change meaningfully, skip straight to cross-fade
-    if (oldHeight === null || Math.abs(oldHeight - newHeight) < 1) {
-      decodePromise.then(() => setCrossFadeReady(true))
-      return
-    }
-
-    // Pin at old height and animate to new height
-    el.style.height = `${oldHeight}px`
-    el.style.transition = 'none'
-    el.style.overflow = 'hidden'
-    void el.offsetHeight // force reflow
-    el.style.transition = `height ${HEIGHT_TRANSITION_MS}ms cubic-bezier(0.25, 1, 0.5, 1)`
-    el.style.height = `${newHeight}px`
-
-    // After height transition completes, clean up and start cross-fade
-    const timer = setTimeout(() => {
-      el.style.height = ''
-      el.style.transition = ''
-      el.style.overflow = ''
-      prevHeightRef.current = null
-      decodePromise.then(() => setCrossFadeReady(true))
-    }, HEIGHT_TRANSITION_MS + 16)
-
-    return () => {
-      clearTimeout(timer)
-      el.style.height = ''
-      el.style.transition = ''
-      el.style.overflow = ''
-    }
-  }, [isDone, game.coverArt, parentControlsHeight])
-
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const { containerRef } = useAspectRatioTransition({
+    aspectRatio,
+    enabled: isDone && !!game.coverArt,
+    animateHeight: !parentControlsHeight,
+    onResizeComplete,
+  })
 
   // Show the static overlay during active sync phases, done phase, OR as
   // an idle placeholder when there's no cover art at all.
@@ -211,7 +154,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
       title={game.title}
     >
       <CardContent className="p-0 h-full">
-        <div ref={containerRef} className="relative bg-muted overflow-hidden h-full">
+        <div ref={containerRef} className={cn('relative bg-muted overflow-hidden', parentControlsHeight && 'h-full')}>
           {/*
            * Cover art image — ALWAYS in the DOM so React never has to mount/
            * unmount it during animation. Hidden via opacity-0 until the
