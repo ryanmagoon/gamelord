@@ -74,6 +74,7 @@ export function animateWindowOpen(
         // Ensure final state is exact
         window.setOpacity(1)
         window.setBounds(endBounds)
+        window.focus()
         resolve()
       }
     }, stepDuration)

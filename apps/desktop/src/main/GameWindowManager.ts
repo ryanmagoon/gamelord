@@ -138,8 +138,10 @@ export class GameWindowManager {
       gameWindow.webContents.send('game:av-info', avInfo)
 
       // If no hero transition, tell renderer to start boot animation immediately
+      // and focus the window so keyboard input works right away.
       if (!hasHeroTransition) {
         gameWindow.webContents.send('game:ready-for-boot')
+        gameWindow.focus()
       }
 
       if (shouldResume) {
