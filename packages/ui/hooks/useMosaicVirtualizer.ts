@@ -8,7 +8,7 @@ export interface UseMosaicVirtualizerOptions {
   scrollTop: number
   /** Height of the visible viewport. */
   viewportHeight: number
-  /** Extra pixels above and below viewport to render. @default 200 */
+  /** Extra pixels above and below viewport to render. @default 1500 */
   overscan?: number
 }
 
@@ -26,7 +26,7 @@ export interface UseMosaicVirtualizerResult {
 export function useMosaicVirtualizer(
   options: UseMosaicVirtualizerOptions,
 ): UseMosaicVirtualizerResult {
-  const { layout, scrollTop, viewportHeight, overscan = 200 } = options
+  const { layout, scrollTop, viewportHeight, overscan = 1500 } = options
 
   return useMemo(() => {
     const top = scrollTop - overscan
