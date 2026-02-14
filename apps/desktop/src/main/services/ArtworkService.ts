@@ -166,7 +166,6 @@ export class ArtworkService extends EventEmitter {
     if (game.coverArt && !force) return true;
 
     const client = this.createClient();
-    if (!client) return false;
 
     // Step 1: Compute ROM hash if not cached
     let md5 = game.romHashes?.md5;
@@ -376,18 +375,30 @@ export class ArtworkService extends EventEmitter {
     });
   }
 
-  /** Create a ScreenScraperClient with the stored credentials. */
-  private createClient(): ScreenScraperClient | null {
+  /**
+   * Create a ScreenScraperClient with the stored credentials.
+   * Throws ScreenScraperError with a structured errorCode when configuration
+   * is incomplete so callers can surface a meaningful message instead of
+   * silently treating every game as "not found".
+   */
+  private createClient(): ScreenScraperClient {
     if (!this.config.screenscraper?.userId || !this.config.screenscraper?.userPassword) {
-      return null;
+      throw new ScreenScraperError(
+        'ScreenScraper user credentials are not configured. Please set your account in the credentials dialog.',
+        0,
+        'auth-failed',
+      );
     }
 
     const devId = process.env.SCREENSCRAPER_DEV_ID ?? '';
     const devPassword = process.env.SCREENSCRAPER_DEV_PASSWORD ?? '';
 
     if (!devId || !devPassword) {
-      artworkLog.warn('ScreenScraper developer credentials are not configured in .env — artwork sync will not work.');
-      return null;
+      throw new ScreenScraperError(
+        'ScreenScraper developer credentials are not configured in .env — artwork sync will not work.',
+        0,
+        'config-error',
+      );
     }
 
     const credentials: ScreenScraperCredentials = {
@@ -480,8 +491,8 @@ export class ArtworkService extends EventEmitter {
           errorCode,
         });
 
-        // Auth failures should stop the entire batch — no point continuing
-        if (errorCode === 'auth-failed') {
+        // Auth and config failures should stop the entire batch — no point continuing
+        if (errorCode === 'auth-failed' || errorCode === 'config-error') {
           break;
         }
       }
