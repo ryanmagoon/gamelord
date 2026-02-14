@@ -90,11 +90,21 @@ export function useAspectRatioTransition(
 
     if (!element) return
 
-    // If not enabled or first render, just set the aspect ratio directly
-    if (!enabled || previousRatio === null) {
+    // If not enabled, just set the aspect ratio directly
+    if (!enabled) {
       if (animateHeight) {
         element.style.aspectRatio = String(aspectRatio)
       }
+      return
+    }
+
+    // First render with enabled — no previous ratio to animate from.
+    // Set the aspect ratio directly and signal completion.
+    if (previousRatio === null) {
+      if (animateHeight) {
+        element.style.aspectRatio = String(aspectRatio)
+      }
+      onResizeCompleteRef.current?.()
       return
     }
 

@@ -14,6 +14,8 @@ export interface Game {
   system: string;
   systemId: string;
   romPath: string;
+  /** Original archive path if this ROM was extracted from a .zip during scan. */
+  sourceArchivePath?: string;
   coverArt?: string;
   /** Width / height ratio of the downloaded cover art (e.g. 0.714 for a 3:4.2 box). */
   coverArtAspectRatio?: number;

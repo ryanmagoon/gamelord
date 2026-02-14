@@ -5,6 +5,7 @@ import { EmulationWorkerClient } from '../emulator/EmulationWorkerClient';
 import { resolveAddonPath } from '../emulator/resolveAddonPath';
 import { LibraryService } from '../services/LibraryService';
 import { ArtworkService } from '../services/ArtworkService';
+import { ScreenScraperError } from '../services/ScreenScraperClient';
 import { GameWindowManager } from '../GameWindowManager';
 import { GameSystem } from '../../types/library';
 import { ipcLog } from '../logger';
@@ -44,7 +45,7 @@ export class IPCHandlers {
       }
     });
 
-    ipcMain.handle('emulator:launch', async (event: IpcMainInvokeEvent, romPath: string, systemId: string, emulatorId?: string, coreName?: string) => {
+    ipcMain.handle('emulator:launch', async (event: IpcMainInvokeEvent, romPath: string, systemId: string, emulatorId?: string, coreName?: string, cardBounds?: { x: number; y: number; width: number; height: number }) => {
       try {
         // Find the game in the library to get full metadata
         const games = this.libraryService.getGames(systemId);
@@ -52,6 +53,21 @@ export class IPCHandlers {
 
         if (!game) {
           throw new Error('Game not found in library');
+        }
+
+        // Convert renderer-relative card bounds to screen coordinates
+        let cardScreenBounds: { x: number; y: number; width: number; height: number } | undefined;
+        if (cardBounds) {
+          const senderWindow = BrowserWindow.fromWebContents(event.sender);
+          if (senderWindow) {
+            const windowBounds = senderWindow.getContentBounds();
+            cardScreenBounds = {
+              x: windowBounds.x + cardBounds.x,
+              y: windowBounds.y + cardBounds.y,
+              width: cardBounds.width,
+              height: cardBounds.height,
+            };
+          }
         }
 
         // Launch the emulator with optional specific core
@@ -89,7 +105,7 @@ export class IPCHandlers {
           // Store the worker client on the emulator manager for control routing
           this.emulatorManager.setWorkerClient(workerClient);
 
-          this.gameWindowManager.createNativeGameWindow(game, workerClient, avInfo, shouldResume);
+          this.gameWindowManager.createNativeGameWindow(game, workerClient, avInfo, shouldResume, cardScreenBounds);
         } else {
           // Legacy overlay mode: external RetroArch process
           this.gameWindowManager.createGameWindow(game);
@@ -294,7 +310,10 @@ export class IPCHandlers {
       const filters = system ? [
         {
           name: `${system.name} ROMs`,
-          extensions: system.extensions.map(ext => ext.substring(1)) // Remove dots
+          extensions: [
+            ...system.extensions.map(ext => ext.substring(1)), // Remove dots
+            ...(systemId !== 'arcade' ? ['zip'] : []),
+          ],
         }
       ] : [];
 
@@ -339,6 +358,7 @@ export class IPCHandlers {
         ipcLog.error('Artwork sync failed:', error);
         forwardEvent('artwork:syncError', {
           error: error instanceof Error ? error.message : String(error),
+          errorCode: error instanceof ScreenScraperError ? error.errorCode : undefined,
         });
       });
       return { success: true };
@@ -351,6 +371,7 @@ export class IPCHandlers {
         ipcLog.error('Artwork sync for imported games failed:', error);
         forwardEvent('artwork:syncError', {
           error: error instanceof Error ? error.message : String(error),
+          errorCode: error instanceof ScreenScraperError ? error.errorCode : undefined,
         });
       });
       return { success: true };

@@ -180,3 +180,40 @@ body {
 .animate-artwork-dissolve-in {
   animation: artwork-dissolve-in 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Breathing pulse on game cards during artwork sync (replaces text status labels).
+ * Pattern: normal → bright → normal → dim → normal, starting at the idle
+ * brightness so there's no jarring jump when the animation kicks in. */
+@keyframes card-sync-pulse {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  25% {
+    filter: brightness(1.25);
+  }
+  50% {
+    filter: brightness(1);
+  }
+  75% {
+    filter: brightness(0.5);
+  }
+}
+
+.animate-card-sync-pulse {
+  animation: card-sync-pulse 1.0s ease-in-out infinite;
+}
+
+/* Fade-in for the "Artwork not found" label on cards. */
+@keyframes not-found-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-not-found-fade-in {
+  animation: not-found-fade-in 500ms ease-out both;
+}
+
+/* Scroll letter indicator — CRT phosphor glow in dark mode */
+.dark .scroll-letter-indicator {
+  text-shadow: 0 0 40px rgba(120, 200, 255, 0.6), 0 0 100px rgba(120, 200, 255, 0.3);
+}

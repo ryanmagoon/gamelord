@@ -33,7 +33,7 @@ interface CoreDownloadProgress {
 }
 
 export const LibraryView: React.FC<{
-  onPlayGame: (game: Game) => void
+  onPlayGame: (game: Game, cardRect?: DOMRect) => void
   getMenuItems?: (game: Game) => GameCardMenuItem[]
 }> = ({ onPlayGame, getMenuItems }) => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
@@ -82,13 +82,14 @@ export const LibraryView: React.FC<{
         phaseCleanupTimers.current.delete(gameId)
       }, 1500) // Hold 'done' for dissolve animation
       phaseCleanupTimers.current.set(gameId, timer)
-    } else if (phase === 'error' || phase === 'not-found') {
+    } else if (phase === 'error') {
       const timer = setTimeout(() => {
         artworkSyncStore.setPhase(gameId, null)
         phaseCleanupTimers.current.delete(gameId)
-      }, 2500) // Hold error/not-found briefly
+      }, 2500) // Hold error briefly then revert to idle fallback
       phaseCleanupTimers.current.set(gameId, timer)
     }
+    // 'not-found' persists so the user sees "Artwork not found" and doesn't retry.
   }, [artworkSyncStore])
 
   useEffect(() => {
@@ -177,28 +178,35 @@ export const LibraryView: React.FC<{
       syncResults.current = { found: 0, notFound: 0, errors: 0 }
     })
 
-    api.on('artwork:syncError', (data: { error: string }) => {
+    api.on('artwork:syncError', (data: { error: string; errorCode?: string }) => {
       setSyncCounter(null)
       artworkSyncStore.clear()
       syncResults.current = { found: 0, notFound: 0, errors: 0 }
 
-      // Show actionable error to the user
-      if (data.error.includes('auth') || data.error.includes('credential') || data.error.includes('401') || data.error.includes('403')) {
-        setSyncNotification({
-          message: 'Artwork sync failed: invalid credentials. Please update your ScreenScraper account settings.',
-          variant: 'error',
-        })
-      } else if (data.error.includes('timeout') || data.error.includes('ETIMEDOUT')) {
-        setSyncNotification({
-          message: 'Artwork sync failed: ScreenScraper is not responding. Try again later.',
-          variant: 'error',
-        })
-      } else {
-        setSyncNotification({
-          message: `Artwork sync failed: ${data.error}`,
-          variant: 'error',
-        })
+      // Show actionable error to the user based on structured error code
+      let message: string
+      switch (data.errorCode) {
+        case 'config-error':
+          message = 'Artwork sync failed: developer credentials are missing from the .env file.'
+          break
+        case 'auth-failed':
+          message = 'Artwork sync failed: invalid credentials. Please update your ScreenScraper account settings.'
+          break
+        case 'rate-limited':
+          message = 'Artwork sync failed: ScreenScraper is rate limiting requests. Try again later.'
+          break
+        case 'timeout':
+          message = 'Artwork sync failed: ScreenScraper is not responding. Try again later.'
+          break
+        case 'network-error':
+          message = 'Artwork sync failed: could not connect to ScreenScraper. Check your internet connection.'
+          break
+        default:
+          message = `Artwork sync failed: ${data.error}`
+          break
       }
+
+      setSyncNotification({ message, variant: 'error' })
     })
 
     return () => {
@@ -370,12 +378,16 @@ export const LibraryView: React.FC<{
         await api.artwork.syncAll()
       } else {
         // Show specific error messages based on error code
-        if (result.errorCode === 'auth-failed') {
+        if (result.errorCode === 'config-error') {
+          setCredentialError('ScreenScraper API is not configured. Developer credentials are missing from the .env file.')
+        } else if (result.errorCode === 'auth-failed') {
           setCredentialError('Invalid username or password. Please check your ScreenScraper credentials.')
         } else if (result.errorCode === 'timeout') {
           setCredentialError('Could not reach ScreenScraper. The server may be down — try again later.')
         } else if (result.errorCode === 'rate-limited') {
           setCredentialError('ScreenScraper is rate limiting requests. Please wait a moment and try again.')
+        } else if (result.errorCode === 'network-error') {
+          setCredentialError('Could not connect to ScreenScraper. Check your internet connection and try again.')
         } else {
           setCredentialError(result.error ?? 'Failed to validate credentials.')
         }
@@ -406,8 +418,8 @@ export const LibraryView: React.FC<{
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
 
   /** Delegate to the parent's onPlayGame so App.tsx can handle core selection. */
-  const handlePlayUiGame = (uiGame: UiGame) => {
-    onPlayGame(uiGame)
+  const handlePlayUiGame = (uiGame: UiGame, cardRect?: DOMRect) => {
+    onPlayGame(uiGame, cardRect)
   }
 
   const handleGameOptions = (game: AppGame) => {
@@ -599,12 +611,12 @@ export const LibraryView: React.FC<{
       )}
 
       {/* Game library */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-auto p-4" style={{ scrollbarGutter: 'stable' }}>
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto overscroll-contain p-4" style={{ scrollbarGutter: 'stable' }}>
         {filteredGames.length > 0 ? (
           <GameLibrary
             games={uiGames}
-            onPlayGame={(g) => {
-              void handlePlayUiGame(g)
+            onPlayGame={(g, cardRect) => {
+              void handlePlayUiGame(g, cardRect)
             }}
             onGameOptions={handleUiGameOptions}
             getMenuItems={getMenuItems}

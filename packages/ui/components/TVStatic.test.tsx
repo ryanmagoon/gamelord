@@ -19,21 +19,14 @@ describe('TVStatic', () => {
     expect(canvas).not.toBeNull()
   })
 
-  it('shows status text when provided', () => {
-    render(<TVStatic active={true} statusText="Searching..." />)
-    expect(screen.getByText('Searching...')).toBeInTheDocument()
-  })
-
   it('uses status text as aria-label when provided', () => {
     render(<TVStatic active={true} statusText="Downloading..." />)
     expect(screen.getByLabelText('Downloading...')).toBeInTheDocument()
   })
 
-  it('does not show status text when not provided', () => {
-    const { container } = render(<TVStatic active={true} />)
-    // Only the noise, scanline, and glow layers — no text span
-    const spans = container.querySelectorAll('span')
-    expect(spans.length).toBe(0)
+  it('uses default aria-label when no status text provided', () => {
+    render(<TVStatic active={true} />)
+    expect(screen.getByLabelText('Loading artwork')).toBeInTheDocument()
   })
 
   it('applies red tint for error phase', () => {

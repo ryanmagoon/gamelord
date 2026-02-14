@@ -62,7 +62,7 @@ export const GameWindow: React.FC = () => {
     return localStorage.getItem('gamelord:showFps') === 'true'
   })
   const [fps, setFps] = useState(0)
-  const [isPoweringOn, setIsPoweringOn] = useState(true)
+  const [isPoweringOn, setIsPoweringOn] = useState(false)
   const [isPoweringOff, setIsPoweringOff] = useState(false)
 
   // Memoize power animation callbacks so they have stable references.
@@ -81,6 +81,8 @@ export const GameWindow: React.FC = () => {
   const audioNextTimeRef = useRef(0)
   const gainNodeRef = useRef<GainNode | null>(null)
   const pendingFrameRef = useRef<any>(null)
+  /** Gate: don't render frames until the boot animation overlay is in place. */
+  const bootReadyRef = useRef(false)
   const rafIdRef = useRef<number>(0)
   const lastFrameTimeRef = useRef(0)
   const fpsEmaRef = useRef(0)
@@ -163,9 +165,23 @@ export const GameWindow: React.FC = () => {
     api.removeAllListeners('game:video-frame')
     api.removeAllListeners('game:audio-samples')
     api.removeAllListeners('game:prepare-close')
+    api.removeAllListeners('game:ready-for-boot')
 
     api.on('game:loaded', (gameData: Game) => {
       setGame(gameData)
+
+      // Load per-system shader preference (e.g. CRT for NES, LCD for GBA)
+      const systemShader = localStorage.getItem(`gamelord:shader:${gameData.systemId}`)
+      if (systemShader) {
+        setShader(systemShader)
+      }
+    })
+
+    // Sent by the main process after the hero transition animation completes
+    // (or immediately if there is no hero transition).
+    api.on('game:ready-for-boot', () => {
+      bootReadyRef.current = true
+      setIsPoweringOn(true)
     })
 
     api.on('game:mode', (m: string) => {
@@ -201,10 +217,16 @@ export const GameWindow: React.FC = () => {
     })
 
     api.on('game:video-frame', (frameData: any) => {
-      const canvas = canvasRef.current
-      if (!canvas) return
+      // Buffer the frame immediately so the latest state is always available,
+      // but don't initialize the renderer or draw until the boot animation
+      // overlay is in place. This prevents the game content from flashing
+      // before the CRT/LCD power-on animation starts.
+      pendingFrameRef.current = frameData
 
-      // Initialize WebGL renderer on first frame
+      const canvas = canvasRef.current
+      if (!canvas || !bootReadyRef.current) return
+
+      // Initialize WebGL renderer on first frame after boot is ready
       if (!rendererRef.current) {
         try {
           // Set initial canvas size based on container
@@ -253,10 +275,6 @@ export const GameWindow: React.FC = () => {
         }
       }
 
-      // Buffer the latest frame — the rAF loop will pick it up on the
-      // next display vsync. If multiple IPC frames arrive between vsyncs,
-      // only the most recent one is drawn (natural frame skipping).
-      pendingFrameRef.current = frameData
     })
 
     api.on('game:audio-samples', (audioData: any) => {
@@ -342,9 +360,11 @@ export const GameWindow: React.FC = () => {
       api.removeAllListeners('game:video-frame')
       api.removeAllListeners('game:audio-samples')
       api.removeAllListeners('game:prepare-close')
+      api.removeAllListeners('game:ready-for-boot')
 
       cancelAnimationFrame(rafIdRef.current)
       pendingFrameRef.current = null
+      bootReadyRef.current = false
 
       rendererRef.current?.destroy()
       rendererRef.current = null
@@ -371,11 +391,14 @@ export const GameWindow: React.FC = () => {
     }
   }, [updateCanvasSize])
 
-  // Sync shader preference
+  // Sync shader preference (saved per-system when a game is loaded)
   useEffect(() => {
     rendererRef.current?.setShader(shader)
     localStorage.setItem('gamelord:shader', shader)
-  }, [shader])
+    if (game) {
+      localStorage.setItem(`gamelord:shader:${game.systemId}`, shader)
+    }
+  }, [shader, game])
 
   // Sync gain node with volume/mute state and persist
   useEffect(() => {
@@ -573,6 +596,16 @@ export const GameWindow: React.FC = () => {
         <div className="absolute top-2 left-2 z-40 px-2 py-1 bg-black/60 rounded text-xs font-mono text-green-400 pointer-events-none select-none">
           {fps} FPS
         </div>
+      )}
+
+      {/* Persistent drag region — always allows window dragging from the top
+          edge, even when the visible controls overlay is hidden. Sits below the
+          controls (z-40) so it doesn't intercept clicks on visible buttons. */}
+      {isNative && !isPoweringOff && (
+        <div
+          className="absolute top-0 left-0 right-0 h-8 z-40"
+          style={{ WebkitAppRegion: 'drag', cursor: 'default' } as React.CSSProperties}
+        />
       )}
 
       {/* Top control bar (draggable title area) — slides up on close */}

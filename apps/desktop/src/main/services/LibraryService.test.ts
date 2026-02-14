@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import crypto from 'crypto'
+import { execFileSync } from 'child_process'
 
 // Mock electron before importing LibraryService
 const TEST_DIR = path.join(os.tmpdir(), 'gamelord-library-service-test-' + Date.now())
@@ -79,6 +80,13 @@ const TEST_SNES_SYSTEM: GameSystem = {
   name: 'Super Nintendo Entertainment System',
   shortName: 'SNES',
   extensions: ['.sfc', '.smc', '.swc', '.fig'],
+}
+
+const TEST_GB_SYSTEM: GameSystem = {
+  id: 'gb',
+  name: 'Game Boy',
+  shortName: 'GB',
+  extensions: ['.gb', '.gbc', '.sgb'],
 }
 
 beforeAll(() => {
@@ -587,6 +595,162 @@ describe('LibraryService', () => {
     })
   })
 
+  describe('scanDirectory — rescan preserves metadata', () => {
+    it('preserves coverArt and metadata when rescanning the same files', async () => {
+      const rescanDir = path.join(TEST_DIR, 'rescan-preserve')
+      fs.mkdirSync(rescanDir, { recursive: true })
+      fs.writeFileSync(path.join(rescanDir, 'zelda.nes'), 'zelda-rom-data')
+
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+
+      // First scan — discover the game
+      const firstScan = await service.scanDirectory(rescanDir)
+      expect(firstScan).toHaveLength(1)
+      const gameId = firstScan[0].id
+
+      // Simulate artwork sync by updating the game with coverArt and metadata
+      await service.updateGame(gameId, {
+        coverArt: 'artwork://zelda.png',
+        coverArtAspectRatio: 0.714,
+        metadata: { developer: 'Nintendo', genre: 'Action-Adventure' },
+        favorite: true,
+      })
+
+      // Verify metadata was set
+      const beforeRescan = service.getGame(gameId)
+      expect(beforeRescan?.coverArt).toBe('artwork://zelda.png')
+      expect(beforeRescan?.favorite).toBe(true)
+
+      // Second scan (rescan) — should preserve metadata
+      const secondScan = await service.scanDirectory(rescanDir)
+      expect(secondScan).toHaveLength(1)
+
+      const afterRescan = service.getGame(gameId)
+      expect(afterRescan?.coverArt).toBe('artwork://zelda.png')
+      expect(afterRescan?.coverArtAspectRatio).toBe(0.714)
+      expect(afterRescan?.metadata?.developer).toBe('Nintendo')
+      expect(afterRescan?.metadata?.genre).toBe('Action-Adventure')
+      expect(afterRescan?.favorite).toBe(true)
+
+      fs.rmSync(rescanDir, { recursive: true, force: true })
+    })
+  })
+
+  describe('scanDirectory — compressed ROM extraction', () => {
+    it('extracts .zip containing a .gb ROM inside a system-named folder', async () => {
+      const zipScanDir = path.join(TEST_DIR, 'zip-scan')
+      const gbFolder = path.join(zipScanDir, 'GB')
+      const zipSrcDir = path.join(TEST_DIR, 'zip-scan-src')
+      fs.mkdirSync(gbFolder, { recursive: true })
+      fs.mkdirSync(zipSrcDir, { recursive: true })
+
+      fs.writeFileSync(path.join(zipSrcDir, 'Pokemon Red.gb'), 'gb-zip-content')
+      execFileSync('zip', ['-j', path.join(gbFolder, 'Pokemon Red.zip'),
+        path.join(zipSrcDir, 'Pokemon Red.gb')])
+      fs.writeFileSync(path.join(gbFolder, 'Tetris.gb'), 'gb-native-content')
+
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: true,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(zipScanDir)
+
+      const titles = games.map(g => g.title)
+      expect(titles).toContain('Pokemon Red')
+      expect(titles).toContain('Tetris')
+
+      const zipGame = games.find(g => g.title === 'Pokemon Red')
+      expect(zipGame?.systemId).toBe('gb')
+      expect(zipGame?.romPath).toContain('roms-cache')
+
+      fs.rmSync(zipScanDir, { recursive: true, force: true })
+      fs.rmSync(zipSrcDir, { recursive: true, force: true })
+    })
+
+    it('skips .zip for arcade system (treats as native ROM)', async () => {
+      const ARCADE_SYSTEM: GameSystem = {
+        id: 'arcade',
+        name: 'Arcade',
+        shortName: 'Arcade',
+        extensions: ['.zip', '.7z'],
+      }
+
+      const arcadeDir = path.join(TEST_DIR, 'arcade-zip')
+      fs.mkdirSync(arcadeDir, { recursive: true })
+      // Arcade zips are passed through as-is (no extraction)
+      fs.writeFileSync(path.join(arcadeDir, 'pacman.zip'), 'arcade-rom-set')
+
+      const config = {
+        systems: [ARCADE_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(arcadeDir, 'arcade')
+
+      expect(games).toHaveLength(1)
+      expect(games[0].systemId).toBe('arcade')
+      // Arcade ROM path should point to the original zip, not roms-cache
+      expect(games[0].romPath).toBe(path.join(arcadeDir, 'pacman.zip'))
+
+      fs.rmSync(arcadeDir, { recursive: true, force: true })
+    })
+
+    it('extracts .zip with explicit systemId', async () => {
+      const explicitDir = path.join(TEST_DIR, 'explicit-system-zip')
+      const explicitSrcDir = path.join(TEST_DIR, 'explicit-system-zip-src')
+      fs.mkdirSync(explicitDir, { recursive: true })
+      fs.mkdirSync(explicitSrcDir, { recursive: true })
+
+      fs.writeFileSync(path.join(explicitSrcDir, 'Links Awakening.gb'), 'gb-rom-data')
+      execFileSync('zip', ['-j', path.join(explicitDir, 'Links Awakening.zip'),
+        path.join(explicitSrcDir, 'Links Awakening.gb')])
+
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(explicitDir, 'gb')
+
+      expect(games).toHaveLength(1)
+      expect(games[0].systemId).toBe('gb')
+      expect(games[0].title).toBe('Links Awakening')
+      expect(games[0].romPath).toContain('roms-cache')
+
+      fs.rmSync(explicitDir, { recursive: true, force: true })
+      fs.rmSync(explicitSrcDir, { recursive: true, force: true })
+    })
+  })
+
   // ---------------------------------------------------------------------------
   // scanSystemFolders
   // ---------------------------------------------------------------------------
@@ -816,6 +980,304 @@ describe('LibraryService', () => {
       expect(loadedGames[0].id).toHaveLength(64)
 
       fs.unlinkSync(romPath)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Zip extraction during scan
+  // ---------------------------------------------------------------------------
+
+  describe('scanDirectory with zip files', () => {
+    const zipScanDir = path.join(TEST_DIR, 'zip-scan-test')
+    const zipRomsDir = path.join(TEST_DIR, 'zip-rom-sources')
+
+    beforeAll(() => {
+      fs.mkdirSync(zipScanDir, { recursive: true })
+      fs.mkdirSync(zipRomsDir, { recursive: true })
+
+      // Create ROM files to zip
+      fs.writeFileSync(path.join(zipRomsDir, 'Tetris (World).gb'), 'fake-gb-tetris-data')
+      fs.writeFileSync(path.join(zipRomsDir, 'Links Awakening (USA).gb'), 'fake-gb-zelda-data')
+      fs.writeFileSync(path.join(zipRomsDir, 'game.nes'), 'fake-nes-data-in-zip')
+      fs.writeFileSync(path.join(zipRomsDir, 'readme.txt'), 'just a readme')
+
+      // Zip with a single .gb ROM
+      execFileSync('zip', ['-j', path.join(zipScanDir, 'tetris.zip'),
+        path.join(zipRomsDir, 'Tetris (World).gb')])
+
+      // Zip with a .nes ROM
+      execFileSync('zip', ['-j', path.join(zipScanDir, 'nes-game.zip'),
+        path.join(zipRomsDir, 'game.nes')])
+
+      // Zip with no matching ROM (only .txt)
+      execFileSync('zip', ['-j', path.join(zipScanDir, 'no-rom.zip'),
+        path.join(zipRomsDir, 'readme.txt')])
+
+      // Also place a regular unzipped ROM alongside the zips
+      fs.writeFileSync(path.join(zipScanDir, 'raw-game.gb'), 'raw-gb-data')
+    })
+
+    afterAll(() => {
+      fs.rmSync(zipScanDir, { recursive: true, force: true })
+      fs.rmSync(zipRomsDir, { recursive: true, force: true })
+      // Clean up roms-cache
+      const cacheDir = path.join(USER_DATA_DIR, 'roms-cache')
+      if (fs.existsSync(cacheDir)) {
+        fs.rmSync(cacheDir, { recursive: true, force: true })
+      }
+    })
+
+    it('extracts ROM from zip and creates Game with romPath in roms-cache', async () => {
+      const config = {
+        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM, TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(zipScanDir)
+
+      const zipGame = games.find(g => g.title === 'Tetris')
+      expect(zipGame).toBeDefined()
+      expect(zipGame!.romPath).toContain('roms-cache')
+      expect(zipGame!.romPath).toContain('.gb')
+      expect(fs.existsSync(zipGame!.romPath)).toBe(true)
+    })
+
+    it('sets sourceArchivePath on games extracted from zips', async () => {
+      const config = {
+        systems: [TEST_NES_SYSTEM, TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(zipScanDir)
+
+      const zipGames = games.filter(g => g.sourceArchivePath !== undefined)
+      expect(zipGames.length).toBeGreaterThanOrEqual(1)
+      // All zip-extracted games should have a sourceArchivePath ending in .zip
+      for (const game of zipGames) {
+        expect(game.sourceArchivePath).toMatch(/\.zip$/)
+      }
+    })
+
+    it('computes game ID from extracted ROM content, not zip content', async () => {
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(zipScanDir)
+
+      const zipGame = games.find(g => g.title === 'Tetris')
+      expect(zipGame).toBeDefined()
+
+      // The ID should be SHA-256 of the ROM content, not the zip file
+      const expectedId = sha256String('fake-gb-tetris-data')
+      expect(zipGame!.id).toBe(expectedId)
+    })
+
+    it('derives title from ROM filename inside zip, not zip filename', async () => {
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(zipScanDir)
+
+      // Title should come from "Tetris (World).gb" -> cleaned to "Tetris"
+      const zipGame = games.find(g => g.sourceArchivePath?.endsWith('tetris.zip'))
+      expect(zipGame).toBeDefined()
+      expect(zipGame!.title).toBe('Tetris')
+    })
+
+    it('skips zip files with no matching ROM extensions', async () => {
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(zipScanDir)
+
+      // no-rom.zip only has a .txt — should not produce a game
+      const noRomGame = games.find(g => g.sourceArchivePath?.endsWith('no-rom.zip'))
+      expect(noRomGame).toBeUndefined()
+    })
+
+    it('also scans regular unzipped ROMs alongside zips', async () => {
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(zipScanDir)
+
+      const rawGame = games.find(g => g.title === 'raw-game')
+      expect(rawGame).toBeDefined()
+      expect(rawGame!.romPath).toBe(path.join(zipScanDir, 'raw-game.gb'))
+      expect(rawGame!.sourceArchivePath).toBeUndefined()
+    })
+
+    it('does not re-extract on subsequent scan (deduplication)', async () => {
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const firstScan = await service.scanDirectory(zipScanDir)
+      const firstZipGames = firstScan.filter(g => g.sourceArchivePath !== undefined)
+      expect(firstZipGames.length).toBeGreaterThanOrEqual(1)
+
+      const totalAfterFirst = service.getGames().length
+
+      // Second scan: zip-extracted games should NOT be re-added
+      const secondScan = await service.scanDirectory(zipScanDir)
+      const secondZipGames = secondScan.filter(g => g.sourceArchivePath !== undefined)
+      expect(secondZipGames).toHaveLength(0)
+
+      // Total game count unchanged (regular ROMs may be re-set but not duplicated)
+      expect(service.getGames().length).toBe(totalAfterFirst)
+    })
+  })
+
+  describe('addGame with zip file', () => {
+    const addGameZipDir = path.join(TEST_DIR, 'add-game-zip-test')
+
+    beforeAll(() => {
+      fs.mkdirSync(addGameZipDir, { recursive: true })
+      fs.writeFileSync(path.join(addGameZipDir, 'rom.gb'), 'add-game-gb-data')
+      fs.writeFileSync(path.join(addGameZipDir, 'readme.txt'), 'not a rom')
+
+      execFileSync('zip', ['-j', path.join(addGameZipDir, 'game.zip'),
+        path.join(addGameZipDir, 'rom.gb')])
+      execFileSync('zip', ['-j', path.join(addGameZipDir, 'no-rom.zip'),
+        path.join(addGameZipDir, 'readme.txt')])
+    })
+
+    afterAll(() => {
+      fs.rmSync(addGameZipDir, { recursive: true, force: true })
+      const cacheDir = path.join(USER_DATA_DIR, 'roms-cache')
+      if (fs.existsSync(cacheDir)) {
+        fs.rmSync(cacheDir, { recursive: true, force: true })
+      }
+    })
+
+    it('extracts ROM from zip and returns Game', async () => {
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const game = await service.addGame(path.join(addGameZipDir, 'game.zip'), 'gb')
+
+      expect(game).not.toBeNull()
+      expect(game!.romPath).toContain('roms-cache')
+      expect(game!.systemId).toBe('gb')
+      expect(game!.sourceArchivePath).toBe(path.join(addGameZipDir, 'game.zip'))
+    })
+
+    it('returns null for zip with no matching ROM for the given system', async () => {
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const game = await service.addGame(path.join(addGameZipDir, 'no-rom.zip'), 'gb')
+
+      expect(game).toBeNull()
+    })
+  })
+
+  describe('removeGame with cached ROM', () => {
+    const removeCacheDir = path.join(TEST_DIR, 'remove-cache-test')
+
+    beforeAll(() => {
+      fs.mkdirSync(removeCacheDir, { recursive: true })
+      fs.writeFileSync(path.join(removeCacheDir, 'rom.gb'), 'remove-cache-gb-data')
+      execFileSync('zip', ['-j', path.join(removeCacheDir, 'game.zip'),
+        path.join(removeCacheDir, 'rom.gb')])
+    })
+
+    afterAll(() => {
+      fs.rmSync(removeCacheDir, { recursive: true, force: true })
+      const cacheDir = path.join(USER_DATA_DIR, 'roms-cache')
+      if (fs.existsSync(cacheDir)) {
+        fs.rmSync(cacheDir, { recursive: true, force: true })
+      }
+    })
+
+    it('deletes the cached ROM file when a zip-extracted game is removed', async () => {
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const game = await service.addGame(path.join(removeCacheDir, 'game.zip'), 'gb')
+      expect(game).not.toBeNull()
+      expect(fs.existsSync(game!.romPath)).toBe(true)
+
+      const cachedRomPath = game!.romPath
+      await service.removeGame(game!.id)
+
+      expect(fs.existsSync(cachedRomPath)).toBe(false)
+      expect(service.getGames()).toHaveLength(0)
     })
   })
 })

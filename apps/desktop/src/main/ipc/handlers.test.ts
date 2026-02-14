@@ -325,7 +325,7 @@ describe('IPCHandlers', () => {
       });
       expect(emulatorManagerInstance.setWorkerClient).toHaveBeenCalledWith(workerClientInstance);
       expect(gameWindowManagerInstance.createNativeGameWindow).toHaveBeenCalledWith(
-        fakeGame, workerClientInstance, fakeAvInfo, false,
+        fakeGame, workerClientInstance, fakeAvInfo, false, undefined,
       );
       expect(result).toEqual({ success: true });
     });
@@ -861,7 +861,7 @@ describe('IPCHandlers', () => {
         filters: [
           {
             name: 'Nintendo Entertainment System ROMs',
-            extensions: ['nes', 'fds'],
+            extensions: ['nes', 'fds', 'zip'],
           },
         ],
       });
