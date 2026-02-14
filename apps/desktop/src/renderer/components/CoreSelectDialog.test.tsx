@@ -93,6 +93,8 @@ describe('CoreSelectDialog', () => {
   it('does not render dialog content when open is false', () => {
     renderDialog({ open: false })
 
+    // The AlertDialog wrapper returns null when open starts as false
+    // (the dialog was never opened), so nothing should be in the DOM.
     expect(screen.queryByText('Choose Emulator Core')).toBeNull()
   })
 

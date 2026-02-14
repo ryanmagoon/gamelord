@@ -48,6 +48,7 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
     <AlertDialog open={open}>
       <AlertDialogContent
         className="sm:max-w-md"
+        style={suppressOverlayAnimation ? { animationDelay: '0ms' } : undefined}
         overlayClassName={
           suppressOverlayAnimation ? '[animation-duration:0ms]' : undefined
         }
