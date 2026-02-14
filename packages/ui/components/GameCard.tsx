@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import {
@@ -12,12 +12,8 @@ import { MoreVertical } from 'lucide-react'
 import { TVStatic } from './TVStatic'
 import { useArtworkSyncPhase, type ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
 
-/**
- * Delay before starting the cross-fade after artwork arrives (ms).
- * Gives the layout one frame to settle the card's new height before the
- * image fades in, so the resize and dissolve feel sequenced.
- */
-const CROSS_FADE_DELAY = 80
+/** Duration of the height transition when artwork arrives (ms). */
+const HEIGHT_TRANSITION_MS = 400
 
 export interface Game {
   id: string
@@ -97,38 +93,78 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const isTerminalPhase =
     artworkSyncPhase === 'error' || artworkSyncPhase === 'not-found'
 
-  // 'done' phase: cover art just arrived — resize then cross-fade
+  // 'done' phase: cover art just arrived — animate height then cross-fade
   const isDone = artworkSyncPhase === 'done'
 
   const imgRef = useRef<HTMLImageElement>(null)
   const staticWrapperRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement | null>(null)
 
-  // Cross-fade: when artwork arrives, wait a brief moment for the layout to
-  // settle the card's new height, then fade the image in over the static.
+  // Cross-fade: starts after the height transition completes.
   const [crossFadeReady, setCrossFadeReady] = useState(false)
 
-  useEffect(() => {
-    if (!isDone || !game.coverArt) {
-      setCrossFadeReady(false)
-      return
-    }
+  // Imperatively animate the card's height from its old value to the new
+  // grid-assigned value when artwork arrives. The grid instantly changes
+  // the card's target height (via row-span or absolute positioning), so we
+  // capture the old height, pin it, then transition to the new height.
+  const prevHeightRef = useRef<number | null>(null)
 
-    // Pre-decode the image while waiting for layout to settle
+  // Capture height before React applies the new grid layout
+  useEffect(() => {
+    if (!isDone) {
+      // While not in done phase, keep snapshotting the current height
+      // so we know where to animate from when done fires.
+      const el = cardRef.current
+      if (el) prevHeightRef.current = el.getBoundingClientRect().height
+      setCrossFadeReady(false)
+    }
+  }, [isDone, game.coverArtAspectRatio])
+
+  // When done phase starts, animate height then start cross-fade
+  useEffect(() => {
+    if (!isDone || !game.coverArt) return
+    const el = cardRef.current
+    if (!el) return
+
+    const oldHeight = prevHeightRef.current
+    // Let the browser apply the new grid layout to get the target height
+    const newHeight = el.getBoundingClientRect().height
+
+    // Pre-decode the image in parallel with the height transition
     const img = imgRef.current
-    // Swallow decode errors — the image may not be ready yet
     const noop = () => { /* intentional */ }
     const decodePromise = img?.decode?.().catch(noop) ?? Promise.resolve()
 
-    // Brief delay lets the card's height change land before the dissolve starts
-    const timer = setTimeout(() => {
+    // If height didn't change meaningfully, skip straight to cross-fade
+    if (oldHeight === null || Math.abs(oldHeight - newHeight) < 1) {
       decodePromise.then(() => setCrossFadeReady(true))
-    }, CROSS_FADE_DELAY)
+      return
+    }
 
-    return () => clearTimeout(timer)
+    // Pin at old height and animate to new height
+    el.style.height = `${oldHeight}px`
+    el.style.transition = 'none'
+    el.style.overflow = 'hidden'
+    void el.offsetHeight // force reflow
+    el.style.transition = `height ${HEIGHT_TRANSITION_MS}ms cubic-bezier(0.25, 1, 0.5, 1)`
+    el.style.height = `${newHeight}px`
+
+    // After height transition completes, clean up and start cross-fade
+    const timer = setTimeout(() => {
+      el.style.height = ''
+      el.style.transition = ''
+      el.style.overflow = ''
+      prevHeightRef.current = null
+      decodePromise.then(() => setCrossFadeReady(true))
+    }, HEIGHT_TRANSITION_MS + 16)
+
+    return () => {
+      clearTimeout(timer)
+      el.style.height = ''
+      el.style.transition = ''
+      el.style.overflow = ''
+    }
   }, [isDone, game.coverArt])
-
-  // Once isDone clears (after 1500ms hold), the image stays visible because
-  // coverArt is set — crossFadeReady resets but the non-done opacity-100 path takes over.
 
   const containerRef = useRef<HTMLDivElement | null>(null)
 
@@ -137,9 +173,16 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const isFallback = !game.coverArt && !isActivelySyncing && !isTerminalPhase && !isDone
   const showStatic = isActivelySyncing || isTerminalPhase || isDone || isFallback
 
+  // Merge forwarded ref and internal cardRef
+  const mergedCardRef = useCallback((el: HTMLDivElement | null) => {
+    cardRef.current = el
+    if (typeof ref === 'function') ref(el)
+    else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el
+  }, [ref])
+
   return (
     <Card
-      ref={ref}
+      ref={mergedCardRef}
       className={cn(
         'group relative overflow-hidden rounded-none border-0 transition-[transform,box-shadow] duration-200 hover:scale-105 hover:shadow-lg hover:z-10 w-full h-full cursor-pointer',
         className
