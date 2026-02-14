@@ -410,6 +410,10 @@ export class IPCHandlers {
    * to prevent the worker exit handler from emitting an unhandled error.
    */
   async cleanup(): Promise<void> {
+    // Synchronously suppress the "exited unexpectedly" error before the
+    // async shutdown — the utility process can be torn down by Electron
+    // before the shutdown handshake completes.
+    this.emulatorManager.prepareForQuit();
     await this.emulatorManager.stopEmulator();
   }
 

@@ -40,6 +40,7 @@ export class EmulationWorkerClient extends EventEmitter {
   private workerProcess: UtilityProcess | null = null
   private pendingRequests = new Map<string, PendingRequest>()
   private running = false
+  private shuttingDown = false
 
   /**
    * Spawn the utility process, load the core and ROM, and start the
@@ -57,8 +58,10 @@ export class EmulationWorkerClient extends EventEmitter {
     })
 
     this.workerProcess.on('exit', (code) => {
-      if (this.running) {
-        // Unexpected exit
+      if (this.running && !this.shuttingDown) {
+        // Unexpected exit — only emit if we're not in the middle of
+        // a graceful shutdown (the process can exit before the async
+        // shutdown handshake completes, e.g. during app quit).
         this.emit('error', {
           message: `Emulation worker exited unexpectedly (code ${code})`,
           fatal: true,
@@ -150,12 +153,23 @@ export class EmulationWorkerClient extends EventEmitter {
   }
 
   /**
+   * Mark the worker as shutting down so that a process exit during the
+   * async shutdown sequence doesn't emit an unexpected-exit error.
+   * Call this synchronously at the start of app quit, before awaiting
+   * the full shutdown handshake.
+   */
+  prepareForQuit(): void {
+    this.shuttingDown = true
+  }
+
+  /**
    * Gracefully shut down the emulation worker. Saves SRAM, destroys the
    * native core, and waits for the process to exit.
    */
   async shutdown(): Promise<void> {
     if (!this.workerProcess || !this.running) return
 
+    this.shuttingDown = true
     this.running = false
 
     try {
@@ -287,5 +301,6 @@ export class EmulationWorkerClient extends EventEmitter {
 
     this.workerProcess = null
     this.running = false
+    this.shuttingDown = false
   }
 }
