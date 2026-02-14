@@ -69,6 +69,8 @@ function App() {
   })
   /** Stashed card bounds from the last game card click (for hero transition). */
   const pendingCardBoundsRef = useRef<CardBounds | null>(null)
+  /** Tracks which game is currently being launched (shimmer + disable other cards). */
+  const [launchingGameId, setLaunchingGameId] = useState<string | null>(null)
 
   // Listen for resume game dialog requests from main process
   useEffect(() => {
@@ -89,7 +91,9 @@ function App() {
 
   const handleResumeDialogResponse = useCallback((shouldResume: boolean) => {
     api.dialog.respondResumeGame(resumeDialog.requestId, shouldResume)
-    setResumeDialog({ open: false, requestId: '', gameTitle: '' })
+    // Only set open to false — keep data intact so the close animation
+    // doesn't show blank content. Data is overwritten on next open.
+    setResumeDialog((previous) => ({ ...previous, open: false }))
   }, [api, resumeDialog.requestId])
 
   const toggleTheme = useCallback(() => {
@@ -129,6 +133,7 @@ function App() {
           const downloadResult = await api.emulator.downloadCore(coreName, systemId)
           if (!downloadResult.success) {
             alert(`Failed to download core: ${downloadResult.error}`)
+            setLaunchingGameId(null)
             return
           }
         }
@@ -149,11 +154,18 @@ function App() {
     } catch (error) {
       console.error('Error launching game:', error)
       alert(`Error: ${error}`)
+    } finally {
+      setLaunchingGameId(null)
     }
   }
 
   const handlePlayGame = async (game: UiGame, cardRect?: DOMRect) => {
+    // Prevent double-launches
+    if (launchingGameId) return
+
     const systemId = getSystemId(game)
+    setLaunchingGameId(game.id)
+
     // Stash card bounds for the hero transition (consumed by launchGameWithCore)
     if (cardRect) {
       pendingCardBoundsRef.current = {
@@ -193,6 +205,7 @@ function App() {
     } catch (error) {
       console.error('Error launching game:', error)
       alert(`Error: ${error}`)
+      setLaunchingGameId(null)
     }
   }
 
@@ -212,7 +225,10 @@ function App() {
   }
 
   const handleCoreSelectCancel = () => {
-    setCoreSelectDialog((previous) => ({ ...previous, open: false, pendingGame: null }))
+    // Only set open to false — keep data intact so the close animation
+    // doesn't show blank content. Data is overwritten on next open.
+    setCoreSelectDialog((previous) => ({ ...previous, open: false }))
+    setLaunchingGameId(null)
   }
 
   /**
@@ -238,7 +254,7 @@ function App() {
       const cores = await api.emulator.getCoresForSystem(systemId)
       if (cores.length <= 1) {
         // Nothing to change — close the dialog
-        setCoreSelectDialog((previous) => ({ ...previous, open: false, pendingGame: null }))
+        setCoreSelectDialog((previous) => ({ ...previous, open: false }))
         return
       }
 
@@ -249,7 +265,7 @@ function App() {
       setCoreSelectDialog((previous) => ({ ...previous, cores }))
     } catch (error) {
       console.error('Error fetching cores:', error)
-      setCoreSelectDialog((previous) => ({ ...previous, open: false, pendingGame: null }))
+      setCoreSelectDialog((previous) => ({ ...previous, open: false }))
     }
   }
 
@@ -314,7 +330,7 @@ function App() {
             </Button>
           </div>
           <div className="flex-1 overflow-hidden">
-            <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} />
+            <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} launchingGameId={launchingGameId} />
           </div>
 
           {/* Resume game dialog */}

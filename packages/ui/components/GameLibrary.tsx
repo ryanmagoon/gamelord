@@ -32,6 +32,8 @@ export interface GameLibraryProps {
   getMenuItems?: (game: Game) => GameCardMenuItem[];
   /** External store for per-game artwork sync phases. Each card subscribes to its own phase. */
   artworkSyncStore?: ArtworkSyncStore;
+  /** ID of a game currently being launched. Shows shimmer on that card and disables others. */
+  launchingGameId?: string | null;
   /** Ref to the scrollable container (for virtualization). */
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
   className?: string;
@@ -70,6 +72,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   onGameOptions,
   getMenuItems,
   artworkSyncStore,
+  launchingGameId,
   scrollContainerRef,
   className
 }) => {
@@ -347,6 +350,8 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
                   onOptions={onGameOptions}
                   getMenuItems={getMenuItems}
                   artworkSyncStore={artworkSyncStore}
+                  isLaunching={launchingGameId === game.id}
+                  disabled={launchingGameId != null && launchingGameId !== game.id}
                   className={cn(isEntering && 'animate-card-enter')}
                   style={{
                     position: 'absolute',
@@ -382,6 +387,8 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
                   onOptions={onGameOptions}
                   getMenuItems={getMenuItems}
                   artworkSyncStore={artworkSyncStore}
+                  isLaunching={launchingGameId === flipItem.item.id}
+                  disabled={launchingGameId != null && launchingGameId !== flipItem.item.id}
                   className={cn(
                     'col-span-2',
                     flipItem.animationState === 'entering' && 'animate-card-enter',

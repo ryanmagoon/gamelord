@@ -10,7 +10,7 @@ export interface UseScrollLetterIndicatorOptions {
   sortBy: string
   /** Current scrollTop from useScrollContainer. Used to detect scroll activity. */
   scrollTop: number
-  /** Delay in ms before hiding the letter after scrolling stops. @default 800 */
+  /** Delay in ms before hiding the letter after scrolling stops. @default 400 */
   hideDelay?: number
 }
 
@@ -39,7 +39,7 @@ export function getLetterFromTitle(title: string): string {
 export function useScrollLetterIndicator(
   options: UseScrollLetterIndicatorOptions,
 ): ScrollLetterIndicatorState {
-  const { firstVisibleIndex, games, sortBy, scrollTop, hideDelay = 800 } = options
+  const { firstVisibleIndex, games, sortBy, scrollTop, hideDelay = 400 } = options
   const [isVisible, setIsVisible] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const prevScrollTopRef = useRef(scrollTop)

@@ -116,52 +116,74 @@ body {
 }
 
 /*
+ * Dialog overlay fade — smooth backdrop transition that gives the eye
+ * time to register the dimming before the content appears.
+ * Registered as @utility so Tailwind v4 can generate data-[state] variants.
+ */
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes overlay-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@utility animate-overlay-fade-in {
+  animation: overlay-fade-in 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@utility animate-overlay-fade-out {
+  animation: overlay-fade-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/*
  * CRT-inspired dialog scan-in / scan-out animations.
  * The content materialises from a thin horizontal line that expands
- * vertically, with a subtle phosphor glow on the border.
+ * vertically. Uses the modern `scale` property (separate from `transform`)
+ * so it doesn't conflict with Tailwind's `translate` centering.
+ * Only `opacity` and `scale` are animated — both are GPU-composited,
+ * so no repaints are triggered per frame.
+ * Registered as @utility so Tailwind v4 can generate data-[state] variants.
  */
 @keyframes dialog-scan-in {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scaleY(0.01) scaleX(0.85);
-    box-shadow: 0 0 30px 4px rgba(120, 200, 255, 0.5);
+    scale: 0.85 0.01;
   }
   40% {
     opacity: 1;
-    transform: translate(-50%, -50%) scaleY(0.04) scaleX(1);
-    box-shadow: 0 0 20px 2px rgba(120, 200, 255, 0.35);
+    scale: 1 0.04;
   }
   100% {
     opacity: 1;
-    transform: translate(-50%, -50%) scaleY(1) scaleX(1);
-    box-shadow: 0 0 0 0 rgba(120, 200, 255, 0);
+    scale: 1 1;
   }
 }
 
 @keyframes dialog-scan-out {
   0% {
     opacity: 1;
-    transform: translate(-50%, -50%) scaleY(1) scaleX(1);
-    box-shadow: 0 0 0 0 rgba(120, 200, 255, 0);
+    scale: 1 1;
   }
   60% {
     opacity: 1;
-    transform: translate(-50%, -50%) scaleY(0.04) scaleX(1);
-    box-shadow: 0 0 20px 2px rgba(120, 200, 255, 0.35);
+    scale: 1 0.04;
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) scaleY(0.01) scaleX(0.85);
-    box-shadow: 0 0 30px 4px rgba(120, 200, 255, 0.5);
+    scale: 0.85 0.01;
   }
 }
 
-/* Apply to AlertDialogContent via the data-[state] attributes */
-.animate-dialog-scan-in {
-  animation: dialog-scan-in 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+/* Apply to AlertDialogContent via the data-[state] attributes.
+ * The 120ms delay lets the overlay fade settle before the content scans in. */
+@utility animate-dialog-scan-in {
+  animation: dialog-scan-in 250ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
 }
 
-.animate-dialog-scan-out {
+@utility animate-dialog-scan-out {
   animation: dialog-scan-out 200ms cubic-bezier(0.7, 0, 0.84, 0) both;
 }
 
@@ -211,6 +233,21 @@ body {
 
 .animate-not-found-fade-in {
   animation: not-found-fade-in 500ms ease-out both;
+}
+
+/* Shimmer sweep on game cards during launch. A diagonal highlight band
+ * slides across the card to indicate the game is loading. */
+@keyframes card-launch-shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(-15deg);
+  }
+}
+
+.animate-card-launch-shimmer {
+  animation: card-launch-shimmer 1.2s ease-in-out infinite;
 }
 
 /* Scroll letter indicator — CRT phosphor glow in dark mode */
