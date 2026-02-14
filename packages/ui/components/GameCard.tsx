@@ -44,6 +44,10 @@ export interface GameCardProps {
   getMenuItems?: (game: Game) => GameCardMenuItem[]
   /** External store for artwork sync phases. The card subscribes to its own game's phase. */
   artworkSyncStore?: ArtworkSyncStore
+  /** Whether this game is currently being launched. Shows a shimmer overlay and wait cursor. */
+  isLaunching?: boolean
+  /** Whether this card is disabled (e.g. another game is launching). Dims the card and prevents interaction. */
+  disabled?: boolean
   className?: string
   /** Inline styles forwarded to the root card element (useful for animation delays). */
   style?: React.CSSProperties
@@ -58,6 +62,8 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   menuItems: menuItemsProp,
   getMenuItems,
   artworkSyncStore,
+  isLaunching,
+  disabled,
   className,
   style,
   ref,
@@ -130,7 +136,11 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
     <Card
       ref={mergedCardRef}
       className={cn(
-        'group relative overflow-hidden rounded-none border-0 hover:scale-105 hover:shadow-lg hover:z-10 w-full h-full cursor-pointer',
+        'group relative overflow-hidden rounded-none border-0 w-full h-full',
+        disabled
+          ? 'pointer-events-none opacity-50'
+          : 'hover:scale-105 hover:shadow-lg hover:z-10 cursor-pointer',
+        isLaunching && 'cursor-wait z-10 scale-105 shadow-lg',
         className
       )}
       style={{
@@ -208,6 +218,13 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
             </div>
           )}
 
+          {/* Launch shimmer overlay */}
+          {isLaunching && (
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute inset-0 animate-card-launch-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+            </div>
+          )}
+
           {/* Options dropdown menu */}
           {hasMenu && (
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
@@ -267,6 +284,8 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
     prev.onPlay === next.onPlay &&
     prev.onOptions === next.onOptions &&
     prev.artworkSyncStore === next.artworkSyncStore &&
+    prev.isLaunching === next.isLaunching &&
+    prev.disabled === next.disabled &&
     prev.className === next.className &&
     prev.style === next.style &&
     prev.ref === next.ref
