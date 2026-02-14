@@ -411,6 +411,23 @@ describe('EmulationWorkerClient', () => {
 
       expect(handler).not.toHaveBeenCalled()
     })
+
+    it('does not emit error when prepareForQuit was called before process exits', () => {
+      const handler = vi.fn()
+      client.on('error', handler)
+
+      // Synchronously suppress errors before async shutdown
+      client.prepareForQuit()
+
+      // Process exits before shutdown() is called (race condition during app quit)
+      const exitListeners = processListeners['exit'] ?? []
+      for (const listener of exitListeners) {
+        listener(0)
+      }
+
+      expect(handler).not.toHaveBeenCalled()
+      expect(client.isRunning()).toBe(false)
+    })
   })
 
   describe('isRunning', () => {
