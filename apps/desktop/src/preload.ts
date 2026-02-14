@@ -4,8 +4,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('gamelord', {
   // Emulator management
   emulator: {
-    launch: (romPath: string, systemId: string, emulatorId?: string, coreName?: string) =>
-      ipcRenderer.invoke('emulator:launch', romPath, systemId, emulatorId, coreName),
+    launch: (romPath: string, systemId: string, emulatorId?: string, coreName?: string, cardBounds?: { x: number; y: number; width: number; height: number }) =>
+      ipcRenderer.invoke('emulator:launch', romPath, systemId, emulatorId, coreName, cardBounds),
     stop: () => ipcRenderer.invoke('emulator:stop'),
     getAvailable: () => ipcRenderer.invoke('emulator:getAvailable'),
     isRunning: () => ipcRenderer.invoke('emulator:isRunning'),
@@ -61,7 +61,8 @@ contextBridge.exposeInMainWorld('gamelord', {
       'artwork:syncError',
       'dialog:showResumeGame',
       'game:prepare-close',
-      'game:emulation-error'
+      'game:emulation-error',
+      'game:ready-for-boot'
     ];
 
     if (validChannels.includes(channel)) {

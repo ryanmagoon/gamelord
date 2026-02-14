@@ -88,7 +88,7 @@ describe('GameCard', () => {
       render(<GameCard game={mockGame} onPlay={onPlay} />)
 
       await user.click(screen.getByRole('button', { name: /play super mario bros/i }))
-      expect(onPlay).toHaveBeenCalledWith(mockGame)
+      expect(onPlay).toHaveBeenCalledWith(mockGame, expect.any(DOMRect))
     })
 
     it('calls onPlay when Enter is pressed on focused card', async () => {
@@ -98,7 +98,7 @@ describe('GameCard', () => {
 
       await user.tab()
       await user.keyboard('{Enter}')
-      expect(onPlay).toHaveBeenCalledWith(mockGame)
+      expect(onPlay).toHaveBeenCalledWith(mockGame, expect.any(DOMRect))
     })
 
     it('calls onPlay when Space is pressed on focused card', async () => {
@@ -108,7 +108,7 @@ describe('GameCard', () => {
 
       await user.tab()
       await user.keyboard(' ')
-      expect(onPlay).toHaveBeenCalledWith(mockGame)
+      expect(onPlay).toHaveBeenCalledWith(mockGame, expect.any(DOMRect))
     })
 
     it('calls onOptions when Options button is clicked without triggering onPlay', async () => {

@@ -24,7 +24,7 @@ const VIRTUALIZATION_THRESHOLD = 100;
 
 export interface GameLibraryProps {
   games: Game[];
-  onPlayGame: (game: Game) => void;
+  onPlayGame: (game: Game, cardRect?: DOMRect) => void;
   onGameOptions?: (game: Game) => void;
   /** Returns menu items for a specific game's dropdown. */
   getMenuItems?: (game: Game) => GameCardMenuItem[];
