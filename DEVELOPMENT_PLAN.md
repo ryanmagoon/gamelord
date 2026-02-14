@@ -225,3 +225,5 @@ ARM64 cores from: `https://buildbot.libretro.com/nightly/apple/osx/arm64/latest/
 - Mesen core fails to load games via the native addon (works in standalone C test). Use fceumm instead.
 - `node-gyp` v5.0.6 bundled with npm is incompatible with Node 24; must use `npx node-gyp` (v10+).
 - Hard-refreshing the game window causes the emulation to run at uncapped speed (the main-process emulation loop keeps pushing frames while the renderer resets its state).
+- ~~Rescan overwrote existing game metadata (coverArt, romHashes, etc.) causing artwork to re-download on every rescan~~ — Fixed: `scanDirectory` now merges with existing game records instead of replacing them.
+- ~~Compressed ROMs (.zip/.7z) were only detected for Arcade; other systems (GB, GBA, NES, etc.) ignored zip files~~ — Fixed: all systems now accept `.zip`/`.7z` extensions. Archive files only match non-Arcade systems when inside a system-named folder or scanned with an explicit `systemId`.
