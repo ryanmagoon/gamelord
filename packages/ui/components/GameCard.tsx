@@ -127,10 +127,13 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
     <Card
       ref={mergedCardRef}
       className={cn(
-        'group relative overflow-hidden rounded-none border-0 transition-[transform,box-shadow] duration-200 hover:scale-105 hover:shadow-lg hover:z-10 w-full h-full cursor-pointer',
+        'group relative overflow-hidden rounded-none border-0 hover:scale-105 hover:shadow-lg hover:z-10 w-full h-full cursor-pointer',
         className
       )}
-      style={style}
+      style={{
+        ...style,
+        transition: 'transform 200ms, box-shadow 200ms, height 400ms cubic-bezier(0.25, 1, 0.5, 1)',
+      }}
       onClick={handlePlay}
       onKeyDown={handleKeyDown}
       role="button"
