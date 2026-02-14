@@ -81,6 +81,8 @@ export const GameWindow: React.FC = () => {
   const audioNextTimeRef = useRef(0)
   const gainNodeRef = useRef<GainNode | null>(null)
   const pendingFrameRef = useRef<any>(null)
+  /** Gate: don't render frames until the boot animation overlay is in place. */
+  const bootReadyRef = useRef(false)
   const rafIdRef = useRef<number>(0)
   const lastFrameTimeRef = useRef(0)
   const fpsEmaRef = useRef(0)
@@ -178,6 +180,7 @@ export const GameWindow: React.FC = () => {
     // Sent by the main process after the hero transition animation completes
     // (or immediately if there is no hero transition).
     api.on('game:ready-for-boot', () => {
+      bootReadyRef.current = true
       setIsPoweringOn(true)
     })
 
@@ -214,10 +217,16 @@ export const GameWindow: React.FC = () => {
     })
 
     api.on('game:video-frame', (frameData: any) => {
-      const canvas = canvasRef.current
-      if (!canvas) return
+      // Buffer the frame immediately so the latest state is always available,
+      // but don't initialize the renderer or draw until the boot animation
+      // overlay is in place. This prevents the game content from flashing
+      // before the CRT/LCD power-on animation starts.
+      pendingFrameRef.current = frameData
 
-      // Initialize WebGL renderer on first frame
+      const canvas = canvasRef.current
+      if (!canvas || !bootReadyRef.current) return
+
+      // Initialize WebGL renderer on first frame after boot is ready
       if (!rendererRef.current) {
         try {
           // Set initial canvas size based on container
@@ -266,10 +275,6 @@ export const GameWindow: React.FC = () => {
         }
       }
 
-      // Buffer the latest frame — the rAF loop will pick it up on the
-      // next display vsync. If multiple IPC frames arrive between vsyncs,
-      // only the most recent one is drawn (natural frame skipping).
-      pendingFrameRef.current = frameData
     })
 
     api.on('game:audio-samples', (audioData: any) => {
@@ -359,6 +364,7 @@ export const GameWindow: React.FC = () => {
 
       cancelAnimationFrame(rafIdRef.current)
       pendingFrameRef.current = null
+      bootReadyRef.current = false
 
       rendererRef.current?.destroy()
       rendererRef.current = null
