@@ -9,6 +9,7 @@ export * from './components/ui/dropdown-menu';
 
 export * from './components/GameCard';
 export * from './components/GameLibrary';
+export * from './components/ScrollLetterIndicator';
 export * from './components/GameDetails';
 export * from './components/TVStatic';
 export * from './components/PlatformIcon';

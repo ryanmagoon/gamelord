@@ -212,3 +212,8 @@ body {
 .animate-not-found-fade-in {
   animation: not-found-fade-in 500ms ease-out both;
 }
+
+/* Scroll letter indicator — CRT phosphor glow in dark mode */
+.dark .scroll-letter-indicator {
+  text-shadow: 0 0 40px rgba(120, 200, 255, 0.6), 0 0 100px rgba(120, 200, 255, 0.3);
+}

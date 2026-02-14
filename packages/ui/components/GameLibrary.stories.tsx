@@ -140,9 +140,19 @@ const platforms = ['NES', 'SNES', 'Genesis', 'GB', 'GBA', 'N64', 'PS1'];
 const genres = ['Platform', 'Action', 'RPG', 'Adventure', 'Fighting', 'Puzzle', 'Sports'];
 const aspectRatios = [0.667, 0.714, 0.75, 0.8, 0.9, 1.0, 1.2, 1.33, 1.4];
 
+// Alphabetically diverse game title prefixes for testing the scroll letter indicator
+const gamePrefixes = [
+  'Armored', 'Astro', 'Battle', 'Blaster', 'Brave', 'Castlevania', 'Chrono', 'Crystal',
+  'Dark', 'Dragon', 'Emerald', 'Excite', 'Final', 'Fire', 'Galactic', 'Golden',
+  'Hyper', 'Ice', 'Iron', 'Jet', 'Kingdom', 'Knight', 'Legend', 'Lunar',
+  'Mega', 'Metal', 'Ninja', 'Nova', 'Omega', 'Outrun', 'Phantom', 'Pixel',
+  'Quest', 'Radiant', 'Rocket', 'Shadow', 'Star', 'Thunder', 'Turbo',
+  'Ultra', 'Vanguard', 'Warp', 'Xenon', 'Yoshi', 'Zero',
+];
+
 const largeLibrary = Array.from({ length: 500 }, (_, i) => ({
   id: `large-${i}`,
-  title: `Game Title ${String(i + 1).padStart(3, '0')}`,
+  title: `${gamePrefixes[i % gamePrefixes.length]} ${genres[i % genres.length]} ${Math.floor(i / gamePrefixes.length) + 1}`,
   platform: platforms[i % platforms.length],
   genre: genres[i % genres.length],
   coverArtAspectRatio: aspectRatios[i % aspectRatios.length],
