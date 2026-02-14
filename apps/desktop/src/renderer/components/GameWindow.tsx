@@ -505,6 +505,7 @@ export const GameWindow: React.FC = () => {
 
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isOverControlsRef = useRef(false)
+  const lastMousePositionRef = useRef<{ x: number; y: number } | null>(null)
 
   const scheduleHide = useCallback(() => {
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
@@ -515,12 +516,30 @@ export const GameWindow: React.FC = () => {
     }, 3000)
   }, [])
 
-  // Show on mouse move, auto-hide after 3s of inactivity
-  const handleMouseMove = useCallback(() => {
-    if (mode !== 'native' || isPoweringOn || isPoweringOff) return
-    setShowControls(true)
-    scheduleHide()
-  }, [mode, isPoweringOn, isPoweringOff, scheduleHide])
+  // Show on mouse move, auto-hide after 3s of inactivity.
+  // Ignores the initial mousemove if the cursor was already in the window
+  // area when it spawned — controls only appear on genuine cursor movement.
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (mode !== 'native' || isPoweringOn || isPoweringOff) return
+
+      const { clientX, clientY } = event
+      const last = lastMousePositionRef.current
+
+      if (!last) {
+        // First mousemove — record position but don't show controls
+        lastMousePositionRef.current = { x: clientX, y: clientY }
+        return
+      }
+
+      if (last.x === clientX && last.y === clientY) return
+
+      lastMousePositionRef.current = { x: clientX, y: clientY }
+      setShowControls(true)
+      scheduleHide()
+    },
+    [mode, isPoweringOn, isPoweringOff, scheduleHide],
+  )
 
   const handleMouseLeave = useCallback((event: React.MouseEvent) => {
     if (mode !== 'native') return
