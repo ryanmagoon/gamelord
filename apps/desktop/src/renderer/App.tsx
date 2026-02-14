@@ -14,6 +14,13 @@ interface ResumeDialogState {
   gameTitle: string
 }
 
+interface CardBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 interface CoreSelectDialogState {
   open: boolean
   systemId: string
@@ -60,6 +67,8 @@ function App() {
     pendingGame: null,
     fromDropdown: false,
   })
+  /** Stashed card bounds from the last game card click (for hero transition). */
+  const pendingCardBoundsRef = useRef<CardBounds | null>(null)
 
   // Listen for resume game dialog requests from main process
   useEffect(() => {
@@ -108,6 +117,9 @@ function App() {
    */
   const launchGameWithCore = async (game: UiGame, coreName?: string) => {
     const systemId = getSystemId(game)
+    // Consume stashed card bounds (one-shot for this launch)
+    const cardBounds = pendingCardBoundsRef.current
+    pendingCardBoundsRef.current = null
     try {
       // If a specific core was requested and it isn't installed, download it
       if (coreName) {
@@ -127,6 +139,7 @@ function App() {
         systemId,
         undefined,
         coreName,
+        cardBounds ?? undefined,
       )
 
       if (!result.success) {
@@ -139,8 +152,17 @@ function App() {
     }
   }
 
-  const handlePlayGame = async (game: UiGame) => {
+  const handlePlayGame = async (game: UiGame, cardRect?: DOMRect) => {
     const systemId = getSystemId(game)
+    // Stash card bounds for the hero transition (consumed by launchGameWithCore)
+    if (cardRect) {
+      pendingCardBoundsRef.current = {
+        x: Math.round(cardRect.x),
+        y: Math.round(cardRect.y),
+        width: Math.round(cardRect.width),
+        height: Math.round(cardRect.height),
+      }
+    }
     try {
       const cores = await api.emulator.getCoresForSystem(systemId)
 
