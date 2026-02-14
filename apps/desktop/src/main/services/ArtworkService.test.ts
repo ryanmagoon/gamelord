@@ -319,13 +319,14 @@ describe('ArtworkService', () => {
       expect(result).toBe(false);
     });
 
-    it('returns false when no credentials are configured', async () => {
+    it('throws when no credentials are configured', async () => {
       const game = makeGame();
       const service = new ArtworkService(createMockLibraryService([game]));
       await flushPromises();
 
-      const result = await service.syncGame('game1');
-      expect(result).toBe(false);
+      await expect(service.syncGame('game1')).rejects.toThrow(
+        'ScreenScraper user credentials are not configured',
+      );
     });
 
     it('throws ScreenScraperError when hash lookup returns auth error', async () => {

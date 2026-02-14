@@ -35,7 +35,9 @@ interface CoreDownloadProgress {
 export const LibraryView: React.FC<{
   onPlayGame: (game: Game, cardRect?: DOMRect) => void
   getMenuItems?: (game: Game) => GameCardMenuItem[]
-}> = ({ onPlayGame, getMenuItems }) => {
+  /** ID of a game currently being launched. Shows shimmer on that card and disables others. */
+  launchingGameId?: string | null
+}> = ({ onPlayGame, getMenuItems, launchingGameId }) => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
 
   const [games, setGames] = useState<AppGame[]>([])
@@ -63,6 +65,7 @@ export const LibraryView: React.FC<{
 
   // Game options menu state
   const [optionsMenuGame, setOptionsMenuGame] = useState<AppGame | null>(null)
+  const [optionsMenuOpen, setOptionsMenuOpen] = useState(false)
 
   /**
    * Set a sync phase for a game card and optionally schedule its cleanup.
@@ -140,7 +143,12 @@ export const LibraryView: React.FC<{
       const { found, notFound, errors, lastErrorCode, lastError } = syncResults.current
       const total = found + notFound + errors
       if (total > 0) {
-        if (lastErrorCode === 'auth-failed') {
+        if (lastErrorCode === 'config-error') {
+          setSyncNotification({
+            message: 'Artwork sync stopped: developer credentials are missing from the .env file.',
+            variant: 'error',
+          })
+        } else if (lastErrorCode === 'auth-failed') {
           // Clear bad credentials so the dialog reopens on next attempt
           api.artwork.clearCredentials()
           setSyncNotification({
@@ -424,6 +432,7 @@ export const LibraryView: React.FC<{
 
   const handleGameOptions = (game: AppGame) => {
     setOptionsMenuGame(game)
+    setOptionsMenuOpen(true)
   }
 
   const handleUiGameOptions = (uiGame: UiGame) => {
@@ -435,7 +444,7 @@ export const LibraryView: React.FC<{
 
   const handleRemoveGame = async (gameId: string) => {
     await api.library.removeGame(gameId)
-    setOptionsMenuGame(null)
+    setOptionsMenuOpen(false)
     await loadLibrary()
   }
 
@@ -621,6 +630,7 @@ export const LibraryView: React.FC<{
             onGameOptions={handleUiGameOptions}
             getMenuItems={getMenuItems}
             artworkSyncStore={artworkSyncStore}
+            launchingGameId={launchingGameId}
             scrollContainerRef={scrollContainerRef}
           />
         ) : (
@@ -642,7 +652,7 @@ export const LibraryView: React.FC<{
       </div>
 
       {/* Game options dialog */}
-      <AlertDialog open={!!optionsMenuGame} onOpenChange={(open) => { if (!open) setOptionsMenuGame(null) }}>
+      <AlertDialog open={optionsMenuOpen} onOpenChange={(open) => { if (!open) setOptionsMenuOpen(false) }}>
         <AlertDialogContent className="max-w-xs">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base">{optionsMenuGame?.title}</AlertDialogTitle>
@@ -653,7 +663,7 @@ export const LibraryView: React.FC<{
               className="justify-start"
               onClick={() => {
                 const gameId = optionsMenuGame?.id
-                setOptionsMenuGame(null)
+                setOptionsMenuOpen(false)
                 if (gameId) handleSyncSingleGame(gameId)
               }}
             >
