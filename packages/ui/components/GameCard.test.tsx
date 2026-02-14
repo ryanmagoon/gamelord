@@ -193,34 +193,27 @@ describe('GameCard', () => {
     })
 
     it('cross-fades from static to artwork when done phase fires', async () => {
-      vi.useFakeTimers()
-      try {
-        const onPlay = vi.fn()
-        const gameWithArt = { ...mockGame, coverArt: 'artwork://test.png' }
-        const { container } = render(
-          <GameCard game={gameWithArt} onPlay={onPlay} artworkSyncStore={storeWithPhase('done')} />
-        )
+      const onPlay = vi.fn()
+      const gameWithArt = { ...mockGame, coverArt: 'artwork://test.png' }
+      const { container } = render(
+        <GameCard game={gameWithArt} onPlay={onPlay} artworkSyncStore={storeWithPhase('done')} />
+      )
 
-        const img = container.querySelector('img')
-        expect(img).not.toBeNull()
+      const img = container.querySelector('img')
+      expect(img).not.toBeNull()
 
-        // The hook fires onResizeComplete via useLayoutEffect, which schedules
-        // an image decode (microtask) → setCrossFadeReady(true). Advance timers
-        // to let the hook's cleanup timeout fire, then flush microtasks.
-        await act(async () => {
-          vi.advanceTimersByTime(500)
-          await vi.advanceTimersByTimeAsync(0)
-        })
+      // The useEffect fires image decode (microtask) → setCrossFadeReady(true).
+      // Flush microtasks so the state update propagates.
+      await act(async () => {
+        await Promise.resolve()
+      })
 
-        // Image becomes visible, static wrapper fades out
-        expect(img!.className).toContain('opacity-100')
+      // Image becomes visible, static wrapper fades out
+      expect(img!.className).toContain('opacity-100')
 
-        const staticWrapper = container.querySelector('.absolute.inset-0.transition-opacity')
-        expect(staticWrapper).not.toBeNull()
-        expect(staticWrapper!.className).toContain('opacity-0')
-      } finally {
-        vi.useRealTimers()
-      }
+      const staticWrapper = container.querySelector('.absolute.inset-0.transition-opacity')
+      expect(staticWrapper).not.toBeNull()
+      expect(staticWrapper!.className).toContain('opacity-0')
     })
 
     it('does not show dissolve animation class when no sync phase', () => {
@@ -237,23 +230,21 @@ describe('GameCard', () => {
   })
 
   describe('mosaic layout', () => {
-    it('inner container uses aspect-ratio from the transition hook', () => {
+    it('card and inner container both use h-full to fill grid area', () => {
       const onPlay = vi.fn()
-      const gameWithRatio = { ...mockGame, coverArtAspectRatio: 0.714 }
       const { container } = render(
-        <GameCard game={gameWithRatio} onPlay={onPlay} />
+        <GameCard game={mockGame} onPlay={onPlay} />
       )
 
-      // The outer Card element has h-full and overflow-hidden
+      // The outer Card element
       const card = screen.getByRole('button', { name: /play super mario bros/i })
       expect(card.className).toContain('h-full')
       expect(card.className).toContain('overflow-hidden')
 
-      // The inner container gets aspect-ratio from the hook (not h-full)
+      // The inner container fills the card
       const innerContainer = container.querySelector('.bg-muted')
       expect(innerContainer).not.toBeNull()
-      expect(innerContainer!.className).not.toContain('h-full')
-      expect((innerContainer as HTMLElement).style.aspectRatio).toBeTruthy()
+      expect(innerContainer!.className).toContain('h-full')
     })
   })
 })

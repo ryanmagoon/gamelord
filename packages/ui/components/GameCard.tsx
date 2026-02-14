@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react'
+import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import {
@@ -11,7 +11,6 @@ import { cn } from '../utils'
 import { MoreVertical } from 'lucide-react'
 import { TVStatic } from './TVStatic'
 import { useArtworkSyncPhase, type ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
-import { useAspectRatioTransition } from '../hooks/useAspectRatioTransition'
 
 export interface Game {
   id: string
@@ -98,30 +97,19 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const staticWrapperRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
 
-  // Cross-fade: starts after the height transition completes.
+  // Cross-fade: pre-decode the image then reveal it over the static.
   const [crossFadeReady, setCrossFadeReady] = useState(false)
 
-  // Aspect-ratio transition: animates the inner container's height when the
-  // aspect ratio changes (artwork just arrived). Uses useLayoutEffect so it
-  // captures the old height before the browser repaints. Works for both the
-  // CSS Grid path (height from aspect-ratio) and virtualized path (card has
-  // explicit pixel height, inner container animates within it with overflow
-  // clipped by the card's overflow-hidden).
-  const aspectRatio = game.coverArtAspectRatio ?? 0.75
-
-  const onResizeComplete = useCallback(() => {
-    // Pre-decode the image before starting the cross-fade
+  useEffect(() => {
+    if (!isDone || !game.coverArt) {
+      setCrossFadeReady(false)
+      return
+    }
     const img = imgRef.current
     const noop = () => { /* intentional */ }
     const decodePromise = img?.decode?.().catch(noop) ?? Promise.resolve()
     decodePromise.then(() => setCrossFadeReady(true))
-  }, [])
-
-  const { containerRef } = useAspectRatioTransition({
-    aspectRatio,
-    enabled: isDone && !!game.coverArt,
-    onResizeComplete,
-  })
+  }, [isDone, game.coverArt])
 
   // Show the static overlay during active sync phases, done phase, OR as
   // an idle placeholder when there's no cover art at all.
@@ -151,7 +139,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
       title={game.title}
     >
       <CardContent className="p-0 h-full">
-        <div ref={containerRef} className="relative bg-muted overflow-hidden">
+        <div className="relative bg-muted overflow-hidden h-full">
           {/*
            * Cover art image — ALWAYS in the DOM so React never has to mount/
            * unmount it during animation. Hidden via opacity-0 until the
