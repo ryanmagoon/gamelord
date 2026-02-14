@@ -6,6 +6,8 @@ import type { Game } from '../types/library'
 import type { EmulationWorkerClient } from './emulator/EmulationWorkerClient'
 import type { AVInfo } from './workers/core-worker-protocol'
 import { animateWindowClose } from './windowCloseAnimation'
+import { animateWindowOpen } from './windowOpenAnimation'
+import { manageWindowState, saveWindowStateNow, type WindowStateConfig } from './utils/windowState'
 import { gameWindowLog } from './logger'
 
 const execFileAsync = promisify(execFile)
@@ -47,6 +49,7 @@ export class GameWindowManager {
     workerClient: EmulationWorkerClient,
     avInfo: AVInfo,
     shouldResume = false,
+    cardScreenBounds?: { x: number; y: number; width: number; height: number },
   ): BrowserWindow {
     const existingWindow = this.gameWindows.get(game.id)
     if (existingWindow && !existingWindow.isDestroyed()) {
@@ -61,13 +64,31 @@ export class GameWindowManager {
       : baseWidth / baseHeight
     // Scale up to a reasonable window size (targeting ~720p height)
     const scale = Math.max(2, Math.floor(720 / baseHeight))
-    const windowHeight = baseHeight * scale
+    const defaultHeight = baseHeight * scale
     // Width is calculated from height using the correct aspect ratio
-    const windowWidth = Math.round(windowHeight * aspectRatio)
+    const defaultWidth = Math.round(defaultHeight * aspectRatio)
+
+    // Build state config for this game window (per-system so different aspect
+    // ratios don't clash — e.g. a wide GBA size won't be restored for 4:3 NES).
+    const gameWindowConfig: WindowStateConfig = {
+      stateFile: `game-window-state-${game.systemId}.json`,
+      defaults: {
+        x: -1,
+        y: -1,
+        width: defaultWidth,
+        height: defaultHeight,
+        isMaximized: false,
+        isFullScreen: false,
+      },
+      trackFullScreen: true,
+      manualCloseSave: true,
+    }
+
+    const hasHeroTransition = !!cardScreenBounds
 
     const gameWindow = new BrowserWindow({
-      width: windowWidth,
-      height: windowHeight,
+      width: defaultWidth,
+      height: defaultHeight,
       minWidth: Math.round(baseHeight * 2 * aspectRatio),
       minHeight: baseHeight * 2,
       useContentSize: true, // Ensure width/height refer to content area, not window frame
@@ -75,6 +96,7 @@ export class GameWindowManager {
       titleBarStyle: 'hidden',
       trafficLightPosition: { x: 10, y: 10 },
       backgroundColor: '#000000',
+      show: !hasHeroTransition, // Hide initially if hero transition will animate it
       webPreferences: {
         preload: this.preloadPath,
         contextIsolation: true,
@@ -85,6 +107,10 @@ export class GameWindowManager {
     // Lock window to the core's aspect ratio
     gameWindow.setAspectRatio(aspectRatio)
 
+    // Restore saved position/size and attach resize/move state tracking.
+    // Must come after setAspectRatio so subsequent user resizes stay correct.
+    manageWindowState(gameWindow, gameWindowConfig)
+
     if (process.env.ELECTRON_RENDERER_URL) {
       gameWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/game-window.html`)
     } else {
@@ -93,10 +119,31 @@ export class GameWindowManager {
       )
     }
 
+    // Run the hero transition if card bounds were provided.
+    // The window starts at the card's screen position and morphs to its
+    // final bounds, then signals the renderer to start the boot animation.
+    if (hasHeroTransition) {
+      const finalBounds = gameWindow.getBounds()
+      gameWindow.once('ready-to-show', () => {
+        animateWindowOpen(gameWindow, cardScreenBounds, finalBounds).then(() => {
+          if (!gameWindow.isDestroyed()) {
+            gameWindow.webContents.send('game:ready-for-boot')
+          }
+        })
+      })
+    }
+
     gameWindow.webContents.on('did-finish-load', () => {
       gameWindow.webContents.send('game:loaded', game)
       gameWindow.webContents.send('game:mode', 'native')
       gameWindow.webContents.send('game:av-info', avInfo)
+
+      // If no hero transition, tell renderer to start boot animation immediately
+      // and focus the window so keyboard input works right away.
+      if (!hasHeroTransition) {
+        gameWindow.webContents.send('game:ready-for-boot')
+        gameWindow.focus()
+      }
 
       if (shouldResume) {
         workerClient.loadState(99).catch((error) => {
@@ -136,6 +183,10 @@ export class GameWindowManager {
         this.readyToCloseWindows.delete(windowId)
         return
       }
+
+      // Save window state before the shutdown animation (which shrinks the
+      // window and would corrupt the saved bounds if we saved after).
+      saveWindowStateNow(gameWindow, gameWindowConfig)
 
       // Prevent the default close so we can play the shutdown animation
       event.preventDefault()

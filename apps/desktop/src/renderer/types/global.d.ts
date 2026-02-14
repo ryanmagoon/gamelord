@@ -15,6 +15,7 @@ export interface GamelordAPI {
       systemId: string,
       emulatorId?: string,
       coreName?: string,
+      cardBounds?: { x: number; y: number; width: number; height: number },
     ) => Promise<{ success: boolean; error?: string }>
     stop: () => Promise<{ success: boolean; error?: string }>
     getAvailable: () => Promise<any>

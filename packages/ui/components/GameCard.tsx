@@ -35,7 +35,7 @@ export interface GameCardMenuItem {
 
 export interface GameCardProps {
   game: Game
-  onPlay: (game: Game) => void
+  onPlay: (game: Game, cardRect?: DOMRect) => void
   /** @deprecated Use menuItems instead for dropdown menu support. */
   onOptions?: (game: Game) => void
   /** Menu items shown in the options dropdown on hover. */
@@ -68,13 +68,15 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const menuItems = menuItemsProp ?? (getMenuItems ? getMenuItems(game) : undefined)
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault()
-    onPlay(game)
+    const rect = e.currentTarget.getBoundingClientRect()
+    onPlay(game, rect)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      onPlay(game)
+      const rect = e.currentTarget.getBoundingClientRect()
+      onPlay(game, rect)
     }
   }
 

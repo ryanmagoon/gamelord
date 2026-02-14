@@ -33,7 +33,7 @@ interface CoreDownloadProgress {
 }
 
 export const LibraryView: React.FC<{
-  onPlayGame: (game: Game) => void
+  onPlayGame: (game: Game, cardRect?: DOMRect) => void
   getMenuItems?: (game: Game) => GameCardMenuItem[]
 }> = ({ onPlayGame, getMenuItems }) => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
@@ -418,8 +418,8 @@ export const LibraryView: React.FC<{
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
 
   /** Delegate to the parent's onPlayGame so App.tsx can handle core selection. */
-  const handlePlayUiGame = (uiGame: UiGame) => {
-    onPlayGame(uiGame)
+  const handlePlayUiGame = (uiGame: UiGame, cardRect?: DOMRect) => {
+    onPlayGame(uiGame, cardRect)
   }
 
   const handleGameOptions = (game: AppGame) => {
@@ -615,8 +615,8 @@ export const LibraryView: React.FC<{
         {filteredGames.length > 0 ? (
           <GameLibrary
             games={uiGames}
-            onPlayGame={(g) => {
-              void handlePlayUiGame(g)
+            onPlayGame={(g, cardRect) => {
+              void handlePlayUiGame(g, cardRect)
             }}
             onGameOptions={handleUiGameOptions}
             getMenuItems={getMenuItems}

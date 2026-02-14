@@ -62,7 +62,7 @@ export const GameWindow: React.FC = () => {
     return localStorage.getItem('gamelord:showFps') === 'true'
   })
   const [fps, setFps] = useState(0)
-  const [isPoweringOn, setIsPoweringOn] = useState(true)
+  const [isPoweringOn, setIsPoweringOn] = useState(false)
   const [isPoweringOff, setIsPoweringOff] = useState(false)
 
   // Memoize power animation callbacks so they have stable references.
@@ -163,9 +163,22 @@ export const GameWindow: React.FC = () => {
     api.removeAllListeners('game:video-frame')
     api.removeAllListeners('game:audio-samples')
     api.removeAllListeners('game:prepare-close')
+    api.removeAllListeners('game:ready-for-boot')
 
     api.on('game:loaded', (gameData: Game) => {
       setGame(gameData)
+
+      // Load per-system shader preference (e.g. CRT for NES, LCD for GBA)
+      const systemShader = localStorage.getItem(`gamelord:shader:${gameData.systemId}`)
+      if (systemShader) {
+        setShader(systemShader)
+      }
+    })
+
+    // Sent by the main process after the hero transition animation completes
+    // (or immediately if there is no hero transition).
+    api.on('game:ready-for-boot', () => {
+      setIsPoweringOn(true)
     })
 
     api.on('game:mode', (m: string) => {
@@ -342,6 +355,7 @@ export const GameWindow: React.FC = () => {
       api.removeAllListeners('game:video-frame')
       api.removeAllListeners('game:audio-samples')
       api.removeAllListeners('game:prepare-close')
+      api.removeAllListeners('game:ready-for-boot')
 
       cancelAnimationFrame(rafIdRef.current)
       pendingFrameRef.current = null
@@ -371,11 +385,14 @@ export const GameWindow: React.FC = () => {
     }
   }, [updateCanvasSize])
 
-  // Sync shader preference
+  // Sync shader preference (saved per-system when a game is loaded)
   useEffect(() => {
     rendererRef.current?.setShader(shader)
     localStorage.setItem('gamelord:shader', shader)
-  }, [shader])
+    if (game) {
+      localStorage.setItem(`gamelord:shader:${game.systemId}`, shader)
+    }
+  }, [shader, game])
 
   // Sync gain node with volume/mute state and persist
   useEffect(() => {
