@@ -90,7 +90,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const isTerminalPhase =
     artworkSyncPhase === 'error' || artworkSyncPhase === 'not-found'
 
-  // 'done' phase: cover art just arrived — animate height then cross-fade
+  // 'done' phase: cover art just arrived — cross-fade image over static
   const isDone = artworkSyncPhase === 'done'
 
   const imgRef = useRef<HTMLImageElement>(null)
@@ -111,8 +111,9 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
     decodePromise.then(() => setCrossFadeReady(true))
   }, [isDone, game.coverArt])
 
-  // Show the static overlay during active sync phases, done phase, OR as
-  // an idle placeholder when there's no cover art at all.
+  // During the done phase, keep the static and title running normally
+  // underneath while the cover art fades in on top. Only treat the
+  // underlying layers as "inactive" after the cross-fade completes.
   const isFallback = !game.coverArt && !isActivelySyncing && !isTerminalPhase && !isDone
   const showStatic = isActivelySyncing || isTerminalPhase || isDone || isFallback
 
@@ -169,13 +170,16 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
             ref={staticWrapperRef}
             className={cn(
               'absolute inset-0 transition-opacity duration-500 ease-out',
-              isActivelySyncing && 'animate-card-sync-pulse',
+              // Keep pulsing during done phase until the image covers it
+              (isActivelySyncing || (isDone && !crossFadeReady)) && 'animate-card-sync-pulse',
               crossFadeReady && 'opacity-0',
             )}
           >
             <TVStatic
               active={showStatic}
-              phase={artworkSyncPhase}
+              // During done phase, keep the static looking like it's still
+              // downloading so it doesn't freeze — the image fades over it.
+              phase={isDone ? 'downloading' : artworkSyncPhase}
               aspectRatio={0.75}
             />
           </div>
@@ -189,9 +193,13 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
             </div>
           )}
 
-          {/* Game title over static — shown as idle fallback, during active sync, and when not found */}
-          {(isFallback || isActivelySyncing || artworkSyncPhase === 'not-found') && (
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-3 pt-8 pointer-events-none">
+          {/* Game title over static — visible during fallback, sync, not-found,
+              and done (until cross-fade covers it). Fades out with the static wrapper. */}
+          {(isFallback || isActivelySyncing || artworkSyncPhase === 'not-found' || (isDone && !crossFadeReady)) && (
+            <div className={cn(
+              'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-3 pt-8 pointer-events-none transition-opacity duration-500 ease-out',
+              crossFadeReady && 'opacity-0',
+            )}>
               <span className="text-lg font-bold text-white leading-tight line-clamp-2">
                 {game.title}
               </span>
