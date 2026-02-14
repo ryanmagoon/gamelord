@@ -382,9 +382,17 @@ export class ArtworkService extends EventEmitter {
       return null;
     }
 
+    const devId = process.env.SCREENSCRAPER_DEV_ID ?? '';
+    const devPassword = process.env.SCREENSCRAPER_DEV_PASSWORD ?? '';
+
+    if (!devId || !devPassword) {
+      artworkLog.warn('ScreenScraper developer credentials are not configured in .env — artwork sync will not work.');
+      return null;
+    }
+
     const credentials: ScreenScraperCredentials = {
-      devId: process.env.SCREENSCRAPER_DEV_ID ?? '',
-      devPassword: process.env.SCREENSCRAPER_DEV_PASSWORD ?? '',
+      devId,
+      devPassword,
       userId: this.config.screenscraper.userId,
       userPassword: this.config.screenscraper.userPassword,
     };

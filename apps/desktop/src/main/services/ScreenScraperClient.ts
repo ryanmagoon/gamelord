@@ -17,6 +17,7 @@ const API_TIMEOUT_MS = 15000;
 export type ScreenScraperErrorCode =
   | 'timeout'
   | 'auth-failed'
+  | 'config-error'
   | 'rate-limited'
   | 'network-error'
   | 'parse-error';
@@ -50,6 +51,17 @@ export class ScreenScraperClient {
 
     const url = `${this.baseUrl}/ssuserInfos.php?${params.toString()}`;
     await this.httpGet(url);
+  }
+
+  /** Throw early if developer API credentials are missing, before making a doomed request. */
+  private assertDevCredentials(): void {
+    if (!this.credentials.devId || !this.credentials.devPassword) {
+      throw new ScreenScraperError(
+        'ScreenScraper API is not configured. Developer credentials are missing from the .env file.',
+        0,
+        'config-error',
+      );
+    }
   }
 
   /**
@@ -249,6 +261,8 @@ export class ScreenScraperClient {
    * Includes a 15-second timeout and maps HTTP status codes to structured error codes.
    */
   private httpGet(url: string): Promise<unknown> {
+    this.assertDevCredentials();
+
     return new Promise((resolve, reject) => {
       const follow = (targetUrl: string, redirectCount: number) => {
         if (redirectCount > 5) {

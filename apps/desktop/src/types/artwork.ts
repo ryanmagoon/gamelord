@@ -21,6 +21,7 @@ export interface ScreenScraperCredentials {
 
 export type ArtworkErrorCode =
   | 'auth-failed'
+  | 'config-error'
   | 'rate-limited'
   | 'timeout'
   | 'network-error'

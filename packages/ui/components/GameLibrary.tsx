@@ -185,19 +185,23 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     viewportHeight,
   });
 
-  // Scroll to top on filter changes (large lists)
-  const prevFilteredRef = useRef(filteredGames);
+  // Scroll to top on filter/sort changes (large lists).
+  // Track the actual filter criteria — NOT the filteredGames array reference,
+  // which also changes when a single game's coverArt updates in-place.
+  const prevFilterKeyRef = useRef('');
   const [enterGeneration, setEnterGeneration] = useState(0);
 
   useEffect(() => {
-    if (filteredGames !== prevFilteredRef.current) {
-      prevFilteredRef.current = filteredGames;
-      if (isLargeList) {
+    const filterKey = `${searchQuery}|${selectedPlatform}|${sortBy}`;
+    if (filterKey !== prevFilterKeyRef.current) {
+      const isInitial = prevFilterKeyRef.current === '';
+      prevFilterKeyRef.current = filterKey;
+      if (!isInitial && isLargeList) {
         scrollContainerRef?.current?.scrollTo({ top: 0 });
         setEnterGeneration(g => g + 1);
       }
     }
-  }, [filteredGames, isLargeList, scrollContainerRef]);
+  }, [searchQuery, selectedPlatform, sortBy, isLargeList, scrollContainerRef]);
 
   // Clear entrance animation flag after stagger completes
   const [showEntrance, setShowEntrance] = useState(false);

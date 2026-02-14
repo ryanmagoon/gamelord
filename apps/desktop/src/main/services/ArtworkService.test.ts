@@ -122,6 +122,11 @@ describe('ArtworkService', () => {
     mockFetchByName.mockResolvedValue(null);
     mockValidateCredentials.mockResolvedValue(undefined);
 
+    // Provide dev credentials so createClient() doesn't bail out.
+    // The ScreenScraperClient is mocked, so these values are never sent to the API.
+    process.env.SCREENSCRAPER_DEV_ID = 'test-dev-id';
+    process.env.SCREENSCRAPER_DEV_PASSWORD = 'test-dev-password';
+
     // Stub the internal sleep/rate-limit to avoid real delays in tests.
     // The prototype methods are patched so every ArtworkService instance is fast.
     vi.spyOn(ArtworkService.prototype as any, 'sleep').mockResolvedValue(undefined);

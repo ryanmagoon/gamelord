@@ -4,17 +4,20 @@ import { app } from 'electron';
 import { Game, GameSystem, LibraryConfig, DEFAULT_SYSTEMS } from '../../types/library';
 import crypto from 'crypto';
 import { libraryLog } from '../logger';
+import { findRomInZip, extractFileFromZip } from '../utils/zipExtraction';
 
 export class LibraryService {
   private config: LibraryConfig;
   private games: Map<string, Game> = new Map();
   private configPath: string;
   private libraryPath: string;
+  private romsCacheDir: string;
 
   constructor() {
     const userData = app.getPath('userData');
     this.configPath = path.join(userData, 'library-config.json');
     this.libraryPath = path.join(userData, 'library.json');
+    this.romsCacheDir = path.join(userData, 'roms-cache');
     this.config = {
       systems: [],
       scanRecursive: true,
@@ -97,9 +100,16 @@ export class LibraryService {
 
   public async removeSystem(systemId: string): Promise<void> {
     this.config.systems = this.config.systems.filter(s => s.id !== systemId);
-    // Also remove all games from this system
+    // Also remove all games from this system (and clean up cached ROMs)
     for (const [id, game] of this.games.entries()) {
       if (game.systemId === systemId) {
+        if (game.romPath.startsWith(this.romsCacheDir)) {
+          try {
+            await fs.unlink(game.romPath);
+          } catch {
+            // File may already be gone
+          }
+        }
         this.games.delete(id);
       }
     }
@@ -162,28 +172,36 @@ export class LibraryService {
           }
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name).toLowerCase();
-          const isArchive = ext === '.zip' || ext === '.7z';
 
-          // Find matching system by extension
-          const systems = systemId
-            ? this.config.systems.filter(s => s.id === systemId)
-            : this.config.systems;
+          if (ext === '.zip' && systemId !== 'arcade') {
+            // Non-arcade zip: attempt to extract a ROM from the archive
+            try {
+              const game = await this.handleZipFile(fullPath, systemId);
+              if (game) {
+                foundGames.push(game);
+                this.games.set(game.id, game);
+              }
+            } catch (error) {
+              libraryLog.warn(`Skipping zip file ${fullPath}:`, error);
+            }
+          } else {
+            // Find matching system by extension
+            const systems = systemId
+              ? this.config.systems.filter(s => s.id === systemId)
+              : this.config.systems;
 
-          for (const system of systems) {
-            if (system.extensions.includes(ext)) {
-              // Archive files (.zip/.7z) are ambiguous without folder context.
-              // Only match them when a systemId is set (folder-name detection
-              // or explicit system scan) or for Arcade which natively uses zips.
-              if (isArchive && !systemId && system.id !== 'arcade') continue;
-              const gameId = await this.generateGameId(fullPath);
-              const existing = this.games.get(gameId);
-              const game: Game = existing
-                ? { ...existing, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath }
-                : { id: gameId, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath };
+            for (const system of systems) {
+              if (system.extensions.includes(ext)) {
+                const gameId = await this.generateGameId(fullPath);
+                const existing = this.games.get(gameId);
+                const game: Game = existing
+                  ? { ...existing, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath }
+                  : { id: gameId, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath };
 
-              foundGames.push(game);
-              this.games.set(gameId, game);
-              break;
+                foundGames.push(game);
+                this.games.set(gameId, game);
+                break;
+              }
             }
           }
         }
@@ -221,6 +239,17 @@ export class LibraryService {
     if (!system) return null;
 
     const ext = path.extname(romPath).toLowerCase();
+
+    // Handle zip files for non-arcade systems
+    if (ext === '.zip' && systemId !== 'arcade') {
+      const game = await this.handleZipFile(romPath, systemId);
+      if (game) {
+        this.games.set(game.id, game);
+        await this.saveLibrary();
+      }
+      return game;
+    }
+
     if (!system.extensions.includes(ext)) return null;
 
     const gameId = await this.generateGameId(romPath);
@@ -238,6 +267,15 @@ export class LibraryService {
   }
 
   public async removeGame(gameId: string): Promise<void> {
+    const game = this.games.get(gameId);
+    if (game?.romPath.startsWith(this.romsCacheDir)) {
+      try {
+        await fs.unlink(game.romPath);
+        libraryLog.info(`Deleted cached ROM: ${game.romPath}`);
+      } catch (error) {
+        libraryLog.warn(`Failed to delete cached ROM ${game.romPath}:`, error);
+      }
+    }
     this.games.delete(gameId);
     await this.saveLibrary();
   }
@@ -257,6 +295,94 @@ export class LibraryService {
   public async setRomsBasePath(basePath: string): Promise<void> {
     this.config.romsBasePath = basePath;
     await this.saveConfig();
+  }
+
+  /** Returns the union of all ROM extensions across non-arcade systems. */
+  private getNonArcadeExtensions(): string[] {
+    return this.config.systems
+      .filter(s => s.id !== 'arcade')
+      .flatMap(s => s.extensions);
+  }
+
+  /** Returns the first matching system for a given ROM extension. */
+  private findSystemForExtension(ext: string, systemId?: string): GameSystem | undefined {
+    const systems = systemId
+      ? this.config.systems.filter(s => s.id === systemId)
+      : this.config.systems;
+    return systems.find(s => s.extensions.includes(ext));
+  }
+
+  private async ensureRomsCacheDir(): Promise<string> {
+    await fs.mkdir(this.romsCacheDir, { recursive: true });
+    return this.romsCacheDir;
+  }
+
+  /**
+   * Extracts a ROM from a zip archive and returns a Game object.
+   * Returns null if no matching ROM is found inside the zip.
+   */
+  private async handleZipFile(zipPath: string, systemId?: string): Promise<Game | null> {
+    const nativeExtensions = systemId
+      ? (this.config.systems.find(s => s.id === systemId)?.extensions ?? [])
+      : this.getNonArcadeExtensions();
+
+    const match = await findRomInZip(zipPath, nativeExtensions);
+    if (!match) {
+      libraryLog.debug(`No matching ROM found in zip: ${zipPath}`);
+      return null;
+    }
+
+    const system = this.findSystemForExtension(match.extension, systemId);
+    if (!system) return null;
+
+    // Check if already imported from this zip
+    const existingGame = Array.from(this.games.values()).find(
+      g => g.sourceArchivePath === zipPath,
+    );
+    if (existingGame) {
+      try {
+        await fs.access(existingGame.romPath);
+        return null; // Already in library with valid cache
+      } catch {
+        // Cache file missing, re-extract below
+      }
+    }
+
+    const cacheDir = await this.ensureRomsCacheDir();
+    const romBasename = path.basename(match.entryName);
+    const extractedPath = await extractFileFromZip(zipPath, match.entryName, cacheDir);
+
+    const gameId = await this.generateGameId(extractedPath);
+
+    // Rename with hash prefix to avoid collisions between different zips
+    const hashPrefix = gameId.substring(0, 8);
+    const finalFilename = `${hashPrefix}_${romBasename}`;
+    const finalPath = path.join(cacheDir, finalFilename);
+
+    if (extractedPath !== finalPath) {
+      try {
+        await fs.access(finalPath);
+        // Already exists from a previous scan, remove the fresh extraction
+        await fs.unlink(extractedPath);
+      } catch {
+        await fs.rename(extractedPath, finalPath);
+      }
+    }
+
+    // Skip if this exact ROM content is already in the library
+    if (this.games.has(gameId)) return null;
+
+    const romExt = path.extname(romBasename).toLowerCase();
+    const title = this.cleanGameTitle(path.basename(romBasename, romExt));
+
+    return {
+      id: gameId,
+      title,
+      system: system.name,
+      systemId: system.id,
+      romPath: finalPath,
+      sourceArchivePath: zipPath,
+    };
   }
 
   private async generateGameId(romPath: string): Promise<string> {

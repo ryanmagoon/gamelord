@@ -109,24 +109,6 @@ export const TVStatic: React.FC<TVStaticProps> = ({
         <div className="absolute inset-0 bg-amber-500/15 pointer-events-none" />
       )}
 
-      {/* Status text — high contrast on the dark static background */}
-      {statusText && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xs font-mono text-white/80 tracking-wider uppercase select-none animate-tv-static-pulse drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-            {statusText}
-          </span>
-        </div>
-      )}
-
-      <style>{`
-        @keyframes tv-static-pulse {
-          0%, 100% { opacity: 0.8; }
-          50% { opacity: 0.4; }
-        }
-        .animate-tv-static-pulse {
-          animation: tv-static-pulse 1.5s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   )
 }

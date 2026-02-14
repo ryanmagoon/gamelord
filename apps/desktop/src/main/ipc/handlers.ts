@@ -5,6 +5,7 @@ import { EmulationWorkerClient } from '../emulator/EmulationWorkerClient';
 import { resolveAddonPath } from '../emulator/resolveAddonPath';
 import { LibraryService } from '../services/LibraryService';
 import { ArtworkService } from '../services/ArtworkService';
+import { ScreenScraperError } from '../services/ScreenScraperClient';
 import { GameWindowManager } from '../GameWindowManager';
 import { GameSystem } from '../../types/library';
 import { ipcLog } from '../logger';
@@ -294,7 +295,10 @@ export class IPCHandlers {
       const filters = system ? [
         {
           name: `${system.name} ROMs`,
-          extensions: system.extensions.map(ext => ext.substring(1)) // Remove dots
+          extensions: [
+            ...system.extensions.map(ext => ext.substring(1)), // Remove dots
+            ...(systemId !== 'arcade' ? ['zip'] : []),
+          ],
         }
       ] : [];
 
@@ -339,6 +343,7 @@ export class IPCHandlers {
         ipcLog.error('Artwork sync failed:', error);
         forwardEvent('artwork:syncError', {
           error: error instanceof Error ? error.message : String(error),
+          errorCode: error instanceof ScreenScraperError ? error.errorCode : undefined,
         });
       });
       return { success: true };
@@ -351,6 +356,7 @@ export class IPCHandlers {
         ipcLog.error('Artwork sync for imported games failed:', error);
         forwardEvent('artwork:syncError', {
           error: error instanceof Error ? error.message : String(error),
+          errorCode: error instanceof ScreenScraperError ? error.errorCode : undefined,
         });
       });
       return { success: true };

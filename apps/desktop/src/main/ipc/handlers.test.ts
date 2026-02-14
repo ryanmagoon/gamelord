@@ -861,7 +861,7 @@ describe('IPCHandlers', () => {
         filters: [
           {
             name: 'Nintendo Entertainment System ROMs',
-            extensions: ['nes', 'fds'],
+            extensions: ['nes', 'fds', 'zip'],
           },
         ],
       });
