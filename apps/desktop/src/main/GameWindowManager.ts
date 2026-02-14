@@ -68,9 +68,10 @@ export class GameWindowManager {
     // Width is calculated from height using the correct aspect ratio
     const defaultWidth = Math.round(defaultHeight * aspectRatio)
 
-    // Build state config for this game window
+    // Build state config for this game window (per-system so different aspect
+    // ratios don't clash — e.g. a wide GBA size won't be restored for 4:3 NES).
     const gameWindowConfig: WindowStateConfig = {
-      stateFile: 'game-window-state.json',
+      stateFile: `game-window-state-${game.systemId}.json`,
       defaults: {
         x: -1,
         y: -1,
