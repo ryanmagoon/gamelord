@@ -15,6 +15,8 @@ import { cn } from '../utils';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { useScrollContainer } from '../hooks/useScrollContainer';
 import { useMosaicVirtualizer } from '../hooks/useMosaicVirtualizer';
+import { useScrollLetterIndicator } from '../hooks/useScrollLetterIndicator';
+import { ScrollLetterIndicator } from './ScrollLetterIndicator';
 import type { ArtworkSyncStore } from '../hooks/useArtworkSyncStore';
 import { getMosaicSpans, MOSAIC_ROW_UNIT, MOSAIC_GAP } from '../utils/mosaicGrid';
 import { computeMosaicLayout, getColumnCount } from '../utils/mosaicLayout';
@@ -212,6 +214,38 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     return () => clearTimeout(timer);
   }, [enterGeneration]);
 
+  // ---- Scroll letter indicator (Steam-style) ----
+  // Compute first visible game index. For the virtualized path we read it
+  // directly from `visibleIndices`; for the CSS Grid path (≤100 items) we walk
+  // the DOM children — cheap enough to run inline on each render triggered by
+  // the RAF-throttled `scrollTop` state update.
+  let firstVisibleIndex: number;
+  if (isLargeList) {
+    firstVisibleIndex = visibleIndices[0] ?? -1;
+  } else {
+    firstVisibleIndex = 0;
+    const grid = gridRef.current;
+    const container = scrollContainerRef?.current;
+    if (grid && container) {
+      const containerTop = container.getBoundingClientRect().top;
+      const children = grid.children;
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i] as HTMLElement;
+        if (child.getBoundingClientRect().bottom > containerTop) {
+          firstVisibleIndex = i;
+          break;
+        }
+      }
+    }
+  }
+
+  const { letter, isVisible: isLetterVisible } = useScrollLetterIndicator({
+    firstVisibleIndex,
+    games: filteredGames,
+    sortBy,
+    scrollTop,
+  });
+
   return (
     <div className={cn("space-y-6", className)}>
       {/* Header Controls */}
@@ -368,6 +402,9 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
           <p className="text-muted-foreground">List view coming soon...</p>
         </div>
       )}
+
+      {/* Scroll letter indicator (Steam-style) */}
+      <ScrollLetterIndicator letter={letter} isVisible={isLetterVisible} />
 
       {/* Empty state */}
       {filteredGames.length === 0 && (
