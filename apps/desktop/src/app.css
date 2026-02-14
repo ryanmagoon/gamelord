@@ -180,3 +180,27 @@ body {
 .animate-artwork-dissolve-in {
   animation: artwork-dissolve-in 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Breathing pulse on game cards during artwork sync (replaces text status labels). */
+@keyframes card-sync-pulse {
+  0%, 100% {
+    filter: brightness(0.5);
+  }
+  50% {
+    filter: brightness(1.5);
+  }
+}
+
+.animate-card-sync-pulse {
+  animation: card-sync-pulse 1.0s ease-in-out infinite;
+}
+
+/* Fade-in for the "Artwork not found" label on cards. */
+@keyframes not-found-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-not-found-fade-in {
+  animation: not-found-fade-in 500ms ease-out both;
+}

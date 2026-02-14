@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameCard, Game } from './GameCard'
 import { ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
@@ -124,25 +124,46 @@ describe('GameCard', () => {
   })
 
   describe('artworkSyncPhase', () => {
-    it('shows TV static during hashing phase', () => {
+    it('shows TV static with sync pulse during hashing phase', () => {
       const onPlay = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('hashing')} />)
+      const { container } = render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('hashing')} />)
 
-      expect(screen.getByText('Reading...')).toBeInTheDocument()
+      const staticWrapper = container.querySelector('.absolute.inset-0.transition-opacity')
+      expect(staticWrapper).not.toBeNull()
+      expect(staticWrapper!.className).toContain('animate-card-sync-pulse')
+      expect(screen.getByLabelText(/loading artwork/i)).toBeInTheDocument()
     })
 
-    it('shows TV static during querying phase', () => {
+    it('shows TV static with sync pulse during querying phase', () => {
       const onPlay = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('querying')} />)
+      const { container } = render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('querying')} />)
 
-      expect(screen.getByText('Searching...')).toBeInTheDocument()
+      const staticWrapper = container.querySelector('.absolute.inset-0.transition-opacity')
+      expect(staticWrapper!.className).toContain('animate-card-sync-pulse')
     })
 
-    it('shows TV static during downloading phase', () => {
+    it('shows TV static with sync pulse during downloading phase', () => {
       const onPlay = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('downloading')} />)
+      const { container } = render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('downloading')} />)
 
-      expect(screen.getByText('Downloading...')).toBeInTheDocument()
+      const staticWrapper = container.querySelector('.absolute.inset-0.transition-opacity')
+      expect(staticWrapper!.className).toContain('animate-card-sync-pulse')
+    })
+
+    it('does not show sync pulse when not actively syncing', () => {
+      const onPlay = vi.fn()
+      const { container } = render(<GameCard game={mockGame} onPlay={onPlay} />)
+
+      const staticWrapper = container.querySelector('.absolute.inset-0.transition-opacity')
+      expect(staticWrapper!.className).not.toContain('animate-card-sync-pulse')
+    })
+
+    it('shows "Artwork not found" label and game title during not-found phase', () => {
+      const onPlay = vi.fn()
+      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('not-found')} />)
+
+      expect(screen.getByText('Artwork not found')).toBeInTheDocument()
+      expect(screen.getByText('Super Mario Bros.')).toBeInTheDocument()
     })
 
     it('shows TV static as fallback when no sync phase and no cover art', () => {
@@ -171,19 +192,35 @@ describe('GameCard', () => {
       expect(titleOverlay).not.toBeInTheDocument()
     })
 
-    it('hides image behind static while resize is in progress during done phase', () => {
-      const onPlay = vi.fn()
-      const gameWithArt = { ...mockGame, coverArt: 'artwork://test.png' }
-      const { container } = render(
-        <GameCard game={gameWithArt} onPlay={onPlay} artworkSyncStore={storeWithPhase('done')} />
-      )
+    it('holds image hidden during done phase then fades in after layout settles', async () => {
+      vi.useFakeTimers()
+      try {
+        const onPlay = vi.fn()
+        const gameWithArt = { ...mockGame, coverArt: 'artwork://test.png' }
+        const { container } = render(
+          <GameCard game={gameWithArt} onPlay={onPlay} artworkSyncStore={storeWithPhase('done')} />
+        )
 
-      // Image is rendered but hidden (opacity-0) while the height transition
-      // runs. The dissolve-in class is added imperatively after resize completes.
-      const img = container.querySelector('img')
-      expect(img).not.toBeNull()
-      expect(img!.className).toContain('opacity-0')
-      expect(img!.className).not.toContain('animate-artwork-dissolve-in')
+        // Initially hidden while waiting for layout to settle
+        const img = container.querySelector('img')
+        expect(img).not.toBeNull()
+        expect(img!.className).toContain('opacity-0')
+        expect(img!.className).toContain('transition-opacity')
+
+        // Advance past the cross-fade delay
+        await act(async () => {
+          vi.advanceTimersByTime(100)
+        })
+
+        // Image becomes visible, static wrapper fades out
+        expect(img!.className).toContain('opacity-100')
+
+        const staticWrapper = container.querySelector('.absolute.inset-0.transition-opacity')
+        expect(staticWrapper).not.toBeNull()
+        expect(staticWrapper!.className).toContain('opacity-0')
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('does not show dissolve animation class when no sync phase', () => {
