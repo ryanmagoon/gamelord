@@ -24,7 +24,7 @@ const float R              = 3.5;
 const float cornersize     = 0.01;
 const float cornersmooth   = 1000.0;
 const float overscan_x     = 1.0;
-const float overscan_y     = 1.0;
+const float overscan_y     = 0.98;
 const float aspect_x       = 1.0;
 const float aspect_y       = 0.75;
 
@@ -32,7 +32,7 @@ const float aspect_y       = 0.75;
 const float scanline_weight = 0.3;
 const float geom_lum        = 0.0;
 const float halation         = 0.1;
-const float rasterbloom_raw  = 0.1;
+const float rasterbloom_raw  = 0.0;
 const float rasterbloom      = rasterbloom_raw / 10.0;
 const float width            = 2.0;
 
