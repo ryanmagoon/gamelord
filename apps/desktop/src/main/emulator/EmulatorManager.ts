@@ -337,6 +337,7 @@ export class EmulatorManager extends EventEmitter {
       client.on('paused', () => this.emit('emulator:paused'));
       client.on('resumed', () => this.emit('emulator:resumed'));
       client.on('reset', () => this.emit('emulator:reset'));
+      client.on('error', (error) => this.emit('emulator:error', error));
     }
   }
 
