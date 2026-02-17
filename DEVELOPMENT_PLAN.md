@@ -87,7 +87,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] **Test suite — WebGL renderer** — Shader compilation, preset switching, fallback behavior
 - [x] **Fix test environment** — Switch vitest config from jsdom to happy-dom (per project conventions)
 - [x] **Fix game ID hashing** — Replace `MD5(romPath)` in `LibraryService.ts` with `SHA-256(fileContent)` so IDs survive file moves
-- [ ] **ROM checksum validation** — Compute CRC32/SHA-1 checksums on ROM files for integrity verification and database lookups (e.g. No-Intro DAT matching)
+- [ ] **ROM checksum validation** — Compute CRC32/SHA-1 checksums on ROM files for integrity verification and database lookups (e.g. No-Intro DAT matching) — [#61](https://github.com/ryanmagoon/gamelord/issues/61)
 
 ### P2 — Performance
 
@@ -97,18 +97,18 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] **Worker thread emulation** — Moved emulation loop from main process to a dedicated Electron utility process (`core-worker.ts`) with hybrid sleep+spin frame pacing. `EmulationWorkerClient` manages the worker lifecycle and message protocol.
 - [x] **Dense mosaic grid layout** — CSS Grid `dense` packing with computed row-spans per card aspect ratio, eliminating dead space in the game library grid
 - [x] **Virtualized game library** — JS dense packing algorithm + viewport culling for large collections (>100 games). Reduces DOM nodes from 1200+ to ~20-40, with RAF-throttled scroll tracking. Lists <=100 items keep CSS Grid + FLIP animation.
-- [ ] **SharedArrayBuffer for frame transfer** — Zero-copy video/audio push between worker and renderer (unlocked by worker thread migration)
-- [ ] **Lock-free audio buffer** — Replace `std::mutex`-guarded audio buffer in native addon with a lock-free SPSC ring buffer
-- [ ] **Native audio sample conversion** — Move Int16 → Float32 stereo deinterleaving from JavaScript (`GameWindow.tsx`) into the native addon so frames arrive renderer-ready, eliminating ~42K JS loop iterations/sec
-- [ ] **Audio resampling** — Handle cases where core sample rate differs from `AudioContext.sampleRate`
-- [ ] **Frame skipping / frame pacing** — Catch-up mechanism when rendering lags; handle display refresh != core FPS
+- [ ] **SharedArrayBuffer for frame transfer** — Zero-copy video/audio push between worker and renderer (unlocked by worker thread migration) — [#62](https://github.com/ryanmagoon/gamelord/issues/62)
+- [ ] **Lock-free audio buffer** — Replace `std::mutex`-guarded audio buffer in native addon with a lock-free SPSC ring buffer — [#63](https://github.com/ryanmagoon/gamelord/issues/63)
+- [ ] **Native audio sample conversion** — Move Int16 → Float32 stereo deinterleaving from JavaScript (`GameWindow.tsx`) into the native addon so frames arrive renderer-ready, eliminating ~42K JS loop iterations/sec — [#64](https://github.com/ryanmagoon/gamelord/issues/64)
+- [ ] **Audio resampling** — Handle cases where core sample rate differs from `AudioContext.sampleRate` — [#65](https://github.com/ryanmagoon/gamelord/issues/65)
+- [ ] **Frame skipping / frame pacing** — Catch-up mechanism when rendering lags; handle display refresh != core FPS — [#66](https://github.com/ryanmagoon/gamelord/issues/66)
 
 ### P3 — Multi-System Support
 
-- [ ] Install and test additional cores (SNES: snes9x/bsnes, Genesis: genesis_plus_gx, GB/GBA: mgba/gambatte)
-- [ ] Update ROM scanner to detect multiple system types
-- [ ] Add system badges/icons to library UI
-- [ ] Remove C++ singleton constraint (`LibretroCore::s_instance`) to allow multiple core instances
+- [ ] Install and test additional cores (SNES: snes9x/bsnes, Genesis: genesis_plus_gx, GB/GBA: mgba/gambatte) — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
+- [ ] Update ROM scanner to detect multiple system types — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
+- [ ] Add system badges/icons to library UI — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
+- [ ] Remove C++ singleton constraint (`LibretroCore::s_instance`) to allow multiple core instances — [#68](https://github.com/ryanmagoon/gamelord/issues/68)
 
 ### P4 — Library & Metadata
 
@@ -124,18 +124,18 @@ Items are grouped by priority. Work top-down within each tier.
   - [ ] Pre-hash all ROMs in parallel before sync — [#40](https://github.com/ryanmagoon/gamelord/issues/40)
   - [ ] Progressive artwork loading UX (show art as each game resolves) — [#41](https://github.com/ryanmagoon/gamelord/issues/41)
   - [ ] Multi-threaded ScreenScraper access for Patreon-tier users (up to 5x throughput) — [#42](https://github.com/ryanmagoon/gamelord/issues/42)
-- [ ] Recently played tracking
-- [ ] **Rating display** — Show ScreenScraper community rating on cards or in a detail view. Already stored as `metadata.rating` (0–1 scale). Consider a 5-star or 10-point visual treatment.
-- [ ] **Game detail view (Wikipedia-style)** — A rich, enthusiast-oriented detail page for each game, inspired by Wikipedia articles. Covers history, developer background, release timeline, platform ports, reception, and trivia — not just a metadata card. Includes cover art, screenshots, genre/player count/rating, and any ScreenScraper metadata we have, but the feel should be editorial and informational, like reading a game's encyclopedia entry. Triggered by clicking a game card (the card itself transitions/expands into the detail view). A minimalist play button on the card (or within the detail view) launches the game. This replaces the current "click card to launch" behavior — cards become the entry point to the detail view, not the emulator.
-- [ ] **Card → detail view transition** — When a game card is clicked, it expands/morphs into the full detail view (FLIP-style or shared-element transition). The play button moves to the detail view (or stays as a small overlay on the card). This is the interaction change that decouples "click card" from "launch game."
-- [ ] **Filter by genre** — Genre is already stored per-game from ScreenScraper. Add a genre filter dropdown alongside the existing platform filter.
-- [ ] **Filter by player count** — Filter to show only single-player, multiplayer, or N+ player games using `metadata.players`.
-- [ ] **Filter by decade/era** — Group games by release decade (80s, 90s, 2000s) using `metadata.releaseDate`.
-- [ ] **Sort by rating** — Add rating as a sort option in the library toolbar.
-- [ ] **Favorites** — Toggle favorite on games (field already exists on Game type). Add a "Favorites" filter and sort favorites to the top.
-- [ ] **Play count & stats** — Track number of play sessions (not just total time). Show "most played" sorting and a stats view with play history over time.
-- [ ] **Completion status** — Let users tag games as "Not Started", "In Progress", "Completed", or "Abandoned". Filterable.
-- [ ] **Collections / tags** — User-created collections (e.g. "Couch Co-op", "RPG Marathon", "Childhood Favorites") for organizing games beyond system/genre.
+- [ ] Recently played tracking — [#69](https://github.com/ryanmagoon/gamelord/issues/69)
+- [ ] **Rating display** — Show ScreenScraper community rating on cards or in a detail view. Already stored as `metadata.rating` (0–1 scale). Consider a 5-star or 10-point visual treatment. — [#70](https://github.com/ryanmagoon/gamelord/issues/70)
+- [ ] **Game detail view (Wikipedia-style)** — A rich, enthusiast-oriented detail page for each game, inspired by Wikipedia articles. Covers history, developer background, release timeline, platform ports, reception, and trivia — not just a metadata card. Includes cover art, screenshots, genre/player count/rating, and any ScreenScraper metadata we have, but the feel should be editorial and informational, like reading a game's encyclopedia entry. Triggered by clicking a game card (the card itself transitions/expands into the detail view). A minimalist play button on the card (or within the detail view) launches the game. This replaces the current "click card to launch" behavior — cards become the entry point to the detail view, not the emulator. — [#71](https://github.com/ryanmagoon/gamelord/issues/71)
+- [ ] **Card → detail view transition** — When a game card is clicked, it expands/morphs into the full detail view (FLIP-style or shared-element transition). The play button moves to the detail view (or stays as a small overlay on the card). This is the interaction change that decouples "click card" from "launch game." — [#72](https://github.com/ryanmagoon/gamelord/issues/72)
+- [ ] **Filter by genre** — Genre is already stored per-game from ScreenScraper. Add a genre filter dropdown alongside the existing platform filter. — [#73](https://github.com/ryanmagoon/gamelord/issues/73)
+- [ ] **Filter by player count** — Filter to show only single-player, multiplayer, or N+ player games using `metadata.players`. — [#74](https://github.com/ryanmagoon/gamelord/issues/74)
+- [ ] **Filter by decade/era** — Group games by release decade (80s, 90s, 2000s) using `metadata.releaseDate`. — [#75](https://github.com/ryanmagoon/gamelord/issues/75)
+- [ ] **Sort by rating** — Add rating as a sort option in the library toolbar. — [#76](https://github.com/ryanmagoon/gamelord/issues/76)
+- [ ] **Favorites** — Toggle favorite on games (field already exists on Game type). Add a "Favorites" filter and sort favorites to the top. — [#77](https://github.com/ryanmagoon/gamelord/issues/77)
+- [ ] **Play count & stats** — Track number of play sessions (not just total time). Show "most played" sorting and a stats view with play history over time. — [#78](https://github.com/ryanmagoon/gamelord/issues/78)
+- [ ] **Completion status** — Let users tag games as "Not Started", "In Progress", "Completed", or "Abandoned". Filterable. — [#79](https://github.com/ryanmagoon/gamelord/issues/79)
+- [ ] **Collections / tags** — User-created collections (e.g. "Couch Co-op", "RPG Marathon", "Childhood Favorites") for organizing games beyond system/genre. — [#80](https://github.com/ryanmagoon/gamelord/issues/80)
 - [ ] **AI-enriched game detail views** — LLM-generated editorial content: developer history, trivia, cultural impact, related games, "if you liked this, try..." Supplements ScreenScraper metadata. Cached in PostgreSQL. — [#55](https://github.com/ryanmagoon/gamelord/issues/55)
 - [ ] **Natural language game search** — "show me co-op SNES platformers from the 90s" using embeddings + pgvector + retrieval/reranking. Hybrid structured + semantic search. — [#56](https://github.com/ryanmagoon/gamelord/issues/56)
 - [ ] **AI game recommendations from play history** — content-based + collaborative filtering + LLM-powered personalized recommendations with explanations. — [#57](https://github.com/ryanmagoon/gamelord/issues/57)
@@ -143,20 +143,20 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P5 — Controls & Input
 
-- [ ] Controller configuration UI with 3D interactive controller model
+- [ ] Controller configuration UI with 3D interactive controller model — [#81](https://github.com/ryanmagoon/gamelord/issues/81)
   - [ ] Three.js rendering of a realistic controller model that the user can rotate/inspect
   - [ ] Highlight each button on the 3D model as it becomes the active assignment target
   - [ ] Click-to-assign flow: highlighted button pulses/glows, user presses physical input to bind it
   - [ ] Support for multiple controller types (Xbox, PlayStation, generic) with matching 3D models
 - [x] Gamepad API support in renderer — detect connected controllers, read input state
-- [ ] Per-game input mappings — override default bindings on a per-game or per-system basis
+- [ ] Per-game input mappings — override default bindings on a per-game or per-system basis — [#82](https://github.com/ryanmagoon/gamelord/issues/82)
 
 ### P6 — Rewind
 
-- [ ] Implement frame-state ring buffer — capture serialized save states every N frames
-- [ ] Hold-to-rewind input binding (rewind button replays buffered states in reverse)
-- [ ] Configurable rewind buffer duration and granularity
-- [ ] Visual rewind indicator in the game window overlay
+- [ ] Implement frame-state ring buffer — capture serialized save states every N frames — [#83](https://github.com/ryanmagoon/gamelord/issues/83)
+- [ ] Hold-to-rewind input binding (rewind button replays buffered states in reverse) — [#83](https://github.com/ryanmagoon/gamelord/issues/83)
+- [ ] Configurable rewind buffer duration and granularity — [#83](https://github.com/ryanmagoon/gamelord/issues/83)
+- [ ] Visual rewind indicator in the game window overlay — [#83](https://github.com/ryanmagoon/gamelord/issues/83)
 
 ### P7 — Online Multiplayer
 
@@ -165,64 +165,65 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] **Lobby system with room codes** — session management, matchmaking, friend lists + invites. Short room codes for sharing, public lobby browser, room settings (game, core, input delay, max players). — [#52](https://github.com/ryanmagoon/gamelord/issues/52)
 - [ ] **Cloud save sync with conflict resolution** — extend cloud saves API with last-write-wins vs version vectors vs vector clocks. Server-side conflict detection, client-side resolution UI. — [#53](https://github.com/ryanmagoon/gamelord/issues/53)
 - [ ] **Friends + activity feed** — fan-out problem, presence detection (WebSocket heartbeat → online/in-game status), real-time activity timeline. Hybrid fan-out strategy, Redis for ephemeral presence. — [#54](https://github.com/ryanmagoon/gamelord/issues/54)
-- [ ] Per-game netplay compatibility metadata (supported cores, input latency settings)
+- [ ] Per-game netplay compatibility metadata (supported cores, input latency settings) — [#84](https://github.com/ryanmagoon/gamelord/issues/84)
 
 ### RetroAchievements
 
-- [ ] MD5-based ROM identification (shares hash infrastructure with artwork service)
-- [ ] RetroAchievements API integration — authenticate, fetch achievement lists per game
-- [ ] Achievement unlocking via rcheevos runtime (memory inspection each frame)
-- [ ] Achievement unlock notifications in game window overlay
-- [ ] Per-game achievement list and progress tracking in library UI
-- [ ] Hardcore mode support (disable save states/rewind when active)
+- [ ] MD5-based ROM identification (shares hash infrastructure with artwork service) — [#85](https://github.com/ryanmagoon/gamelord/issues/85)
+- [ ] RetroAchievements API integration — authenticate, fetch achievement lists per game — [#85](https://github.com/ryanmagoon/gamelord/issues/85)
+- [ ] Achievement unlocking via rcheevos runtime (memory inspection each frame) — [#85](https://github.com/ryanmagoon/gamelord/issues/85)
+- [ ] Achievement unlock notifications in game window overlay — [#85](https://github.com/ryanmagoon/gamelord/issues/85)
+- [ ] Per-game achievement list and progress tracking in library UI — [#85](https://github.com/ryanmagoon/gamelord/issues/85)
+- [ ] Hardcore mode support (disable save states/rewind when active) — [#85](https://github.com/ryanmagoon/gamelord/issues/85)
 
 ### Developer Tools
 
-- [ ] Toggleable debug overlay for the game window (keyboard shortcut or settings toggle)
+- [ ] Toggleable debug overlay for the game window (keyboard shortcut or settings toggle) — [#86](https://github.com/ryanmagoon/gamelord/issues/86)
   - [ ] Input state: show which buttons/axes are active in real time (gamepad and keyboard)
   - [ ] Emulation stats: FPS, frame time, audio buffer health, dropped frames
   - [ ] IPC monitor: visualize game:input, game:video-frame, game:audio-samples throughput
   - [ ] Gamepad inspector: connected controllers, mapping type, raw button/axis values
   - [ ] Mode/state readout: current mode, paused state, active core, ROM info
-- [ ] Persist debug overlay preferences in localStorage
+- [ ] Persist debug overlay preferences in localStorage — [#86](https://github.com/ryanmagoon/gamelord/issues/86)
 
 ### P8 — UI Polish
 
 - [ ] **TV static animation hitches during artwork sync** ([#23](https://github.com/ryanmagoon/gamelord/issues/23)) — When artwork syncs for any card (download, error, or not-found), all other cards' TV static animations freeze momentarily. React-level optimizations already applied: stable style refs for React.memo (`useFlipAnimation`), shared `TVStaticManager` singleton (one rAF loop instead of 50+), per-game `UiGame` object cache, and `ArtworkSyncStore` backed by `useSyncExternalStore` to bypass parent re-renders. Hitches persist — likely caused by browser-level bottleneck: canvas `putImageData` cost across 50+ canvases, forced reflow during `useAspectRatioTransition` height changes, or image decode blocking the main thread. Next steps: profile with Chrome DevTools Performance panel to identify the exact frame-time spike, consider `OffscreenCanvas` in a Web Worker for noise generation, investigate batching `putImageData` calls with `requestIdleCallback`, and test whether pausing static on off-screen cards via `IntersectionObserver` eliminates the jank.
-- [ ] **Artwork load animation polish** — The `useAspectRatioTransition` hook and dissolve-in animation exist but the card resize isn't visibly smooth when artwork arrives. Debug and polish: coordinate the art dissolve-in with the card height transition so they feel like one fluid motion, test with both portrait and landscape art, and ensure cards already loaded with art skip the animation entirely.
-- [ ] **Error modal for blocking sync failures** — Swap the banner notification for a modal dialog when artwork sync hits a blocking error (missing dev env vars, invalid credentials, etc.). Banners are fine for success summaries and non-critical warnings, but "sync can't work at all" errors should be modal so the user has to acknowledge them. The banner currently flashes by too quickly and doesn't feel appropriate for serious configuration problems. Also audit the UI for any other jarring state changes that happen when the sync loop terminates early (e.g. all cards briefly pulsing then snapping back).
-- [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers)
+- [ ] **Artwork load animation polish** — The `useAspectRatioTransition` hook and dissolve-in animation exist but the card resize isn't visibly smooth when artwork arrives. Debug and polish: coordinate the art dissolve-in with the card height transition so they feel like one fluid motion, test with both portrait and landscape art, and ensure cards already loaded with art skip the animation entirely. — [#87](https://github.com/ryanmagoon/gamelord/issues/87)
+- [ ] **Error modal for blocking sync failures** — Swap the banner notification for a modal dialog when artwork sync hits a blocking error (missing dev env vars, invalid credentials, etc.). Banners are fine for success summaries and non-critical warnings, but "sync can't work at all" errors should be modal so the user has to acknowledge them. The banner currently flashes by too quickly and doesn't feel appropriate for serious configuration problems. Also audit the UI for any other jarring state changes that happen when the sync loop terminates early (e.g. all cards briefly pulsing then snapping back). — [#88](https://github.com/ryanmagoon/gamelord/issues/88)
+- [ ] Replace native OS dialogs with custom in-app dialogs (e.g. autosave resume prompt, file pickers) — [#89](https://github.com/ryanmagoon/gamelord/issues/89)
 - [x] Shader/filter selection (CRT, CRT Aperture, Scanlines, LCD, Sharp Bilinear via WebGL2)
-- [ ] Explore loading Slang (.slang/.slangp) shaders from the libretro shader ecosystem
-- [ ] Persist shader choice per core (e.g. CRT for SNES/snes9x, Sharp Bilinear for GBA/mgba)
+- [ ] Explore loading Slang (.slang/.slangp) shaders from the libretro shader ecosystem — [#90](https://github.com/ryanmagoon/gamelord/issues/90)
+- [ ] Persist shader choice per core (e.g. CRT for SNES/snes9x, Sharp Bilinear for GBA/mgba) — [#91](https://github.com/ryanmagoon/gamelord/issues/91)
 - [x] Dark mode (default) with light/dark toggle and localStorage persistence
-- [ ] **VHS-style pause screen** — Replace the minimal pause badge with a nostalgic VHS aesthetic: large "PAUSE" text in the corner (VCR-style monospace font, blue/white), horizontal beam warping/tracking distortion across the screen, subtle static crackle noise overlay, and scanline drift. Should feel like pausing a VHS tape in the '90s. Only applies to CRT-display-type systems; LCD systems keep a clean digital pause indicator.
-- [ ] **Native screenshot encoding** — Encode screenshots as PNG/JPEG in the native addon (e.g. via `stb_image_write`) instead of saving raw RGBA, reducing file size and avoiding JS-side encoding overhead
-- [ ] Screenshot gallery per game
-- [ ] Playtime tracking and statistics
-- [ ] Settings panel
-- [ ] **Graphics quality setting** — A simple quality preference (e.g. "Quality" / "Performance") that controls shader complexity and cosmetic effects. "Performance" disables multi-pass CRT shaders (falls back to single-pass or nearest), simplifies the VHS pause screen, and strips heavy overlays. Lets users on lower-end hardware or high-refresh displays trade eye candy for consistent frame pacing.
+- [ ] **VHS-style pause screen** — Replace the minimal pause badge with a nostalgic VHS aesthetic: large "PAUSE" text in the corner (VCR-style monospace font, blue/white), horizontal beam warping/tracking distortion across the screen, subtle static crackle noise overlay, and scanline drift. Should feel like pausing a VHS tape in the '90s. Only applies to CRT-display-type systems; LCD systems keep a clean digital pause indicator. — [#92](https://github.com/ryanmagoon/gamelord/issues/92)
+- [ ] **Native screenshot encoding** — Encode screenshots as PNG/JPEG in the native addon (e.g. via `stb_image_write`) instead of saving raw RGBA, reducing file size and avoiding JS-side encoding overhead — [#93](https://github.com/ryanmagoon/gamelord/issues/93)
+- [ ] Screenshot gallery per game — [#94](https://github.com/ryanmagoon/gamelord/issues/94)
+- [ ] Playtime tracking and statistics — [#95](https://github.com/ryanmagoon/gamelord/issues/95)
+- [ ] Settings panel — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
+- [ ] **Graphics quality setting** — A simple quality preference (e.g. "Quality" / "Performance") that controls shader complexity and cosmetic effects. "Performance" disables multi-pass CRT shaders (falls back to single-pass or nearest), simplifies the VHS pause screen, and strips heavy overlays. Lets users on lower-end hardware or high-refresh displays trade eye candy for consistent frame pacing. — [#97](https://github.com/ryanmagoon/gamelord/issues/97)
 
 ### P9 — Packaging & Distribution
 
-- [ ] Bundle libretro cores with the app
+- [ ] Bundle libretro cores with the app — [#98](https://github.com/ryanmagoon/gamelord/issues/98)
 - [ ] **DMG packaging + auto-updates** — electron-builder DMG with code signing, notarization, custom background. Auto-updates via electron-updater + GitHub Releases. — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
 
 ### P10 — Web Presence (Vercel)
 
 - [ ] **gamelord.app landing page** — Next.js on Vercel. Hero, feature showcase, screenshot gallery, download links, changelog. Dark theme matching app aesthetic. — [#60](https://github.com/ryanmagoon/gamelord/issues/60)
-- [ ] Documentation site (`docs.gamelord.app`) — Next.js + MDX or Astro
+- [ ] Documentation site (`docs.gamelord.app`) — Next.js + MDX or Astro — [#99](https://github.com/ryanmagoon/gamelord/issues/99)
 - [ ] **Cloud saves API** — serverless functions + blob storage for save state sync. REST endpoints: upload/download/list/delete saves. Signed upload URLs, gzip compression. — [#46](https://github.com/ryanmagoon/gamelord/issues/46)
 - [ ] **User accounts + auth** — OAuth via GitHub/Discord. Deep link callback to Electron app. Session persistence via OS keychain. — [#47](https://github.com/ryanmagoon/gamelord/issues/47)
 - [ ] **User profile dashboard** — achievements, play history, library stats. Public/private toggle. Activity feed. — [#48](https://github.com/ryanmagoon/gamelord/issues/48)
 - [ ] **PostgreSQL for user data and game metadata** — hosted Postgres (Neon/Supabase/Railway), Drizzle or Prisma migrations, connection pooling, pgvector extension for AI search. — [#49](https://github.com/ryanmagoon/gamelord/issues/49)
-- [ ] Multiplayer lobby/matchmaking API — pairs with P7 relay server (#50) (relay itself should NOT be on Vercel — needs persistent WebSocket connections, use Fly.io/Railway/VPS)
+- [ ] Multiplayer lobby/matchmaking API — pairs with P7 relay server (#50) (relay itself should NOT be on Vercel — needs persistent WebSocket connections, use Fly.io/Railway/VPS) — [#100](https://github.com/ryanmagoon/gamelord/issues/100)
 
 ### P11 — Native Addon Hardening
 
-- [ ] **Enable C++ exceptions or remove STL** — `NAPI_DISABLE_CPP_EXCEPTIONS` is set but `std::vector` can throw on allocation failure; either enable exceptions or use pre-allocated fixed buffers
-- [ ] **Cross-platform path handling** — Abstract macOS-specific paths (e.g. `/Applications/RetroArch.app/...` in `EmulatorManager.ts`) behind platform detection
-- [ ] **Pin dependency versions** — Replace `^` ranges in `package.json` with exact versions to prevent surprise breakages (especially Tailwind CSS v4)
+- [ ] **Replace dynamic `require()` with proper native addon loading** — [#10](https://github.com/ryanmagoon/gamelord/issues/10)
+- [ ] **Enable C++ exceptions or remove STL** — `NAPI_DISABLE_CPP_EXCEPTIONS` is set but `std::vector` can throw on allocation failure; either enable exceptions or use pre-allocated fixed buffers — [#101](https://github.com/ryanmagoon/gamelord/issues/101)
+- [ ] **Cross-platform path handling** — Abstract macOS-specific paths (e.g. `/Applications/RetroArch.app/...` in `EmulatorManager.ts`) behind platform detection — [#102](https://github.com/ryanmagoon/gamelord/issues/102)
+- [ ] **Pin dependency versions** — Replace `^` ranges in `package.json` with exact versions to prevent surprise breakages (especially Tailwind CSS v4) — [#103](https://github.com/ryanmagoon/gamelord/issues/103)
 
 ---
 
