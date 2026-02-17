@@ -99,30 +99,158 @@ describe('useScrollLetterIndicator', () => {
     expect(result.current.isVisible).toBe(false)
   })
 
-  it('becomes visible after scrolling (second scroll change)', () => {
+  it('stays hidden when scrolling without crossing a letter boundary', () => {
     const { result, rerender } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
       { initialProps: defaultOptions },
     )
 
-    // First scroll change is skipped (treated as programmatic scroll-to-top)
+    // First scroll (skipped as programmatic)
     rerender({ ...defaultOptions, scrollTop: 100 })
     expect(result.current.isVisible).toBe(false)
 
-    // Second scroll change triggers visibility
+    // Second scroll — still letter A, no boundary crossed
     rerender({ ...defaultOptions, scrollTop: 200 })
+    expect(result.current.isVisible).toBe(false)
+  })
+
+  it('becomes visible when fast-scrolling across a letter boundary', () => {
+    const { result, rerender } = renderHook(
+      (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
+      { initialProps: { ...defaultOptions, minSpeedPxPerMs: 0 } },
+    )
+
+    // First scroll (skipped as programmatic)
+    rerender({ ...defaultOptions, minSpeedPxPerMs: 0, scrollTop: 100 })
+    expect(result.current.isVisible).toBe(false)
+
+    // Second scroll crosses letter boundary (A -> B)
+    rerender({
+      ...defaultOptions,
+      minSpeedPxPerMs: 0,
+      scrollTop: 500,
+      firstVisibleIndex: 1,
+    })
     expect(result.current.isVisible).toBe(true)
+  })
+
+  it('stays hidden when scrolling slowly across a letter boundary', () => {
+    const now = Date.now()
+    vi.setSystemTime(now)
+
+    const { result, rerender } = renderHook(
+      (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
+      { initialProps: { ...defaultOptions, minSpeedPxPerMs: 5 } },
+    )
+
+    // First scroll (skipped)
+    vi.setSystemTime(now + 100)
+    rerender({ ...defaultOptions, minSpeedPxPerMs: 5, scrollTop: 10 })
+
+    // Slow scroll that crosses letter boundary: 20px in 100ms = 0.2 px/ms (< 5)
+    vi.setSystemTime(now + 200)
+    rerender({
+      ...defaultOptions,
+      minSpeedPxPerMs: 5,
+      scrollTop: 30,
+      firstVisibleIndex: 1,
+    })
+    expect(result.current.isVisible).toBe(false)
+  })
+
+  it('shows indicator when scrolling fast enough across a letter boundary', () => {
+    const now = Date.now()
+    vi.setSystemTime(now)
+
+    const { result, rerender } = renderHook(
+      (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
+      { initialProps: { ...defaultOptions, minSpeedPxPerMs: 2 } },
+    )
+
+    // First scroll (skipped)
+    vi.setSystemTime(now + 10)
+    rerender({ ...defaultOptions, minSpeedPxPerMs: 2, scrollTop: 100 })
+
+    // Fast scroll crossing letter boundary: 500px in 10ms = 50 px/ms (> 2)
+    vi.setSystemTime(now + 20)
+    rerender({
+      ...defaultOptions,
+      minSpeedPxPerMs: 2,
+      scrollTop: 600,
+      firstVisibleIndex: 1,
+    })
+    expect(result.current.isVisible).toBe(true)
+  })
+
+  it('stays visible while fast-scrolling within a letter section', () => {
+    const now = Date.now()
+    vi.setSystemTime(now)
+
+    const { result, rerender } = renderHook(
+      (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
+      { initialProps: { ...defaultOptions, hideDelay: 300, minSpeedPxPerMs: 1 } },
+    )
+
+    // First scroll (skipped)
+    vi.setSystemTime(now + 10)
+    rerender({ ...defaultOptions, hideDelay: 300, minSpeedPxPerMs: 1, scrollTop: 100 })
+
+    // Fast scroll crossing letter boundary A -> B (triggers indicator)
+    vi.setSystemTime(now + 20)
+    rerender({
+      ...defaultOptions,
+      hideDelay: 300,
+      minSpeedPxPerMs: 1,
+      scrollTop: 600,
+      firstVisibleIndex: 1,
+    })
+    expect(result.current.isVisible).toBe(true)
+
+    // Advance 200ms (within hideDelay), keep fast-scrolling within letter B
+    vi.setSystemTime(now + 220)
+    rerender({
+      ...defaultOptions,
+      hideDelay: 300,
+      minSpeedPxPerMs: 1,
+      scrollTop: 1200,
+      firstVisibleIndex: 1,
+    })
+    // Should still be visible — timer was reset
+    expect(result.current.isVisible).toBe(true)
+
+    // Advance another 200ms, still scrolling fast within B
+    vi.setSystemTime(now + 420)
+    rerender({
+      ...defaultOptions,
+      hideDelay: 300,
+      minSpeedPxPerMs: 1,
+      scrollTop: 1800,
+      firstVisibleIndex: 1,
+    })
+    expect(result.current.isVisible).toBe(true)
+
+    // Now stop scrolling — hideDelay (300ms) elapses
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    expect(result.current.isVisible).toBe(false)
   })
 
   it('hides after hideDelay expires', () => {
     const { result, rerender } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
-      { initialProps: { ...defaultOptions, hideDelay: 500 } },
+      { initialProps: { ...defaultOptions, hideDelay: 500, minSpeedPxPerMs: 0 } },
     )
 
-    // Skip first scroll, trigger on second
-    rerender({ ...defaultOptions, hideDelay: 500, scrollTop: 100 })
-    rerender({ ...defaultOptions, hideDelay: 500, scrollTop: 200 })
+    // Skip first scroll, trigger on second with letter change
+    rerender({ ...defaultOptions, hideDelay: 500, minSpeedPxPerMs: 0, scrollTop: 100 })
+    rerender({
+      ...defaultOptions,
+      hideDelay: 500,
+      minSpeedPxPerMs: 0,
+      scrollTop: 500,
+      firstVisibleIndex: 1,
+    })
     expect(result.current.isVisible).toBe(true)
 
     act(() => {
@@ -134,16 +262,27 @@ describe('useScrollLetterIndicator', () => {
   it('resets visibility when sortBy changes', () => {
     const { result, rerender } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
-      { initialProps: defaultOptions },
+      { initialProps: { ...defaultOptions, minSpeedPxPerMs: 0 } },
     )
 
-    // Scroll to become visible
-    rerender({ ...defaultOptions, scrollTop: 100 })
-    rerender({ ...defaultOptions, scrollTop: 200 })
+    // Scroll to become visible (with letter change)
+    rerender({ ...defaultOptions, minSpeedPxPerMs: 0, scrollTop: 100 })
+    rerender({
+      ...defaultOptions,
+      minSpeedPxPerMs: 0,
+      scrollTop: 500,
+      firstVisibleIndex: 1,
+    })
     expect(result.current.isVisible).toBe(true)
 
     // Change sort mode
-    rerender({ ...defaultOptions, scrollTop: 200, sortBy: 'platform' })
+    rerender({
+      ...defaultOptions,
+      minSpeedPxPerMs: 0,
+      scrollTop: 500,
+      firstVisibleIndex: 1,
+      sortBy: 'platform',
+    })
     expect(result.current.isVisible).toBe(false)
   })
 
