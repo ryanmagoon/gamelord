@@ -117,6 +117,13 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] Grid view with cover art thumbnails
 - [x] Search, filter, and sorting
 - [x] **Scan-time zip extraction** — Library scanner extracts ROMs from `.zip` archives at scan time for all non-arcade systems. Extracted ROMs cached in `<userData>/roms-cache/` with hash-prefixed filenames. Arcade `.zip` files are passed through natively (MAME expects zips). Cache cleaned up on game removal.
+- [ ] **Artwork sync performance** — Current implementation downloads full-resolution images serially with a new TCP connection per request, taking several seconds per game. Improvements ordered by impact:
+  - [ ] Request smaller images via `maxwidth`/`maxheight` params (2–3x faster downloads) — [#37](https://github.com/ryanmagoon/gamelord/issues/37)
+  - [ ] Persistent HTTP Agent with keep-alive (~15% faster) — [#38](https://github.com/ryanmagoon/gamelord/issues/38)
+  - [ ] Pipeline image downloads with next API query (~30–40% faster) — [#39](https://github.com/ryanmagoon/gamelord/issues/39)
+  - [ ] Pre-hash all ROMs in parallel before sync — [#40](https://github.com/ryanmagoon/gamelord/issues/40)
+  - [ ] Progressive artwork loading UX (show art as each game resolves) — [#41](https://github.com/ryanmagoon/gamelord/issues/41)
+  - [ ] Multi-threaded ScreenScraper access for Patreon-tier users (up to 5x throughput) — [#42](https://github.com/ryanmagoon/gamelord/issues/42)
 - [ ] Recently played tracking
 - [ ] **Rating display** — Show ScreenScraper community rating on cards or in a detail view. Already stored as `metadata.rating` (0–1 scale). Consider a 5-star or 10-point visual treatment.
 - [ ] **Game detail view (Wikipedia-style)** — A rich, enthusiast-oriented detail page for each game, inspired by Wikipedia articles. Covers history, developer background, release timeline, platform ports, reception, and trivia — not just a metadata card. Includes cover art, screenshots, genre/player count/rating, and any ScreenScraper metadata we have, but the feel should be editorial and informational, like reading a game's encyclopedia entry. Triggered by clicking a game card (the card itself transitions/expands into the detail view). A minimalist play button on the card (or within the detail view) launches the game. This replaces the current "click card to launch" behavior — cards become the entry point to the detail view, not the emulator.
