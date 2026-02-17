@@ -1,80 +1,33 @@
 import { describe, it, expect } from 'vitest'
-import { computeRowSpan, getMosaicSpans } from './mosaicGrid'
+import { computeCardWidth, ROW_HEIGHT } from './mosaicGrid'
 
-describe('computeRowSpan', () => {
-  const columnWidth = 120 // typical column width at ~1280px viewport with 12 cols
-
-  it('returns expected row span for a portrait card (AR 0.75, col-span-2)', () => {
-    const rowSpan = computeRowSpan(0.75, 2, columnWidth)
-    // cardWidth = 2 * 120 + 1 * 4 = 244
-    // cardHeight = 244 / 0.75 ≈ 325.3
-    // rawSpan = (325.3 + 4) / (48 + 4) ≈ 6.33
-    // round → 6
-    expect(rowSpan).toBe(6)
+describe('computeCardWidth', () => {
+  it('returns width proportional to aspect ratio', () => {
+    // AR 0.75 → 280 * 0.75 = 210
+    expect(computeCardWidth(0.75)).toBe(210)
   })
 
-  it('returns expected row span for a landscape card (AR 1.4, col-span-3)', () => {
-    const rowSpan = computeRowSpan(1.4, 3, columnWidth)
-    // cardWidth = 3 * 120 + 2 * 4 = 368
-    // cardHeight = 368 / 1.4 ≈ 262.9
-    // rawSpan = (262.9 + 4) / (48 + 4) ≈ 5.13
-    // round → 5
-    expect(rowSpan).toBe(5)
+  it('returns wider cards for landscape aspect ratios', () => {
+    // AR 1.4 → 280 * 1.4 = 392
+    expect(computeCardWidth(1.4)).toBe(392)
   })
 
-  it('enforces a minimum of 2 rows', () => {
-    // Very wide aspect ratio with tiny column → would be < 2 without the clamp
-    const rowSpan = computeRowSpan(10, 2, 10)
-    expect(rowSpan).toBe(2)
+  it('returns narrower cards for tall portrait aspect ratios', () => {
+    // AR 0.5 → 280 * 0.5 = 140
+    expect(computeCardWidth(0.5)).toBe(140)
   })
 
-  it('accounts for gap between rows', () => {
-    // Verify the formula uses gap in both numerator and denominator
-    // cardWidth = 1 * 100 + 0 * 4 = 100, cardHeight = 100 / 1 = 100
-    const rowSpan = computeRowSpan(1, 1, 100)
-    // rawSpan = (100 + 4) / (48 + 4) = 104 / 52 = 2.0
-    expect(rowSpan).toBe(2)
+  it('enforces a minimum width of 80px', () => {
+    // AR 0.1 → 280 * 0.1 = 28, clamped to 80
+    expect(computeCardWidth(0.1)).toBe(80)
   })
 
-  it('rounds to nearest row span', () => {
-    // Pick values that produce a fractional span close to .5
-    const rowSpan = computeRowSpan(0.5, 2, columnWidth)
-    // cardWidth = 244, cardHeight = 488, rawSpan = (488 + 4) / 52 ≈ 9.46 → 9
-    expect(rowSpan).toBe(9)
-  })
-})
-
-describe('getMosaicSpans', () => {
-  const columnWidth = 120
-
-  it('returns col-span-2 for portrait aspect ratios (AR <= 1)', () => {
-    const { colSpan } = getMosaicSpans(0.75, columnWidth)
-    expect(colSpan).toBe(2)
+  it('returns square width for AR 1.0', () => {
+    expect(computeCardWidth(1.0)).toBe(ROW_HEIGHT)
   })
 
-  it('returns col-span-2 for exactly square aspect ratio (AR === 1)', () => {
-    const { colSpan } = getMosaicSpans(1.0, columnWidth)
-    expect(colSpan).toBe(2)
-  })
-
-  it('returns col-span-2 for landscape aspect ratios (AR > 1)', () => {
-    const { colSpan } = getMosaicSpans(1.4, columnWidth)
-    expect(colSpan).toBe(2)
-  })
-
-  it('returns both colSpan and rowSpan', () => {
-    const result = getMosaicSpans(0.75, columnWidth)
-    expect(result).toHaveProperty('colSpan')
-    expect(result).toHaveProperty('rowSpan')
-    expect(result.rowSpan).toBeGreaterThanOrEqual(2)
-  })
-
-  it('produces same rowSpan for very similar aspect ratios', () => {
-    // Two GBA games with slightly different image dimensions should
-    // get the same rowSpan since Math.round absorbs the tiny difference
-    const a = getMosaicSpans(0.7142857, columnWidth)
-    const b = getMosaicSpans(0.7134670, columnWidth)
-    expect(a.colSpan).toBe(b.colSpan)
-    expect(a.rowSpan).toBe(b.rowSpan)
+  it('wider AR produces wider card than narrower AR', () => {
+    expect(computeCardWidth(1.4)).toBeGreaterThan(computeCardWidth(0.75))
+    expect(computeCardWidth(0.75)).toBeGreaterThan(computeCardWidth(0.5))
   })
 })
