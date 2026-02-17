@@ -136,6 +136,10 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] **Play count & stats** — Track number of play sessions (not just total time). Show "most played" sorting and a stats view with play history over time.
 - [ ] **Completion status** — Let users tag games as "Not Started", "In Progress", "Completed", or "Abandoned". Filterable.
 - [ ] **Collections / tags** — User-created collections (e.g. "Couch Co-op", "RPG Marathon", "Childhood Favorites") for organizing games beyond system/genre.
+- [ ] **AI-enriched game detail views** — LLM-generated editorial content: developer history, trivia, cultural impact, related games, "if you liked this, try..." Supplements ScreenScraper metadata. Cached in PostgreSQL. — [#55](https://github.com/ryanmagoon/gamelord/issues/55)
+- [ ] **Natural language game search** — "show me co-op SNES platformers from the 90s" using embeddings + pgvector + retrieval/reranking. Hybrid structured + semantic search. — [#56](https://github.com/ryanmagoon/gamelord/issues/56)
+- [ ] **AI game recommendations from play history** — content-based + collaborative filtering + LLM-powered personalized recommendations with explanations. — [#57](https://github.com/ryanmagoon/gamelord/issues/57)
+- [ ] **Evaluation pipeline** — measure search relevance (precision@K, NDCG), metadata accuracy, hallucination rate. Golden dataset, LLM-as-judge, CI integration. — [#58](https://github.com/ryanmagoon/gamelord/issues/58)
 
 ### P5 — Controls & Input
 
@@ -156,10 +160,11 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P7 — Online Multiplayer
 
-- [ ] Netplay architecture — relay server for input synchronization between peers
-- [ ] Lobby system with room codes for creating/joining sessions
-- [ ] Rollback-based netcode using save state serialization for latency hiding
-- [ ] Friend list and invite system
+- [ ] **Relay server for input synchronization** — persistent WebSocket connections on Fly.io/Railway (not serverless). Binary protocol for input frames, room-based routing, sub-5ms relay latency target. — [#50](https://github.com/ryanmagoon/gamelord/issues/50)
+- [ ] **Rollback-based netcode** — latency hiding via save state serialization: roll back to last confirmed state, replay with correct inputs, snap forward. State ring buffer, input history buffer, configurable rollback window (~7 frames / 117ms). — [#51](https://github.com/ryanmagoon/gamelord/issues/51)
+- [ ] **Lobby system with room codes** — session management, matchmaking, friend lists + invites. Short room codes for sharing, public lobby browser, room settings (game, core, input delay, max players). — [#52](https://github.com/ryanmagoon/gamelord/issues/52)
+- [ ] **Cloud save sync with conflict resolution** — extend cloud saves API with last-write-wins vs version vectors vs vector clocks. Server-side conflict detection, client-side resolution UI. — [#53](https://github.com/ryanmagoon/gamelord/issues/53)
+- [ ] **Friends + activity feed** — fan-out problem, presence detection (WebSocket heartbeat → online/in-game status), real-time activity timeline. Hybrid fan-out strategy, Redis for ephemeral presence. — [#54](https://github.com/ryanmagoon/gamelord/issues/54)
 - [ ] Per-game netplay compatibility metadata (supported cores, input latency settings)
 
 ### RetroAchievements
@@ -201,16 +206,17 @@ Items are grouped by priority. Work top-down within each tier.
 ### P9 — Packaging & Distribution
 
 - [ ] Bundle libretro cores with the app
-- [ ] Package as DMG for macOS
-- [ ] Auto-update mechanism
+- [ ] **DMG packaging + auto-updates** — electron-builder DMG with code signing, notarization, custom background. Auto-updates via electron-updater + GitHub Releases. — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
 
 ### P10 — Web Presence (Vercel)
 
-- [ ] Landing page / marketing site (`gamelord.app`) — Next.js app with download links, feature showcase, screenshots, changelog
+- [ ] **gamelord.app landing page** — Next.js on Vercel. Hero, feature showcase, screenshot gallery, download links, changelog. Dark theme matching app aesthetic. — [#60](https://github.com/ryanmagoon/gamelord/issues/60)
 - [ ] Documentation site (`docs.gamelord.app`) — Next.js + MDX or Astro
-- [ ] Cloud saves / sync API — serverless functions + blob storage, requires user accounts/auth
-- [ ] User profile dashboard — achievements, play history, library stats (rides on cloud saves infra)
-- [ ] Multiplayer lobby/matchmaking API — pairs with P7 relay server (relay itself should NOT be on Vercel — needs persistent WebSocket connections, use Fly.io/Railway/VPS)
+- [ ] **Cloud saves API** — serverless functions + blob storage for save state sync. REST endpoints: upload/download/list/delete saves. Signed upload URLs, gzip compression. — [#46](https://github.com/ryanmagoon/gamelord/issues/46)
+- [ ] **User accounts + auth** — OAuth via GitHub/Discord. Deep link callback to Electron app. Session persistence via OS keychain. — [#47](https://github.com/ryanmagoon/gamelord/issues/47)
+- [ ] **User profile dashboard** — achievements, play history, library stats. Public/private toggle. Activity feed. — [#48](https://github.com/ryanmagoon/gamelord/issues/48)
+- [ ] **PostgreSQL for user data and game metadata** — hosted Postgres (Neon/Supabase/Railway), Drizzle or Prisma migrations, connection pooling, pgvector extension for AI search. — [#49](https://github.com/ryanmagoon/gamelord/issues/49)
+- [ ] Multiplayer lobby/matchmaking API — pairs with P7 relay server (#50) (relay itself should NOT be on Vercel — needs persistent WebSocket connections, use Fly.io/Railway/VPS)
 
 ### P11 — Native Addon Hardening
 
