@@ -3,8 +3,15 @@ import path from 'path';
 import { app } from 'electron';
 import { Game, GameSystem, LibraryConfig, DEFAULT_SYSTEMS } from '../../types/library';
 import crypto from 'crypto';
+import zlib from 'zlib';
 import { libraryLog } from '../logger';
 import { findRomInZip, extractFileFromZip } from '../utils/zipExtraction';
+
+export interface RomHashes {
+  crc32: string;
+  sha1: string;
+  md5: string;
+}
 
 export class LibraryService {
   private config: LibraryConfig;
@@ -50,9 +57,11 @@ export class LibraryService {
   private async loadLibrary(): Promise<void> {
     try {
       const data = await fs.readFile(this.libraryPath, 'utf-8');
+      // Parse permissively — old library.json may have partial/missing romHashes
       const games: Game[] = JSON.parse(data);
       this.games = new Map(games.map(game => [game.id, game]));
       await this.migrateGameIds();
+      await this.backfillRomHashes();
     } catch (error) {
       // No library file yet
       this.games = new Map();
@@ -71,16 +80,55 @@ export class LibraryService {
     }
 
     for (const { oldId, game } of entriesToMigrate) {
-      const newId = await this.generateGameId(game.romPath);
-      if (newId !== oldId) {
+      try {
+        const { gameId, hashes } = await this.computeRomHashes(game.romPath);
+        if (gameId !== oldId) {
+          this.games.delete(oldId);
+          game.id = gameId;
+          game.romHashes = hashes;
+          this.games.set(gameId, game);
+          migrated = true;
+        }
+      } catch (error) {
+        libraryLog.warn(`Cannot read ROM for migration: ${game.romPath}, removing game:`, error);
         this.games.delete(oldId);
-        game.id = newId;
-        this.games.set(newId, game);
         migrated = true;
       }
     }
 
     if (migrated) {
+      await this.saveLibrary();
+    }
+  }
+
+  /**
+   * Fills in missing romHashes for games loaded from an older library.json.
+   * Games whose ROM files are unreadable are removed from the library.
+   */
+  private async backfillRomHashes(): Promise<void> {
+    let changed = false;
+    const toRemove: string[] = [];
+
+    for (const [id, game] of this.games.entries()) {
+      const hashes = game.romHashes;
+      if (hashes?.crc32 && hashes?.sha1 && hashes?.md5) continue;
+
+      try {
+        const { hashes: computed } = await this.computeRomHashes(game.romPath);
+        game.romHashes = computed;
+        changed = true;
+      } catch (error) {
+        libraryLog.warn(`Cannot read ROM for "${game.title}" at ${game.romPath}, removing from library:`, error);
+        toRemove.push(id);
+        changed = true;
+      }
+    }
+
+    for (const id of toRemove) {
+      this.games.delete(id);
+    }
+
+    if (changed) {
       await this.saveLibrary();
     }
   }
@@ -192,14 +240,18 @@ export class LibraryService {
 
             for (const system of systems) {
               if (system.extensions.includes(ext)) {
-                const gameId = await this.generateGameId(fullPath);
-                const existing = this.games.get(gameId);
-                const game: Game = existing
-                  ? { ...existing, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath }
-                  : { id: gameId, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath };
+                try {
+                  const { gameId, hashes } = await this.computeRomHashes(fullPath);
+                  const existing = this.games.get(gameId);
+                  const game: Game = existing
+                    ? { ...existing, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath, romHashes: existing.romHashes ?? hashes }
+                    : { id: gameId, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath, romHashes: hashes };
 
-                foundGames.push(game);
-                this.games.set(gameId, game);
+                  foundGames.push(game);
+                  this.games.set(gameId, game);
+                } catch (error) {
+                  libraryLog.warn(`Skipping unreadable ROM ${fullPath}:`, error);
+                }
                 break;
               }
             }
@@ -252,13 +304,14 @@ export class LibraryService {
 
     if (!system.extensions.includes(ext)) return null;
 
-    const gameId = await this.generateGameId(romPath);
+    const { gameId, hashes } = await this.computeRomHashes(romPath);
     const game: Game = {
       id: gameId,
       title: this.cleanGameTitle(path.basename(romPath, ext)),
       system: system.name,
       systemId: system.id,
       romPath: romPath,
+      romHashes: hashes,
     };
 
     this.games.set(gameId, game);
@@ -352,7 +405,7 @@ export class LibraryService {
     const romBasename = path.basename(match.entryName);
     const extractedPath = await extractFileFromZip(zipPath, match.entryName, cacheDir);
 
-    const gameId = await this.generateGameId(extractedPath);
+    const { gameId, hashes } = await this.computeRomHashes(extractedPath);
 
     // Rename with hash prefix to avoid collisions between different zips
     const hashPrefix = gameId.substring(0, 8);
@@ -382,22 +435,37 @@ export class LibraryService {
       systemId: system.id,
       romPath: finalPath,
       sourceArchivePath: zipPath,
+      romHashes: hashes,
     };
   }
 
-  private async generateGameId(romPath: string): Promise<string> {
-    try {
-      const hash = crypto.createHash('sha256');
-      const stream = createReadStream(romPath);
-      for await (const chunk of stream) {
-        hash.update(chunk);
-      }
-      return hash.digest('hex');
-    } catch (error) {
-      // Fall back to path-based hash if file can't be read (e.g. permissions, missing)
-      libraryLog.warn(`Could not hash file content for ${romPath}, falling back to path hash:`, error);
-      return crypto.createHash('sha256').update(romPath).digest('hex');
+  /**
+   * Computes CRC32, SHA-1, and MD5 hashes for a ROM file in a single pass.
+   * Also returns the SHA-256 game ID. Throws if the file is unreadable.
+   */
+  async computeRomHashes(romPath: string): Promise<{ gameId: string; hashes: RomHashes }> {
+    const sha256 = crypto.createHash('sha256');
+    const sha1 = crypto.createHash('sha1');
+    const md5 = crypto.createHash('md5');
+    let crc = 0;
+
+    const stream = createReadStream(romPath);
+    for await (const chunk of stream) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      sha256.update(buffer);
+      sha1.update(buffer);
+      md5.update(buffer);
+      crc = zlib.crc32(buffer, crc);
     }
+
+    return {
+      gameId: sha256.digest('hex'),
+      hashes: {
+        crc32: crc.toString(16).padStart(8, '0'),
+        sha1: sha1.digest('hex'),
+        md5: md5.digest('hex'),
+      },
+    };
   }
 
   private cleanGameTitle(filename: string): string {

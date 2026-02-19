@@ -19,8 +19,10 @@ export interface Game {
   coverArt?: string;
   /** Width / height ratio of the downloaded cover art (e.g. 0.714 for a 3:4.2 box). */
   coverArtAspectRatio?: number;
-  romHashes?: {
-    md5?: string;
+  romHashes: {
+    crc32: string;
+    sha1: string;
+    md5: string;
   };
   lastPlayed?: Date;
   playTime?: number;
