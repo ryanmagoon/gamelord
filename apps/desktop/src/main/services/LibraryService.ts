@@ -81,6 +81,7 @@ export class LibraryService extends EventEmitter {
       const data = await fs.readFile(this.configPath, 'utf-8');
       this.config = JSON.parse(data);
       await this.backfillNewSystems();
+      await this.repairMissingRomsPaths();
     } catch (error) {
       // If no config exists, create default
       this.config = {
@@ -106,9 +107,8 @@ export class LibraryService extends EventEmitter {
     if (newSystems.length === 0) return;
 
     this.config.systems.push(...newSystems);
-    await this.saveConfig();
 
-    // Scaffold folders for the newly added systems
+    // Scaffold folders and set romsPath for the newly added systems
     const basePath = this.config.romsBasePath;
     if (basePath) {
       for (const system of newSystems) {
@@ -118,11 +118,46 @@ export class LibraryService extends EventEmitter {
         } catch (error) {
           libraryLog.warn(`Failed to create system folder ${systemDir}:`, error);
         }
+        // Point the system at its folder so scanSystemFolders picks it up
+        const added = this.config.systems.find(s => s.id === system.id);
+        if (added) {
+          added.romsPath = systemDir;
+        }
       }
     }
 
+    await this.saveConfig();
+
     const names = newSystems.map(s => s.shortName).join(', ');
     libraryLog.info(`Backfilled ${newSystems.length} new system(s): ${names}`);
+  }
+
+  /**
+   * Set romsPath for any system that has a matching subfolder under
+   * romsBasePath but no romsPath configured. Fixes systems that were
+   * backfilled before we started auto-setting romsPath.
+   */
+  private async repairMissingRomsPaths(): Promise<void> {
+    const basePath = this.config.romsBasePath;
+    if (!basePath) return;
+
+    let repaired = 0;
+    for (const system of this.config.systems) {
+      if (system.romsPath) continue;
+      const candidate = path.join(basePath, system.shortName);
+      try {
+        await fs.access(candidate);
+        system.romsPath = candidate;
+        repaired++;
+      } catch {
+        // Folder doesn't exist — leave romsPath unset
+      }
+    }
+
+    if (repaired > 0) {
+      await this.saveConfig();
+      libraryLog.info(`Repaired romsPath for ${repaired} system(s)`);
+    }
   }
 
   /**
@@ -140,7 +175,9 @@ export class LibraryService extends EventEmitter {
       } catch (error) {
         libraryLog.warn(`Failed to create system folder ${systemDir}:`, error);
       }
+      system.romsPath = systemDir;
     }
+    await this.saveConfig();
     libraryLog.info(`Scaffolded ROM folders in ${basePath}`);
   }
 

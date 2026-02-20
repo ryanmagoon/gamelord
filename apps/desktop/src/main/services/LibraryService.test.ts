@@ -174,15 +174,16 @@ describe('LibraryService', () => {
       expect(service2.getConfig().romsBasePath).toBe('/new/base/path')
     })
 
-    it('scaffolds per-system ROM folders on first launch', async () => {
+    it('scaffolds per-system ROM folders on first launch and sets romsPath', async () => {
       const service = await createService()
       const config = service.getConfig()
       const basePath = config.romsBasePath!
 
-      // Every system in the default config should have a folder created
+      // Every system in the default config should have a folder created and romsPath set
       for (const system of config.systems) {
         const systemDir = path.join(basePath, system.shortName)
         expect(fs.existsSync(systemDir)).toBe(true)
+        expect(system.romsPath).toBe(systemDir)
       }
     })
 
@@ -227,9 +228,11 @@ describe('LibraryService', () => {
       expect(systems.find(s => s.id === 'snes')).toBeDefined()
       expect(systems.length).toBeGreaterThan(1)
 
-      // Folders should have been created for the newly added systems
+      // Folders should have been created and romsPath set for the newly added systems
       const saturnDir = path.join(TEST_DIR, 'backfill-roms', 'Saturn')
       expect(fs.existsSync(saturnDir)).toBe(true)
+      const saturn = systems.find(s => s.id === 'saturn')!
+      expect(saturn.romsPath).toBe(saturnDir)
 
       // Clean up
       fs.rmSync(path.join(TEST_DIR, 'backfill-roms'), { recursive: true, force: true })
