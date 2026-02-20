@@ -383,7 +383,11 @@ export class LibraryService extends EventEmitter {
           : this.config.systems;
 
         const matchedSystem = systems.find(s => s.extensions.includes(ext));
-        if (matchedSystem) {
+        if (!matchedSystem) {
+          if (systemId) {
+            libraryLog.debug(`Skipped ${entry.name}: ext=${ext} not in ${systemId} extensions`);
+          }
+        } else {
           const existingGameId = this.romPathIndex.get(fullPath);
           const existingGame = existingGameId ? this.games.get(existingGameId) : undefined;
 
@@ -448,6 +452,7 @@ export class LibraryService extends EventEmitter {
 
     // File is new or modified — compute hashes
     try {
+      libraryLog.debug(`Hashing ${path.basename(fullPath)} (${system.id})...`);
       const { gameId, hashes } = await this.computeRomHashes(fullPath);
       const existing = this.games.get(gameId);
       const title = this.cleanGameTitle(path.basename(path.basename(fullPath), ext));
@@ -458,6 +463,7 @@ export class LibraryService extends EventEmitter {
 
       this.games.set(gameId, game);
       this.romPathIndex.set(fullPath, gameId);
+      libraryLog.debug(`${isNew ? 'Added' : 'Updated'} ${title} (${system.id})`);
       return { game, isNew };
     } catch (error) {
       libraryLog.warn(`Skipping unreadable ROM ${fullPath}:`, error);
@@ -553,8 +559,16 @@ export class LibraryService extends EventEmitter {
     const knownCandidates = candidates.filter(c => c.isKnown);
     const ordered = [...newCandidates, ...knownCandidates];
 
+    // Log per-system breakdown for diagnostics
+    const systemCounts = new Map<string, number>();
+    for (const c of candidates) {
+      const sid = c.system?.id ?? c.systemIdFilter ?? 'unknown';
+      systemCounts.set(sid, (systemCounts.get(sid) ?? 0) + 1);
+    }
+    const breakdown = Array.from(systemCounts.entries()).map(([id, count]) => `${id}:${count}`).join(', ');
+
     libraryLog.info(
-      `Scan: ${candidates.length} ROM files found (${newCandidates.length} new, ${knownCandidates.length} known)`,
+      `Scan: ${candidates.length} ROM files found (${newCandidates.length} new, ${knownCandidates.length} known) [${breakdown}]`,
     );
 
     // Phase 3: Process candidates — new files first, with parallel hashing
