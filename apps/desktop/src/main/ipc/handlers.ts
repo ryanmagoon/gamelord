@@ -175,6 +175,16 @@ export class IPCHandlers {
       }
     });
 
+    ipcMain.handle('emulation:setSpeed', (_event, multiplier: number) => {
+      try {
+        this.emulatorManager.setSpeed(multiplier);
+        return { success: true };
+      } catch (error) {
+        ipcLog.error('Failed to set emulation speed:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
     // Save states
     ipcMain.handle('savestate:save', async (event, slot: number) => {
       try {
@@ -226,6 +236,7 @@ export class IPCHandlers {
     this.emulatorManager.on('emulator:paused', () => forwardEvent('emulator:paused'));
     this.emulatorManager.on('emulator:resumed', () => forwardEvent('emulator:resumed'));
     this.emulatorManager.on('emulator:reset', () => forwardEvent('emulator:reset'));
+    this.emulatorManager.on('emulator:speedChanged', (data) => forwardEvent('emulator:speedChanged', data));
     this.emulatorManager.on('emulator:terminated', () => forwardEvent('emulator:terminated'));
     this.emulatorManager.on('core:downloadProgress', (data) => forwardEvent('core:downloadProgress', data));
   }

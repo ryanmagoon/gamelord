@@ -135,6 +135,10 @@ export class EmulationWorkerClient extends EventEmitter {
     this.emit('reset')
   }
 
+  setSpeed(multiplier: number): void {
+    this.postCommand({ action: 'setSpeed', multiplier })
+  }
+
   async saveState(slot: number): Promise<void> {
     await this.sendRequest({ action: 'saveState', slot })
   }
@@ -258,6 +262,10 @@ export class EmulationWorkerClient extends EventEmitter {
           message: event.message,
           fatal: event.fatal,
         })
+        break
+
+      case 'speedChanged':
+        this.emit('speedChanged', { multiplier: event.multiplier })
         break
 
       case 'response': {

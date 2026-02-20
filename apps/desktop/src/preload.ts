@@ -20,7 +20,8 @@ contextBridge.exposeInMainWorld('gamelord', {
     pause: () => ipcRenderer.invoke('emulation:pause'),
     resume: () => ipcRenderer.invoke('emulation:resume'),
     reset: () => ipcRenderer.invoke('emulation:reset'),
-    screenshot: (outputPath?: string) => ipcRenderer.invoke('emulation:screenshot', outputPath)
+    screenshot: (outputPath?: string) => ipcRenderer.invoke('emulation:screenshot', outputPath),
+    setSpeed: (multiplier: number) => ipcRenderer.invoke('emulation:setSpeed', multiplier)
   },
 
   // Save states
@@ -48,6 +49,7 @@ contextBridge.exposeInMainWorld('gamelord', {
       'emulator:paused',
       'emulator:resumed',
       'emulator:reset',
+      'emulator:speedChanged',
       'emulator:terminated',
       'game:loaded',
       'game:mode',

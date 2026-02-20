@@ -34,12 +34,14 @@ let screenshotDir = ''
 
 // Timing
 let targetFps = 60
-let frameTimeMs = 1000 / targetFps
+let speedMultiplier = 1
 let sampleRate = 44100
 
 // Error tracking
 let consecutiveErrors = 0
 const MAX_CONSECUTIVE_ERRORS = 5
+
+
 
 // Spin threshold: busy-wait the last N ms of each frame for precise timing
 const SPIN_THRESHOLD_MS = 2
@@ -198,7 +200,6 @@ function initialize(command: Extract<WorkerCommand, { action: 'init' }>): void {
   const avInfo = native.getAVInfo()
   if (avInfo) {
     targetFps = avInfo.timing.fps || 60
-    frameTimeMs = 1000 / targetFps
     sampleRate = avInfo.timing.sampleRate || 44100
   }
 
@@ -223,42 +224,123 @@ function startEmulationLoop(): void {
   // This is critical because the AudioContext consumes samples at a hardware-
   // locked rate — if we produce samples even slightly too slowly, the audio
   // buffer underruns periodically causing audible gaps.
-  let nextFrameTime = performance.now() + frameTimeMs
+  const basePeriod = 1000 / targetFps
+  let nextFrameTime = performance.now() + basePeriod
 
   const scheduleNext = () => {
     if (!isRunning) return
 
+    if (speedMultiplier > 1) {
+      // Fast-forward mode: run multiple core frames per tick on a relaxed
+      // timer (~16ms / 60fps). This keeps the event loop responsive so
+      // incoming setSpeed commands aren't starved. Without this, speeds
+      // like 8x produce ~2ms frame periods that cause the loop to spin
+      // synchronously (native.run() takes longer than the deadline),
+      // blocking the message handler indefinitely.
+      loopTimer = setTimeout(() => {
+        batchTick()
+      }, 0)
+      return
+    }
+
+    // Normal (1x) mode: precise hybrid sleep+spin timing
     const now = performance.now()
     const remaining = nextFrameTime - now
 
     if (remaining <= 0) {
       // We're already past the deadline — run immediately
-      tick()
+      singleTick()
     } else if (remaining <= SPIN_THRESHOLD_MS) {
       // Close enough to deadline — spin-wait for precision
       spinUntil(nextFrameTime)
-      tick()
+      singleTick()
     } else {
       // Sleep for most of the remaining time, then spin the rest
       const sleepMs = Math.max(0, remaining - SPIN_THRESHOLD_MS)
       loopTimer = setTimeout(() => {
         spinUntil(nextFrameTime)
-        tick()
+        singleTick()
       }, sleepMs)
     }
   }
 
-  const tick = () => {
+  /**
+   * Fast-forward tick: runs `speedMultiplier` core frames in a batch,
+   * then sends only the last video frame. Scheduled via setTimeout(0)
+   * to yield the event loop between batches.
+   */
+  const batchTick = () => {
+    if (!isRunning || isPaused || !native) {
+      scheduleNext()
+      return
+    }
+
+    const framesToRun = Math.round(speedMultiplier)
+
+    for (let i = 0; i < framesToRun; i++) {
+      try {
+        native.run()
+        consecutiveErrors = 0
+      } catch (error) {
+        consecutiveErrors++
+        const message = error instanceof Error ? error.message : String(error)
+        send({
+          type: 'log',
+          level: 3,
+          message: `Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${message}`,
+        })
+
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          send({
+            type: 'error',
+            message: `Emulation crashed: ${message}`,
+            fatal: true,
+          })
+          stopEmulationLoop()
+          return
+        }
+      }
+    }
+
+    // Send only the last frame from the batch
+    const frame = native.getVideoFrame()
+    if (frame) {
+      send({
+        type: 'videoFrame',
+        data: Buffer.from(frame.data.buffer.slice(
+          frame.data.byteOffset,
+          frame.data.byteOffset + frame.data.byteLength,
+        )),
+        width: frame.width,
+        height: frame.height,
+      })
+    }
+
+    // Audio is skipped during fast-forward (speedMultiplier > 1)
+
+    // Drain buffered log messages from the native addon
+    const logs = native.getLogMessages()
+    for (const entry of logs) {
+      send({ type: 'log', level: entry.level, message: entry.message })
+    }
+
+    scheduleNext()
+  }
+
+  /**
+   * Normal (1x) tick: runs a single core frame with precise timing.
+   */
+  const singleTick = () => {
     if (!isRunning) return
 
     // Advance the ideal next-frame time by exactly one frame period.
     // If we fell behind (e.g. GC pause), clamp to `now` to avoid a
     // burst of catch-up frames that would flood the IPC channel.
     const now = performance.now()
-    nextFrameTime += frameTimeMs
-    if (nextFrameTime < now - frameTimeMs) {
+    nextFrameTime += basePeriod
+    if (nextFrameTime < now - basePeriod) {
       // More than one full frame behind — reset to avoid catch-up burst
-      nextFrameTime = now + frameTimeMs
+      nextFrameTime = now + basePeriod
     }
 
     if (!isPaused && native) {
@@ -285,8 +367,7 @@ function startEmulationLoop(): void {
         }
       }
 
-      // Send video frame — same slice() pattern as audio to ensure clean
-      // contiguous data survives IPC serialization without byteOffset issues.
+      // Send video frame
       const frame = native.getVideoFrame()
       if (frame) {
         send({
@@ -300,11 +381,7 @@ function startEmulationLoop(): void {
         })
       }
 
-      // Send audio samples — use slice() to copy only the valid bytes into
-      // a clean contiguous buffer. Buffer.from() with byteOffset creates a
-      // view into the shared ArrayBuffer, but the offset doesn't survive
-      // Electron's IPC serialization (postMessage + webContents.send),
-      // causing misaligned reads and audio distortion in the renderer.
+      // Send audio samples (only at 1x speed)
       const audio = native.getAudioBuffer()
       if (audio && audio.length > 0) {
         send({
@@ -381,6 +458,26 @@ function handleMessage(command: WorkerCommand): void {
     case 'input':
       native?.setInputState(command.port, command.id, command.pressed ? 1 : 0)
       break
+
+    case 'setSpeed': {
+      const newMultiplier = Math.max(0.25, Math.min(command.multiplier, 16))
+      const wasRunning = isRunning
+      // Stop the current loop and restart it so the loop picks up the
+      // new speed mode (batch for fast-forward, precise for 1x).
+      // stopEmulationLoop sets isRunning=false, so restore it after.
+      if (wasRunning) {
+        if (loopTimer !== null) {
+          clearTimeout(loopTimer)
+          loopTimer = null
+        }
+      }
+      speedMultiplier = newMultiplier
+      send({ type: 'speedChanged', multiplier: speedMultiplier })
+      if (wasRunning) {
+        startEmulationLoop()
+      }
+      break
+    }
 
     case 'saveState':
       try {
