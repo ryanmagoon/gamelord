@@ -80,6 +80,7 @@ export class LibraryService extends EventEmitter {
     try {
       const data = await fs.readFile(this.configPath, 'utf-8');
       this.config = JSON.parse(data);
+      await this.backfillNewSystems();
     } catch (error) {
       // If no config exists, create default
       this.config = {
@@ -91,6 +92,37 @@ export class LibraryService extends EventEmitter {
       await this.saveConfig();
       await this.scaffoldSystemFolders();
     }
+  }
+
+  /**
+   * Append any systems from DEFAULT_SYSTEMS that are missing from the
+   * saved config. This covers the case where a new system (e.g. Saturn)
+   * is added to the codebase but the user already has a persisted config
+   * from a previous version.
+   */
+  private async backfillNewSystems(): Promise<void> {
+    const existingIds = new Set(this.config.systems.map(s => s.id));
+    const newSystems = DEFAULT_SYSTEMS.filter(s => !existingIds.has(s.id));
+    if (newSystems.length === 0) return;
+
+    this.config.systems.push(...newSystems);
+    await this.saveConfig();
+
+    // Scaffold folders for the newly added systems
+    const basePath = this.config.romsBasePath;
+    if (basePath) {
+      for (const system of newSystems) {
+        const systemDir = path.join(basePath, system.shortName);
+        try {
+          await fs.mkdir(systemDir, { recursive: true });
+        } catch (error) {
+          libraryLog.warn(`Failed to create system folder ${systemDir}:`, error);
+        }
+      }
+    }
+
+    const names = newSystems.map(s => s.shortName).join(', ');
+    libraryLog.info(`Backfilled ${newSystems.length} new system(s): ${names}`);
   }
 
   /**
