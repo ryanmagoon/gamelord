@@ -23,6 +23,10 @@ This project uses **pnpm**. Always use `pnpm` for installing dependencies, runni
 - Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 - Examples: `feat/game-library-search`, `fix/storybook-tailwind`, `refactor/emulator-manager`
 
+## Pull Requests
+
+- **Reference the GitHub issue.** If a PR implements a feature or fixes a bug that has an existing GitHub issue, the PR description must include `Closes #<number>` (or `Fixes #<number>` for bugs). This auto-closes the issue on merge and makes the history traceable. If no issue exists and the work is non-trivial, create one first.
+
 ## Design Philosophy
 
 - **Extremely polished UI.** Every interaction should feel intentional and delightful. Prioritize craft and attention to detail — this is a desktop app, not a throwaway prototype.
