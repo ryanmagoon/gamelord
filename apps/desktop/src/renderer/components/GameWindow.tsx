@@ -13,6 +13,8 @@ import {
   Monitor,
   RotateCcw,
   Gamepad2,
+  FastForward,
+  ChevronDown,
 } from 'lucide-react'
 import type { Game } from '../../types/library'
 import type { GamelordAPI } from '../types/global'
@@ -64,6 +66,8 @@ export const GameWindow: React.FC = () => {
   const [fps, setFps] = useState(0)
   const [isPoweringOn, setIsPoweringOn] = useState(false)
   const [isPoweringOff, setIsPoweringOff] = useState(false)
+  const [speedMultiplier, setSpeedMultiplier] = useState(1)
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false)
 
   // Memoize power animation callbacks so they have stable references.
   // CRTAnimation's useEffect depends on `onComplete` — an inline arrow
@@ -166,6 +170,7 @@ export const GameWindow: React.FC = () => {
     api.removeAllListeners('game:audio-samples')
     api.removeAllListeners('game:prepare-close')
     api.removeAllListeners('game:ready-for-boot')
+    api.removeAllListeners('emulator:speedChanged')
 
     api.on('game:loaded', (gameData: Game) => {
       setGame(gameData)
@@ -195,12 +200,16 @@ export const GameWindow: React.FC = () => {
 
     api.on('emulator:paused', () => setIsPaused(true))
     api.on('emulator:resumed', () => setIsPaused(false))
+    api.on('emulator:speedChanged', (data: { multiplier: number }) => {
+      setSpeedMultiplier(data.multiplier)
+    })
 
     api.on('game:prepare-close', () => {
       setIsPoweringOff(true)
       setShowControls(false)
       setShowShaderMenu(false)
       setShowSettingsMenu(false)
+      setShowSpeedMenu(false)
     })
 
     api.on('game:av-info', (avInfo: any) => {
@@ -361,6 +370,7 @@ export const GameWindow: React.FC = () => {
       api.removeAllListeners('game:audio-samples')
       api.removeAllListeners('game:prepare-close')
       api.removeAllListeners('game:ready-for-boot')
+      api.removeAllListeners('emulator:speedChanged')
 
       cancelAnimationFrame(rafIdRef.current)
       pendingFrameRef.current = null
@@ -482,6 +492,21 @@ export const GameWindow: React.FC = () => {
     }
   }
 
+  const SPEED_OPTIONS = [1, 1.5, 2, 3, 4, 8] as const
+
+  const handleSetSpeed = async (multiplier: number) => {
+    try {
+      await api.emulation.setSpeed(multiplier)
+    } catch (err) {
+      console.error('Set speed failed:', err)
+    }
+  }
+
+  const handleToggleFastForward = async () => {
+    const nextSpeed = speedMultiplier > 1 ? 1 : 2
+    await handleSetSpeed(nextSpeed)
+  }
+
   // Keyboard shortcuts (overlay mode or general)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -497,11 +522,15 @@ export const GameWindow: React.FC = () => {
         e.preventDefault()
         void handlePauseResume()
       }
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        void handleToggleFastForward()
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isPaused, selectedSlot])
+  }, [isPaused, selectedSlot, speedMultiplier])
 
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isOverControlsRef = useRef(false)
@@ -689,6 +718,44 @@ export const GameWindow: React.FC = () => {
             >
               <Camera className="h-5 w-5" />
             </Button>
+            <div className="relative flex items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleFastForward}
+                className={`text-white hover:bg-white/10 ${speedMultiplier > 1 ? 'text-yellow-400' : ''}`}
+                title={`Fast Forward (Tab) — ${speedMultiplier}x`}
+              >
+                <FastForward className="h-5 w-5" />
+                {speedMultiplier > 1 && (
+                  <span className="ml-1 text-xs font-medium">{speedMultiplier}x</span>
+                )}
+              </Button>
+              <button
+                onClick={() => { setShowSpeedMenu((v) => !v); setShowShaderMenu(false); setShowSettingsMenu(false) }}
+                className="text-white/60 hover:text-white hover:bg-white/10 rounded p-0.5 -ml-1 transition-colors"
+                title="Speed options"
+              >
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              {showSpeedMenu && (
+                <div className="absolute bottom-full left-0 mb-2 bg-black/95 rounded-lg shadow-lg py-1 min-w-[100px]">
+                  {SPEED_OPTIONS.map((speed) => (
+                    <button
+                      key={speed}
+                      onClick={() => { void handleSetSpeed(speed); setShowSpeedMenu(false) }}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                        speedMultiplier === speed
+                          ? 'text-yellow-400 bg-white/10'
+                          : 'text-white/80 hover:bg-white/10'
+                      }`}
+                    >
+                      {speed}x{speed === 1 ? ' (Normal)' : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Save state controls */}
@@ -764,7 +831,7 @@ export const GameWindow: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowShaderMenu((v) => !v)}
+                onClick={() => { setShowShaderMenu((v) => !v); setShowSettingsMenu(false); setShowSpeedMenu(false) }}
                 className="text-white hover:bg-white/10"
                 title="Shader"
               >
@@ -800,7 +867,7 @@ export const GameWindow: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowSettingsMenu((v) => !v)}
+                onClick={() => { setShowSettingsMenu((v) => !v); setShowShaderMenu(false); setShowSpeedMenu(false) }}
                 className="text-white hover:bg-white/10"
                 title="Settings"
               >

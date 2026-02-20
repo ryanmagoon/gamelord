@@ -34,6 +34,7 @@ let screenshotDir = ''
 
 // Timing
 let targetFps = 60
+let speedMultiplier = 1
 let frameTimeMs = 1000 / targetFps
 let sampleRate = 44100
 
@@ -300,13 +301,17 @@ function startEmulationLoop(): void {
         })
       }
 
-      // Send audio samples — use slice() to copy only the valid bytes into
-      // a clean contiguous buffer. Buffer.from() with byteOffset creates a
-      // view into the shared ArrayBuffer, but the offset doesn't survive
-      // Electron's IPC serialization (postMessage + webContents.send),
-      // causing misaligned reads and audio distortion in the renderer.
+      // Send audio samples — skip during fast-forward to avoid buffer
+      // overflow and distorted playback at >1x speed. The renderer would
+      // receive samples faster than real-time, causing either ballooning
+      // audio latency or garbled output.
       const audio = native.getAudioBuffer()
-      if (audio && audio.length > 0) {
+      if (audio && audio.length > 0 && speedMultiplier <= 1) {
+        // Use slice() to copy only the valid bytes into a clean contiguous
+        // buffer. Buffer.from() with byteOffset creates a view into the
+        // shared ArrayBuffer, but the offset doesn't survive Electron's IPC
+        // serialization (postMessage + webContents.send), causing misaligned
+        // reads and audio distortion in the renderer.
         send({
           type: 'audioSamples',
           samples: Buffer.from(audio.buffer.slice(
@@ -380,6 +385,12 @@ function handleMessage(command: WorkerCommand): void {
 
     case 'input':
       native?.setInputState(command.port, command.id, command.pressed ? 1 : 0)
+      break
+
+    case 'setSpeed':
+      speedMultiplier = Math.max(0.25, Math.min(command.multiplier, 16))
+      frameTimeMs = 1000 / (targetFps * speedMultiplier)
+      send({ type: 'speedChanged', multiplier: speedMultiplier })
       break
 
     case 'saveState':

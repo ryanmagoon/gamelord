@@ -73,7 +73,7 @@ export class EmulatorManager extends EventEmitter {
           screenshots: true,
           pauseResume: true,
           reset: true,
-          fastForward: false,
+          fastForward: true,
           rewind: false,
           shaders: false,
           cheats: false
@@ -338,6 +338,7 @@ export class EmulatorManager extends EventEmitter {
       client.on('resumed', () => this.emit('emulator:resumed'));
       client.on('reset', () => this.emit('emulator:reset'));
       client.on('error', (error) => this.emit('emulator:error', error));
+      client.on('speedChanged', (data) => this.emit('emulator:speedChanged', data));
     }
   }
 
@@ -415,6 +416,16 @@ export class EmulatorManager extends EventEmitter {
       throw new Error('No emulator is currently running');
     }
     await this.currentEmulator.resume();
+  }
+
+  /**
+   * Set emulation speed multiplier (1 = normal, 2 = 2x, etc.)
+   */
+  setSpeed(multiplier: number): void {
+    if (this.workerClient?.isRunning()) {
+      this.workerClient.setSpeed(multiplier);
+      return;
+    }
   }
 
   /**
