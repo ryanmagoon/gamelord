@@ -496,6 +496,9 @@ export const GameWindow: React.FC = () => {
 
   const handleSetSpeed = async (multiplier: number) => {
     try {
+      // Update state optimistically so subsequent clicks don't read stale
+      // values while waiting for the IPC round-trip confirmation.
+      setSpeedMultiplier(multiplier)
       await api.emulation.setSpeed(multiplier)
     } catch (err) {
       console.error('Set speed failed:', err)
