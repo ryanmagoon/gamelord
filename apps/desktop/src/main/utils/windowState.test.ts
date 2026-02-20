@@ -20,6 +20,10 @@ const mockIsFullScreen = vi.fn().mockReturnValue(false)
 const mockIsDestroyed = vi.fn().mockReturnValue(false)
 const mockOn = vi.fn()
 
+const mockGetDisplayMatching = vi.fn().mockReturnValue({
+  workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+})
+
 vi.mock('electron', () => ({
   app: {
     getPath: (name: string) => {
@@ -34,6 +38,7 @@ vi.mock('electron', () => ({
         workArea: { x: 0, y: 0, width: 1920, height: 1080 },
       },
     ],
+    getDisplayMatching: (...args: unknown[]) => mockGetDisplayMatching(...args),
   },
 }))
 
@@ -87,6 +92,9 @@ beforeEach(() => {
   mockIsFullScreen.mockReturnValue(false)
   mockIsDestroyed.mockReturnValue(false)
   mockGetBounds.mockReturnValue({ x: 100, y: 200, width: 1024, height: 768 })
+  mockGetDisplayMatching.mockReturnValue({
+    workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+  })
 })
 
 describe('getSavedWindowBounds', () => {
@@ -136,17 +144,15 @@ describe('getSavedWindowBounds', () => {
     expect(bounds).toEqual({ width: 900, height: 800 })
   })
 
-  it('resets position when saved window is not visible on any display', () => {
-    // Position far off-screen — not within any display
+  it('clamps position when saved window is off-screen', () => {
+    // Position far off-screen — getDisplayMatching returns nearest display
     mockReadFileSync.mockReturnValue(
       JSON.stringify({ x: 5000, y: 5000, width: 1024, height: 768, isMaximized: false })
     )
 
     const bounds = getSavedWindowBounds()
-    // Position should be reset to default (-1, -1), so no x/y returned
-    expect(bounds).toEqual({ width: 1024, height: 768 })
-    expect(bounds).not.toHaveProperty('x')
-    expect(bounds).not.toHaveProperty('y')
+    // Position should be clamped to fit within the 1920x1080 display
+    expect(bounds).toEqual({ x: 896, y: 312, width: 1024, height: 768 })
   })
 
   it('uses custom config defaults and file path', () => {
@@ -172,18 +178,114 @@ describe('getSavedWindowBounds', () => {
     const bounds = getSavedWindowBounds(GAME_WINDOW_CONFIG)
     expect(bounds).toEqual({ x: 300, y: 400, width: 800, height: 600 })
   })
+
+  describe('display clamping', () => {
+    it('does not change position when window fits within display', () => {
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({ x: 100, y: 100, width: 800, height: 600, isMaximized: false })
+      )
+
+      const bounds = getSavedWindowBounds()
+      expect(bounds).toEqual({ x: 100, y: 100, width: 800, height: 600 })
+    })
+
+    it('shifts window left when it extends past right edge', () => {
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({ x: 1500, y: 100, width: 800, height: 600, isMaximized: false })
+      )
+
+      const bounds = getSavedWindowBounds()
+      // x should be clamped to 1920 - 800 = 1120
+      expect(bounds).toEqual({ x: 1120, y: 100, width: 800, height: 600 })
+    })
+
+    it('shifts window up when it extends past bottom edge', () => {
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({ x: 100, y: 800, width: 800, height: 600, isMaximized: false })
+      )
+
+      const bounds = getSavedWindowBounds()
+      // y should be clamped to 1080 - 600 = 480
+      expect(bounds).toEqual({ x: 100, y: 480, width: 800, height: 600 })
+    })
+
+    it('shifts window right when x is before display left edge', () => {
+      // Simulate a secondary display at negative x offset
+      mockGetDisplayMatching.mockReturnValue({
+        workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+      })
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({ x: -100, y: 100, width: 800, height: 600, isMaximized: false })
+      )
+
+      const bounds = getSavedWindowBounds()
+      expect(bounds).toEqual({ x: 0, y: 100, width: 800, height: 600 })
+    })
+
+    it('shrinks width when window is wider than display', () => {
+      // Simulate a small laptop display
+      mockGetDisplayMatching.mockReturnValue({
+        workArea: { x: 0, y: 0, width: 1366, height: 768 },
+      })
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({ x: 100, y: 100, width: 2560, height: 600, isMaximized: false })
+      )
+
+      const bounds = getSavedWindowBounds()
+      expect(bounds).toEqual({ x: 0, y: 100, width: 1366, height: 600 })
+    })
+
+    it('shrinks height when window is taller than display', () => {
+      mockGetDisplayMatching.mockReturnValue({
+        workArea: { x: 0, y: 0, width: 1920, height: 768 },
+      })
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({ x: 100, y: 100, width: 800, height: 1200, isMaximized: false })
+      )
+
+      const bounds = getSavedWindowBounds()
+      expect(bounds).toEqual({ x: 100, y: 0, width: 800, height: 768 })
+    })
+
+    it('shrinks both dimensions and clamps position for oversized window', () => {
+      // Saved from a 4K display, now on a 720p laptop
+      mockGetDisplayMatching.mockReturnValue({
+        workArea: { x: 0, y: 0, width: 1280, height: 720 },
+      })
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({ x: 500, y: 300, width: 2560, height: 1440, isMaximized: false })
+      )
+
+      const bounds = getSavedWindowBounds()
+      expect(bounds).toEqual({ x: 0, y: 0, width: 1280, height: 720 })
+    })
+
+    it('clamps to secondary display work area with offset', () => {
+      // Secondary display positioned to the right at x=1920
+      mockGetDisplayMatching.mockReturnValue({
+        workArea: { x: 1920, y: 0, width: 1440, height: 900 },
+      })
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({ x: 3000, y: 500, width: 800, height: 600, isMaximized: false })
+      )
+
+      const bounds = getSavedWindowBounds()
+      // x clamped to 1920 + 1440 - 800 = 2560; y clamped to 0 + 900 - 600 = 300
+      expect(bounds).toEqual({ x: 2560, y: 300, width: 800, height: 600 })
+    })
+  })
 })
 
 describe('manageWindowState', () => {
   it('restores saved position and size to the window', () => {
     mockReadFileSync.mockReturnValue(
-      JSON.stringify({ x: 200, y: 300, width: 1100, height: 850, isMaximized: false })
+      JSON.stringify({ x: 200, y: 100, width: 1100, height: 850, isMaximized: false })
     )
 
     const window = createMockWindow()
     manageWindowState(window)
 
-    expect(mockSetBounds).toHaveBeenCalledWith({ x: 200, y: 300, width: 1100, height: 850 })
+    expect(mockSetBounds).toHaveBeenCalledWith({ x: 200, y: 100, width: 1100, height: 850 })
     expect(mockCenter).not.toHaveBeenCalled()
   })
 

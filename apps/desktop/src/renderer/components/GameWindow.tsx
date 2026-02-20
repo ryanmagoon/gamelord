@@ -513,10 +513,10 @@ export const GameWindow: React.FC = () => {
       if (!isOverControlsRef.current) {
         setShowControls(false)
       }
-    }, 3000)
+    }, 1000)
   }, [])
 
-  // Show on mouse move, auto-hide after 3s of inactivity.
+  // Show on mouse move, auto-hide after 1s of inactivity.
   // Ignores the initial mousemove if the cursor was already in the window
   // area when it spawned — controls only appear on genuine cursor movement.
   const handleMouseMove = useCallback(
