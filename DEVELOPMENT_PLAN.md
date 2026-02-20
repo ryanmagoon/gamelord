@@ -87,7 +87,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] **Test suite — WebGL renderer** — Shader compilation, preset switching, fallback behavior
 - [x] **Fix test environment** — Switch vitest config from jsdom to happy-dom (per project conventions)
 - [x] **Fix game ID hashing** — Replace `MD5(romPath)` in `LibraryService.ts` with `SHA-256(fileContent)` so IDs survive file moves
-- [x] **ROM checksum validation** — Compute CRC32/SHA-1/MD5 checksums on ROM files at scan time for integrity verification and database lookups (e.g. No-Intro DAT matching) — [#61](https://github.com/ryanmagoon/gamelord/issues/61)
+- [x] **ROM checksum validation** — Compute CRC32/SHA-1/MD5 checksums on ROM files at scan time via single-pass streaming. Stored in required `romHashes` field on `Game`. Backfill on startup for existing libraries. ArtworkService simplified to use pre-computed MD5. — [#61](https://github.com/ryanmagoon/gamelord/issues/61)
 
 ### P2 — Performance
 
