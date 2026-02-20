@@ -33,6 +33,7 @@ vi.mock('../logger', () => ({
 
 import { LibraryService } from './LibraryService'
 import type { ScanProgressEvent } from './LibraryService'
+import { DEFAULT_SYSTEMS } from '../../types/library'
 import type { GameSystem, Game } from '../../types/library'
 
 /**
@@ -156,8 +157,9 @@ describe('LibraryService', () => {
       const service = await createService()
       const config = service.getConfig()
 
-      expect(config.systems).toHaveLength(1)
+      // NES should be first (from the saved config), with backfilled defaults after it
       expect(config.systems[0].id).toBe('nes')
+      expect(config.systems.length).toBe(DEFAULT_SYSTEMS.length)
       expect(config.romsBasePath).toBe('/custom/roms')
       expect(config.scanRecursive).toBe(false)
       expect(config.autoScan).toBe(true)
@@ -170,6 +172,70 @@ describe('LibraryService', () => {
       // Create a second service to reload from disk
       const service2 = await createService()
       expect(service2.getConfig().romsBasePath).toBe('/new/base/path')
+    })
+
+    it('scaffolds per-system ROM folders on first launch and sets romsPath', async () => {
+      const service = await createService()
+      const config = service.getConfig()
+      const basePath = config.romsBasePath!
+
+      // Every system in the default config should have a folder created and romsPath set
+      for (const system of config.systems) {
+        const systemDir = path.join(basePath, system.shortName)
+        expect(fs.existsSync(systemDir)).toBe(true)
+        expect(system.romsPath).toBe(systemDir)
+      }
+    })
+
+    it('does not scaffold all folders when config already exists', async () => {
+      // Create a config with ALL default systems so backfill has nothing to add
+      const customConfig = {
+        systems: DEFAULT_SYSTEMS,
+        romsBasePath: path.join(TEST_DIR, 'existing-roms'),
+        scanRecursive: true,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(customConfig, null, 2),
+      )
+
+      await createService()
+
+      // The romsBasePath folder should NOT have been created (no new systems to backfill)
+      expect(fs.existsSync(path.join(TEST_DIR, 'existing-roms'))).toBe(false)
+    })
+
+    it('backfills new systems missing from a saved config', async () => {
+      // Simulate an old config that only has NES — missing all other DEFAULT_SYSTEMS
+      const oldConfig = {
+        systems: [TEST_NES_SYSTEM],
+        romsBasePath: path.join(TEST_DIR, 'backfill-roms'),
+        scanRecursive: true,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(oldConfig, null, 2),
+      )
+
+      const service = await createService()
+      const systems = service.getSystems()
+
+      // NES should still be there, plus all the systems from DEFAULT_SYSTEMS
+      expect(systems.find(s => s.id === 'nes')).toBeDefined()
+      expect(systems.find(s => s.id === 'saturn')).toBeDefined()
+      expect(systems.find(s => s.id === 'snes')).toBeDefined()
+      expect(systems.length).toBeGreaterThan(1)
+
+      // Folders should have been created and romsPath set for the newly added systems
+      const saturnDir = path.join(TEST_DIR, 'backfill-roms', 'Saturn')
+      expect(fs.existsSync(saturnDir)).toBe(true)
+      const saturn = systems.find(s => s.id === 'saturn')!
+      expect(saturn.romsPath).toBe(saturnDir)
+
+      // Clean up
+      fs.rmSync(path.join(TEST_DIR, 'backfill-roms'), { recursive: true, force: true })
     })
   })
 

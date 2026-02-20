@@ -9,6 +9,7 @@ export const SYSTEM_ID_MAP: Record<string, number> = {
   psx: 57,
   psp: 61,
   nds: 15,
+  saturn: 22,
   arcade: 75,
 };
 

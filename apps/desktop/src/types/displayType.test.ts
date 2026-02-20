@@ -8,6 +8,7 @@ describe('getDisplayType', () => {
     ['genesis', 'crt'],
     ['n64', 'crt'],
     ['psx', 'crt'],
+    ['saturn', 'crt'],
     ['arcade', 'crt'],
   ] as const)('maps %s to crt', (systemId, expected) => {
     expect(getDisplayType(systemId)).toBe(expected)
