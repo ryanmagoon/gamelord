@@ -231,6 +231,14 @@ export class IPCHandlers {
   }
 
   private setupLibraryHandlers(): void {
+    // Forward scan progress events to all renderer windows
+    this.libraryService.on('scanProgress', (data) => {
+      const windows = BrowserWindow.getAllWindows();
+      windows.forEach((window: BrowserWindow) => {
+        window.webContents.send('library:scanProgress', data);
+      });
+    });
+
     // System management
     ipcMain.handle('library:getSystems', () => {
       return this.libraryService.getSystems();

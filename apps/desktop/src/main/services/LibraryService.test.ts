@@ -32,6 +32,7 @@ vi.mock('../logger', () => ({
 }))
 
 import { LibraryService } from './LibraryService'
+import type { ScanProgressEvent } from './LibraryService'
 import type { GameSystem, Game } from '../../types/library'
 
 /**
@@ -1548,6 +1549,250 @@ describe('LibraryService', () => {
 
       expect(fs.existsSync(cachedRomPath)).toBe(false)
       expect(service.getGames()).toHaveLength(0)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Scan optimizations: mtime caching, new-files-first, progress events
+  // ---------------------------------------------------------------------------
+
+  describe('mtime-based scan caching', () => {
+    const mtimeDir = path.join(TEST_DIR, 'mtime-cache')
+
+    beforeAll(() => {
+      fs.mkdirSync(mtimeDir, { recursive: true })
+      fs.writeFileSync(path.join(mtimeDir, 'game1.nes'), 'mtime-game-1')
+      fs.writeFileSync(path.join(mtimeDir, 'game2.nes'), 'mtime-game-2')
+    })
+
+    afterAll(() => {
+      fs.rmSync(mtimeDir, { recursive: true, force: true })
+    })
+
+    it('stores romMtime on games during initial scan', async () => {
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(mtimeDir)
+
+      expect(games).toHaveLength(2)
+      for (const game of games) {
+        expect(game.romMtime).toBeDefined()
+        expect(typeof game.romMtime).toBe('number')
+        expect(game.romMtime).toBeGreaterThan(0)
+      }
+    })
+
+    it('skips hashing on rescan when file mtime is unchanged', async () => {
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+
+      // First scan — hashes everything
+      const firstScan = await service.scanDirectory(mtimeDir)
+      expect(firstScan).toHaveLength(2)
+
+      // Spy on computeRomHashes to count calls
+      const hashSpy = vi.spyOn(service, 'computeRomHashes')
+
+      // Second scan — should skip hashing since mtimes haven't changed
+      const secondScan = await service.scanDirectory(mtimeDir)
+      expect(secondScan).toHaveLength(2)
+      expect(hashSpy).not.toHaveBeenCalled()
+
+      hashSpy.mockRestore()
+    })
+
+    it('re-hashes when file content changes (mtime differs)', async () => {
+      const rehashDir = path.join(TEST_DIR, 'mtime-rehash')
+      fs.mkdirSync(rehashDir, { recursive: true })
+      fs.writeFileSync(path.join(rehashDir, 'mutable.nes'), 'original-content')
+
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const firstScan = await service.scanDirectory(rehashDir)
+      expect(firstScan).toHaveLength(1)
+      const originalId = firstScan[0].id
+
+      // Modify the file to change its mtime (and content)
+      // Need a small delay to ensure mtime changes (filesystem resolution)
+      await new Promise(resolve => setTimeout(resolve, 50))
+      fs.writeFileSync(path.join(rehashDir, 'mutable.nes'), 'modified-content')
+
+      const hashSpy = vi.spyOn(service, 'computeRomHashes')
+      const secondScan = await service.scanDirectory(rehashDir)
+      expect(secondScan).toHaveLength(1)
+      expect(hashSpy).toHaveBeenCalledTimes(1)
+      // ID should change since content changed
+      expect(secondScan[0].id).not.toBe(originalId)
+
+      hashSpy.mockRestore()
+      fs.rmSync(rehashDir, { recursive: true, force: true })
+    })
+  })
+
+  describe('scanProgress events', () => {
+    const progressDir = path.join(TEST_DIR, 'progress-events')
+
+    beforeAll(() => {
+      fs.mkdirSync(progressDir, { recursive: true })
+      fs.writeFileSync(path.join(progressDir, 'a.nes'), 'progress-a')
+      fs.writeFileSync(path.join(progressDir, 'b.nes'), 'progress-b')
+      fs.writeFileSync(path.join(progressDir, 'c.nes'), 'progress-c')
+    })
+
+    afterAll(() => {
+      fs.rmSync(progressDir, { recursive: true, force: true })
+    })
+
+    it('emits scanProgress for each discovered game', async () => {
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const progressEvents: ScanProgressEvent[] = []
+      service.on('scanProgress', (event: ScanProgressEvent) => {
+        progressEvents.push(event)
+      })
+
+      const games = await service.scanDirectory(progressDir)
+
+      expect(games).toHaveLength(3)
+      expect(progressEvents).toHaveLength(3)
+
+      // All should be marked as new on first scan
+      expect(progressEvents.every(e => e.isNew)).toBe(true)
+
+      // Total should be 3 for all events
+      expect(progressEvents.every(e => e.total === 3)).toBe(true)
+
+      // Processed should increment
+      const processedValues = progressEvents.map(e => e.processed).sort((a, b) => a - b)
+      expect(processedValues).toEqual([1, 2, 3])
+    })
+
+    it('marks known games as not new on rescan', async () => {
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+
+      // First scan
+      await service.scanDirectory(progressDir)
+
+      // Rescan — listen for progress
+      const progressEvents: ScanProgressEvent[] = []
+      service.on('scanProgress', (event: ScanProgressEvent) => {
+        progressEvents.push(event)
+      })
+
+      await service.scanDirectory(progressDir)
+
+      expect(progressEvents).toHaveLength(3)
+      // All should be marked as NOT new on rescan
+      expect(progressEvents.every(e => !e.isNew)).toBe(true)
+      // All should be skipped via mtime cache
+      expect(progressEvents[progressEvents.length - 1].skipped).toBe(3)
+    })
+  })
+
+  describe('new-files-first ordering', () => {
+    it('processes new files before known files', async () => {
+      const orderDir = path.join(TEST_DIR, 'ordering-test')
+      fs.mkdirSync(orderDir, { recursive: true })
+      fs.writeFileSync(path.join(orderDir, 'existing.nes'), 'existing-data')
+
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+
+      // First scan — establish existing.nes as known
+      await service.scanDirectory(orderDir)
+
+      // Add a new file
+      fs.writeFileSync(path.join(orderDir, 'brand_new.nes'), 'brand-new-data')
+
+      // Rescan — track order of progress events
+      const progressEvents: ScanProgressEvent[] = []
+      service.on('scanProgress', (event: ScanProgressEvent) => {
+        progressEvents.push(event)
+      })
+
+      await service.scanDirectory(orderDir)
+
+      expect(progressEvents).toHaveLength(2)
+
+      // First event should be the NEW game
+      expect(progressEvents[0].isNew).toBe(true)
+      expect(progressEvents[0].game.title).toBe('brand new')
+
+      // Second event should be the KNOWN game (mtime-cached)
+      expect(progressEvents[1].isNew).toBe(false)
+
+      fs.rmSync(orderDir, { recursive: true, force: true })
+    })
+  })
+
+  describe('addGame stores romMtime', () => {
+    it('stores romMtime when adding a single game', async () => {
+      const romPath = path.join(ROMS_DIR, 'mtime_add_test.nes')
+      fs.writeFileSync(romPath, 'mtime-add-data')
+
+      const service = await createService()
+      const game = await service.addGame(romPath, 'nes')
+
+      expect(game).not.toBeNull()
+      expect(game!.romMtime).toBeDefined()
+      expect(typeof game!.romMtime).toBe('number')
+
+      fs.unlinkSync(romPath)
     })
   })
 })

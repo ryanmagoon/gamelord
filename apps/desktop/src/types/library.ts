@@ -14,6 +14,8 @@ export interface Game {
   system: string;
   systemId: string;
   romPath: string;
+  /** File modification timestamp (ms since epoch) used for scan cache invalidation. */
+  romMtime?: number;
   /** Original archive path if this ROM was extracted from a .zip during scan. */
   sourceArchivePath?: string;
   coverArt?: string;
