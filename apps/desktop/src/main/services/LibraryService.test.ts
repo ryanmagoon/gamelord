@@ -1440,13 +1440,22 @@ describe('LibraryService', () => {
 
       const totalAfterFirst = service.getGames().length
 
-      // Second scan: zip-extracted games should NOT be re-added
-      const secondScan = await service.scanDirectory(zipScanDir)
-      const secondZipGames = secondScan.filter(g => g.sourceArchivePath !== undefined)
-      expect(secondZipGames).toHaveLength(0)
+      // Second scan: zip games returned as cached (not re-extracted),
+      // tracked via progress events as isNew: false
+      const progressEvents: ScanProgressEvent[] = []
+      service.on('scanProgress', (event: ScanProgressEvent) => {
+        progressEvents.push(event)
+      })
 
-      // Total game count unchanged (regular ROMs may be re-set but not duplicated)
+      const secondScan = await service.scanDirectory(zipScanDir)
+
+      // Total game count unchanged — no duplicates
       expect(service.getGames().length).toBe(totalAfterFirst)
+
+      // Zip games in the progress events should be marked as NOT new
+      const zipProgress = progressEvents.filter(e => e.game.sourceArchivePath !== undefined)
+      expect(zipProgress.length).toBeGreaterThanOrEqual(1)
+      expect(zipProgress.every(e => !e.isNew)).toBe(true)
     })
   })
 
@@ -1653,6 +1662,52 @@ describe('LibraryService', () => {
 
       hashSpy.mockRestore()
       fs.rmSync(rehashDir, { recursive: true, force: true })
+    })
+
+    it('skips zip extraction and hashing on rescan when zip mtime is unchanged', async () => {
+      const zipMtimeDir = path.join(TEST_DIR, 'zip-mtime-cache')
+      const zipMtimeGbDir = path.join(zipMtimeDir, 'GB')
+      fs.mkdirSync(zipMtimeGbDir, { recursive: true })
+      // Create a .gb ROM and zip it (put zip in system-named folder for detection)
+      const tmpRomPath = path.join(zipMtimeDir, 'cached.gb')
+      fs.writeFileSync(tmpRomPath, 'zip-mtime-gb-data')
+      execFileSync('zip', ['-j', path.join(zipMtimeGbDir, 'cached.zip'), tmpRomPath])
+      fs.unlinkSync(tmpRomPath) // Remove bare ROM so only the zip is scanned
+
+      const config = {
+        systems: [TEST_GB_SYSTEM],
+        scanRecursive: true,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+
+      // First scan — extracts and hashes
+      const firstScan = await service.scanDirectory(zipMtimeDir)
+      const zipGames = firstScan.filter(g => g.sourceArchivePath !== undefined)
+      expect(zipGames).toHaveLength(1)
+      expect(zipGames[0].romMtime).toBeDefined()
+
+      // Spy on computeRomHashes — should NOT be called on rescan
+      const hashSpy = vi.spyOn(service, 'computeRomHashes')
+
+      // Second scan — zip unchanged, should skip extraction + hashing entirely
+      const secondScan = await service.scanDirectory(zipMtimeDir)
+      expect(hashSpy).not.toHaveBeenCalled()
+
+      // Game count unchanged
+      expect(service.getGames().length).toBe(firstScan.length)
+
+      hashSpy.mockRestore()
+      fs.rmSync(zipMtimeDir, { recursive: true, force: true })
+      const cacheDir = path.join(USER_DATA_DIR, 'roms-cache')
+      if (fs.existsSync(cacheDir)) {
+        fs.rmSync(cacheDir, { recursive: true, force: true })
+      }
     })
   })
 
