@@ -85,6 +85,7 @@ export type WorkerCommand =
   | { action: 'loadState'; slot: number; requestId: string }
   | { action: 'saveSram'; requestId: string }
   | { action: 'screenshot'; requestId: string; outputPath?: string }
+  | { action: 'setSpeed'; multiplier: number }
   | { action: 'shutdown'; requestId: string }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +98,7 @@ export type WorkerEvent =
   | { type: 'audioSamples'; samples: Buffer; sampleRate: number }
   | { type: 'error'; message: string; fatal: boolean }
   | { type: 'log'; level: number; message: string }
+  | { type: 'speedChanged'; multiplier: number }
   | {
       type: 'response'
       requestId: string

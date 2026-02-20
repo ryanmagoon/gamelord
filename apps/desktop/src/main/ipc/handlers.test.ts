@@ -202,6 +202,7 @@ describe('IPCHandlers', () => {
         'emulation:pause',
         'emulation:resume',
         'emulation:reset',
+        'emulation:setSpeed',
         'savestate:save',
         'savestate:load',
         'emulation:screenshot',
@@ -230,7 +231,7 @@ describe('IPCHandlers', () => {
 
     it('registers exactly the expected number of handle channels', () => {
       const handleCalls = vi.mocked(ipcMain.handle).mock.calls;
-      expect(handleCalls).toHaveLength(34);
+      expect(handleCalls).toHaveLength(35);
     });
   });
 
@@ -501,6 +502,32 @@ describe('IPCHandlers', () => {
 
       const handler = getHandler('emulation:reset')!;
       const result = await handler(fakeEvent);
+
+      expect(result).toEqual({ success: false, error: 'No emulator running' });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 12b. emulation:setSpeed
+  // -----------------------------------------------------------------------
+  describe('emulation:setSpeed', () => {
+    it('returns success when setSpeed succeeds', async () => {
+      emulatorManagerInstance.setSpeed = vi.fn();
+
+      const handler = getHandler('emulation:setSpeed')!;
+      const result = await handler(fakeEvent, 2);
+
+      expect(emulatorManagerInstance.setSpeed).toHaveBeenCalledWith(2);
+      expect(result).toEqual({ success: true });
+    });
+
+    it('returns error when setSpeed fails', async () => {
+      emulatorManagerInstance.setSpeed = vi.fn(() => {
+        throw new Error('No emulator running');
+      });
+
+      const handler = getHandler('emulation:setSpeed')!;
+      const result = await handler(fakeEvent, 4);
 
       expect(result).toEqual({ success: false, error: 'No emulator running' });
     });
@@ -922,6 +949,7 @@ describe('IPCHandlers', () => {
         { emitterEvent: 'emulator:paused', ipcEvent: 'emulator:paused', data: undefined },
         { emitterEvent: 'emulator:resumed', ipcEvent: 'emulator:resumed', data: undefined },
         { emitterEvent: 'emulator:reset', ipcEvent: 'emulator:reset', data: undefined },
+        { emitterEvent: 'emulator:speedChanged', ipcEvent: 'emulator:speedChanged', data: { multiplier: 2 } },
         { emitterEvent: 'emulator:terminated', ipcEvent: 'emulator:terminated', data: undefined },
         { emitterEvent: 'core:downloadProgress', ipcEvent: 'core:downloadProgress', data: { percent: 50 } },
       ];
