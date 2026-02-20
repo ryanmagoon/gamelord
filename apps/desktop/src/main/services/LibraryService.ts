@@ -55,6 +55,8 @@ export class LibraryService extends EventEmitter {
   private games: Map<string, Game> = new Map();
   /** Reverse index: romPath → gameId for O(1) lookups during scan. */
   private romPathIndex: Map<string, string> = new Map();
+  /** Reverse index: sourceArchivePath → gameId for O(1) zip dedup lookups. */
+  private archivePathIndex: Map<string, string> = new Map();
   private configPath: string;
   private libraryPath: string;
   private romsCacheDir: string;
@@ -109,11 +111,15 @@ export class LibraryService extends EventEmitter {
     }
   }
 
-  /** Rebuild the romPath → gameId reverse index from the current games map. */
+  /** Rebuild reverse indexes from the current games map. */
   private rebuildRomPathIndex(): void {
     this.romPathIndex.clear();
+    this.archivePathIndex.clear();
     for (const [id, game] of this.games.entries()) {
       this.romPathIndex.set(game.romPath, id);
+      if (game.sourceArchivePath) {
+        this.archivePathIndex.set(game.sourceArchivePath, id);
+      }
     }
   }
 
@@ -349,12 +355,9 @@ export class LibraryService extends EventEmitter {
     }
   }
 
-  /** Find a game by its sourceArchivePath (for zip dedup). */
+  /** Find a game by its sourceArchivePath (for zip dedup). O(1) via index. */
   private findGameByArchivePath(archivePath: string): string | undefined {
-    for (const [id, game] of this.games.entries()) {
-      if (game.sourceArchivePath === archivePath) return id;
-    }
-    return undefined;
+    return this.archivePathIndex.get(archivePath);
   }
 
   /**
@@ -416,12 +419,24 @@ export class LibraryService extends EventEmitter {
   ): Promise<{ game: Game; isNew: boolean } | null> {
     const { fullPath, mtimeMs, systemIdFilter } = candidate;
 
+    // Check mtime cache: if this zip is already imported and unchanged, skip entirely
+    const existingGameId = this.findGameByArchivePath(fullPath);
+    if (existingGameId) {
+      const existingGame = this.games.get(existingGameId);
+      if (existingGame && existingGame.romMtime === mtimeMs) {
+        return { game: existingGame, isNew: false };
+      }
+    }
+
     try {
       const game = await this.handleZipFile(fullPath, systemIdFilter);
       if (game) {
         game.romMtime = mtimeMs;
         this.games.set(game.id, game);
         this.romPathIndex.set(game.romPath, game.id);
+        if (game.sourceArchivePath) {
+          this.archivePathIndex.set(game.sourceArchivePath, game.id);
+        }
         return { game, isNew: true };
       }
       return null;
@@ -534,6 +549,9 @@ export class LibraryService extends EventEmitter {
       if (game) {
         this.games.set(game.id, game);
         this.romPathIndex.set(game.romPath, game.id);
+        if (game.sourceArchivePath) {
+          this.archivePathIndex.set(game.sourceArchivePath, game.id);
+        }
         await this.saveLibrary();
       }
       return game;
@@ -579,6 +597,9 @@ export class LibraryService extends EventEmitter {
     }
     if (game) {
       this.romPathIndex.delete(game.romPath);
+      if (game.sourceArchivePath) {
+        this.archivePathIndex.delete(game.sourceArchivePath);
+      }
     }
     this.games.delete(gameId);
     await this.saveLibrary();
@@ -645,10 +666,9 @@ export class LibraryService extends EventEmitter {
     const system = this.findSystemForExtension(match.extension, systemId);
     if (!system) return null;
 
-    // Check if already imported from this zip
-    const existingGame = Array.from(this.games.values()).find(
-      g => g.sourceArchivePath === zipPath,
-    );
+    // Check if already imported from this zip (O(1) via index)
+    const existingGameId = this.findGameByArchivePath(zipPath);
+    const existingGame = existingGameId ? this.games.get(existingGameId) : undefined;
     if (existingGame) {
       try {
         await fs.access(existingGame.romPath);
