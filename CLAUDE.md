@@ -60,3 +60,16 @@ Emulation frame pacing is a top-tier concern. Every code change — especially i
 - **Profile before adding multi-pass shaders.** Any shader preset with 3+ passes must be tested on integrated GPUs (e.g. Apple M-series) to confirm it maintains 60fps. Include lighter alternatives users can fall back to.
 - **Measure, don't guess.** When in doubt about a change's performance impact, add a temporary FPS/frame-time counter and test with a real game running. Don't ship code that "should be fine" without verification.
 - **Pause-state effects are exempt.** When the emulation loop is stopped (paused, menu open, etc.), the GPU is idle and expensive cosmetic effects (VHS distortion, scanline drift, static overlays) are fair game. The performance rules above apply to effects running *during active gameplay*.
+
+## Responsiveness — Never Block the UI
+
+The renderer process must stay responsive at all times. Long-running operations (file I/O, hashing, network requests, database queries, bulk processing) must never freeze the UI or make the user wait with no feedback.
+
+### Rules
+
+- **Never await a long operation without streaming progress.** If an IPC invoke could take more than ~200ms (scanning directories, hashing files, downloading assets, bulk sync), the main process must emit incremental progress events so the renderer can show live feedback (counts, progress bars, items appearing as they're found).
+- **Process new/unknown items first.** When rescanning or re-syncing, prioritize items the user hasn't seen before. Known/cached items can be verified in the background after new items are already visible.
+- **Cache aggressively, invalidate precisely.** Store enough metadata (file mtimes, content hashes, ETags) to skip redundant work on repeat operations. A rescan of unchanged data should be near-instant.
+- **Bound concurrency, don't serialize.** When processing many independent items (hashing files, downloading images, querying APIs), use bounded parallel execution (e.g. `Promise.all` over batches of 4-8) instead of sequential `for...of` loops.
+- **Show the result before the operation finishes.** If a scan finds 5 new games, those 5 should appear in the library grid immediately — don't wait for the remaining 2000 known files to be re-verified before updating the UI.
+- **Maintain a reverse index for O(1) lookups.** When a data structure is frequently queried by a secondary key (e.g. looking up games by `romPath` during scans), maintain an index map instead of doing linear scans over the full collection.

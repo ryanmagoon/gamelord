@@ -45,6 +45,7 @@ export const LibraryView: React.FC<{
   const [selectedSystem, setSelectedSystem] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
+  const [scanProgress, setScanProgress] = useState<{ processed: number; total: number; skipped: number } | null>(null)
   const [downloadProgress, setDownloadProgress] = useState<CoreDownloadProgress | null>(null)
 
   // Artwork sync state — external store so phase updates bypass React re-renders.
@@ -97,6 +98,19 @@ export const LibraryView: React.FC<{
 
   useEffect(() => {
     loadLibrary()
+
+    api.on('library:scanProgress', (progress: { game: AppGame; isNew: boolean; processed: number; total: number; skipped: number }) => {
+      setScanProgress({ processed: progress.processed, total: progress.total, skipped: progress.skipped })
+
+      if (progress.isNew) {
+        // Incrementally add the new game to the list without waiting for the full scan
+        setGames(prev => {
+          // Avoid duplicates — the scan may re-emit known games
+          if (prev.some(g => g.id === progress.game.id)) return prev
+          return [...prev, progress.game]
+        })
+      }
+    })
 
     api.on('core:downloadProgress', (progress: CoreDownloadProgress) => {
       if (progress.phase === 'done' || progress.phase === 'error') {
@@ -218,6 +232,7 @@ export const LibraryView: React.FC<{
     })
 
     return () => {
+      api.removeAllListeners('library:scanProgress')
       api.removeAllListeners('core:downloadProgress')
       api.removeAllListeners('artwork:progress')
       api.removeAllListeners('artwork:syncComplete')
@@ -264,6 +279,7 @@ export const LibraryView: React.FC<{
 
   const handleQuickScan = async () => {
     setIsScanning(true)
+    setScanProgress(null)
     try {
       const config = await api.library.getConfig()
       if (!config.romsBasePath) {
@@ -284,6 +300,7 @@ export const LibraryView: React.FC<{
       console.error('Quick scan failed:', error)
     } finally {
       setIsScanning(false)
+      setScanProgress(null)
     }
   }
 
@@ -291,6 +308,7 @@ export const LibraryView: React.FC<{
     const directory = await api.dialog.selectDirectory()
     if (directory) {
       setIsScanning(true)
+      setScanProgress(null)
       try {
         const foundGames = await api.library.scanDirectory(directory)
         await loadLibrary()
@@ -299,6 +317,7 @@ export const LibraryView: React.FC<{
         console.error('Directory scan failed:', error)
       } finally {
         setIsScanning(false)
+        setScanProgress(null)
       }
     }
   }
@@ -311,6 +330,7 @@ export const LibraryView: React.FC<{
       await api.library.updateSystemPath(system.id, directory)
 
       setIsScanning(true)
+      setScanProgress(null)
       try {
         const foundGames = await api.library.scanDirectory(directory, system.id)
         await loadLibrary()
@@ -319,12 +339,14 @@ export const LibraryView: React.FC<{
         console.error('Failed to scan system directory:', error)
       } finally {
         setIsScanning(false)
+        setScanProgress(null)
       }
     }
   }
 
   const handleScanSystemFolders = async () => {
     setIsScanning(true)
+    setScanProgress(null)
     try {
       const foundGames = await api.library.scanSystemFolders()
       await loadLibrary()
@@ -333,6 +355,7 @@ export const LibraryView: React.FC<{
       console.error('System folder scan failed:', error)
     } finally {
       setIsScanning(false)
+      setScanProgress(null)
     }
   }
 
@@ -515,7 +538,9 @@ export const LibraryView: React.FC<{
           {isScanning && (
             <Badge variant="secondary" className="animate-pulse">
               <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-              Scanning...
+              {scanProgress
+                ? `Scanning ${scanProgress.processed}/${scanProgress.total}${scanProgress.skipped > 0 ? ` (${scanProgress.skipped} cached)` : ''}`
+                : 'Scanning...'}
             </Badge>
           )}
         </div>

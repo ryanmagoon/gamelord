@@ -1,6 +1,7 @@
 import { promises as fs, createReadStream } from 'fs';
 import path from 'path';
 import { app } from 'electron';
+import { EventEmitter } from 'events';
 import { Game, GameSystem, LibraryConfig, DEFAULT_SYSTEMS } from '../../types/library';
 import crypto from 'crypto';
 import zlib from 'zlib';
@@ -13,14 +14,55 @@ export interface RomHashes {
   md5: string;
 }
 
-export class LibraryService {
+/** Progress event emitted for each game discovered during a scan. */
+export interface ScanProgressEvent {
+  /** The game that was just discovered or re-verified. */
+  game: Game;
+  /** Whether this game is newly added (true) or already existed in the library (false). */
+  isNew: boolean;
+  /** Number of files processed so far. */
+  processed: number;
+  /** Total number of ROM files found (known once directory walk completes). */
+  total: number;
+  /** Number of files skipped via mtime cache (no re-hash needed). */
+  skipped: number;
+}
+
+/** Candidate ROM file discovered during the directory walk phase. */
+interface RomCandidate {
+  fullPath: string;
+  /** File modification time in ms since epoch. */
+  mtimeMs: number;
+  /** File extension (lowercase, with leading dot). */
+  ext: string;
+  /** Resolved system for this file, or undefined if needs zip inspection. */
+  system?: GameSystem;
+  /** System ID filter passed into the scan (propagated for context). */
+  systemIdFilter?: string;
+  /** Whether this file is a zip that needs extraction (non-arcade). */
+  isZip: boolean;
+  /** True if a game with this romPath already exists in the library. */
+  isKnown: boolean;
+  /** If known, the existing game's stored mtime. */
+  existingMtime?: number;
+}
+
+/** Number of ROM files to hash concurrently. */
+const HASH_CONCURRENCY = 4;
+
+export class LibraryService extends EventEmitter {
   private config: LibraryConfig;
   private games: Map<string, Game> = new Map();
+  /** Reverse index: romPath → gameId for O(1) lookups during scan. */
+  private romPathIndex: Map<string, string> = new Map();
+  /** Reverse index: sourceArchivePath → gameId for O(1) zip dedup lookups. */
+  private archivePathIndex: Map<string, string> = new Map();
   private configPath: string;
   private libraryPath: string;
   private romsCacheDir: string;
 
   constructor() {
+    super();
     const userData = app.getPath('userData');
     this.configPath = path.join(userData, 'library-config.json');
     this.libraryPath = path.join(userData, 'library.json');
@@ -60,11 +102,24 @@ export class LibraryService {
       // Parse permissively — old library.json may have partial/missing romHashes
       const games: Game[] = JSON.parse(data);
       this.games = new Map(games.map(game => [game.id, game]));
+      this.rebuildRomPathIndex();
       await this.migrateGameIds();
       await this.backfillRomHashes();
     } catch (error) {
       // No library file yet
       this.games = new Map();
+    }
+  }
+
+  /** Rebuild reverse indexes from the current games map. */
+  private rebuildRomPathIndex(): void {
+    this.romPathIndex.clear();
+    this.archivePathIndex.clear();
+    for (const [id, game] of this.games.entries()) {
+      this.romPathIndex.set(game.romPath, id);
+      if (game.sourceArchivePath) {
+        this.archivePathIndex.set(game.sourceArchivePath, id);
+      }
     }
   }
 
@@ -97,6 +152,7 @@ export class LibraryService {
     }
 
     if (migrated) {
+      this.rebuildRomPathIndex();
       await this.saveLibrary();
     }
   }
@@ -129,6 +185,7 @@ export class LibraryService {
     }
 
     if (changed) {
+      this.rebuildRomPathIndex();
       await this.saveLibrary();
     }
   }
@@ -161,6 +218,7 @@ export class LibraryService {
         this.games.delete(id);
       }
     }
+    this.rebuildRomPathIndex();
     await this.saveConfig();
     await this.saveLibrary();
   }
@@ -189,83 +247,276 @@ export class LibraryService {
     return games;
   }
 
-  public async scanDirectory(directoryPath: string, systemId?: string): Promise<Game[]> {
-    const foundGames: Game[] = [];
-    
+  // ---------------------------------------------------------------------------
+  // Optimized scan pipeline
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Recursively walk a directory tree and collect all candidate ROM files.
+   * This is a fast I/O-only pass — no hashing happens here.
+   */
+  private async collectCandidates(
+    directoryPath: string,
+    systemId: string | undefined,
+    candidates: RomCandidate[],
+  ): Promise<void> {
+    let entries;
     try {
-      const entries = await fs.readdir(directoryPath, { withFileTypes: true });
-      
-      for (const entry of entries) {
-        const fullPath = path.join(directoryPath, entry.name);
-        
-        if (entry.isDirectory() && this.config.scanRecursive) {
-          // If no specific system, check if directory name matches a system
-          if (!systemId) {
-            const matchingSystem = this.config.systems.find(
-              s => s.shortName.toLowerCase() === entry.name.toLowerCase() ||
-                   s.name.toLowerCase() === entry.name.toLowerCase() ||
-                   s.id === entry.name.toLowerCase()
-            );
-            if (matchingSystem) {
-              const subGames = await this.scanDirectory(fullPath, matchingSystem.id);
-              foundGames.push(...subGames);
-            } else {
-              // Continue scanning recursively
-              const subGames = await this.scanDirectory(fullPath, systemId);
-              foundGames.push(...subGames);
-            }
-          } else {
-            const subGames = await this.scanDirectory(fullPath, systemId);
-            foundGames.push(...subGames);
-          }
-        } else if (entry.isFile()) {
-          const ext = path.extname(entry.name).toLowerCase();
+      entries = await fs.readdir(directoryPath, { withFileTypes: true });
+    } catch (error) {
+      libraryLog.error(`Error reading directory ${directoryPath}:`, error);
+      return;
+    }
 
-          if (ext === '.zip' && systemId !== 'arcade') {
-            // Non-arcade zip: attempt to extract a ROM from the archive
-            try {
-              const game = await this.handleZipFile(fullPath, systemId);
-              if (game) {
-                foundGames.push(game);
-                this.games.set(game.id, game);
-              }
-            } catch (error) {
-              libraryLog.warn(`Skipping zip file ${fullPath}:`, error);
-            }
-          } else {
-            // Find matching system by extension
-            const systems = systemId
-              ? this.config.systems.filter(s => s.id === systemId)
-              : this.config.systems;
+    // Stat all files in parallel for mtime
+    const fileEntries: Array<{ entry: import('fs').Dirent; fullPath: string }> = [];
+    const dirEntries: Array<{ entry: import('fs').Dirent; fullPath: string; resolvedSystemId: string | undefined }> = [];
 
-            for (const system of systems) {
-              if (system.extensions.includes(ext)) {
-                try {
-                  const { gameId, hashes } = await this.computeRomHashes(fullPath);
-                  const existing = this.games.get(gameId);
-                  const game: Game = existing
-                    ? { ...existing, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath, romHashes: existing.romHashes ?? hashes }
-                    : { id: gameId, title: this.cleanGameTitle(path.basename(entry.name, ext)), system: system.name, systemId: system.id, romPath: fullPath, romHashes: hashes };
+    for (const entry of entries) {
+      const fullPath = path.join(directoryPath, entry.name);
 
-                  foundGames.push(game);
-                  this.games.set(gameId, game);
-                } catch (error) {
-                  libraryLog.warn(`Skipping unreadable ROM ${fullPath}:`, error);
-                }
-                break;
-              }
-            }
+      if (entry.isDirectory() && this.config.scanRecursive) {
+        let resolvedSystemId = systemId;
+        if (!systemId) {
+          const matchingSystem = this.config.systems.find(
+            s => s.shortName.toLowerCase() === entry.name.toLowerCase() ||
+                 s.name.toLowerCase() === entry.name.toLowerCase() ||
+                 s.id === entry.name.toLowerCase()
+          );
+          if (matchingSystem) {
+            resolvedSystemId = matchingSystem.id;
           }
         }
+        dirEntries.push({ entry, fullPath, resolvedSystemId });
+      } else if (entry.isFile()) {
+        fileEntries.push({ entry, fullPath });
       }
-    } catch (error) {
-      libraryLog.error(`Error scanning directory ${directoryPath}:`, error);
     }
-    
+
+    // Stat all files in parallel to get mtimes
+    const statResults = await Promise.all(
+      fileEntries.map(async ({ entry, fullPath }) => {
+        try {
+          const stat = await fs.stat(fullPath);
+          return { entry, fullPath, mtimeMs: stat.mtimeMs };
+        } catch {
+          return null; // Skip unreadable files
+        }
+      }),
+    );
+
+    for (const result of statResults) {
+      if (!result) continue;
+      const { entry, fullPath, mtimeMs } = result;
+      const ext = path.extname(entry.name).toLowerCase();
+
+      if (ext === '.zip' && systemId !== 'arcade') {
+        // Non-arcade zip — needs extraction
+        const existingGameId = this.findGameByArchivePath(fullPath);
+        const existingGame = existingGameId ? this.games.get(existingGameId) : undefined;
+
+        candidates.push({
+          fullPath,
+          mtimeMs,
+          ext,
+          systemIdFilter: systemId,
+          isZip: true,
+          isKnown: !!existingGame,
+          existingMtime: existingGame?.romMtime,
+        });
+      } else {
+        // Regular ROM file — match extension
+        const systems = systemId
+          ? this.config.systems.filter(s => s.id === systemId)
+          : this.config.systems;
+
+        const matchedSystem = systems.find(s => s.extensions.includes(ext));
+        if (matchedSystem) {
+          const existingGameId = this.romPathIndex.get(fullPath);
+          const existingGame = existingGameId ? this.games.get(existingGameId) : undefined;
+
+          candidates.push({
+            fullPath,
+            mtimeMs,
+            ext,
+            system: matchedSystem,
+            systemIdFilter: systemId,
+            isZip: false,
+            isKnown: !!existingGame,
+            existingMtime: existingGame?.romMtime,
+          });
+        }
+      }
+    }
+
+    // Recurse into subdirectories
+    for (const { fullPath, resolvedSystemId } of dirEntries) {
+      await this.collectCandidates(fullPath, resolvedSystemId, candidates);
+    }
+  }
+
+  /** Find a game by its sourceArchivePath (for zip dedup). O(1) via index. */
+  private findGameByArchivePath(archivePath: string): string | undefined {
+    return this.archivePathIndex.get(archivePath);
+  }
+
+  /**
+   * Process a single ROM candidate: hash, merge, and register the game.
+   * Returns the Game and whether it was newly added.
+   */
+  private async processCandidate(
+    candidate: RomCandidate,
+  ): Promise<{ game: Game; isNew: boolean } | null> {
+    if (candidate.isZip) {
+      return this.processZipCandidate(candidate);
+    }
+    return this.processRomCandidate(candidate);
+  }
+
+  /** Process a regular (non-zip) ROM file candidate. */
+  private async processRomCandidate(
+    candidate: RomCandidate,
+  ): Promise<{ game: Game; isNew: boolean } | null> {
+    const { fullPath, mtimeMs, ext, system } = candidate;
+    if (!system) return null;
+
+    // Check mtime cache: if path+mtime match an existing game, skip hashing
+    const existingGameId = this.romPathIndex.get(fullPath);
+    if (existingGameId) {
+      const existingGame = this.games.get(existingGameId);
+      if (existingGame && existingGame.romMtime === mtimeMs) {
+        // File unchanged — update title/system in case config changed, but skip hash
+        const title = this.cleanGameTitle(path.basename(path.basename(fullPath), ext));
+        existingGame.title = title;
+        existingGame.system = system.name;
+        existingGame.systemId = system.id;
+        return { game: existingGame, isNew: false };
+      }
+    }
+
+    // File is new or modified — compute hashes
+    try {
+      const { gameId, hashes } = await this.computeRomHashes(fullPath);
+      const existing = this.games.get(gameId);
+      const title = this.cleanGameTitle(path.basename(path.basename(fullPath), ext));
+      const isNew = !existing;
+      const game: Game = existing
+        ? { ...existing, title, system: system.name, systemId: system.id, romPath: fullPath, romMtime: mtimeMs, romHashes: existing.romHashes ?? hashes }
+        : { id: gameId, title, system: system.name, systemId: system.id, romPath: fullPath, romMtime: mtimeMs, romHashes: hashes };
+
+      this.games.set(gameId, game);
+      this.romPathIndex.set(fullPath, gameId);
+      return { game, isNew };
+    } catch (error) {
+      libraryLog.warn(`Skipping unreadable ROM ${fullPath}:`, error);
+      return null;
+    }
+  }
+
+  /** Process a zip file candidate. */
+  private async processZipCandidate(
+    candidate: RomCandidate,
+  ): Promise<{ game: Game; isNew: boolean } | null> {
+    const { fullPath, mtimeMs, systemIdFilter } = candidate;
+
+    // Check mtime cache: if this zip is already imported and unchanged, skip entirely
+    const existingGameId = this.findGameByArchivePath(fullPath);
+    if (existingGameId) {
+      const existingGame = this.games.get(existingGameId);
+      if (existingGame && existingGame.romMtime === mtimeMs) {
+        return { game: existingGame, isNew: false };
+      }
+    }
+
+    try {
+      const game = await this.handleZipFile(fullPath, systemIdFilter);
+      if (game) {
+        game.romMtime = mtimeMs;
+        this.games.set(game.id, game);
+        this.romPathIndex.set(game.romPath, game.id);
+        if (game.sourceArchivePath) {
+          this.archivePathIndex.set(game.sourceArchivePath, game.id);
+        }
+        return { game, isNew: true };
+      }
+      return null;
+    } catch (error) {
+      libraryLog.warn(`Skipping zip file ${fullPath}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Process an array of candidates with bounded concurrency.
+   * Emits 'scanProgress' for each game discovered.
+   */
+  private async processCandidatesBatch(
+    candidates: RomCandidate[],
+    progressState: { processed: number; skipped: number; total: number },
+  ): Promise<Game[]> {
+    const foundGames: Game[] = [];
+
+    // Process with bounded concurrency
+    let i = 0;
+    while (i < candidates.length) {
+      const batch = candidates.slice(i, i + HASH_CONCURRENCY);
+      const results = await Promise.all(
+        batch.map(candidate => this.processCandidate(candidate)),
+      );
+
+      for (const result of results) {
+        progressState.processed++;
+        if (result) {
+          foundGames.push(result.game);
+          if (!result.isNew) {
+            progressState.skipped++;
+          }
+          const progressEvent: ScanProgressEvent = {
+            game: result.game,
+            isNew: result.isNew,
+            processed: progressState.processed,
+            total: progressState.total,
+            skipped: progressState.skipped,
+          };
+          this.emit('scanProgress', progressEvent);
+        }
+      }
+
+      i += HASH_CONCURRENCY;
+    }
+
+    return foundGames;
+  }
+
+  public async scanDirectory(directoryPath: string, systemId?: string): Promise<Game[]> {
+    // Phase 1: Fast directory walk — collect all candidate files with stat info
+    const candidates: RomCandidate[] = [];
+    await this.collectCandidates(directoryPath, systemId, candidates);
+
+    if (candidates.length === 0) return [];
+
+    // Phase 2: Partition into new (unknown) and known files.
+    // Process new files first so they appear in the UI immediately.
+    const newCandidates = candidates.filter(c => !c.isKnown);
+    const knownCandidates = candidates.filter(c => c.isKnown);
+    const ordered = [...newCandidates, ...knownCandidates];
+
+    libraryLog.info(
+      `Scan: ${candidates.length} ROM files found (${newCandidates.length} new, ${knownCandidates.length} known)`,
+    );
+
+    // Phase 3: Process candidates — new files first, with parallel hashing
+    const progressState = { processed: 0, skipped: 0, total: ordered.length };
+    const foundGames = await this.processCandidatesBatch(ordered, progressState);
+
+    libraryLog.info(
+      `Scan complete: ${foundGames.length} games (${progressState.skipped} skipped via cache)`,
+    );
+
     if (foundGames.length > 0) {
       await this.saveLibrary();
     }
-    
+
     return foundGames;
   }
 
@@ -297,12 +548,25 @@ export class LibraryService {
       const game = await this.handleZipFile(romPath, systemId);
       if (game) {
         this.games.set(game.id, game);
+        this.romPathIndex.set(game.romPath, game.id);
+        if (game.sourceArchivePath) {
+          this.archivePathIndex.set(game.sourceArchivePath, game.id);
+        }
         await this.saveLibrary();
       }
       return game;
     }
 
     if (!system.extensions.includes(ext)) return null;
+
+    // Get mtime for cache tracking
+    let mtimeMs: number | undefined;
+    try {
+      const stat = await fs.stat(romPath);
+      mtimeMs = stat.mtimeMs;
+    } catch {
+      // Proceed without mtime
+    }
 
     const { gameId, hashes } = await this.computeRomHashes(romPath);
     const game: Game = {
@@ -311,10 +575,12 @@ export class LibraryService {
       system: system.name,
       systemId: system.id,
       romPath: romPath,
+      romMtime: mtimeMs,
       romHashes: hashes,
     };
 
     this.games.set(gameId, game);
+    this.romPathIndex.set(romPath, gameId);
     await this.saveLibrary();
     return game;
   }
@@ -329,6 +595,12 @@ export class LibraryService {
         libraryLog.warn(`Failed to delete cached ROM ${game.romPath}:`, error);
       }
     }
+    if (game) {
+      this.romPathIndex.delete(game.romPath);
+      if (game.sourceArchivePath) {
+        this.archivePathIndex.delete(game.sourceArchivePath);
+      }
+    }
     this.games.delete(gameId);
     await this.saveLibrary();
   }
@@ -336,7 +608,13 @@ export class LibraryService {
   public async updateGame(gameId: string, updates: Partial<Game>): Promise<void> {
     const game = this.games.get(gameId);
     if (game) {
+      const oldRomPath = game.romPath;
       Object.assign(game, updates);
+      // Update romPath index if romPath changed
+      if (updates.romPath && updates.romPath !== oldRomPath) {
+        this.romPathIndex.delete(oldRomPath);
+        this.romPathIndex.set(updates.romPath, gameId);
+      }
       await this.saveLibrary();
     }
   }
@@ -388,10 +666,9 @@ export class LibraryService {
     const system = this.findSystemForExtension(match.extension, systemId);
     if (!system) return null;
 
-    // Check if already imported from this zip
-    const existingGame = Array.from(this.games.values()).find(
-      g => g.sourceArchivePath === zipPath,
-    );
+    // Check if already imported from this zip (O(1) via index)
+    const existingGameId = this.findGameByArchivePath(zipPath);
+    const existingGame = existingGameId ? this.games.get(existingGameId) : undefined;
     if (existingGame) {
       try {
         await fs.access(existingGame.romPath);
