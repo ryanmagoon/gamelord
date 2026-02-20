@@ -16,6 +16,7 @@ const SYSTEM_DISPLAY_MAP: Record<string, DisplayType> = {
   genesis: 'crt',
   n64: 'crt',
   psx: 'crt',
+  saturn: 'crt',
   arcade: 'crt',
   gb: 'lcd-handheld',
   gba: 'lcd-handheld',
