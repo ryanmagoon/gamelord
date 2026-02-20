@@ -3,7 +3,6 @@ import { promises as fs } from 'fs';
 import * as fsSync from 'fs';
 import path from 'path';
 import https from 'https';
-import crypto from 'crypto';
 import { app } from 'electron';
 import { artworkLog } from '../logger';
 import { LibraryService } from './LibraryService';
@@ -167,25 +166,10 @@ export class ArtworkService extends EventEmitter {
 
     const client = this.createClient();
 
-    // Step 1: Compute ROM hash if not cached
-    let md5 = game.romHashes?.md5;
-    if (!md5) {
-      try {
-        md5 = await this.computeRomHash(game.romPath);
-        await this.libraryService.updateGame(gameId, {
-          romHashes: { ...game.romHashes, md5 },
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new ScreenScraperError(
-          `Failed to read ROM file: ${message}`,
-          0,
-          'network-error',
-        );
-      }
-    }
+    // MD5 is pre-computed at scan time and stored in game.romHashes
+    const md5 = game.romHashes.md5;
 
-    // Step 2: Query ScreenScraper by hash
+    // Step 1: Query ScreenScraper by hash
     let gameInfo: ScreenScraperGameInfo | null = null;
     try {
       await this.waitForRateLimit();
@@ -306,20 +290,6 @@ export class ArtworkService extends EventEmitter {
   /** Get current sync status. */
   getSyncStatus(): { inProgress: boolean } {
     return { inProgress: this.syncing };
-  }
-
-  /**
-   * Compute the MD5 hash of a ROM file's contents using a stream.
-   * This is non-blocking and works with large files (PSP ISOs, etc.).
-   */
-  computeRomHash(romPath: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const hash = crypto.createHash('md5');
-      const stream = fsSync.createReadStream(romPath);
-      stream.on('data', (chunk) => hash.update(chunk));
-      stream.on('end', () => resolve(hash.digest('hex')));
-      stream.on('error', reject);
-    });
   }
 
   /**
