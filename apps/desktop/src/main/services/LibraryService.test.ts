@@ -171,6 +171,37 @@ describe('LibraryService', () => {
       const service2 = await createService()
       expect(service2.getConfig().romsBasePath).toBe('/new/base/path')
     })
+
+    it('scaffolds per-system ROM folders on first launch', async () => {
+      const service = await createService()
+      const config = service.getConfig()
+      const basePath = config.romsBasePath!
+
+      // Every system in the default config should have a folder created
+      for (const system of config.systems) {
+        const systemDir = path.join(basePath, system.shortName)
+        expect(fs.existsSync(systemDir)).toBe(true)
+      }
+    })
+
+    it('does not scaffold folders when config already exists', async () => {
+      // Create a config file first so loadConfig takes the "existing" path
+      const customConfig = {
+        systems: [TEST_NES_SYSTEM],
+        romsBasePath: path.join(TEST_DIR, 'existing-roms'),
+        scanRecursive: true,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(customConfig, null, 2),
+      )
+
+      await createService()
+
+      // The romsBasePath folder should NOT have been created
+      expect(fs.existsSync(path.join(TEST_DIR, 'existing-roms'))).toBe(false)
+    })
   })
 
   // ---------------------------------------------------------------------------

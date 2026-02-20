@@ -89,7 +89,27 @@ export class LibraryService extends EventEmitter {
         autoScan: false,
       };
       await this.saveConfig();
+      await this.scaffoldSystemFolders();
     }
+  }
+
+  /**
+   * Create the romsBasePath and a subfolder for each configured system
+   * so users have a ready-made directory structure on first launch.
+   */
+  private async scaffoldSystemFolders(): Promise<void> {
+    const basePath = this.config.romsBasePath;
+    if (!basePath) return;
+
+    for (const system of this.config.systems) {
+      const systemDir = path.join(basePath, system.shortName);
+      try {
+        await fs.mkdir(systemDir, { recursive: true });
+      } catch (error) {
+        libraryLog.warn(`Failed to create system folder ${systemDir}:`, error);
+      }
+    }
+    libraryLog.info(`Scaffolded ROM folders in ${basePath}`);
   }
 
   private async saveConfig(): Promise<void> {
