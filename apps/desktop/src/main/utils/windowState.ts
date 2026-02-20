@@ -40,6 +40,30 @@ export const MAIN_WINDOW_CONFIG: WindowStateConfig = {
   },
 }
 
+interface Bounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/**
+ * Clamp window bounds so the window fits entirely within the nearest
+ * display's work area. Shrinks width/height if they exceed the display,
+ * then shifts x/y so nothing hangs off-screen.
+ */
+function clampToNearestDisplay(bounds: Bounds): Bounds {
+  const display = screen.getDisplayMatching(bounds as Electron.Rectangle)
+  const wa = display.workArea
+
+  const width = Math.min(bounds.width, wa.width)
+  const height = Math.min(bounds.height, wa.height)
+  const x = Math.max(wa.x, Math.min(bounds.x, wa.x + wa.width - width))
+  const y = Math.max(wa.y, Math.min(bounds.y, wa.y + wa.height - height))
+
+  return { x, y, width, height }
+}
+
 function loadWindowState(config: WindowStateConfig = MAIN_WINDOW_CONFIG): WindowState {
   const filePath = path.join(app.getPath('userData'), config.stateFile)
   try {
@@ -55,24 +79,14 @@ function loadWindowState(config: WindowStateConfig = MAIN_WINDOW_CONFIG): Window
       isFullScreen: typeof parsed.isFullScreen === 'boolean' ? parsed.isFullScreen : config.defaults.isFullScreen,
     }
 
-    // Validate that the saved position is still visible on any connected display
+    // Clamp saved bounds to the nearest display so the window is never
+    // off-screen or larger than the available work area.
     if (state.x !== -1 && state.y !== -1) {
-      const visible = screen.getAllDisplays().some((display) => {
-        const { x, y, width, height } = display.workArea
-        // Check if at least 100px of the window is within this display
-        return (
-          state.x + state.width > x + 100 &&
-          state.x < x + width - 100 &&
-          state.y > y - 50 &&
-          state.y < y + height - 100
-        )
-      })
-
-      if (!visible) {
-        // Reset position to center on primary display
-        state.x = -1
-        state.y = -1
-      }
+      const clamped = clampToNearestDisplay({ x: state.x, y: state.y, width: state.width, height: state.height })
+      state.x = clamped.x
+      state.y = clamped.y
+      state.width = clamped.width
+      state.height = clamped.height
     }
 
     return state
