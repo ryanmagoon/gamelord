@@ -62,6 +62,7 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 - [x] Keyboard shortcuts (F5 save, F9 load, Space pause)
 - [x] Legacy overlay mode for external RetroArch process
 - [x] Library scanner and game management
+- [x] **Incremental library scan** — Rewrote `scanDirectory` with three optimizations: (1) mtime-based cache skips re-hashing unchanged files (romMtime stored on Game), (2) new-files-first ordering processes unknown ROMs before known ones so new games appear in the UI immediately, (3) streamed progress events (`library:scanProgress`) push each discovered game to the renderer as it's found instead of waiting for the entire scan. Also added parallel hashing (4 files concurrently) and a romPath→gameId reverse index for O(1) lookups. Rescanning 2000+ unchanged ROMs now completes in under a second (stat-only) vs minutes (full hash). Scanning badge shows live progress count.
 - [x] Clean up debug logging from native addon and TypeScript
 
 ---

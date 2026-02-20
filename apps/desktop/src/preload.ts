@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld('gamelord', {
       'game:audio-samples',
       'overlay:show-controls',
       'core:downloadProgress',
+      'library:scanProgress',
       'artwork:progress',
       'artwork:syncComplete',
       'artwork:syncError',
