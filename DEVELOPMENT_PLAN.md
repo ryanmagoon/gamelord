@@ -41,8 +41,9 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 
 ### Supported Cores
 - **NES:** fceumm (primary), nestopia, mesen
-- **Sega Saturn:** mednafen_saturn (Beetle Saturn, primary), yabause — requires BIOS files (`sega_101.bin`, `mpr-17933.bin`) in the system directory
-- Cores located at: `~/Library/Application Support/RetroArch/cores/`
+- **Sega Saturn:** mednafen_saturn (Beetle Saturn, primary), yabause — requires BIOS files (`sega_101.bin`, `mpr-17933.bin`)
+- Cores located at: `~/Library/Application Support/GameLord/cores/`
+- BIOS files located at: `~/Library/Application Support/GameLord/BIOS/` (created automatically on startup, mirrors OpenEmu convention)
 
 ---
 

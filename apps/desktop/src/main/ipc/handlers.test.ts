@@ -299,7 +299,7 @@ describe('IPCHandlers', () => {
         deleteAutoSave: vi.fn(),
         getCorePath: vi.fn(() => '/cores/fceumm.dylib'),
         getRomPath: vi.fn(() => '/roms/smb.nes'),
-        getSystemDir: vi.fn(() => '/cores'),
+        getSystemDir: vi.fn(() => '/bios'),
         getSaveDir: vi.fn(() => '/saves'),
         getSramDir: vi.fn(() => '/saves'),
         getSaveStatesDir: vi.fn(() => '/savestates'),
@@ -318,7 +318,7 @@ describe('IPCHandlers', () => {
       expect(workerClientInstance.init).toHaveBeenCalledWith({
         corePath: '/cores/fceumm.dylib',
         romPath: '/roms/smb.nes',
-        systemDir: '/cores',
+        systemDir: '/bios',
         saveDir: '/saves',
         sramDir: '/saves',
         saveStatesDir: '/savestates',
