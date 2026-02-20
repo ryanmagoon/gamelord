@@ -27,6 +27,7 @@ export class LibretroNativeCore extends EmulatorCore {
   private readonly _saveStatesDir: string
   private readonly _sramDir: string
   private readonly _saveDir: string
+  private readonly _biosDir: string
 
   constructor(
     private readonly coresBasePath: string,
@@ -35,8 +36,10 @@ export class LibretroNativeCore extends EmulatorCore {
     this._saveStatesDir = path.join(app.getPath('userData'), 'savestates')
     this._sramDir = path.join(app.getPath('userData'), 'saves')
     this._saveDir = path.join(app.getPath('userData'), 'saves')
+    this._biosDir = path.join(app.getPath('userData'), 'BIOS')
     fs.mkdirSync(this._saveStatesDir, { recursive: true })
     fs.mkdirSync(this._sramDir, { recursive: true })
+    fs.mkdirSync(this._biosDir, { recursive: true })
   }
 
   /**
@@ -81,7 +84,7 @@ export class LibretroNativeCore extends EmulatorCore {
 
     this.romPath = validatedRomPath
     this._corePath = validatedCorePath
-    this._systemDir = path.dirname(validatedCorePath)
+    this._systemDir = this._biosDir
 
     this.isRunning = true
 

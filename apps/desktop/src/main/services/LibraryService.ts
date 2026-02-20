@@ -80,6 +80,8 @@ export class LibraryService extends EventEmitter {
     try {
       const data = await fs.readFile(this.configPath, 'utf-8');
       this.config = JSON.parse(data);
+      await this.backfillNewSystems();
+      await this.repairMissingRomsPaths();
     } catch (error) {
       // If no config exists, create default
       this.config = {
@@ -89,7 +91,94 @@ export class LibraryService extends EventEmitter {
         autoScan: false,
       };
       await this.saveConfig();
+      await this.scaffoldSystemFolders();
     }
+  }
+
+  /**
+   * Append any systems from DEFAULT_SYSTEMS that are missing from the
+   * saved config. This covers the case where a new system (e.g. Saturn)
+   * is added to the codebase but the user already has a persisted config
+   * from a previous version.
+   */
+  private async backfillNewSystems(): Promise<void> {
+    const existingIds = new Set(this.config.systems.map(s => s.id));
+    const newSystems = DEFAULT_SYSTEMS.filter(s => !existingIds.has(s.id));
+    if (newSystems.length === 0) return;
+
+    this.config.systems.push(...newSystems);
+
+    // Scaffold folders and set romsPath for the newly added systems
+    const basePath = this.config.romsBasePath;
+    if (basePath) {
+      for (const system of newSystems) {
+        const systemDir = path.join(basePath, system.shortName);
+        try {
+          await fs.mkdir(systemDir, { recursive: true });
+        } catch (error) {
+          libraryLog.warn(`Failed to create system folder ${systemDir}:`, error);
+        }
+        // Point the system at its folder so scanSystemFolders picks it up
+        const added = this.config.systems.find(s => s.id === system.id);
+        if (added) {
+          added.romsPath = systemDir;
+        }
+      }
+    }
+
+    await this.saveConfig();
+
+    const names = newSystems.map(s => s.shortName).join(', ');
+    libraryLog.info(`Backfilled ${newSystems.length} new system(s): ${names}`);
+  }
+
+  /**
+   * Set romsPath for any system that has a matching subfolder under
+   * romsBasePath but no romsPath configured. Fixes systems that were
+   * backfilled before we started auto-setting romsPath.
+   */
+  private async repairMissingRomsPaths(): Promise<void> {
+    const basePath = this.config.romsBasePath;
+    if (!basePath) return;
+
+    let repaired = 0;
+    for (const system of this.config.systems) {
+      if (system.romsPath) continue;
+      const candidate = path.join(basePath, system.shortName);
+      try {
+        await fs.access(candidate);
+        system.romsPath = candidate;
+        repaired++;
+      } catch {
+        // Folder doesn't exist — leave romsPath unset
+      }
+    }
+
+    if (repaired > 0) {
+      await this.saveConfig();
+      libraryLog.info(`Repaired romsPath for ${repaired} system(s)`);
+    }
+  }
+
+  /**
+   * Create the romsBasePath and a subfolder for each configured system
+   * so users have a ready-made directory structure on first launch.
+   */
+  private async scaffoldSystemFolders(): Promise<void> {
+    const basePath = this.config.romsBasePath;
+    if (!basePath) return;
+
+    for (const system of this.config.systems) {
+      const systemDir = path.join(basePath, system.shortName);
+      try {
+        await fs.mkdir(systemDir, { recursive: true });
+      } catch (error) {
+        libraryLog.warn(`Failed to create system folder ${systemDir}:`, error);
+      }
+      system.romsPath = systemDir;
+    }
+    await this.saveConfig();
+    libraryLog.info(`Scaffolded ROM folders in ${basePath}`);
   }
 
   private async saveConfig(): Promise<void> {
@@ -331,7 +420,11 @@ export class LibraryService extends EventEmitter {
           : this.config.systems;
 
         const matchedSystem = systems.find(s => s.extensions.includes(ext));
-        if (matchedSystem) {
+        if (!matchedSystem) {
+          if (systemId) {
+            libraryLog.debug(`Skipped ${entry.name}: ext=${ext} not in ${systemId} extensions`);
+          }
+        } else {
           const existingGameId = this.romPathIndex.get(fullPath);
           const existingGame = existingGameId ? this.games.get(existingGameId) : undefined;
 
@@ -396,6 +489,7 @@ export class LibraryService extends EventEmitter {
 
     // File is new or modified — compute hashes
     try {
+      libraryLog.debug(`Hashing ${path.basename(fullPath)} (${system.id})...`);
       const { gameId, hashes } = await this.computeRomHashes(fullPath);
       const existing = this.games.get(gameId);
       const title = this.cleanGameTitle(path.basename(path.basename(fullPath), ext));
@@ -406,6 +500,7 @@ export class LibraryService extends EventEmitter {
 
       this.games.set(gameId, game);
       this.romPathIndex.set(fullPath, gameId);
+      libraryLog.debug(`${isNew ? 'Added' : 'Updated'} ${title} (${system.id})`);
       return { game, isNew };
     } catch (error) {
       libraryLog.warn(`Skipping unreadable ROM ${fullPath}:`, error);
@@ -501,8 +596,16 @@ export class LibraryService extends EventEmitter {
     const knownCandidates = candidates.filter(c => c.isKnown);
     const ordered = [...newCandidates, ...knownCandidates];
 
+    // Log per-system breakdown for diagnostics
+    const systemCounts = new Map<string, number>();
+    for (const c of candidates) {
+      const sid = c.system?.id ?? c.systemIdFilter ?? 'unknown';
+      systemCounts.set(sid, (systemCounts.get(sid) ?? 0) + 1);
+    }
+    const breakdown = Array.from(systemCounts.entries()).map(([id, count]) => `${id}:${count}`).join(', ');
+
     libraryLog.info(
-      `Scan: ${candidates.length} ROM files found (${newCandidates.length} new, ${knownCandidates.length} known)`,
+      `Scan: ${candidates.length} ROM files found (${newCandidates.length} new, ${knownCandidates.length} known) [${breakdown}]`,
     );
 
     // Phase 3: Process candidates — new files first, with parallel hashing

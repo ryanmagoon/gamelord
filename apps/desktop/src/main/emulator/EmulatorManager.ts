@@ -43,7 +43,7 @@ export class EmulatorManager extends EventEmitter {
         name: 'RetroArch',
         type: 'retroarch',
         path: retroarchPaths[0],
-        supportedSystems: ['nes', 'snes', 'genesis', 'gb', 'gbc', 'gba', 'n64', 'psx'],
+        supportedSystems: ['nes', 'snes', 'genesis', 'gb', 'gbc', 'gba', 'n64', 'psx', 'saturn'],
         features: {
           saveStates: true,
           screenshots: true,
@@ -67,7 +67,7 @@ export class EmulatorManager extends EventEmitter {
         name: 'LibretroNative',
         type: 'libretro-native',
         path: coresPath,
-        supportedSystems: ['nes', 'snes', 'genesis', 'gb', 'gbc', 'gba', 'n64', 'psx', 'psp', 'nds', 'arcade'],
+        supportedSystems: ['nes', 'snes', 'genesis', 'gb', 'gbc', 'gba', 'n64', 'psx', 'saturn', 'psp', 'nds', 'arcade'],
         features: {
           saveStates: true,
           screenshots: true,
@@ -226,6 +226,7 @@ export class EmulatorManager extends EventEmitter {
       'gba': ['mgba_libretro', 'vba_next_libretro'],
       'n64': ['mupen64plus_next_libretro', 'parallel_n64_libretro'],
       'psx': ['pcsx_rearmed_libretro', 'beetle_psx_libretro'],
+      'saturn': ['mednafen_saturn_libretro', 'yabause_libretro'],
       'psp': ['ppsspp_libretro'],
       'nds': ['desmume_libretro'],
       'arcade': ['mame_libretro'],

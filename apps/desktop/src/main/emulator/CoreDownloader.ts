@@ -22,6 +22,7 @@ const PREFERRED_CORES: Record<string, string> = {
   'gba': 'mgba_libretro',
   'n64': 'mupen64plus_next_libretro',
   'psx': 'pcsx_rearmed_libretro',
+  'saturn': 'mednafen_saturn_libretro',
   'psp': 'ppsspp_libretro',
   'nds': 'desmume_libretro',
   'arcade': 'mame_libretro',
@@ -37,6 +38,7 @@ const SYSTEM_CORES: Record<string, string[]> = {
   'gba': ['mgba_libretro', 'vba_next_libretro'],
   'n64': ['mupen64plus_next_libretro', 'parallel_n64_libretro'],
   'psx': ['pcsx_rearmed_libretro', 'beetle_psx_libretro'],
+  'saturn': ['mednafen_saturn_libretro', 'yabause_libretro'],
   'psp': ['ppsspp_libretro'],
   'nds': ['desmume_libretro'],
   'arcade': ['mame_libretro'],
@@ -58,6 +60,8 @@ const CORE_DISPLAY_NAMES: Record<string, string> = {
   'parallel_n64_libretro': 'ParaLLEl N64',
   'pcsx_rearmed_libretro': 'PCSX ReARMed',
   'beetle_psx_libretro': 'Beetle PSX',
+  'mednafen_saturn_libretro': 'Beetle Saturn',
+  'yabause_libretro': 'Yabause',
   'ppsspp_libretro': 'PPSSPP',
   'desmume_libretro': 'DeSmuME',
   'mame_libretro': 'MAME',
@@ -74,6 +78,8 @@ const CORE_DESCRIPTIONS: Record<string, string> = {
   'picodrive_libretro': 'Fast Genesis emulation, Sega CD/32X support.',
   'gambatte_libretro': 'Accurate Game Boy/Color emulation.',
   'mgba_libretro': 'Fast and accurate GBA emulation.',
+  'mednafen_saturn_libretro': 'Accurate Saturn emulation. Requires BIOS files (sega_101.bin, mpr-17933.bin).',
+  'yabause_libretro': 'Saturn emulation with lower accuracy but lighter hardware requirements.',
 };
 
 export interface CoreInfo {

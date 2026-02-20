@@ -103,6 +103,12 @@ export const DEFAULT_SYSTEMS: GameSystem[] = [
     extensions: ['.nds', '.dsi', '.ids'],
   },
   {
+    id: 'saturn',
+    name: 'Sega Saturn',
+    shortName: 'Saturn',
+    extensions: ['.cue', '.chd', '.ccd', '.mdf'],
+  },
+  {
     id: 'arcade',
     name: 'Arcade',
     shortName: 'Arcade',

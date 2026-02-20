@@ -60,7 +60,7 @@ describe('LibretroNativeCore', () => {
   // -----------------------------------------------------------------------
 
   describe('constructor', () => {
-    it('creates save state and SRAM directories', () => {
+    it('creates save state, SRAM, and BIOS directories', () => {
       const mkdirSync = fs.mkdirSync as Mock
       expect(mkdirSync).toHaveBeenCalledWith(
         path.join('/tmp/test-userdata', 'savestates'),
@@ -68,6 +68,10 @@ describe('LibretroNativeCore', () => {
       )
       expect(mkdirSync).toHaveBeenCalledWith(
         path.join('/tmp/test-userdata', 'saves'),
+        { recursive: true },
+      )
+      expect(mkdirSync).toHaveBeenCalledWith(
+        path.join('/tmp/test-userdata', 'BIOS'),
         { recursive: true },
       )
     })
@@ -129,7 +133,7 @@ describe('LibretroNativeCore', () => {
 
       expect(core.getCorePath()).toBe('/cores/snes9x.dylib')
       expect(core.getRomPath()).toBe('/roms/TestGame.nes')
-      expect(core.getSystemDir()).toBe(path.dirname('/cores/snes9x.dylib'))
+      expect(core.getSystemDir()).toBe(path.join('/tmp/test-userdata', 'BIOS'))
     })
   })
 

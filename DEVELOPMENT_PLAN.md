@@ -41,7 +41,9 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 
 ### Supported Cores
 - **NES:** fceumm (primary), nestopia, mesen
-- Cores located at: `~/Library/Application Support/RetroArch/cores/`
+- **Sega Saturn:** mednafen_saturn (Beetle Saturn, primary), yabause — requires BIOS files (`sega_101.bin`, `mpr-17933.bin`)
+- Cores located at: `~/Library/Application Support/GameLord/cores/`
+- BIOS files located at: `~/Library/Application Support/GameLord/BIOS/` (created automatically on startup, mirrors OpenEmu convention)
 
 ---
 
@@ -106,6 +108,7 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P3 — Multi-System Support
 
+- [x] **Sega Saturn support** — System definition (`.cue`, `.chd`, `.ccd`, `.mdf`), core mapping (Beetle Saturn / Yabause), ScreenScraper integration (system ID 22), platform icon, CRT display type. Requires BIOS files in system directory.
 - [ ] Install and test additional cores (SNES: snes9x/bsnes, Genesis: genesis_plus_gx, GB/GBA: mgba/gambatte) — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
 - [ ] Update ROM scanner to detect multiple system types — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
 - [ ] Add system badges/icons to library UI — [#67](https://github.com/ryanmagoon/gamelord/issues/67)

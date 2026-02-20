@@ -58,6 +58,18 @@ const platformIcons: Record<string, React.FC<{ className?: string }>> = {
       <rect x="14" y="13" width="1" height="1" />
     </svg>
   ),
+  'Saturn': ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <rect x="2" y="8" width="20" height="8" rx="4" />
+      <rect x="5" y="10" width="3" height="3" rx="0.5" />
+      <circle cx="15" cy="10.5" r="0.8" />
+      <circle cx="17" cy="10.5" r="0.8" />
+      <circle cx="19" cy="10.5" r="0.8" />
+      <circle cx="15" cy="13" r="0.8" />
+      <circle cx="17" cy="13" r="0.8" />
+      <circle cx="19" cy="13" r="0.8" />
+    </svg>
+  ),
   'PS1': ({ className }) => (
     <Disc className={className} />
   ),

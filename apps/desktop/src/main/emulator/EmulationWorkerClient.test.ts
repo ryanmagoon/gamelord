@@ -57,7 +57,7 @@ const TEST_AV_INFO: AVInfo = {
 const TEST_INIT_OPTIONS = {
   corePath: '/cores/fceumm.dylib',
   romPath: '/roms/zelda.nes',
-  systemDir: '/cores',
+  systemDir: '/bios',
   saveDir: '/saves',
   sramDir: '/saves',
   saveStatesDir: '/savestates',
