@@ -1,7 +1,5 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import crypto from 'crypto';
-import { Readable } from 'stream';
 
 // Mock electron before importing ArtworkService
 vi.mock('electron', () => ({
@@ -101,6 +99,11 @@ function makeGame(overrides: Partial<Game> = {}): Game {
     system: 'Nintendo Entertainment System',
     systemId: 'nes',
     romPath: '/roms/smb.nes',
+    romHashes: {
+      crc32: 'deadbeef',
+      sha1: 'da39a3ee5e6b4b0d3255bfef95601890afd80709',
+      md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    },
     ...overrides,
   };
 }
@@ -131,41 +134,6 @@ describe('ArtworkService', () => {
     // The prototype methods are patched so every ArtworkService instance is fast.
     vi.spyOn(ArtworkService.prototype as any, 'sleep').mockResolvedValue(undefined);
     vi.spyOn(ArtworkService.prototype as any, 'waitForRateLimit').mockResolvedValue(undefined);
-  });
-
-  describe('computeRomHash', () => {
-    it('computes the correct MD5 hash via streaming', async () => {
-      const testData = Buffer.from('hello world test ROM data');
-      const expectedHash = crypto.createHash('md5').update(testData).digest('hex');
-
-      const mockStream = new Readable({
-        read() {
-          this.push(testData);
-          this.push(null);
-        },
-      });
-      mockCreateReadStream.mockReturnValue(mockStream);
-
-      const mockLibrary = createMockLibraryService();
-      const service = new ArtworkService(mockLibrary);
-
-      const hash = await service.computeRomHash('/roms/test.nes');
-      expect(hash).toBe(expectedHash);
-    });
-
-    it('rejects when the file does not exist', async () => {
-      const mockStream = new Readable({
-        read() {
-          this.destroy(new Error('ENOENT: file not found'));
-        },
-      });
-      mockCreateReadStream.mockReturnValue(mockStream);
-
-      const mockLibrary = createMockLibraryService();
-      const service = new ArtworkService(mockLibrary);
-
-      await expect(service.computeRomHash('/nonexistent.nes')).rejects.toThrow('ENOENT');
-    });
   });
 
   describe('credentials management', () => {
@@ -335,15 +303,6 @@ describe('ArtworkService', () => {
       await flushPromises();
       await service.setCredentials('user', 'pass');
 
-      // Mock ROM hash so we don't hit the filesystem
-      const mockStream = new Readable({
-        read() {
-          this.push(Buffer.from('test ROM'));
-          this.push(null);
-        },
-      });
-      mockCreateReadStream.mockReturnValue(mockStream);
-
       mockFetchByHash.mockRejectedValue(
         new ScreenScraperError('Invalid username or password.', 401, 'auth-failed'),
       );
@@ -359,14 +318,6 @@ describe('ArtworkService', () => {
       await flushPromises();
       await service.setCredentials('user', 'pass');
 
-      const mockStream = new Readable({
-        read() {
-          this.push(Buffer.from('test ROM'));
-          this.push(null);
-        },
-      });
-      mockCreateReadStream.mockReturnValue(mockStream);
-
       // Hash lookup returns null (not found), but name search hits auth error
       mockFetchByHash.mockResolvedValue(null);
       mockFetchByName.mockRejectedValue(
@@ -376,35 +327,11 @@ describe('ArtworkService', () => {
       await expect(service.syncGame('game1')).rejects.toThrow('Invalid username or password.');
     });
 
-    it('throws on ROM hash failure with descriptive error', async () => {
-      const game = makeGame();
-      const service = new ArtworkService(createMockLibraryService([game]));
-      await flushPromises();
-      await service.setCredentials('user', 'pass');
-
-      const mockStream = new Readable({
-        read() {
-          this.destroy(new Error('ENOENT: no such file'));
-        },
-      });
-      mockCreateReadStream.mockReturnValue(mockStream);
-
-      await expect(service.syncGame('game1')).rejects.toThrow('Failed to read ROM file');
-    });
-
     it('falls through to name search on non-auth errors from hash lookup', async () => {
       const game = makeGame();
       const service = new ArtworkService(createMockLibraryService([game]));
       await flushPromises();
       await service.setCredentials('user', 'pass');
-
-      const mockStream = new Readable({
-        read() {
-          this.push(Buffer.from('test ROM'));
-          this.push(null);
-        },
-      });
-      mockCreateReadStream.mockReturnValue(mockStream);
 
       // Hash lookup times out, but name search succeeds
       mockFetchByHash.mockRejectedValue(
@@ -527,15 +454,6 @@ describe('ArtworkService', () => {
       await flushPromises();
       await service.setCredentials('baduser', 'badpass');
 
-      // Return a fresh stream per call so each game can compute its hash
-      mockCreateReadStream.mockImplementation(() => {
-        return new Readable({
-          read() {
-            this.push(Buffer.from('test'));
-            this.push(null);
-          },
-        });
-      });
       mockFetchByHash.mockRejectedValue(
         new ScreenScraperError('Invalid username or password.', 401, 'auth-failed'),
       );
@@ -564,15 +482,6 @@ describe('ArtworkService', () => {
       await flushPromises();
       await service.setCredentials('user', 'pass');
 
-      mockCreateReadStream.mockImplementation(() => {
-        return new Readable({
-          read() {
-            this.push(Buffer.from('test'));
-            this.push(null);
-          },
-        });
-      });
-
       // Timeout errors should NOT stop the batch
       mockFetchByHash.mockRejectedValue(
         new ScreenScraperError('Timed out', 0, 'timeout'),
@@ -590,15 +499,6 @@ describe('ArtworkService', () => {
       const service = new ArtworkService(createMockLibraryService([game]));
       await flushPromises();
       await service.setCredentials('user', 'pass');
-
-      mockCreateReadStream.mockImplementation(() => {
-        return new Readable({
-          read() {
-            this.push(Buffer.from('test'));
-            this.push(null);
-          },
-        });
-      });
 
       // Timeout errors are non-fatal and fall through to name search
       mockFetchByHash.mockRejectedValue(

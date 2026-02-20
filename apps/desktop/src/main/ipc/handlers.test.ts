@@ -286,6 +286,7 @@ describe('IPCHandlers', () => {
       system: 'NES',
       systemId: 'nes',
       romPath: '/roms/smb.nes',
+      romHashes: { crc32: 'deadbeef', sha1: 'a'.repeat(40), md5: 'b'.repeat(32) },
     };
 
     it('launches in native mode successfully', async () => {

@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import crypto from 'crypto'
+import zlib from 'zlib'
 import { execFileSync } from 'child_process'
 
 // Mock electron before importing LibraryService
@@ -57,15 +58,25 @@ async function createService(): Promise<LibraryService> {
   return service
 }
 
-/** Compute the SHA-256 of a file's content (mirrors generateGameId). */
+/** Compute the SHA-256 of a file's content (mirrors computeRomHashes gameId). */
 function sha256File(filePath: string): string {
   const content = fs.readFileSync(filePath)
   return crypto.createHash('sha256').update(content).digest('hex')
 }
 
-/** Compute the SHA-256 of a string (mirrors path-based fallback). */
+/** Compute the SHA-256 of a string. */
 function sha256String(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex')
+}
+
+/** Compute all ROM hashes for a buffer (mirrors computeRomHashes). */
+function computeExpectedHashes(content: Buffer | string): { crc32: string; sha1: string; md5: string } {
+  const buf = Buffer.isBuffer(content) ? content : Buffer.from(content)
+  return {
+    crc32: zlib.crc32(buf).toString(16).padStart(8, '0'),
+    sha1: crypto.createHash('sha1').update(buf).digest('hex'),
+    md5: crypto.createHash('md5').update(buf).digest('hex'),
+  }
 }
 
 const TEST_NES_SYSTEM: GameSystem = {
@@ -331,7 +342,7 @@ describe('LibraryService', () => {
   })
 
   describe('addGame', () => {
-    it('creates a game with correct SHA-256 content-based ID', async () => {
+    it('creates a game with correct SHA-256 content-based ID and romHashes', async () => {
       const romPath = path.join(ROMS_DIR, 'test_game.nes')
       const romContent = 'unique-nes-rom-data-for-sha256-test'
       fs.writeFileSync(romPath, romContent)
@@ -346,6 +357,10 @@ describe('LibraryService', () => {
       expect(game!.system).toBe('Nintendo Entertainment System')
       expect(game!.systemId).toBe('nes')
       expect(game!.romPath).toBe(romPath)
+
+      // Verify romHashes
+      const expected = computeExpectedHashes(romContent)
+      expect(game!.romHashes).toEqual(expected)
 
       fs.unlinkSync(romPath)
     })
@@ -785,11 +800,34 @@ describe('LibraryService', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // generateGameId (tested indirectly through addGame)
+  // computeRomHashes
   // ---------------------------------------------------------------------------
 
-  describe('generateGameId (content-based hashing)', () => {
-    it('produces the same ID for files with identical content', async () => {
+  describe('computeRomHashes', () => {
+    it('returns correct CRC32, SHA-1, MD5, and SHA-256 game ID for known content', async () => {
+      const romPath = path.join(ROMS_DIR, 'hash_test.nes')
+      const content = 'known-content-for-hash-verification'
+      fs.writeFileSync(romPath, content)
+
+      const expected = computeExpectedHashes(content)
+      const expectedGameId = sha256File(romPath)
+
+      const service = await createService()
+      const { gameId, hashes } = await service.computeRomHashes(romPath)
+
+      expect(gameId).toBe(expectedGameId)
+      expect(gameId).toHaveLength(64)
+      expect(hashes.crc32).toBe(expected.crc32)
+      expect(hashes.crc32).toHaveLength(8)
+      expect(hashes.sha1).toBe(expected.sha1)
+      expect(hashes.sha1).toHaveLength(40)
+      expect(hashes.md5).toBe(expected.md5)
+      expect(hashes.md5).toHaveLength(32)
+
+      fs.unlinkSync(romPath)
+    })
+
+    it('produces the same hashes for files with identical content', async () => {
       const romA = path.join(ROMS_DIR, 'identical_a.nes')
       const romB = path.join(ROMS_DIR, 'identical_b.nes')
       const content = 'identical-rom-content-for-hash-test'
@@ -797,33 +835,258 @@ describe('LibraryService', () => {
       fs.writeFileSync(romB, content)
 
       const service = await createService()
-      const gameA = await service.addGame(romA, 'nes')
-      const gameB = await service.addGame(romB, 'nes')
+      const resultA = await service.computeRomHashes(romA)
+      const resultB = await service.computeRomHashes(romB)
 
-      expect(gameA).not.toBeNull()
-      expect(gameB).not.toBeNull()
-      expect(gameA!.id).toBe(gameB!.id)
+      expect(resultA.gameId).toBe(resultB.gameId)
+      expect(resultA.hashes).toEqual(resultB.hashes)
 
       fs.unlinkSync(romA)
       fs.unlinkSync(romB)
     })
 
-    it('produces different IDs for files with different content', async () => {
+    it('produces different hashes for files with different content', async () => {
       const romA = path.join(ROMS_DIR, 'diff_a.nes')
       const romB = path.join(ROMS_DIR, 'diff_b.nes')
       fs.writeFileSync(romA, 'content-aaa')
       fs.writeFileSync(romB, 'content-bbb')
 
       const service = await createService()
-      const gameA = await service.addGame(romA, 'nes')
-      const gameB = await service.addGame(romB, 'nes')
+      const resultA = await service.computeRomHashes(romA)
+      const resultB = await service.computeRomHashes(romB)
 
-      expect(gameA).not.toBeNull()
-      expect(gameB).not.toBeNull()
-      expect(gameA!.id).not.toBe(gameB!.id)
+      expect(resultA.gameId).not.toBe(resultB.gameId)
+      expect(resultA.hashes.crc32).not.toBe(resultB.hashes.crc32)
+      expect(resultA.hashes.sha1).not.toBe(resultB.hashes.sha1)
+      expect(resultA.hashes.md5).not.toBe(resultB.hashes.md5)
 
       fs.unlinkSync(romA)
       fs.unlinkSync(romB)
+    })
+
+    it('throws when the file is unreadable', async () => {
+      const service = await createService()
+      await expect(
+        service.computeRomHashes('/nonexistent/file.nes'),
+      ).rejects.toThrow()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // romHashes integration with scan/add
+  // ---------------------------------------------------------------------------
+
+  describe('romHashes integration', () => {
+    it('populates romHashes on scanned games', async () => {
+      const hashDir = path.join(TEST_DIR, 'hash-integration')
+      fs.mkdirSync(hashDir, { recursive: true })
+      const content = 'hash-integration-rom-data'
+      fs.writeFileSync(path.join(hashDir, 'game.nes'), content)
+
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(hashDir)
+
+      expect(games).toHaveLength(1)
+      const expected = computeExpectedHashes(content)
+      expect(games[0].romHashes).toEqual(expected)
+
+      fs.rmSync(hashDir, { recursive: true, force: true })
+    })
+
+    it('populates romHashes on addGame', async () => {
+      const romPath = path.join(ROMS_DIR, 'hash_add_test.nes')
+      const content = 'hash-add-test-data'
+      fs.writeFileSync(romPath, content)
+
+      const service = await createService()
+      const game = await service.addGame(romPath, 'nes')
+
+      expect(game).not.toBeNull()
+      const expected = computeExpectedHashes(content)
+      expect(game!.romHashes).toEqual(expected)
+
+      fs.unlinkSync(romPath)
+    })
+
+    it('preserves existing romHashes on rescan', async () => {
+      const rescanDir = path.join(TEST_DIR, 'hash-rescan')
+      fs.mkdirSync(rescanDir, { recursive: true })
+      fs.writeFileSync(path.join(rescanDir, 'game.nes'), 'hash-rescan-data')
+
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const firstScan = await service.scanDirectory(rescanDir)
+      expect(firstScan).toHaveLength(1)
+      const originalHashes = firstScan[0].romHashes
+
+      // Rescan — hashes should be preserved
+      const secondScan = await service.scanDirectory(rescanDir)
+      expect(secondScan).toHaveLength(1)
+      expect(secondScan[0].romHashes).toEqual(originalHashes)
+
+      fs.rmSync(rescanDir, { recursive: true, force: true })
+    })
+
+    it('skips unreadable ROM files during scan with a warning', async () => {
+      const unreadableDir = path.join(TEST_DIR, 'unreadable-scan')
+      fs.mkdirSync(unreadableDir, { recursive: true })
+      const romPath = path.join(unreadableDir, 'game.nes')
+      fs.writeFileSync(romPath, 'data')
+      // Make the file unreadable
+      fs.chmodSync(romPath, 0o000)
+
+      const config = {
+        systems: [TEST_NES_SYSTEM],
+        scanRecursive: false,
+        autoScan: false,
+      }
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, 'library-config.json'),
+        JSON.stringify(config, null, 2),
+      )
+
+      const service = await createService()
+      const games = await service.scanDirectory(unreadableDir)
+
+      // Game should be skipped, not added
+      expect(games).toHaveLength(0)
+
+      // Restore permissions for cleanup
+      fs.chmodSync(romPath, 0o644)
+      fs.rmSync(unreadableDir, { recursive: true, force: true })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // backfillRomHashes
+  // ---------------------------------------------------------------------------
+
+  describe('backfillRomHashes', () => {
+    it('fills in missing hashes for games loaded from old library.json', async () => {
+      const romPath = path.join(ROMS_DIR, 'backfill_test.nes')
+      const content = 'backfill-test-content'
+      fs.writeFileSync(romPath, content)
+
+      const gameId = sha256File(romPath)
+      // Seed library with a game that has no romHashes (old format)
+      const games = [
+        {
+          id: gameId,
+          title: 'Backfill Game',
+          system: 'Nintendo Entertainment System',
+          systemId: 'nes',
+          romPath,
+        },
+      ]
+      fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
+
+      const service = await createService()
+      // Give time for async backfill to complete
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const loadedGames = service.getGames()
+      expect(loadedGames).toHaveLength(1)
+      const expected = computeExpectedHashes(content)
+      expect(loadedGames[0].romHashes).toEqual(expected)
+
+      fs.unlinkSync(romPath)
+    })
+
+    it('fills in missing crc32/sha1 when only md5 exists (partial hashes)', async () => {
+      const romPath = path.join(ROMS_DIR, 'partial_backfill.nes')
+      const content = 'partial-backfill-content'
+      fs.writeFileSync(romPath, content)
+
+      const gameId = sha256File(romPath)
+      const expected = computeExpectedHashes(content)
+      // Seed with only MD5 (what ArtworkService used to set)
+      const games = [
+        {
+          id: gameId,
+          title: 'Partial Hash Game',
+          system: 'Nintendo Entertainment System',
+          systemId: 'nes',
+          romPath,
+          romHashes: { md5: expected.md5 },
+        },
+      ]
+      fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
+
+      const service = await createService()
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const loadedGames = service.getGames()
+      expect(loadedGames).toHaveLength(1)
+      expect(loadedGames[0].romHashes).toEqual(expected)
+
+      fs.unlinkSync(romPath)
+    })
+
+    it('removes games whose ROM files are unreadable during backfill', async () => {
+      const gameId = sha256String('ghost-content')
+      const games = [
+        {
+          id: gameId,
+          title: 'Ghost Game',
+          system: 'Nintendo Entertainment System',
+          systemId: 'nes',
+          romPath: '/nonexistent/path/ghost.nes',
+        },
+      ]
+      fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
+
+      const service = await createService()
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      // Game should be removed because the ROM file doesn't exist
+      expect(service.getGames()).toHaveLength(0)
+    })
+
+    it('skips games that already have all three hashes', async () => {
+      const romPath = path.join(ROMS_DIR, 'complete_hashes.nes')
+      fs.writeFileSync(romPath, 'complete-hash-data')
+
+      const gameId = sha256File(romPath)
+      const hashes = computeExpectedHashes('complete-hash-data')
+      const games = [
+        {
+          id: gameId,
+          title: 'Complete Game',
+          system: 'Nintendo Entertainment System',
+          systemId: 'nes',
+          romPath,
+          romHashes: hashes,
+        },
+      ]
+      fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
+
+      const service = await createService()
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const loadedGames = service.getGames()
+      expect(loadedGames).toHaveLength(1)
+      expect(loadedGames[0].romHashes).toEqual(hashes)
+
+      fs.unlinkSync(romPath)
     })
   })
 
@@ -922,16 +1185,19 @@ describe('LibraryService', () => {
   describe('library persistence', () => {
     it('loads existing games from library.json on construction', async () => {
       const romPath = path.join(ROMS_DIR, 'persisted_game.nes')
-      fs.writeFileSync(romPath, 'persisted-content')
+      const content = 'persisted-content'
+      fs.writeFileSync(romPath, content)
 
       const gameId = sha256File(romPath)
-      const games: Game[] = [
+      const hashes = computeExpectedHashes(content)
+      const games = [
         {
           id: gameId,
           title: 'Persisted Game',
           system: 'Nintendo Entertainment System',
           systemId: 'nes',
           romPath,
+          romHashes: hashes,
         },
       ]
       fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
@@ -942,6 +1208,7 @@ describe('LibraryService', () => {
       expect(loadedGames).toHaveLength(1)
       expect(loadedGames[0].title).toBe('Persisted Game')
       expect(loadedGames[0].id).toBe(gameId)
+      expect(loadedGames[0].romHashes).toEqual(hashes)
 
       fs.unlinkSync(romPath)
     })
@@ -952,14 +1219,16 @@ describe('LibraryService', () => {
   // ---------------------------------------------------------------------------
 
   describe('migrateGameIds', () => {
-    it('migrates old 32-char hex IDs to SHA-256 content-based IDs', async () => {
+    it('migrates old 32-char hex IDs to SHA-256 content-based IDs and populates hashes', async () => {
       const romPath = path.join(ROMS_DIR, 'migrate_test.nes')
-      fs.writeFileSync(romPath, 'migration-content')
+      const content = 'migration-content'
+      fs.writeFileSync(romPath, content)
 
       const oldMd5Id = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4' // 32-char hex
       const expectedNewId = sha256File(romPath)
+      const expectedHashes = computeExpectedHashes(content)
 
-      const games: Game[] = [
+      const games = [
         {
           id: oldMd5Id,
           title: 'Legacy Game',
@@ -971,13 +1240,14 @@ describe('LibraryService', () => {
       fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
 
       const service = await createService()
-      // Give extra time for migration to complete
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // Give extra time for migration + backfill to complete
+      await new Promise(resolve => setTimeout(resolve, 200))
 
       const loadedGames = service.getGames()
       expect(loadedGames).toHaveLength(1)
       expect(loadedGames[0].id).toBe(expectedNewId)
       expect(loadedGames[0].id).toHaveLength(64)
+      expect(loadedGames[0].romHashes).toEqual(expectedHashes)
 
       fs.unlinkSync(romPath)
     })
