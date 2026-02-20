@@ -42,6 +42,11 @@ let sampleRate = 44100
 let consecutiveErrors = 0
 const MAX_CONSECUTIVE_ERRORS = 5
 
+// Frame skip counter — during fast-forward, only send every Nth video
+// frame via IPC to avoid flooding the main process. The renderer draws
+// at rAF (~60fps) anyway, so intermediate frames are discarded.
+let frameCounter = 0
+
 // Spin threshold: busy-wait the last N ms of each frame for precise timing
 const SPIN_THRESHOLD_MS = 2
 
@@ -286,10 +291,17 @@ function startEmulationLoop(): void {
         }
       }
 
-      // Send video frame — same slice() pattern as audio to ensure clean
-      // contiguous data survives IPC serialization without byteOffset issues.
+      // Send video frame — during fast-forward, only send every Nth frame
+      // to avoid flooding the IPC channel. At 8x speed the loop ticks 480
+      // times/sec, but the renderer draws at ~60fps via rAF so extra frames
+      // are discarded anyway. Sending all of them overwhelms the main
+      // process serialization and freezes the UI.
+      frameCounter++
+      const shouldSendFrame = speedMultiplier <= 1
+        || (frameCounter % Math.round(speedMultiplier)) === 0
+
       const frame = native.getVideoFrame()
-      if (frame) {
+      if (frame && shouldSendFrame) {
         send({
           type: 'videoFrame',
           data: Buffer.from(frame.data.buffer.slice(
