@@ -9,11 +9,9 @@ A modern, elegant emulation frontend built as a spiritual successor to OpenEmu, 
 - 🎮 **Multi-System Support** - Powered by libretro cores for compatibility with multiple gaming systems
 - 🎨 **Beautiful Native UI** - Built with shadcn/ui for a polished, macOS-native appearance
 - 🚀 **High Performance** - WebGL rendering with shader effects and optimized frame timing
-- 🎯 **Library Management** - Automatic ROM scanning with multi-system detection, metadata and cover art *(coming soon)*
-- 🎛️ **Keyboard Input** - Configurable keyboard mapping for libretro joypad buttons, gamepad support *(coming soon)*
+- 🎯 **Library Management** - Automatic ROM scanning with multi-system detection, metadata and cover art
 - 💾 **Save State Management** - Quick save/load with multiple slots and autosave on close
 - 🌈 **Visual Effects** - CRT shaders, scanlines, and other retro visual enhancements via WebGL2
-- 🔒 **Secure Architecture** - Context isolation with Electron preload scripts
 
 ## Getting Started
 
@@ -135,19 +133,6 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 - Write tests for new features
 - Update documentation as needed
 - Create detailed pull requests
-
-## Roadmap
-
-- [x] Initial project setup with Electron Forge
-- [x] React + TypeScript integration
-- [x] shadcn/ui component library
-- [x] Core emulation integration
-- [x] ROM library management
-- [ ] Game metadata service
-- [x] Save state system
-- [ ] Controller configuration
-- [x] Shader effects
-- [ ] Multi-language support
 
 ## License
 
