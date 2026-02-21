@@ -63,6 +63,14 @@ app.on('ready', () => {
     });
   });
 
+  // Auto-approve all permission requests. Cross-origin isolation (COEP)
+  // causes Chromium to prompt for AudioContext permissions that are normally
+  // auto-granted in Electron. Since this is a local desktop app (not a
+  // web browser), all permissions are safe to grant automatically.
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(true);
+  });
+
   // Register artwork:// protocol to serve cached cover art images
   // from the sandboxed renderer via <img src="artwork://gameId.png">.
   // The CORP header is required because COEP require-corp is enabled above.
