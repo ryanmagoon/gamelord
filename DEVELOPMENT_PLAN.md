@@ -215,6 +215,7 @@ Items are grouped by priority. Work top-down within each tier.
 
 - [ ] Bundle libretro cores with the app — [#98](https://github.com/ryanmagoon/gamelord/issues/98)
 - [ ] **DMG packaging + auto-updates** — electron-builder DMG with code signing, notarization, custom background. Auto-updates via electron-updater + GitHub Releases. — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
+- [ ] **Cross-platform support (Windows & Linux)** — Abstract `dlopen` → `LoadLibrary` for Windows, platform-detect core/config paths, download cores from correct buildbot URL per OS, electron-builder configs for NSIS/MSI (Windows) and AppImage/deb (Linux), CI matrix for all three platforms. The emulation pipeline is already OS-agnostic; the work is in native addon portability, path conventions, and packaging. — [#118](https://github.com/ryanmagoon/gamelord/issues/118)
 
 ### P10 — Web Presence (Vercel)
 
