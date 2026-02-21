@@ -69,10 +69,10 @@ export interface CoreOptions {
 }
 
 export interface VideoFrame {
-  data: ArrayBuffer
+  data: ArrayBuffer | Uint8Array
   width: number
   height: number
-  timestamp: number
+  timestamp?: number
 }
 
 export interface AudioSamples {
