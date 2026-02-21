@@ -19,6 +19,15 @@ import {
 import type { Game } from '../../types/library'
 import type { GamelordAPI } from '../types/global'
 import { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from '@gamelord/ui'
+import {
+  CTRL_ACTIVE_BUFFER,
+  CTRL_FRAME_SEQUENCE,
+  CTRL_FRAME_WIDTH,
+  CTRL_FRAME_HEIGHT,
+  CTRL_AUDIO_WRITE_POS,
+  CTRL_AUDIO_READ_POS,
+  CTRL_AUDIO_SAMPLE_RATE,
+} from '../../main/workers/shared-frame-protocol'
 import { PowerAnimation } from './animations'
 import { getDisplayType } from '../../types/displayType'
 import { useGamepad } from '../hooks/useGamepad'
@@ -97,6 +106,14 @@ export const GameWindow: React.FC = () => {
   const lastFrameTimeRef = useRef(0)
   const fpsEmaRef = useRef(0)
   const rafFrameCountRef = useRef(0)
+  // SharedArrayBuffer zero-copy mode refs
+  const controlViewRef = useRef<Int32Array | null>(null)
+  const videoViewRef = useRef<Uint8Array | null>(null)
+  const audioViewRef = useRef<Int16Array | null>(null)
+  const videoBufferSizeRef = useRef(0)
+  const lastRenderedSeqRef = useRef(0)
+  const useSharedBuffersRef = useRef(false)
+
   const [gameAspectRatio, setGameAspectRatio] = useState<number | null>(null)
 
   // Gamepad polling — uses same api.gameInput() pipeline as keyboard
@@ -159,6 +176,78 @@ export const GameWindow: React.FC = () => {
   // Keep the ref in sync with the latest callback identity
   updateCanvasSizeRef.current = updateCanvasSize
 
+  /**
+   * Schedule a chunk of interleaved stereo Int16 audio for playback.
+   * Shared between the IPC fallback path and the SAB ring buffer drain.
+   */
+  const scheduleAudioChunk = useCallback((samples: Int16Array, sampleRate: number) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext({ sampleRate })
+      audioNextTimeRef.current = 0
+      gainNodeRef.current = audioContextRef.current.createGain()
+      gainNodeRef.current.gain.value = isMuted ? 0 : volume
+      gainNodeRef.current.connect(audioContextRef.current.destination)
+    }
+
+    const ctx = audioContextRef.current
+    const frames = samples.length / 2
+    if (frames <= 0) return
+
+    const buffer = ctx.createBuffer(2, frames, sampleRate)
+    const leftChannel = buffer.getChannelData(0)
+    const rightChannel = buffer.getChannelData(1)
+
+    for (let i = 0; i < frames; i++) {
+      leftChannel[i] = samples[i * 2] / 32768
+      rightChannel[i] = samples[i * 2 + 1] / 32768
+    }
+
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.connect(gainNodeRef.current!)
+
+    const PRE_BUFFER_S = 0.06
+    const MAX_LOOKAHEAD_S = 0.12
+
+    const now = ctx.currentTime
+    if (audioNextTimeRef.current === 0) {
+      audioNextTimeRef.current = now + PRE_BUFFER_S
+    } else if (audioNextTimeRef.current < now) {
+      audioNextTimeRef.current = now
+    } else if (audioNextTimeRef.current > now + MAX_LOOKAHEAD_S) {
+      audioNextTimeRef.current = now + PRE_BUFFER_S
+    }
+    source.start(audioNextTimeRef.current)
+    audioNextTimeRef.current += buffer.duration
+  }, [])
+
+  /** Drain audio samples from the SharedArrayBuffer ring buffer. */
+  const drainAudioRing = useCallback(() => {
+    const ctrl = controlViewRef.current
+    const ring = audioViewRef.current
+    if (!ctrl || !ring) return
+
+    const ringLen = ring.length
+    const writePos = Atomics.load(ctrl, CTRL_AUDIO_WRITE_POS)
+    const readPos = Atomics.load(ctrl, CTRL_AUDIO_READ_POS)
+    const sampleRate = Atomics.load(ctrl, CTRL_AUDIO_SAMPLE_RATE)
+
+    const available = writePos - readPos
+    if (available <= 0) return
+
+    // Clamp to ring capacity to skip any overwritten samples
+    const toRead = Math.min(available, ringLen)
+    const startPos = writePos - toRead
+
+    const samples = new Int16Array(toRead)
+    for (let i = 0; i < toRead; i++) {
+      samples[i] = ring[(startPos + i) % ringLen]
+    }
+
+    Atomics.store(ctrl, CTRL_AUDIO_READ_POS, writePos)
+    scheduleAudioChunk(samples, sampleRate)
+  }, [scheduleAudioChunk])
+
   useEffect(() => {
     // Remove any stale listeners BEFORE registering new ones. This is
     // critical because React Strict Mode (dev) double-mounts components,
@@ -177,6 +266,21 @@ export const GameWindow: React.FC = () => {
     api.removeAllListeners('game:prepare-close')
     api.removeAllListeners('game:ready-for-boot')
     api.removeAllListeners('emulator:speedChanged')
+
+    // Register for SharedArrayBuffer delivery via MessagePort bridge.
+    // The main process sends SABs through a MessagePort because contextBridge
+    // cannot transfer SharedArrayBuffer directly.
+    api.framePort.onMessage((data: unknown) => {
+      const msg = data as { type: string; control: SharedArrayBuffer; video: SharedArrayBuffer; audio: SharedArrayBuffer }
+      if (msg.type === 'sharedBuffers') {
+        controlViewRef.current = new Int32Array(msg.control)
+        videoViewRef.current = new Uint8Array(msg.video)
+        audioViewRef.current = new Int16Array(msg.audio)
+        videoBufferSizeRef.current = msg.video.byteLength / 2 // each buffer is half
+        lastRenderedSeqRef.current = 0
+        useSharedBuffersRef.current = true
+      }
+    })
 
     api.on('game:loaded', (gameData: Game) => {
       setGame(gameData)
@@ -276,10 +380,38 @@ export const GameWindow: React.FC = () => {
             }
             lastFrameTimeRef.current = timestamp
 
-            const frame = pendingFrameRef.current
-            if (frame && rendererRef.current) {
-              pendingFrameRef.current = null
-              rendererRef.current.renderFrame(frame)
+            if (useSharedBuffersRef.current && controlViewRef.current && videoViewRef.current && rendererRef.current) {
+              // Zero-copy path: read directly from SharedArrayBuffer
+              const ctrl = controlViewRef.current
+              const seq = Atomics.load(ctrl, CTRL_FRAME_SEQUENCE)
+
+              if (seq !== lastRenderedSeqRef.current) {
+                lastRenderedSeqRef.current = seq
+                const activeBuffer = Atomics.load(ctrl, CTRL_ACTIVE_BUFFER)
+                const width = Atomics.load(ctrl, CTRL_FRAME_WIDTH)
+                const height = Atomics.load(ctrl, CTRL_FRAME_HEIGHT)
+                const bufSize = videoBufferSizeRef.current
+                const offset = activeBuffer * bufSize
+
+                // Uint8Array view into the active buffer region (zero-copy)
+                const frameData = new Uint8Array(
+                  videoViewRef.current.buffer,
+                  offset,
+                  width * height * 4,
+                )
+
+                rendererRef.current.renderFrame({ data: frameData, width, height })
+              }
+
+              // Drain audio from the ring buffer
+              drainAudioRing()
+            } else {
+              // Fallback: render from IPC-buffered frame
+              const frame = pendingFrameRef.current
+              if (frame && rendererRef.current) {
+                pendingFrameRef.current = null
+                rendererRef.current.renderFrame(frame)
+              }
             }
             rafIdRef.current = requestAnimationFrame(renderLoop)
           }
@@ -292,77 +424,17 @@ export const GameWindow: React.FC = () => {
 
     })
 
+    // IPC fallback audio path — used when SharedArrayBuffer is unavailable.
+    // When SAB mode is active, audio is drained from the ring buffer in the
+    // rAF loop instead (see drainAudioRing).
     api.on('game:audio-samples', (audioData: any) => {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext({ sampleRate: audioData.sampleRate })
-        // Pre-buffer: schedule the first chunk slightly in the future so
-        // subsequent chunks arrive before their playback time, absorbing
-        // the jitter introduced by the utility-process → main → renderer
-        // double-IPC hop. Without this, chunks arrive too late and we
-        // constantly snap to `now`, creating micro-gaps that sound like
-        // crackling.
-        audioNextTimeRef.current = 0
-        gainNodeRef.current = audioContextRef.current.createGain()
-        gainNodeRef.current.gain.value = isMuted ? 0 : volume
-        gainNodeRef.current.connect(audioContextRef.current.destination)
-      }
+      if (useSharedBuffersRef.current) return
 
-      const ctx = audioContextRef.current
       // audioData.samples arrives as Uint8Array after Electron IPC.
       // Interpret the raw bytes as interleaved stereo Int16 samples.
       const raw: Uint8Array = audioData.samples
       const samples = new Int16Array(raw.buffer, raw.byteOffset, raw.byteLength / 2)
-      const frames = samples.length / 2
-
-      if (frames > 0) {
-        const buffer = ctx.createBuffer(2, frames, audioData.sampleRate)
-        const leftChannel = buffer.getChannelData(0)
-        const rightChannel = buffer.getChannelData(1)
-
-        for (let i = 0; i < frames; i++) {
-          leftChannel[i] = samples[i * 2] / 32768
-          rightChannel[i] = samples[i * 2 + 1] / 32768
-        }
-
-        const source = ctx.createBufferSource()
-        source.buffer = buffer
-        source.connect(gainNodeRef.current!)
-
-        // Schedule seamlessly after the previous chunk.
-        //
-        // The emulation worker sends audio chunks every ~16.6ms, but they
-        // traverse two IPC hops (utility process → main → renderer) which
-        // adds variable latency. Strategy:
-        //
-        // - On first chunk, schedule slightly ahead (`now + PRE_BUFFER_S`)
-        //   to build a cushion that absorbs jitter.
-        // - On subsequent chunks, append to the previous chunk's end time
-        //   — if the buffer hasn't underrun, chunks queue seamlessly.
-        // - On underrun (audioNextTime fell behind `now`), schedule at
-        //   `now` to avoid an audible gap. The pre-buffer rebuilds
-        //   naturally because the worker's frame-locked timing produces
-        //   samples at the exact hardware rate.
-        // - If too far ahead (>MAX_LOOKAHEAD_S), snap back to avoid
-        //   perceptible audio lag.
-        const PRE_BUFFER_S = 0.06 // 60ms initial pre-buffer
-        const MAX_LOOKAHEAD_S = 0.12 // 120ms max ahead before reset
-
-        const now = ctx.currentTime
-        if (audioNextTimeRef.current === 0) {
-          // First chunk — establish the initial pre-buffer
-          audioNextTimeRef.current = now + PRE_BUFFER_S
-        } else if (audioNextTimeRef.current < now) {
-          // Underrun — schedule immediately to minimize the gap.
-          // Don't add PRE_BUFFER_S here; that would create a silent gap.
-          // The pre-buffer rebuilds naturally over subsequent chunks.
-          audioNextTimeRef.current = now
-        } else if (audioNextTimeRef.current > now + MAX_LOOKAHEAD_S) {
-          // Too far ahead — reset to avoid perceptible audio lag
-          audioNextTimeRef.current = now + PRE_BUFFER_S
-        }
-        source.start(audioNextTimeRef.current)
-        audioNextTimeRef.current += buffer.duration
-      }
+      scheduleAudioChunk(samples, audioData.sampleRate)
     })
 
     return () => {
@@ -381,6 +453,14 @@ export const GameWindow: React.FC = () => {
       cancelAnimationFrame(rafIdRef.current)
       pendingFrameRef.current = null
       bootReadyRef.current = false
+
+      // Reset SAB state so a fresh init can re-establish the connection
+      useSharedBuffersRef.current = false
+      controlViewRef.current = null
+      videoViewRef.current = null
+      audioViewRef.current = null
+      videoBufferSizeRef.current = 0
+      lastRenderedSeqRef.current = 0
 
       rendererRef.current?.destroy()
       rendererRef.current = null

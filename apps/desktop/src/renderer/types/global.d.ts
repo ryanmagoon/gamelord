@@ -91,15 +91,20 @@ export interface GamelordAPI {
   // Game input (native mode)
   gameInput: (port: number, id: number, pressed: boolean) => void
 
+  // SharedArrayBuffer delivery via MessagePort bridge
+  framePort: {
+    onMessage: (callback: (data: unknown) => void) => void
+  }
+
   on: (channel: string, callback: (...args: any[]) => void) => void
   removeAllListeners: (channel: string) => void
 }
 
 export interface VideoFrame {
-  data: ArrayBuffer
+  data: ArrayBuffer | Uint8Array
   width: number
   height: number
-  timestamp: number
+  timestamp?: number
 }
 
 export interface AudioSamples {

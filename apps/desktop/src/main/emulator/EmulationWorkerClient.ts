@@ -3,6 +3,12 @@ import { EventEmitter } from 'events'
 import * as path from 'path'
 import * as crypto from 'crypto'
 import type { WorkerCommand, WorkerEvent, AVInfo } from '../workers/core-worker-protocol'
+import {
+  computeVideoBufferSize,
+  CTRL_SAB_BYTE_LENGTH,
+  CTRL_AUDIO_SAMPLE_RATE,
+  AUDIO_RING_BYTE_LENGTH,
+} from '../workers/shared-frame-protocol'
 import { libretroLog } from '../logger'
 
 export interface EmulationWorkerInitOptions {
@@ -36,11 +42,18 @@ const SHUTDOWN_TIMEOUT_MS = 5_000
  * - `audioSamples` — `{ samples: Buffer, sampleRate: number }`
  * - `error` — `{ message: string, fatal: boolean }`
  */
+export interface SharedBuffers {
+  control: SharedArrayBuffer
+  video: SharedArrayBuffer
+  audio: SharedArrayBuffer
+}
+
 export class EmulationWorkerClient extends EventEmitter {
   private workerProcess: UtilityProcess | null = null
   private pendingRequests = new Map<string, PendingRequest>()
   private running = false
   private shuttingDown = false
+  private sharedBuffers: SharedBuffers | null = null
 
   /**
    * Spawn the utility process, load the core and ROM, and start the
@@ -107,6 +120,10 @@ export class EmulationWorkerClient extends EventEmitter {
     this.workerProcess.on('message', (event: WorkerEvent) => {
       this.handleWorkerEvent(event)
     })
+
+    // Allocate SharedArrayBuffers for zero-copy frame/audio transfer.
+    // Falls back to copy-based IPC if SAB is unavailable.
+    this.setupSharedBuffers(avInfo)
 
     this.running = true
     return avInfo
@@ -200,9 +217,57 @@ export class EmulationWorkerClient extends EventEmitter {
     return this.running
   }
 
+  /**
+   * Returns the SharedArrayBuffers for zero-copy frame/audio transfer,
+   * or null if SAB mode is not active (allocation failed or unavailable).
+   */
+  getSharedBuffers(): SharedBuffers | null {
+    return this.sharedBuffers
+  }
+
   // -------------------------------------------------------------------------
   // Private
   // -------------------------------------------------------------------------
+
+  private setupSharedBuffers(avInfo: AVInfo): void {
+    try {
+      if (typeof SharedArrayBuffer === 'undefined') return
+
+      const videoBufferSize = computeVideoBufferSize(
+        avInfo.geometry.maxWidth,
+        avInfo.geometry.maxHeight,
+        avInfo.geometry.baseWidth,
+        avInfo.geometry.baseHeight,
+      )
+
+      const controlSAB = new SharedArrayBuffer(CTRL_SAB_BYTE_LENGTH)
+      const videoSAB = new SharedArrayBuffer(videoBufferSize * 2) // double buffer
+      const audioSAB = new SharedArrayBuffer(AUDIO_RING_BYTE_LENGTH)
+
+      // Initialize audio sample rate in control buffer
+      const ctrl = new Int32Array(controlSAB)
+      Atomics.store(ctrl, CTRL_AUDIO_SAMPLE_RATE, avInfo.timing.sampleRate || 44100)
+
+      this.sharedBuffers = { control: controlSAB, video: videoSAB, audio: audioSAB }
+
+      // Send SABs to the worker
+      this.postCommand({
+        action: 'setupSharedBuffers',
+        controlSAB,
+        videoSAB,
+        audioSAB,
+        videoBufferSize,
+      })
+
+      libretroLog.info(
+        `SharedArrayBuffer enabled: video=${videoBufferSize * 2} bytes (double-buffered), ` +
+        `audio=${AUDIO_RING_BYTE_LENGTH} bytes (ring buffer)`,
+      )
+    } catch (err) {
+      libretroLog.warn('SharedArrayBuffer unavailable, using copy-based IPC:', err)
+      this.sharedBuffers = null
+    }
+  }
 
   private postCommand(command: WorkerCommand): void {
     this.workerProcess?.postMessage(command)
@@ -310,5 +375,6 @@ export class EmulationWorkerClient extends EventEmitter {
     this.workerProcess = null
     this.running = false
     this.shuttingDown = false
+    this.sharedBuffers = null
   }
 }

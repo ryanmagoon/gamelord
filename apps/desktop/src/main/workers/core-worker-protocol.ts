@@ -87,6 +87,13 @@ export type WorkerCommand =
   | { action: 'screenshot'; requestId: string; outputPath?: string }
   | { action: 'setSpeed'; multiplier: number }
   | { action: 'shutdown'; requestId: string }
+  | {
+      action: 'setupSharedBuffers'
+      controlSAB: SharedArrayBuffer
+      videoSAB: SharedArrayBuffer
+      audioSAB: SharedArrayBuffer
+      videoBufferSize: number
+    }
 
 // ---------------------------------------------------------------------------
 // Worker → Main events

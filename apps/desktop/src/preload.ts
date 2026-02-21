@@ -1,5 +1,24 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+// ---------------------------------------------------------------------------
+// SharedArrayBuffer MessagePort bridge
+// ---------------------------------------------------------------------------
+// contextBridge cannot transfer SharedArrayBuffer directly. The main process
+// sends a MessagePort via webContents.postMessage, then sends the SABs through
+// that port. We expose a simple onMessage callback for the renderer to consume.
+
+let framePortCallback: ((data: unknown) => void) | null = null;
+
+ipcRenderer.on('game:shared-frame-port', (event) => {
+  const [port] = event.ports;
+  if (!port) return;
+
+  port.onmessage = (ev: MessageEvent) => {
+    framePortCallback?.(ev.data);
+  };
+  port.start();
+});
+
 // Expose protected APIs to the renderer process
 contextBridge.exposeInMainWorld('gamelord', {
   // Emulator management
@@ -126,6 +145,13 @@ contextBridge.exposeInMainWorld('gamelord', {
     setCredentials: (userId: string, userPassword: string) =>
       ipcRenderer.invoke('artwork:setCredentials', userId, userPassword),
     clearCredentials: () => ipcRenderer.invoke('artwork:clearCredentials'),
+  },
+
+  // SharedArrayBuffer frame port (zero-copy frame/audio transfer)
+  framePort: {
+    onMessage: (callback: (data: unknown) => void) => {
+      framePortCallback = callback;
+    },
   },
 
   // Dialog

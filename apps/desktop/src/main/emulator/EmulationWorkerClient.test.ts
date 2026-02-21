@@ -430,6 +430,64 @@ describe('EmulationWorkerClient', () => {
     })
   })
 
+  describe('SharedArrayBuffer allocation', () => {
+    it('allocates SABs and sends setupSharedBuffers command after init', async () => {
+      const initPromise = client.init(TEST_INIT_OPTIONS)
+      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      await initPromise
+
+      const bufs = client.getSharedBuffers()
+      expect(bufs).not.toBeNull()
+      expect(bufs!.control).toBeInstanceOf(SharedArrayBuffer)
+      expect(bufs!.video).toBeInstanceOf(SharedArrayBuffer)
+      expect(bufs!.audio).toBeInstanceOf(SharedArrayBuffer)
+
+      // Verify setupSharedBuffers command was sent to the worker
+      const setupCall = mockPostMessage.mock.calls.find(
+        (call) => call[0].action === 'setupSharedBuffers',
+      )
+      expect(setupCall).toBeDefined()
+      expect(setupCall![0].controlSAB).toBe(bufs!.control)
+      expect(setupCall![0].videoSAB).toBe(bufs!.video)
+      expect(setupCall![0].audioSAB).toBe(bufs!.audio)
+      expect(setupCall![0].videoBufferSize).toBeGreaterThan(0)
+    })
+
+    it('initializes audio sample rate in control buffer', async () => {
+      const initPromise = client.init(TEST_INIT_OPTIONS)
+      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      await initPromise
+
+      const bufs = client.getSharedBuffers()!
+      const ctrl = new Int32Array(bufs.control)
+      // CTRL_AUDIO_SAMPLE_RATE is at index 6
+      expect(Atomics.load(ctrl, 6)).toBe(TEST_AV_INFO.timing.sampleRate)
+    })
+
+    it('clears shared buffers on shutdown', async () => {
+      const initPromise = client.init(TEST_INIT_OPTIONS)
+      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      await initPromise
+
+      expect(client.getSharedBuffers()).not.toBeNull()
+
+      const shutdownPromise = client.shutdown()
+      const lastCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      emitWorkerMessage({
+        type: 'response',
+        requestId: lastCall.requestId,
+        success: true,
+      })
+      await shutdownPromise
+
+      expect(client.getSharedBuffers()).toBeNull()
+    })
+
+    it('returns null for getSharedBuffers before init', () => {
+      expect(client.getSharedBuffers()).toBeNull()
+    })
+  })
+
   describe('isRunning', () => {
     it('returns false before init', () => {
       expect(client.isRunning()).toBe(false)

@@ -1,5 +1,5 @@
 import { config as loadDotenv } from 'dotenv';
-import { app, BrowserWindow, net, protocol } from 'electron';
+import { app, BrowserWindow, net, protocol, session } from 'electron';
 import path from 'node:path';
 import { IPCHandlers } from './main/ipc/handlers';
 import { getSavedWindowBounds, manageWindowState } from './main/utils/windowState';
@@ -50,12 +50,41 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
+  // Enable SharedArrayBuffer by setting cross-origin isolation headers.
+  // Required for zero-copy frame transfer between the emulation worker
+  // and the renderer. Only affects local responses (file:// and dev server).
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Cross-Origin-Opener-Policy': ['same-origin'],
+        'Cross-Origin-Embedder-Policy': ['require-corp'],
+      },
+    });
+  });
+
+  // Auto-approve all permission requests. Cross-origin isolation (COEP)
+  // causes Chromium to prompt for AudioContext permissions that are normally
+  // auto-granted in Electron. Since this is a local desktop app (not a
+  // web browser), all permissions are safe to grant automatically.
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(true);
+  });
+
   // Register artwork:// protocol to serve cached cover art images
-  // from the sandboxed renderer via <img src="artwork://gameId.png">
-  protocol.handle('artwork', (request) => {
+  // from the sandboxed renderer via <img src="artwork://gameId.png">.
+  // The CORP header is required because COEP require-corp is enabled above.
+  protocol.handle('artwork', async (request) => {
     const filename = request.url.slice('artwork://'.length);
     const filePath = path.join(app.getPath('userData'), 'artwork', filename);
-    return net.fetch(`file://${filePath}`);
+    const response = await net.fetch(`file://${filePath}`);
+    const headers = new Headers(response.headers);
+    headers.set('Cross-Origin-Resource-Policy', 'same-origin');
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   });
 
   // Initialize IPC handlers before creating window
