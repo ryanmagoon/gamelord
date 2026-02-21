@@ -132,18 +132,6 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
         break;
     }
 
-    // Stable sort: favorites first within the chosen sort order
-    if (!showFavoritesOnly) {
-      const hasFavorites = filtered.some(g => g.favorite);
-      if (hasFavorites) {
-        filtered = [...filtered].sort((a, b) => {
-          const af = a.favorite ? 0 : 1;
-          const bf = b.favorite ? 0 : 1;
-          return af - bf;
-        });
-      }
-    }
-
     return filtered;
   }, [games, searchQuery, selectedPlatform, sortBy, showFavoritesOnly]);
 
