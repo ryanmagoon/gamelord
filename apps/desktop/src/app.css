@@ -250,6 +250,23 @@ body {
   animation: card-launch-shimmer 1.2s ease-in-out infinite;
 }
 
+/* Favorite heart pop — satisfying scale bounce on toggle */
+@keyframes favorite-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-favorite-pop {
+  animation: favorite-pop 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Scroll letter indicator — CRT phosphor glow in dark mode */
 .dark .scroll-letter-indicator {
   text-shadow: 0 0 40px rgba(120, 200, 255, 0.6), 0 0 100px rgba(120, 200, 255, 0.3);

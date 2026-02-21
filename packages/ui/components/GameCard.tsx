@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 import { cn } from '../utils'
-import { MoreVertical } from 'lucide-react'
+import { MoreVertical, Heart } from 'lucide-react'
 import { TVStatic } from './TVStatic'
 import { useArtworkSyncPhase, type ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
 
@@ -25,6 +25,7 @@ export interface Game {
   romPath: string
   lastPlayed?: Date
   playTime?: number
+  favorite?: boolean
 }
 
 export interface GameCardMenuItem {
@@ -42,6 +43,8 @@ export interface GameCardProps {
   menuItems?: GameCardMenuItem[]
   /** Factory function that returns menu items. Called lazily when dropdown opens. Preferred over menuItems for memoization. */
   getMenuItems?: (game: Game) => GameCardMenuItem[]
+  /** Called when the user toggles the favorite heart on this card. */
+  onToggleFavorite?: (game: Game) => void
   /** External store for artwork sync phases. The card subscribes to its own game's phase. */
   artworkSyncStore?: ArtworkSyncStore
   /** Whether this game is currently being launched. Shows a shimmer overlay and wait cursor. */
@@ -59,6 +62,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   game,
   onPlay,
   onOptions,
+  onToggleFavorite,
   menuItems: menuItemsProp,
   getMenuItems,
   artworkSyncStore,
@@ -104,6 +108,9 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const imgRef = useRef<HTMLImageElement>(null)
   const staticWrapperRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
+
+  // Brief scale-bounce when the heart is toggled.
+  const [favoritePop, setFavoritePop] = useState(false)
 
   // Cross-fade: pre-decode the image then reveal it over the static.
   const [crossFadeReady, setCrossFadeReady] = useState(false)
@@ -225,6 +232,36 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
             </div>
           )}
 
+          {/* Favorite heart toggle */}
+          {onToggleFavorite && (
+            <div className={cn(
+              'absolute top-2 left-2 transition-opacity',
+              game.favorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100',
+            )}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
+                aria-label={game.favorite ? `Unfavorite ${game.title}` : `Favorite ${game.title}`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setFavoritePop(true)
+                  onToggleFavorite(game)
+                }}
+                onAnimationEnd={() => setFavoritePop(false)}
+              >
+                <Heart
+                  className={cn(
+                    'h-4 w-4 transition-transform',
+                    game.favorite && 'fill-current text-red-500',
+                    favoritePop && 'animate-favorite-pop',
+                  )}
+                />
+              </Button>
+            </div>
+          )}
+
           {/* Options dropdown menu */}
           {hasMenu && (
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
@@ -283,6 +320,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
     prev.game === next.game &&
     prev.onPlay === next.onPlay &&
     prev.onOptions === next.onOptions &&
+    prev.onToggleFavorite === next.onToggleFavorite &&
     prev.artworkSyncStore === next.artworkSyncStore &&
     prev.isLaunching === next.isLaunching &&
     prev.disabled === next.disabled &&

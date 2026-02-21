@@ -76,6 +76,37 @@ export const RecentlyPlayed: Story = {
   },
 };
 
+export const Favorited: Story = {
+  args: {
+    game: {
+      id: '6',
+      title: 'Super Mario Bros.',
+      platform: 'NES',
+      genre: 'Platform',
+      coverArt: superMarioBrosBox,
+      romPath: '/roms/smb.nes',
+      favorite: true,
+    },
+    onPlay: fn(),
+    onToggleFavorite: fn(),
+  },
+};
+
+export const NotFavorited: Story = {
+  args: {
+    game: {
+      id: '7',
+      title: 'Metroid',
+      platform: 'NES',
+      genre: 'Action',
+      romPath: '/roms/metroid.nes',
+      favorite: false,
+    },
+    onPlay: fn(),
+    onToggleFavorite: fn(),
+  },
+};
+
 /** Test that accessibility features work correctly */
 export const AccessibilityTest: Story = {
   args: {
