@@ -16,6 +16,14 @@ import type {
   WorkerEvent,
   AVInfo,
 } from './core-worker-protocol'
+import {
+  CTRL_ACTIVE_BUFFER,
+  CTRL_FRAME_SEQUENCE,
+  CTRL_FRAME_WIDTH,
+  CTRL_FRAME_HEIGHT,
+  CTRL_AUDIO_WRITE_POS,
+  CTRL_AUDIO_SAMPLE_RATE,
+} from './shared-frame-protocol'
 
 // ---------------------------------------------------------------------------
 // State
@@ -40,6 +48,13 @@ let sampleRate = 44100
 // Error tracking
 let consecutiveErrors = 0
 const MAX_CONSECUTIVE_ERRORS = 5
+
+// SharedArrayBuffer state (null = fallback to copy-based IPC)
+let controlView: Int32Array | null = null
+let videoView: Uint8Array | null = null
+let audioView: Int16Array | null = null
+let videoBufferSize = 0
+let useSharedBuffers = false
 
 
 
@@ -213,6 +228,76 @@ function initialize(command: Extract<WorkerCommand, { action: 'init' }>): void {
 }
 
 // ---------------------------------------------------------------------------
+// SharedArrayBuffer helpers
+// ---------------------------------------------------------------------------
+
+/** Write a video frame into the inactive double-buffer and swap the active flag. */
+function writeVideoToSAB(frame: { data: Uint8Array; width: number; height: number }): void {
+  const ctrl = controlView!
+  const video = videoView!
+
+  // Write to the opposite buffer from the one the renderer is reading
+  const currentActive = Atomics.load(ctrl, CTRL_ACTIVE_BUFFER)
+  const writeBuffer = currentActive === 0 ? 1 : 0
+  const offset = writeBuffer * videoBufferSize
+
+  video.set(
+    new Uint8Array(frame.data.buffer, frame.data.byteOffset, frame.data.byteLength),
+    offset,
+  )
+
+  // Update dimensions, then swap active buffer, then bump sequence.
+  // Order matters: the renderer reads sequence last, so dimensions
+  // and buffer swap are visible before it notices the new frame.
+  Atomics.store(ctrl, CTRL_FRAME_WIDTH, frame.width)
+  Atomics.store(ctrl, CTRL_FRAME_HEIGHT, frame.height)
+  Atomics.store(ctrl, CTRL_ACTIVE_BUFFER, writeBuffer)
+  Atomics.add(ctrl, CTRL_FRAME_SEQUENCE, 1)
+}
+
+/** Write audio samples into the SPSC ring buffer. */
+function writeAudioToSAB(samples: Int16Array): void {
+  const ctrl = controlView!
+  const ring = audioView!
+  const ringLen = ring.length
+
+  let writePos = Atomics.load(ctrl, CTRL_AUDIO_WRITE_POS)
+
+  for (let i = 0; i < samples.length; i++) {
+    ring[writePos % ringLen] = samples[i]
+    writePos++
+  }
+
+  // Release: all ring writes are visible before the consumer sees the new writePos
+  Atomics.store(ctrl, CTRL_AUDIO_WRITE_POS, writePos)
+}
+
+/** Send a video frame via copy-based IPC (fallback path). */
+function sendVideoFrame(frame: { data: Uint8Array; width: number; height: number }): void {
+  send({
+    type: 'videoFrame',
+    data: Buffer.from(frame.data.buffer.slice(
+      frame.data.byteOffset,
+      frame.data.byteOffset + frame.data.byteLength,
+    )),
+    width: frame.width,
+    height: frame.height,
+  })
+}
+
+/** Send audio samples via copy-based IPC (fallback path). */
+function sendAudioSamples(audio: Int16Array): void {
+  send({
+    type: 'audioSamples',
+    samples: Buffer.from(audio.buffer.slice(
+      audio.byteOffset,
+      audio.byteOffset + audio.byteLength,
+    )),
+    sampleRate,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Emulation loop — hybrid sleep+spin for sub-ms frame pacing
 // ---------------------------------------------------------------------------
 
@@ -305,15 +390,11 @@ function startEmulationLoop(): void {
     // Send only the last frame from the batch
     const frame = native.getVideoFrame()
     if (frame) {
-      send({
-        type: 'videoFrame',
-        data: Buffer.from(frame.data.buffer.slice(
-          frame.data.byteOffset,
-          frame.data.byteOffset + frame.data.byteLength,
-        )),
-        width: frame.width,
-        height: frame.height,
-      })
+      if (useSharedBuffers) {
+        writeVideoToSAB(frame)
+      } else {
+        sendVideoFrame(frame)
+      }
     }
 
     // Audio is skipped during fast-forward (speedMultiplier > 1)
@@ -370,28 +451,21 @@ function startEmulationLoop(): void {
       // Send video frame
       const frame = native.getVideoFrame()
       if (frame) {
-        send({
-          type: 'videoFrame',
-          data: Buffer.from(frame.data.buffer.slice(
-            frame.data.byteOffset,
-            frame.data.byteOffset + frame.data.byteLength,
-          )),
-          width: frame.width,
-          height: frame.height,
-        })
+        if (useSharedBuffers) {
+          writeVideoToSAB(frame)
+        } else {
+          sendVideoFrame(frame)
+        }
       }
 
       // Send audio samples (only at 1x speed)
       const audio = native.getAudioBuffer()
       if (audio && audio.length > 0) {
-        send({
-          type: 'audioSamples',
-          samples: Buffer.from(audio.buffer.slice(
-            audio.byteOffset,
-            audio.byteOffset + audio.byteLength,
-          )),
-          sampleRate,
-        })
+        if (useSharedBuffers) {
+          writeAudioToSAB(audio)
+        } else {
+          sendAudioSamples(audio)
+        }
       }
 
       // Drain buffered log messages from the native addon
@@ -531,6 +605,15 @@ function handleMessage(command: WorkerCommand): void {
           error instanceof Error ? error.message : String(error),
         )
       }
+      break
+
+    case 'setupSharedBuffers':
+      controlView = new Int32Array(command.controlSAB)
+      videoView = new Uint8Array(command.videoSAB)
+      audioView = new Int16Array(command.audioSAB)
+      videoBufferSize = command.videoBufferSize
+      useSharedBuffers = true
+      Atomics.store(controlView, CTRL_AUDIO_SAMPLE_RATE, sampleRate)
       break
 
     case 'shutdown':
