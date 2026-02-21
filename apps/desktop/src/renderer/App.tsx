@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Button, WebGLRendererComponent, Game as UiGame, type GameCardMenuItem } from '@gamelord/ui'
+import { Button, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuItem } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
-import { Monitor, Tv, Sun, Moon, Cpu } from 'lucide-react'
+import { Monitor, Tv, Sun, Moon, Cpu, Heart } from 'lucide-react'
 import { LibraryView } from './components/LibraryView'
 import { ResumeGameDialog } from './components/ResumeGameDialog'
 import { CoreSelectDialog } from './components/CoreSelectDialog'
@@ -272,6 +272,14 @@ function App() {
   /** Returns dropdown menu items for a game card. */
   const getMenuItems = useCallback((game: UiGame): GameCardMenuItem[] => {
     const items: GameCardMenuItem[] = []
+
+    items.push({
+      label: game.favorite ? 'Unfavorite' : 'Favorite',
+      icon: <Heart className={cn('h-4 w-4', game.favorite && 'fill-current')} />,
+      onClick: () => {
+        api.library.updateGame(game.id, { favorite: !game.favorite })
+      },
+    })
 
     items.push({
       label: 'Change Core',
