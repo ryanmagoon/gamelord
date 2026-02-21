@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { Search, Filter, Grid, List } from 'lucide-react';
+import { Search, Filter, Grid, List, Heart } from 'lucide-react';
 import { cn } from '../utils';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { useScrollContainer } from '../hooks/useScrollContainer';
@@ -30,6 +30,8 @@ export interface GameLibraryProps {
   onGameOptions?: (game: Game) => void;
   /** Returns menu items for a specific game's dropdown. */
   getMenuItems?: (game: Game) => GameCardMenuItem[];
+  /** Called when the user toggles the favorite heart on a card. */
+  onToggleFavorite?: (game: Game) => void;
   /** External store for per-game artwork sync phases. Each card subscribes to its own phase. */
   artworkSyncStore?: ArtworkSyncStore;
   /** ID of a game currently being launched. Shows shimmer on that card and disables others. */
@@ -68,6 +70,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   onPlayGame,
   onGameOptions,
   getMenuItems,
+  onToggleFavorite,
   artworkSyncStore,
   launchingGameId,
   scrollContainerRef,
@@ -76,6 +79,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortBy>('title');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const gridRef = useRef<HTMLDivElement>(null);
   const containerWidth = useContainerWidth(gridRef);
@@ -103,6 +107,11 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
       filtered = filtered.filter(game => game.platform === selectedPlatform);
     }
 
+    // Favorites filter
+    if (showFavoritesOnly) {
+      filtered = filtered.filter(game => game.favorite);
+    }
+
     // Sort
     switch (sortBy) {
       case 'title':
@@ -124,7 +133,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     }
 
     return filtered;
-  }, [games, searchQuery, selectedPlatform, sortBy]);
+  }, [games, searchQuery, selectedPlatform, sortBy, showFavoritesOnly]);
 
   // Median aspect ratio per platform — used as fallback for games without cover art
   // so fallback cards match the width of their platform neighbors.
@@ -192,7 +201,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   const [enterGeneration, setEnterGeneration] = useState(0);
 
   useEffect(() => {
-    const filterKey = `${searchQuery}|${selectedPlatform}|${sortBy}`;
+    const filterKey = `${searchQuery}|${selectedPlatform}|${sortBy}|${showFavoritesOnly}`;
     if (filterKey !== prevFilterKeyRef.current) {
       const isInitial = prevFilterKeyRef.current === '';
       prevFilterKeyRef.current = filterKey;
@@ -201,7 +210,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
         setEnterGeneration(g => g + 1);
       }
     }
-  }, [searchQuery, selectedPlatform, sortBy, isLargeList, scrollContainerRef]);
+  }, [searchQuery, selectedPlatform, sortBy, showFavoritesOnly, isLargeList, scrollContainerRef]);
 
   // Clear entrance animation flag after stagger completes
   const [showEntrance, setShowEntrance] = useState(false);
@@ -284,6 +293,17 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
             </SelectContent>
           </Select>
 
+          {/* Favorites filter toggle */}
+          <Button
+            variant={showFavoritesOnly ? 'default' : 'ghost'}
+            size="icon"
+            onClick={() => setShowFavoritesOnly(prev => !prev)}
+            aria-label={showFavoritesOnly ? 'Show all games' : 'Show favorites only'}
+            title={showFavoritesOnly ? 'Show all games' : 'Show favorites only'}
+          >
+            <Heart className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')} />
+          </Button>
+
           {/* View mode toggle */}
           <div className="flex border rounded-md">
             <Button
@@ -311,11 +331,18 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
         <p className="text-sm text-muted-foreground">
           {filteredGames.length} {filteredGames.length === 1 ? 'game' : 'games'}
         </p>
-        {selectedPlatform !== 'all' && (
-          <Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedPlatform('all')}>
-            {selectedPlatform} ✕
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {selectedPlatform !== 'all' && (
+            <Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedPlatform('all')}>
+              {selectedPlatform} ✕
+            </Badge>
+          )}
+          {showFavoritesOnly && (
+            <Badge variant="secondary" className="cursor-pointer" onClick={() => setShowFavoritesOnly(false)}>
+              Favorites ✕
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Games Grid/List */}
@@ -339,6 +366,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
                   game={game}
                   onPlay={onPlayGame}
                   onOptions={onGameOptions}
+                  onToggleFavorite={onToggleFavorite}
                   getMenuItems={getMenuItems}
                   artworkSyncStore={artworkSyncStore}
                   isLaunching={launchingGameId === game.id}
@@ -375,6 +403,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
                   game={flipItem.item}
                   onPlay={onPlayGame}
                   onOptions={onGameOptions}
+                  onToggleFavorite={onToggleFavorite}
                   getMenuItems={getMenuItems}
                   artworkSyncStore={artworkSyncStore}
                   isLaunching={launchingGameId === flipItem.item.id}

@@ -471,6 +471,17 @@ export const LibraryView: React.FC<{
     await loadLibrary()
   }
 
+  const handleToggleFavorite = useCallback((uiGame: UiGame) => {
+    const fullGame = idToGame.get(uiGame.id)
+    if (!fullGame) return
+    const nextFavorite = !fullGame.favorite
+    // Optimistic in-place update (same pattern as artwork update)
+    setGames(prev => prev.map(g =>
+      g.id === uiGame.id ? { ...g, favorite: nextFavorite } : g
+    ))
+    api.library.updateGame(uiGame.id, { favorite: nextFavorite })
+  }, [idToGame, api])
+
   const filteredGames = useMemo(
     () => selectedSystem ? games.filter((game) => game.systemId === selectedSystem) : games,
     [games, selectedSystem],
@@ -500,6 +511,7 @@ export const LibraryView: React.FC<{
           romPath: game.romPath,
           lastPlayed: game.lastPlayed,
           playTime: game.playTime,
+          favorite: game.favorite,
         }
       }
       nextCache.set(game, uiGame)
@@ -654,6 +666,7 @@ export const LibraryView: React.FC<{
             }}
             onGameOptions={handleUiGameOptions}
             getMenuItems={getMenuItems}
+            onToggleFavorite={handleToggleFavorite}
             artworkSyncStore={artworkSyncStore}
             launchingGameId={launchingGameId}
             scrollContainerRef={scrollContainerRef}

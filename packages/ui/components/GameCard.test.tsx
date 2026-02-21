@@ -229,6 +229,70 @@ describe('GameCard', () => {
     })
   })
 
+  describe('favorite heart', () => {
+    it('renders heart button with correct aria-label when onToggleFavorite is provided', () => {
+      const onPlay = vi.fn()
+      const onToggleFavorite = vi.fn()
+      render(<GameCard game={mockGame} onPlay={onPlay} onToggleFavorite={onToggleFavorite} />)
+
+      const heartButton = screen.getByRole('button', { name: /favorite super mario bros/i })
+      expect(heartButton).toBeInTheDocument()
+    })
+
+    it('does not render heart button when onToggleFavorite is not provided', () => {
+      const onPlay = vi.fn()
+      render(<GameCard game={mockGame} onPlay={onPlay} />)
+
+      const heartButton = screen.queryByRole('button', { name: /favorite/i })
+      expect(heartButton).not.toBeInTheDocument()
+    })
+
+    it('calls onToggleFavorite without triggering onPlay when heart is clicked', async () => {
+      const user = userEvent.setup()
+      const onPlay = vi.fn()
+      const onToggleFavorite = vi.fn()
+      render(<GameCard game={mockGame} onPlay={onPlay} onToggleFavorite={onToggleFavorite} />)
+
+      await user.click(screen.getByRole('button', { name: /favorite super mario bros/i }))
+      expect(onToggleFavorite).toHaveBeenCalledWith(mockGame)
+      expect(onPlay).not.toHaveBeenCalled()
+    })
+
+    it('shows filled heart with fill-current class when game is favorited', () => {
+      const onPlay = vi.fn()
+      const onToggleFavorite = vi.fn()
+      const favGame = { ...mockGame, favorite: true }
+      const { container } = render(<GameCard game={favGame} onPlay={onPlay} onToggleFavorite={onToggleFavorite} />)
+
+      const heartSvg = container.querySelector('.fill-current')
+      expect(heartSvg).not.toBeNull()
+    })
+
+    it('heart container is always visible when game is favorited', () => {
+      const onPlay = vi.fn()
+      const onToggleFavorite = vi.fn()
+      const favGame = { ...mockGame, favorite: true }
+      render(<GameCard game={favGame} onPlay={onPlay} onToggleFavorite={onToggleFavorite} />)
+
+      const heartButton = screen.getByRole('button', { name: /unfavorite super mario bros/i })
+      const container = heartButton.parentElement!
+      // Favorited games show the heart always (opacity-100), not just on hover
+      expect(container.className).toContain('opacity-100')
+      expect(container.className).not.toContain('opacity-0')
+    })
+
+    it('heart container is hidden by default for non-favorited games (hover to reveal)', () => {
+      const onPlay = vi.fn()
+      const onToggleFavorite = vi.fn()
+      render(<GameCard game={mockGame} onPlay={onPlay} onToggleFavorite={onToggleFavorite} />)
+
+      const heartButton = screen.getByRole('button', { name: /favorite super mario bros/i })
+      const container = heartButton.parentElement!
+      expect(container.className).toContain('opacity-0')
+      expect(container.className).toContain('group-hover:opacity-100')
+    })
+  })
+
   describe('mosaic layout', () => {
     it('card and inner container both use h-full to fill grid area', () => {
       const onPlay = vi.fn()

@@ -136,7 +136,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] **Filter by player count** — Filter to show only single-player, multiplayer, or N+ player games using `metadata.players`. — [#74](https://github.com/ryanmagoon/gamelord/issues/74)
 - [ ] **Filter by decade/era** — Group games by release decade (80s, 90s, 2000s) using `metadata.releaseDate`. — [#75](https://github.com/ryanmagoon/gamelord/issues/75)
 - [ ] **Sort by rating** — Add rating as a sort option in the library toolbar. — [#76](https://github.com/ryanmagoon/gamelord/issues/76)
-- [ ] **Favorites** — Toggle favorite on games (field already exists on Game type). Add a "Favorites" filter and sort favorites to the top. — [#77](https://github.com/ryanmagoon/gamelord/issues/77)
+- [x] **Favorites** — Heart toggle on game cards (filled when favorited, visible on hover otherwise, pop animation on toggle). Favorites filter button in toolbar. Toggle also available in card dropdown menu. Persisted via `library:updateGame` IPC. — [#77](https://github.com/ryanmagoon/gamelord/issues/77)
 - [ ] **Play count & stats** — Track number of play sessions (not just total time). Show "most played" sorting and a stats view with play history over time. — [#78](https://github.com/ryanmagoon/gamelord/issues/78)
 - [ ] **Completion status** — Let users tag games as "Not Started", "In Progress", "Completed", or "Abandoned". Filterable. — [#79](https://github.com/ryanmagoon/gamelord/issues/79)
 - [ ] **Collections / tags** — User-created collections (e.g. "Couch Co-op", "RPG Marathon", "Childhood Favorites") for organizing games beyond system/genre. — [#80](https://github.com/ryanmagoon/gamelord/issues/80)
