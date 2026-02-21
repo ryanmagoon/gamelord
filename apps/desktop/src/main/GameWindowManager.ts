@@ -259,6 +259,14 @@ export class GameWindowManager {
       this.readyToCloseWindows.delete(windowId)
       this.activeWorkerClient = null
       this.gameWindows.delete(game.id)
+
+      // Shut down the utility process now that the window is gone.
+      // Without this, the worker stays alive and its eventual exit
+      // triggers an unhandled 'error' event (ERR_UNHANDLED_ERROR)
+      // because the listener on the destroyed window is already gone.
+      workerClient.shutdown().catch((err) => {
+        gameWindowLog.warn('Worker shutdown after window close failed:', err)
+      })
     })
 
     this.gameWindows.set(game.id, gameWindow)
