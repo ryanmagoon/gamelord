@@ -108,11 +108,14 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P3 — Multi-System Support
 
+**Vision:** Support every system that libretro supports. The architecture is system-agnostic — adding a new system is just a config entry (system definition in `library.ts`, core mapping in `CoreDownloader.ts`). The goal is comprehensive coverage of retro and modern-retro platforms: PS2, GameCube, Wii, Dreamcast, Saturn, 3DO, CDi, Atari (2600/7800/Jaguar/Lynx), TurboGrafx-16, Neo Geo, WonderSwan, Virtual Boy, and anything else with a working ARM64 macOS libretro core.
+
+- [x] Install and test additional cores — 11 systems supported (NES, SNES, Genesis, GB/GBC, GBA, N64, PS1, PSP, NDS, Arcade) with auto-download from libretro buildbot and multiple core options per system — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
+- [x] Update ROM scanner to detect multiple system types — extension-based detection across all systems with folder-name autodetection — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
 - [x] **Sega Saturn support** — System definition (`.cue`, `.chd`, `.ccd`, `.mdf`), core mapping (Beetle Saturn / Yabause), ScreenScraper integration (system ID 22), platform icon, CRT display type. Requires BIOS files in system directory.
-- [ ] Install and test additional cores (SNES: snes9x/bsnes, Genesis: genesis_plus_gx, GB/GBA: mgba/gambatte) — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
-- [ ] Update ROM scanner to detect multiple system types — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
-- [ ] Add system badges/icons to library UI — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
+- [ ] Add system badges/icons to library UI (PlatformIcon component exists but not integrated into game cards) — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
 - [ ] Remove C++ singleton constraint (`LibretroCore::s_instance`) to allow multiple core instances — [#68](https://github.com/ryanmagoon/gamelord/issues/68)
+- [ ] **Expand system definitions to all viable libretro cores** — Audit the ARM64 macOS libretro buildbot for available cores, add system definitions and core mappings for every system with a working core (PS2/PCSX2, GameCube+Wii/Dolphin, Dreamcast/Flycast, Saturn/Beetle Saturn, 3DO/Opera, TurboGrafx-16/Beetle PCE, Neo Geo/FBNeo, Atari 2600/Stella, Atari 7800/ProSystem, Atari Lynx/Handy, WonderSwan/Beetle WonderSwan, Virtual Boy/Beetle VB, etc.), and verify each core loads and runs a test ROM — [#116](https://github.com/ryanmagoon/gamelord/issues/116)
 
 ### P4 — Library & Metadata
 
@@ -212,6 +215,7 @@ Items are grouped by priority. Work top-down within each tier.
 
 - [ ] Bundle libretro cores with the app — [#98](https://github.com/ryanmagoon/gamelord/issues/98)
 - [ ] **DMG packaging + auto-updates** — electron-builder DMG with code signing, notarization, custom background. Auto-updates via electron-updater + GitHub Releases. — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
+- [ ] **Cross-platform support (Windows & Linux)** — Abstract `dlopen` → `LoadLibrary` for Windows, platform-detect core/config paths, download cores from correct buildbot URL per OS, electron-builder configs for NSIS/MSI (Windows) and AppImage/deb (Linux), CI matrix for all three platforms. The emulation pipeline is already OS-agnostic; the work is in native addon portability, path conventions, and packaging. — [#118](https://github.com/ryanmagoon/gamelord/issues/118)
 
 ### P10 — Web Presence (Vercel)
 
