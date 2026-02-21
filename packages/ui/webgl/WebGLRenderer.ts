@@ -102,8 +102,12 @@ export class WebGLRenderer {
       this.frameHeight = frame.height;
     }
 
-    // Upload raw frame to originalTexture
-    const data = new Uint8Array(frame.data);
+    // Upload raw frame to originalTexture.
+    // frame.data may be an ArrayBuffer (IPC path) or a Uint8Array view
+    // into a SharedArrayBuffer (zero-copy SAB path).
+    const data = frame.data instanceof Uint8Array
+      ? frame.data
+      : new Uint8Array(frame.data as ArrayBuffer);
     gl.bindTexture(gl.TEXTURE_2D, this.originalTexture);
     gl.texImage2D(
       gl.TEXTURE_2D, 0, gl.RGBA,

@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, screen } from 'electron'
+import { BrowserWindow, ipcMain, MessageChannelMain, screen } from 'electron'
 import path from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -158,7 +158,30 @@ export class GameWindowManager {
 
     this.activeWorkerClient = workerClient
 
-    // Forward video frames from worker to renderer
+    // Set up zero-copy frame transfer via SharedArrayBuffer + MessagePort.
+    // The main process creates a MessageChannel and sends one port to the
+    // renderer via webContents.postMessage (which supports port transfer,
+    // unlike webContents.send). The SABs are then sent through that port.
+    const sharedBuffers = workerClient.getSharedBuffers()
+    if (sharedBuffers) {
+      const { port1, port2 } = new MessageChannelMain()
+      gameWindow.webContents.on('did-finish-load', () => {
+        if (gameWindow.isDestroyed()) return
+        gameWindow.webContents.postMessage('game:shared-frame-port', null, [port2])
+
+        // Send SABs through the port after a microtask delay to ensure
+        // the renderer's port.onmessage handler is registered.
+        port1.start()
+        port1.postMessage({
+          type: 'sharedBuffers',
+          control: sharedBuffers.control,
+          video: sharedBuffers.video,
+          audio: sharedBuffers.audio,
+        })
+      })
+    }
+
+    // Forward video frames from worker to renderer (fallback when SAB is not active)
     workerClient.on('videoFrame', (frame: { data: Buffer; width: number; height: number }) => {
       if (!gameWindow.isDestroyed()) {
         gameWindow.webContents.send('game:video-frame', frame)
