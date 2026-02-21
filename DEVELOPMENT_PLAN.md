@@ -108,10 +108,10 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P3 — Multi-System Support
 
+- [x] Install and test additional cores — 11 systems supported (NES, SNES, Genesis, GB/GBC, GBA, N64, PS1, PSP, NDS, Arcade) with auto-download from libretro buildbot and multiple core options per system — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
+- [x] Update ROM scanner to detect multiple system types — extension-based detection across all systems with folder-name autodetection — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
 - [x] **Sega Saturn support** — System definition (`.cue`, `.chd`, `.ccd`, `.mdf`), core mapping (Beetle Saturn / Yabause), ScreenScraper integration (system ID 22), platform icon, CRT display type. Requires BIOS files in system directory.
-- [ ] Install and test additional cores (SNES: snes9x/bsnes, Genesis: genesis_plus_gx, GB/GBA: mgba/gambatte) — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
-- [ ] Update ROM scanner to detect multiple system types — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
-- [ ] Add system badges/icons to library UI — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
+- [ ] Add system badges/icons to library UI (PlatformIcon component exists but not integrated into game cards) — [#67](https://github.com/ryanmagoon/gamelord/issues/67)
 - [ ] Remove C++ singleton constraint (`LibretroCore::s_instance`) to allow multiple core instances — [#68](https://github.com/ryanmagoon/gamelord/issues/68)
 
 ### P4 — Library & Metadata
