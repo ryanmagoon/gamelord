@@ -25,6 +25,7 @@
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "agentation": "^2.2.1",
     "autoprefixer": "^10.4.21",
     "electron": "37.3.1",
     "electron-builder": "^25.1.8",
