@@ -521,7 +521,14 @@ export const GameWindow: React.FC = () => {
   useEffect(() => {
     if (mode !== 'native') return
 
+    /** True when the event target is a text input (annotation fields, etc.). */
+    const isTypingInInput = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTypingInInput(e)) return
       const buttonId = KEY_MAP[e.key]
       if (buttonId !== undefined) {
         e.preventDefault()
@@ -530,6 +537,7 @@ export const GameWindow: React.FC = () => {
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (isTypingInInput(e)) return
       const buttonId = KEY_MAP[e.key]
       if (buttonId !== undefined) {
         e.preventDefault()
@@ -605,6 +613,10 @@ export const GameWindow: React.FC = () => {
   // Keyboard shortcuts (overlay mode or general)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable
+      if (isTyping) return
+
       if (e.key === 'F5') {
         e.preventDefault()
         void handleSaveState()
@@ -788,7 +800,7 @@ export const GameWindow: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={handlePauseResume}
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/20 hover:text-white"
             >
               {isPaused ? (
                 <Play className="h-5 w-5" />
@@ -800,7 +812,7 @@ export const GameWindow: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={handleReset}
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/20 hover:text-white"
               title="Reset"
             >
               <RotateCcw className="h-5 w-5" />
@@ -809,7 +821,7 @@ export const GameWindow: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={handleScreenshot}
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/20 hover:text-white"
             >
               <Camera className="h-5 w-5" />
             </Button>
@@ -818,7 +830,7 @@ export const GameWindow: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={handleToggleFastForward}
-                className={`text-white hover:bg-white/10 ${speedMultiplier > 1 ? 'text-yellow-400' : ''}`}
+                className={`text-white hover:bg-white/20 hover:text-white ${speedMultiplier > 1 ? 'text-yellow-400 hover:text-yellow-300' : ''}`}
                 title={`Fast Forward (Tab) — ${speedMultiplier}x`}
               >
                 <FastForward className="h-5 w-5" />
@@ -877,7 +889,7 @@ export const GameWindow: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={handleSaveState}
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/20 hover:text-white"
             >
               <Save className="h-4 w-4 mr-2" />
               Save (F5)
@@ -886,7 +898,7 @@ export const GameWindow: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={handleLoadState}
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/20 hover:text-white"
             >
               <FolderOpen className="h-4 w-4 mr-2" />
               Load (F9)
@@ -899,7 +911,7 @@ export const GameWindow: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={() => setIsMuted((m) => !m)}
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/20 hover:text-white"
             >
               {isMuted || volume === 0 ? (
                 <VolumeX className="h-5 w-5" />
@@ -927,7 +939,7 @@ export const GameWindow: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => { setShowShaderMenu((v) => !v); setShowSettingsMenu(false); setShowSpeedMenu(false) }}
-                className="text-white hover:bg-white/10"
+                className="text-white hover:bg-white/20 hover:text-white"
                 title="Shader"
               >
                 <Monitor className="h-5 w-5" />
@@ -963,7 +975,7 @@ export const GameWindow: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => { setShowSettingsMenu((v) => !v); setShowShaderMenu(false); setShowSpeedMenu(false) }}
-                className="text-white hover:bg-white/10"
+                className="text-white hover:bg-white/20 hover:text-white"
                 title="Settings"
               >
                 <Settings className="h-5 w-5" />
