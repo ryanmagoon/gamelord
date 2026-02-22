@@ -73,6 +73,9 @@ export const GameWindow: React.FC = () => {
   const [showFps, setShowFps] = useState(() => {
     return localStorage.getItem('gamelord:showFps') === 'true'
   })
+  const [showAgentation, setShowAgentation] = useState(() => {
+    return localStorage.getItem('gamelord:showAgentation') === 'true'
+  })
   const [fps, setFps] = useState(0)
   const [isPoweringOn, setIsPoweringOn] = useState(false)
   const [isPoweringOff, setIsPoweringOff] = useState(false)
@@ -510,6 +513,12 @@ export const GameWindow: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('gamelord:showFps', String(showFps))
   }, [showFps])
+
+  // Toggle Agentation toolbar visibility via body class (portal renders to body)
+  useEffect(() => {
+    localStorage.setItem('gamelord:showAgentation', String(showAgentation))
+    document.body.classList.toggle('show-agentation', showAgentation)
+  }, [showAgentation])
 
   // Sync traffic light visibility with controls overlay (hide during shutdown)
   useEffect(() => {
@@ -994,6 +1003,17 @@ export const GameWindow: React.FC = () => {
                       {showFps ? 'ON' : 'OFF'}
                     </span>
                   </button>
+                  {process.env.NODE_ENV === 'development' && (
+                    <button
+                      onClick={() => setShowAgentation((v) => !v)}
+                      className="w-full flex items-center justify-between px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                    >
+                      <span>Annotate</span>
+                      <span className={`ml-3 text-xs font-medium ${showAgentation ? 'text-green-400' : 'text-white/40'}`}>
+                        {showAgentation ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
