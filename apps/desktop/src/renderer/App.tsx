@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { Button, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuItem } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
 import { Monitor, Tv, Sun, Moon, Cpu, Heart } from 'lucide-react'
+import { DevAgentation } from './components/DevAgentation'
 import { LibraryView } from './components/LibraryView'
 import { ResumeGameDialog } from './components/ResumeGameDialog'
 import { CoreSelectDialog } from './components/CoreSelectDialog'
@@ -403,6 +404,8 @@ function App() {
           </div>
         </div>
       )}
+
+      <DevAgentation />
     </div>
   )
 }
