@@ -293,6 +293,43 @@ describe('GameCard', () => {
     })
   })
 
+  describe('unc mode markup', () => {
+    it('always renders data-game-card attribute on the card root', () => {
+      const onPlay = vi.fn()
+      const { container } = render(<GameCard game={mockGame} onPlay={onPlay} />)
+
+      const cardWithAttr = container.querySelector('[data-game-card]')
+      expect(cardWithAttr).not.toBeNull()
+    })
+
+    it('renders the vibe-glow-layer div with aria-hidden', () => {
+      const onPlay = vi.fn()
+      const { container } = render(<GameCard game={mockGame} onPlay={onPlay} />)
+
+      const glowLayer = container.querySelector('.vibe-glow-layer')
+      expect(glowLayer).not.toBeNull()
+      expect(glowLayer!.getAttribute('aria-hidden')).toBe('true')
+    })
+
+    it('renders vibe-glow-image inside glow layer when coverArt exists', () => {
+      const onPlay = vi.fn()
+      const gameWithArt = { ...mockGame, coverArt: 'artwork://test.png' }
+      const { container } = render(<GameCard game={gameWithArt} onPlay={onPlay} />)
+
+      const glowImage = container.querySelector('.vibe-glow-image')
+      expect(glowImage).not.toBeNull()
+      expect(glowImage!.getAttribute('src')).toBe('artwork://test.png')
+    })
+
+    it('does not render vibe-glow-image when no coverArt', () => {
+      const onPlay = vi.fn()
+      const { container } = render(<GameCard game={mockGame} onPlay={onPlay} />)
+
+      const glowImage = container.querySelector('.vibe-glow-image')
+      expect(glowImage).toBeNull()
+    })
+  })
+
   describe('mosaic layout', () => {
     it('card and inner container both use h-full to fill grid area', () => {
       const onPlay = vi.fn()
