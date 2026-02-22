@@ -28,6 +28,7 @@ import {
   CTRL_AUDIO_READ_POS,
   CTRL_AUDIO_SAMPLE_RATE,
 } from '../../main/workers/shared-frame-protocol'
+import { DevBranchBadge } from './DevBranchBadge'
 import { PowerAnimation } from './animations'
 import { getDisplayType } from '../../types/displayType'
 import { useGamepad } from '../hooks/useGamepad'
@@ -753,6 +754,7 @@ export const GameWindow: React.FC = () => {
         </div>
       )}
 
+
       {/* Persistent drag region — always allows window dragging from the top
           edge, even when the visible controls overlay is hidden. Sits below the
           controls (z-40) so it doesn't intercept clicks on visible buttons. */}
@@ -778,6 +780,7 @@ export const GameWindow: React.FC = () => {
           <div className="flex items-center gap-3">
             <h1 className="text-white font-semibold">{game.title}</h1>
             <span className="text-gray-400 text-sm">{game.system}</span>
+            <DevBranchBadge variant="overlay" />
           </div>
         </div>
       </div>

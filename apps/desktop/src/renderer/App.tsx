@@ -3,6 +3,7 @@ import { Button, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuIt
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
 import { Monitor, Tv, Sun, Moon, Cpu, Heart } from 'lucide-react'
 import { DevAgentation } from './components/DevAgentation'
+import { DevBranchBadge } from './components/DevBranchBadge'
 import { LibraryView } from './components/LibraryView'
 import { ResumeGameDialog } from './components/ResumeGameDialog'
 import { CoreSelectDialog } from './components/CoreSelectDialog'
@@ -333,7 +334,8 @@ function App() {
             pointerEvents: viewState === 'library' ? 'auto' : 'none',
           }}
         >
-          <div className="drag-region titlebar-inset h-10 border-b flex items-center justify-end px-4">
+          <div className="drag-region titlebar-inset h-10 border-b flex items-center justify-end gap-2 px-4">
+            <DevBranchBadge />
             <Button variant="ghost" size="icon" className="no-drag h-7 w-7" onClick={toggleTheme}>
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>

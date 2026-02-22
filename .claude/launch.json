@@ -5,7 +5,8 @@
       "name": "desktop",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@gamelord/desktop", "dev"],
-      "port": 5173
+      "port": 5173,
+      "autoPort": true
     },
     {
       "name": "storybook",
