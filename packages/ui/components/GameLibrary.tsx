@@ -20,6 +20,7 @@ import { ScrollLetterIndicator } from './ScrollLetterIndicator';
 import type { ArtworkSyncStore } from '../hooks/useArtworkSyncStore';
 import { ROW_HEIGHT, MOSAIC_GAP, computeCardWidth } from '../utils/mosaicGrid';
 import { computeRowLayout } from '../utils/mosaicLayout';
+import { usePointerGlow } from '../hooks/usePointerGlow';
 
 /** Threshold: lists larger than this use virtualized rendering. */
 const VIRTUALIZATION_THRESHOLD = 100;
@@ -83,6 +84,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const gridRef = useRef<HTMLDivElement>(null);
   const containerWidth = useContainerWidth(gridRef);
+  usePointerGlow(gridRef);
   const getGameKey = useCallback((game: Game) => game.id, []);
 
   // Extract unique platforms

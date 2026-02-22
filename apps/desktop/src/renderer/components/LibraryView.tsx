@@ -23,6 +23,7 @@ import type { Game as AppGame, GameSystem } from '../../types/library'
 import type { ArtworkProgress } from '../../types/artwork'
 import type { GamelordAPI } from '../types/global'
 import { EmptyLibrary } from './EmptyLibrary'
+import { VibeBackgroundNoise } from '@gamelord/ui/components/VibeBackgroundNoise'
 
 interface CoreDownloadProgress {
   coreName: string;
@@ -542,7 +543,9 @@ export const LibraryView: React.FC<{
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {/* Background noise layer — visible in CRT vibes, hidden otherwise via CSS */}
+      <VibeBackgroundNoise />
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-4">
