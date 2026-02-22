@@ -107,6 +107,83 @@ export const NotFavorited: Story = {
   },
 };
 
+/** Unc Mode — CRT/VHS vibe with pointer-tracking glow and scanlines. */
+export const UncMode: Story = {
+  args: {
+    game: {
+      id: 'unc-1',
+      title: 'Super Mario Bros.',
+      platform: 'NES',
+      genre: 'Platform',
+      coverArt: superMarioBrosBox,
+      romPath: '/roms/smb.nes',
+    },
+    onPlay() { /* storybook action placeholder */ },
+  },
+  decorators: [
+    (Story) => {
+      document.documentElement.dataset.vibe = 'unc';
+      document.documentElement.classList.add('dark');
+      return (
+        <div style={{ width: 200, height: 280 }}>
+          <Story />
+        </div>
+      );
+    },
+  ],
+};
+
+/** Unc Mode — card without cover art (fallback state). */
+export const UncModeNoCoverArt: Story = {
+  args: {
+    game: {
+      id: 'unc-2',
+      title: 'Mystery Game',
+      platform: 'SNES',
+      romPath: '/roms/mystery.smc',
+    },
+    onPlay() { /* storybook action placeholder */ },
+  },
+  decorators: [
+    (Story) => {
+      document.documentElement.dataset.vibe = 'unc';
+      document.documentElement.classList.add('dark');
+      return (
+        <div style={{ width: 200, height: 280 }}>
+          <Story />
+        </div>
+      );
+    },
+  ],
+};
+
+/** Unc Mode — launching state with shimmer. */
+export const UncModeLaunching: Story = {
+  args: {
+    game: {
+      id: 'unc-3',
+      title: 'Mega Man 2',
+      platform: 'NES',
+      genre: 'Action',
+      coverArt: superMarioBrosBox,
+      romPath: '/roms/mm2.nes',
+    },
+    onPlay() { /* storybook action placeholder */ },
+    isLaunching: true,
+  },
+  decorators: [
+    (Story) => {
+      document.documentElement.dataset.vibe = 'unc';
+      document.documentElement.classList.add('dark');
+      return (
+        <div style={{ width: 200, height: 280 }}>
+          <Story />
+        </div>
+      );
+    },
+  ],
+};
+
 /** Test that accessibility features work correctly */
 export const AccessibilityTest: Story = {
   args: {
