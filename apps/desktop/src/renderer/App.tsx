@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Button, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuItem } from '@gamelord/ui'
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuItem } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
-import { Monitor, Tv, Sun, Moon, Cpu, Heart } from 'lucide-react'
+import { Check, Monitor, Tv, Sun, Moon, Cpu, Heart, SunMoon } from 'lucide-react'
 import { DevAgentation } from './components/DevAgentation'
 import { DevBranchBadge } from './components/DevBranchBadge'
 import { LibraryView } from './components/LibraryView'
@@ -53,9 +53,12 @@ function App() {
   const [currentGame, setCurrentGame] = useState<Game | null>(null)
   const { isReady, currentShader, handleRendererReady, changeShader } =
     useWebGLRenderer()
-  const [isDark, setIsDark] = useState(
-    () => document.documentElement.classList.contains('dark'),
-  )
+  type ThemeMode = 'system' | 'dark' | 'light'
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem('gamelord:theme')
+    if (saved === 'dark' || saved === 'light') return saved
+    return 'system'
+  })
   const [resumeDialog, setResumeDialog] = useState<ResumeDialogState>({
     open: false,
     requestId: '',
@@ -98,21 +101,39 @@ function App() {
     setResumeDialog((previous) => ({ ...previous, open: false }))
   }, [api, resumeDialog.requestId])
 
-  const toggleTheme = useCallback(() => {
-    const next = !isDark
-
-    // Enable cross-fade transitions before toggling
+  /** Applies the dark class to <html> with a smooth crossfade transition. */
+  const applyDarkClass = useCallback((shouldBeDark: boolean) => {
     document.body.classList.add('theme-transitioning')
-
-    setIsDark(next)
-    document.documentElement.classList.toggle('dark', next)
-    localStorage.setItem('gamelord:theme', next ? 'dark' : 'light')
-
-    // Remove the transition class after the 200ms cross-fade completes
+    document.documentElement.classList.toggle('dark', shouldBeDark)
     setTimeout(() => {
       document.body.classList.remove('theme-transitioning')
     }, 200)
-  }, [isDark])
+  }, [])
+
+  // Listen for OS theme changes via IPC so "system" mode updates live.
+  // Electron's Chromium doesn't reliably fire matchMedia change events for
+  // prefers-color-scheme, so the main process forwards nativeTheme updates.
+  useEffect(() => {
+    if (themeMode !== 'system') return
+
+    const handleSystemThemeChange = (isDark: boolean) => {
+      applyDarkClass(isDark)
+    }
+
+    api.on('theme:systemChanged', handleSystemThemeChange)
+    return () => api.removeAllListeners('theme:systemChanged')
+  }, [api, themeMode, applyDarkClass])
+
+  const setTheme = useCallback((mode: ThemeMode) => {
+    setThemeMode(mode)
+    localStorage.setItem('gamelord:theme', mode)
+
+    const shouldBeDark =
+      mode === 'dark' ||
+      (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+    applyDarkClass(shouldBeDark)
+  }, [applyDarkClass])
 
   /** Resolves the machine-readable system ID from a UiGame. */
   const getSystemId = (game: UiGame) => game.systemId ?? game.platform
@@ -336,9 +357,30 @@ function App() {
         >
           <div className="drag-region titlebar-inset h-10 border-b flex items-center justify-end gap-2 px-4">
             <DevBranchBadge />
-            <Button variant="ghost" size="icon" className="no-drag h-7 w-7" onClick={toggleTheme}>
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="no-drag h-7 w-7">
+                  {themeMode === 'system' ? <SunMoon className="h-4 w-4" /> : themeMode === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setTheme('system')}>
+                  <SunMoon className="h-4 w-4" />
+                  System
+                  {themeMode === 'system' && <Check className="ml-auto h-4 w-4" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('light')}>
+                  <Sun className="h-4 w-4" />
+                  Light
+                  {themeMode === 'light' && <Check className="ml-auto h-4 w-4" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('dark')}>
+                  <Moon className="h-4 w-4" />
+                  Dark
+                  {themeMode === 'dark' && <Check className="ml-auto h-4 w-4" />}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="flex-1 overflow-hidden">
             <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} launchingGameId={launchingGameId} />

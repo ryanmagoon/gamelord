@@ -84,7 +84,8 @@ contextBridge.exposeInMainWorld('gamelord', {
       'dialog:showResumeGame',
       'game:prepare-close',
       'game:emulation-error',
-      'game:ready-for-boot'
+      'game:ready-for-boot',
+      'theme:systemChanged'
     ];
 
     if (validChannels.includes(channel)) {
