@@ -142,6 +142,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   return (
     <Card
       ref={mergedCardRef}
+      data-game-card=""
       className={cn(
         'group relative overflow-hidden rounded-none border-0 w-full h-full',
         disabled
@@ -179,6 +180,20 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
               game.coverArt && (isDone ? crossFadeReady : true) ? 'opacity-100' : 'opacity-0',
             )}
           />
+
+          {/* Pointer-tracking glow layer — always in DOM, hidden via CSS when
+              vibe is 'default'. Visibility controlled by unc.css rules. The
+              blurred duplicate image follows --pointer-x/--pointer-y set by
+              the container-level pointermove listener in GameLibrary. */}
+          <div className="vibe-glow-layer" aria-hidden="true">
+            {game.coverArt && (
+              <img
+                src={game.coverArt}
+                alt=""
+                className="vibe-glow-image"
+              />
+            )}
+          </div>
 
           {/*
            * TV static overlay — always in the DOM, controlled via the wrapper's
