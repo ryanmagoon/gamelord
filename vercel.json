@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "echo 'No web app yet — see P10 in DEVELOPMENT_PLAN.md'"
+}
