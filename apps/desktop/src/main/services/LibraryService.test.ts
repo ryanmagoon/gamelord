@@ -1516,7 +1516,7 @@ describe('LibraryService', () => {
         progressEvents.push(event)
       })
 
-      const secondScan = await service.scanDirectory(zipScanDir)
+      await service.scanDirectory(zipScanDir)
 
       // Total game count unchanged — no duplicates
       expect(service.getGames().length).toBe(totalAfterFirst)
@@ -1765,7 +1765,7 @@ describe('LibraryService', () => {
       const hashSpy = vi.spyOn(service, 'computeRomHashes')
 
       // Second scan — zip unchanged, should skip extraction + hashing entirely
-      const secondScan = await service.scanDirectory(zipMtimeDir)
+      await service.scanDirectory(zipMtimeDir)
       expect(hashSpy).not.toHaveBeenCalled()
 
       // Game count unchanged

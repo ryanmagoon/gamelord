@@ -7,7 +7,6 @@ import { DevBranchBadge } from './components/DevBranchBadge'
 import { LibraryView } from './components/LibraryView'
 import { ResumeGameDialog } from './components/ResumeGameDialog'
 import { CoreSelectDialog } from './components/CoreSelectDialog'
-import { Game } from '../types/library'
 import type { GamelordAPI, CoreInfo } from './types/global'
 
 interface ResumeDialogState {
@@ -50,8 +49,7 @@ function App() {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
   const [viewState, setViewState] = useState<ViewState>('library')
   const viewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [currentGame, setCurrentGame] = useState<Game | null>(null)
-  const { isReady, currentShader, handleRendererReady, changeShader } =
+  const { currentShader, handleRendererReady, changeShader } =
     useWebGLRenderer()
   type ThemeMode = 'system' | 'dark' | 'light'
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
@@ -311,16 +309,6 @@ function App() {
     })
 
     return items
-  }, [])
-
-  /** Transition to the game view with a crossfade. */
-  const transitionToGame = useCallback(() => {
-    if (viewTimerRef.current) clearTimeout(viewTimerRef.current)
-    setViewState('to-game')
-    viewTimerRef.current = setTimeout(() => {
-      setViewState('game')
-      viewTimerRef.current = null
-    }, VIEW_TRANSITION_MS)
   }, [])
 
   const handleStop = async () => {
