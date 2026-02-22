@@ -39,3 +39,16 @@ html, body, #root {
   background: transparent !important;
   background-color: transparent !important;
 }
+
+/* Agentation dev toolbar: hidden by default, toggled via Settings > Annotate.
+   When visible, repositioned from bottom-right to top-right so it doesn't
+   overlap the game canvas or bottom control bar. */
+[data-feedback-toolbar] {
+  display: none !important;
+}
+body.show-agentation [data-feedback-toolbar] {
+  display: block !important;
+  bottom: auto !important;
+  top: 1rem !important;
+  right: 1rem !important;
+}
