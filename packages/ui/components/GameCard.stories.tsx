@@ -1,7 +1,33 @@
+import React, { useEffect } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within, userEvent, fn } from 'storybook/test';
 import { GameCard } from './GameCard';
 import superMarioBrosBox from '../assets/super-mario-bros-box.png';
+
+/** Storybook decorator that enables Unc Mode and cleans up on unmount. */
+function UncModeDecorator(Story: React.ComponentType) {
+  useEffect(() => {
+    const prevVibe = document.documentElement.dataset.vibe;
+    const wasDark = document.documentElement.classList.contains('dark');
+    document.documentElement.dataset.vibe = 'unc';
+    document.documentElement.classList.add('dark');
+    return () => {
+      if (prevVibe) {
+        document.documentElement.dataset.vibe = prevVibe;
+      } else {
+        delete document.documentElement.dataset.vibe;
+      }
+      if (!wasDark) {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+  }, []);
+  return (
+    <div style={{ width: 200, height: 280 }}>
+      <Story />
+    </div>
+  );
+}
 
 const meta = {
   title: 'Components/GameCard',
@@ -120,17 +146,7 @@ export const UncMode: Story = {
     },
     onPlay() { /* storybook action placeholder */ },
   },
-  decorators: [
-    (Story) => {
-      document.documentElement.dataset.vibe = 'unc';
-      document.documentElement.classList.add('dark');
-      return (
-        <div style={{ width: 200, height: 280 }}>
-          <Story />
-        </div>
-      );
-    },
-  ],
+  decorators: [UncModeDecorator],
 };
 
 /** Unc Mode — card without cover art (fallback state). */
@@ -144,17 +160,7 @@ export const UncModeNoCoverArt: Story = {
     },
     onPlay() { /* storybook action placeholder */ },
   },
-  decorators: [
-    (Story) => {
-      document.documentElement.dataset.vibe = 'unc';
-      document.documentElement.classList.add('dark');
-      return (
-        <div style={{ width: 200, height: 280 }}>
-          <Story />
-        </div>
-      );
-    },
-  ],
+  decorators: [UncModeDecorator],
 };
 
 /** Unc Mode — launching state with shimmer. */
@@ -171,17 +177,7 @@ export const UncModeLaunching: Story = {
     onPlay() { /* storybook action placeholder */ },
     isLaunching: true,
   },
-  decorators: [
-    (Story) => {
-      document.documentElement.dataset.vibe = 'unc';
-      document.documentElement.classList.add('dark');
-      return (
-        <div style={{ width: 200, height: 280 }}>
-          <Story />
-        </div>
-      );
-    },
-  ],
+  decorators: [UncModeDecorator],
 };
 
 /** Test that accessibility features work correctly */
