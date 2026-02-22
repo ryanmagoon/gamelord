@@ -754,12 +754,6 @@ export const GameWindow: React.FC = () => {
         </div>
       )}
 
-      {/* Dev branch badge — top-right, always visible in dev mode */}
-      {isNative && (
-        <div className="absolute top-2 right-2 z-40">
-          <DevBranchBadge variant="overlay" />
-        </div>
-      )}
 
       {/* Persistent drag region — always allows window dragging from the top
           edge, even when the visible controls overlay is hidden. Sits below the
@@ -786,6 +780,7 @@ export const GameWindow: React.FC = () => {
           <div className="flex items-center gap-3">
             <h1 className="text-white font-semibold">{game.title}</h1>
             <span className="text-gray-400 text-sm">{game.system}</span>
+            <DevBranchBadge variant="overlay" />
           </div>
         </div>
       </div>
