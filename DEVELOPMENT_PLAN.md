@@ -210,6 +210,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Playtime tracking and statistics — [#95](https://github.com/ryanmagoon/gamelord/issues/95)
 - [ ] Settings panel — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
 - [ ] **Graphics quality setting** — A simple quality preference (e.g. "Quality" / "Performance") that controls shader complexity and cosmetic effects. "Performance" disables multi-pass CRT shaders (falls back to single-pass or nearest), simplifies the VHS pause screen, and strips heavy overlays. Lets users on lower-end hardware or high-refresh displays trade eye candy for consistent frame pacing. — [#97](https://github.com/ryanmagoon/gamelord/issues/97)
+- [ ] **Graceful app startup** — Eliminate the FOUC (flash of unstyled content) on first load. Phase 1: add `show: false` + `ready-to-show` to main BrowserWindow, inline critical CSS in `index.html` (dark background, color-scheme meta), fade `#root` in smoothly once React mounts. Phase 2 (future): branded splash/loading state, staggered UI element cascade, CRT power-on flicker effect on startup. — [#125](https://github.com/ryanmagoon/gamelord/issues/125)
 
 ### P9 — Packaging & Distribution
 
