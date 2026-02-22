@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "mkdir -p dist && echo '<html><body><h1>Coming Soon</h1><p>No web app yet — see P10 in DEVELOPMENT_PLAN.md</p></body></html>' > dist/index.html && echo 'No web app yet — see P10 in DEVELOPMENT_PLAN.md'"
+}
