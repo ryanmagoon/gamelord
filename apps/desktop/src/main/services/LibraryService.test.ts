@@ -1018,8 +1018,6 @@ describe('LibraryService', () => {
       fs.mkdirSync(unreadableDir, { recursive: true })
       const romPath = path.join(unreadableDir, 'game.nes')
       fs.writeFileSync(romPath, 'data')
-      // Make the file unreadable
-      fs.chmodSync(romPath, 0o000)
 
       const config = {
         systems: [TEST_NES_SYSTEM],
@@ -1032,13 +1030,18 @@ describe('LibraryService', () => {
       )
 
       const service = await createService()
+
+      // Mock computeRomHashes to throw an I/O error, simulating an unreadable file.
+      // This is more reliable than chmod 000, which is ignored when running as root.
+      vi.spyOn(service, 'computeRomHashes').mockRejectedValueOnce(
+        Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }),
+      )
+
       const games = await service.scanDirectory(unreadableDir)
 
       // Game should be skipped, not added
       expect(games).toHaveLength(0)
 
-      // Restore permissions for cleanup
-      fs.chmodSync(romPath, 0o644)
       fs.rmSync(unreadableDir, { recursive: true, force: true })
     })
   })
