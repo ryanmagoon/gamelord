@@ -1,7 +1,8 @@
 import { config as loadDotenv } from 'dotenv';
-import { app, BrowserWindow, net, protocol, session } from 'electron';
+import { app, BrowserWindow, nativeTheme, net, protocol, session } from 'electron';
 import path from 'node:path';
 import { IPCHandlers } from './main/ipc/handlers';
+import { mainLog } from './main/logger';
 import { getSavedWindowBounds, manageWindowState } from './main/utils/windowState';
 
 // Load .env from the desktop app root (apps/desktop/.env) before anything
@@ -91,6 +92,21 @@ app.on('ready', () => {
   const preloadPath = path.join(__dirname, '../preload/index.js');
   ipcHandlers = new IPCHandlers(preloadPath);
   createWindow();
+
+  // Forward OS theme changes to the renderer so "system" mode updates live.
+  // Electron's Chromium doesn't reliably fire matchMedia change events for
+  // prefers-color-scheme, so we use nativeTheme as the source of truth.
+  // The short delay works around a macOS timing issue where
+  // shouldUseDarkColors may not reflect the new value immediately.
+  nativeTheme.on('updated', () => {
+    setTimeout(() => {
+      const isDark = nativeTheme.shouldUseDarkColors;
+      mainLog.info(`OS theme changed: ${isDark ? 'dark' : 'light'}`);
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send('theme:systemChanged', isDark);
+      }
+    }, 50);
+  });
 });
 
 // Gracefully shut down the emulation worker before quitting so its exit
