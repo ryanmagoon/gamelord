@@ -116,7 +116,7 @@ export interface AudioSamples {
 declare global {
   const __DEV_GIT_BRANCH__: string | null
   const __DEV_WORKTREE_NAME__: string | null
-  const __DEV_COMMIT_SUBJECT__: string | null
+  const __DEV_WORKTREE_PATH__: string | null
 
   interface Window {
     gamelord: GamelordAPI

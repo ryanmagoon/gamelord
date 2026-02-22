@@ -28,6 +28,7 @@ import {
   CTRL_AUDIO_READ_POS,
   CTRL_AUDIO_SAMPLE_RATE,
 } from '../../main/workers/shared-frame-protocol'
+import { DevBranchBadge } from './DevBranchBadge'
 import { PowerAnimation } from './animations'
 import { getDisplayType } from '../../types/displayType'
 import { useGamepad } from '../hooks/useGamepad'
@@ -750,6 +751,13 @@ export const GameWindow: React.FC = () => {
       {isNative && showFps && (
         <div className="absolute top-2 left-2 z-40 px-2 py-1 bg-black/60 rounded text-xs font-mono text-green-400 pointer-events-none select-none">
           {fps} FPS
+        </div>
+      )}
+
+      {/* Dev branch badge — top-right, always visible in dev mode */}
+      {isNative && (
+        <div className="absolute top-2 right-2 z-40">
+          <DevBranchBadge variant="overlay" />
         </div>
       )}
 
