@@ -1,0 +1,190 @@
+/*
+ * Unc Mode 👴 — CRT/VHS nostalgia vibe
+ *
+ * Warm phosphor palette, pointer-tracking glow, scanlines, chromatic
+ * aberration, and VHS tracking artifacts. Dark-mode only.
+ */
+
+/* ------------------------------------------------------------------ */
+/* 1. Color palette — warm amber/green phosphor                       */
+/* ------------------------------------------------------------------ */
+
+html[data-vibe="unc"] {
+  /* Force dark mode when unc is active */
+  color-scheme: dark;
+}
+
+html[data-vibe="unc"].dark {
+  --background: hsl(25 12% 4%);
+  --foreground: hsl(42 70% 75%);
+  --card: hsl(25 10% 6%);
+  --card-foreground: hsl(42 70% 75%);
+  --popover: hsl(25 10% 7%);
+  --popover-foreground: hsl(42 70% 75%);
+  --primary: hsl(120 50% 50%);
+  --primary-foreground: hsl(25 12% 4%);
+  --secondary: hsl(25 8% 12%);
+  --secondary-foreground: hsl(42 70% 75%);
+  --muted: hsl(25 6% 14%);
+  --muted-foreground: hsl(42 25% 45%);
+  --accent: hsl(25 8% 16%);
+  --accent-foreground: hsl(42 70% 75%);
+  --destructive: hsl(0 55% 35%);
+  --destructive-foreground: hsl(42 70% 75%);
+  --border: hsl(25 8% 16%);
+  --input: hsl(25 8% 16%);
+  --ring: hsl(120 40% 45%);
+
+  /* Vibe-specific properties */
+  --vibe-glow-blur: 20px;
+  --vibe-glow-saturate: 3;
+  --vibe-glow-brightness: 1.5;
+  --vibe-glow-opacity: 0.6;
+  --vibe-scanline-opacity: 0.35;
+  --vibe-noise-opacity: 0.04;
+  --vibe-chromatic-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Pointer-tracking glow layer                                     */
+/* ------------------------------------------------------------------ */
+
+/* Hidden by default — only visible in unc mode */
+.vibe-glow-layer {
+  display: none;
+}
+
+html[data-vibe="unc"] .vibe-glow-layer {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+html[data-vibe="unc"] .vibe-glow-image {
+  position: absolute;
+  width: 160%;
+  height: 160%;
+  object-fit: cover;
+  left: 50%;
+  top: 50%;
+  transform: translate(
+    calc(-50% + (var(--pointer-x, 0.5) - 0.5) * 40%),
+    calc(-50% + (var(--pointer-y, 0.5) - 0.5) * 40%)
+  );
+  filter:
+    blur(var(--vibe-glow-blur))
+    saturate(var(--vibe-glow-saturate))
+    brightness(var(--vibe-glow-brightness));
+  opacity: var(--vibe-glow-opacity);
+  transition: transform 100ms ease-out, opacity 200ms ease;
+}
+
+/* Fade glow out when pointer leaves the card */
+html[data-vibe="unc"] [data-game-card]:not(:hover) .vibe-glow-image {
+  opacity: 0.25;
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Chromatic aberration — red/cyan channel separation on glow       */
+/* ------------------------------------------------------------------ */
+
+html[data-vibe="unc"] .vibe-glow-layer::before,
+html[data-vibe="unc"] .vibe-glow-layer::after {
+  content: '';
+  position: absolute;
+  inset: -5%;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+html[data-vibe="unc"] [data-game-card]:hover .vibe-glow-layer::before,
+html[data-vibe="unc"] [data-game-card]:hover .vibe-glow-layer::after {
+  opacity: 0.3;
+}
+
+html[data-vibe="unc"] .vibe-glow-layer::before {
+  background: rgba(255, 60, 60, 0.25);
+  transform: translateX(calc(var(--vibe-chromatic-offset) * -1));
+  mix-blend-mode: screen;
+  filter: blur(8px);
+}
+
+html[data-vibe="unc"] .vibe-glow-layer::after {
+  background: rgba(60, 255, 255, 0.25);
+  transform: translateX(var(--vibe-chromatic-offset));
+  mix-blend-mode: screen;
+  filter: blur(8px);
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Scanline overlay                                                */
+/* ------------------------------------------------------------------ */
+
+html[data-vibe="unc"] [data-game-card]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 1px,
+    rgba(0, 0, 0, 0.12) 1px,
+    rgba(0, 0, 0, 0.12) 2px
+  );
+  background-size: 100% 3px;
+  opacity: var(--vibe-scanline-opacity);
+  mix-blend-mode: multiply;
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. VHS tracking artifact on hover                                  */
+/* ------------------------------------------------------------------ */
+
+@keyframes vhs-tracking {
+  0%   { clip-path: inset(0);            transform: translateX(0); }
+  8%   { clip-path: inset(15% 0 75% 0);  transform: translateX(4px); }
+  16%  { clip-path: inset(55% 0 30% 0);  transform: translateX(-3px); }
+  24%  { clip-path: inset(30% 0 60% 0);  transform: translateX(2px); }
+  32%  { clip-path: inset(0);            transform: translateX(0); }
+  100% { clip-path: inset(0);            transform: translateX(0); }
+}
+
+html[data-vibe="unc"] [data-game-card]:hover > div > img:first-of-type {
+  animation: vhs-tracking 350ms ease-out;
+}
+
+/* ------------------------------------------------------------------ */
+/* 6. Card hover overrides for Unc Mode                               */
+/* ------------------------------------------------------------------ */
+
+/* Subtle green phosphor glow instead of the default shadow */
+html[data-vibe="unc"] [data-game-card]:hover {
+  box-shadow:
+    0 0 15px rgba(0, 255, 80, 0.15),
+    0 0 30px rgba(0, 255, 80, 0.08);
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. Background noise layer                                          */
+/* ------------------------------------------------------------------ */
+
+.vibe-background-noise {
+  display: none;
+}
+
+html[data-vibe="unc"] .vibe-background-noise {
+  display: block;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--vibe-noise-opacity);
+  image-rendering: pixelated;
+}

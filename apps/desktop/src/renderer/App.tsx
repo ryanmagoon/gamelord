@@ -1,8 +1,21 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Button, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuItem } from '@gamelord/ui'
+import {
+  Button,
+  WebGLRendererComponent,
+  Game as UiGame,
+  cn,
+  type GameCardMenuItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
-import { Monitor, Tv, Sun, Moon, Cpu, Heart } from 'lucide-react'
+import { Monitor, Tv, Sun, Moon, Cpu, Heart, Sparkles } from 'lucide-react'
 import { DevAgentation } from './components/DevAgentation'
+import { VIBE_REGISTRY, getVibeDefinition, getSavedVibeId } from '@gamelord/ui/vibes/registry'
+import type { VibeId } from '@gamelord/ui/vibes/types'
 import { LibraryView } from './components/LibraryView'
 import { ResumeGameDialog } from './components/ResumeGameDialog'
 import { CoreSelectDialog } from './components/CoreSelectDialog'
@@ -55,6 +68,7 @@ function App() {
   const [isDark, setIsDark] = useState(
     () => document.documentElement.classList.contains('dark'),
   )
+  const [activeVibe, setActiveVibe] = useState<VibeId>(getSavedVibeId)
   const [resumeDialog, setResumeDialog] = useState<ResumeDialogState>({
     open: false,
     requestId: '',
@@ -98,6 +112,10 @@ function App() {
   }, [api, resumeDialog.requestId])
 
   const toggleTheme = useCallback(() => {
+    // Block theme toggle when active vibe is dark-only
+    const vibeDef = getVibeDefinition(activeVibe)
+    if (!vibeDef.colorSchemes.includes('light')) return
+
     const next = !isDark
 
     // Enable cross-fade transitions before toggling
@@ -108,6 +126,41 @@ function App() {
     localStorage.setItem('gamelord:theme', next ? 'dark' : 'light')
 
     // Remove the transition class after the 200ms cross-fade completes
+    setTimeout(() => {
+      document.body.classList.remove('theme-transitioning')
+    }, 200)
+  }, [isDark, activeVibe])
+
+  const handleVibeChange = useCallback((vibeId: VibeId) => {
+    const vibeDef = getVibeDefinition(vibeId)
+
+    // Enable cross-fade transitions
+    document.body.classList.add('theme-transitioning')
+
+    setActiveVibe(vibeId)
+    localStorage.setItem('gamelord:vibe', vibeId)
+
+    if (vibeId === 'default') {
+      delete document.documentElement.dataset.vibe
+      // Restore the user's light/dark preference from before the vibe override
+      const savedTheme = localStorage.getItem('gamelord:theme-before-vibe')
+      if (savedTheme === 'light') {
+        setIsDark(false)
+        document.documentElement.classList.remove('dark')
+        localStorage.setItem('gamelord:theme', 'light')
+      }
+      localStorage.removeItem('gamelord:theme-before-vibe')
+    } else {
+      document.documentElement.dataset.vibe = vibeId
+      // Dark-only vibes force dark mode — stash the current preference first
+      if (!vibeDef.colorSchemes.includes('light') && !isDark) {
+        localStorage.setItem('gamelord:theme-before-vibe', 'light')
+        setIsDark(true)
+        document.documentElement.classList.add('dark')
+        localStorage.setItem('gamelord:theme', 'dark')
+      }
+    }
+
     setTimeout(() => {
       document.body.classList.remove('theme-transitioning')
     }, 200)
@@ -333,8 +386,23 @@ function App() {
             pointerEvents: viewState === 'library' ? 'auto' : 'none',
           }}
         >
-          <div className="drag-region titlebar-inset h-10 border-b flex items-center justify-end px-4">
-            <Button variant="ghost" size="icon" className="no-drag h-7 w-7" onClick={toggleTheme}>
+          <div className="drag-region titlebar-inset h-10 border-b flex items-center justify-end gap-1 px-4">
+            {/* Vibe selector */}
+            <div className="no-drag">
+              <VibeSelector activeVibe={activeVibe} onVibeChange={handleVibeChange} />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="no-drag h-7 w-7"
+              onClick={toggleTheme}
+              disabled={!getVibeDefinition(activeVibe).colorSchemes.includes('light')}
+              title={
+                !getVibeDefinition(activeVibe).colorSchemes.includes('light')
+                  ? 'Unc Mode is dark only'
+                  : isDark ? 'Switch to light mode' : 'Switch to dark mode'
+              }
+            >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           </div>
@@ -407,6 +475,27 @@ function App() {
 
       <DevAgentation />
     </div>
+  )
+}
+
+/** Compact vibe picker for the titlebar. */
+function VibeSelector({ activeVibe, onVibeChange }: { activeVibe: VibeId; onVibeChange: (id: VibeId) => void }) {
+  const current = getVibeDefinition(activeVibe)
+  return (
+    <Select value={activeVibe} onValueChange={(v) => onVibeChange(v as VibeId)}>
+      <SelectTrigger className="h-7 w-auto gap-1 border-0 bg-transparent px-2 text-xs font-medium hover:bg-accent">
+        <span>{current.icon}</span>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="end">
+        {VIBE_REGISTRY.map((vibe) => (
+          <SelectItem key={vibe.id} value={vibe.id}>
+            <span className="mr-1">{vibe.icon}</span>
+            {vibe.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
