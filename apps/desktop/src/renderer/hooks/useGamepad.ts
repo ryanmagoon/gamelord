@@ -163,7 +163,7 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
   }, [])
 
   useEffect(() => {
-    const handleConnect = (event: GamepadEvent) => {
+    const handleConnect = (_event: GamepadEvent) => {
       setConnectedCount((count) => count + 1)
     }
 

@@ -32,7 +32,7 @@ export class WebGLRenderer {
     // TODO: Switch shader programs
   }
 
-  render(videoFrame: ImageData): void {
+  render(_videoFrame: ImageData): void {
     if (!this.isReady) return;
     
     // TODO: Render the video frame using WebGL

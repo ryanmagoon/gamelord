@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Button } from '@gamelord/ui'
+import { Button, WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from '@gamelord/ui'
 import {
   Play,
   Pause,
@@ -18,7 +18,6 @@ import {
 } from 'lucide-react'
 import type { Game } from '../../types/library'
 import type { GamelordAPI } from '../types/global'
-import { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from '@gamelord/ui'
 import {
   CTRL_ACTIVE_BUFFER,
   CTRL_FRAME_SEQUENCE,
