@@ -33,7 +33,7 @@ vi.mock('../logger', () => ({
   ipcLog: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 
-import { ipcMain, BrowserWindow, dialog } from 'electron';
+import { ipcMain, BrowserWindow, dialog, app } from 'electron';
 import { EmulatorManager } from '../emulator/EmulatorManager';
 import { EmulationWorkerClient } from '../emulator/EmulationWorkerClient';
 import { resolveAddonPath } from '../emulator/resolveAddonPath';
@@ -175,9 +175,6 @@ beforeEach(() => {
   // Instantiate IPCHandlers — triggers all handler registrations
   new IPCHandlers('/fake/preload.js');
 });
-
-// We need to re-import `app` since the electron mock is module-level
-import { app } from 'electron';
 
 // ---------------------------------------------------------------------------
 // Tests
