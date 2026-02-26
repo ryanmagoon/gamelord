@@ -651,19 +651,73 @@ export const GameWindow: React.FC = () => {
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isOverControlsRef = useRef(false)
   const lastMousePositionRef = useRef<{ x: number; y: number } | null>(null)
+  const hasOpenMenuRef = useRef(false)
+  const topBarRef = useRef<HTMLDivElement>(null)
+  const bottomBarRef = useRef<HTMLDivElement>(null)
+
+  // Keep the ref in sync with sub-menu state so scheduleHide (stable
+  // callback) can read the latest value without a stale closure.
+  useEffect(() => {
+    hasOpenMenuRef.current = showSpeedMenu || showShaderMenu || showSettingsMenu
+  }, [showSpeedMenu, showShaderMenu, showSettingsMenu])
+
+  // Clean up the hide timeout on unmount to prevent ghost setState calls.
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+    }
+  }, [])
+
+  /** Check whether a point is inside an element's bounding box. */
+  const isPointInElement = useCallback((x: number, y: number, ref: React.RefObject<HTMLDivElement | null>) => {
+    const el = ref.current
+    if (!el) return false
+    const rect = el.getBoundingClientRect()
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+  }, [])
+
+  /** Re-check whether the last known cursor position is over a bar. */
+  const isCursorOverControls = useCallback(() => {
+    const pos = lastMousePositionRef.current
+    if (!pos) return false
+    return (
+      isPointInElement(pos.x, pos.y, topBarRef) ||
+      isPointInElement(pos.x, pos.y, bottomBarRef)
+    )
+  }, [isPointInElement])
+
+  const hideControls = useCallback(() => {
+    setShowControls(false)
+    setShowSpeedMenu(false)
+    setShowShaderMenu(false)
+    setShowSettingsMenu(false)
+  }, [])
 
   const scheduleHide = useCallback(() => {
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
-    hideTimeoutRef.current = setTimeout(() => {
-      if (!isOverControlsRef.current) {
-        setShowControls(false)
+    hideTimeoutRef.current = setTimeout(function tick() {
+      // Don't hide while a dropdown menu is open — the user is interacting.
+      if (hasOpenMenuRef.current) {
+        hideTimeoutRef.current = setTimeout(tick, 1000)
+        return
       }
+      // Re-check cursor position against the actual bar rects.
+      // This handles the case where the user is hovering (or dragging
+      // the window from) the top bar without moving the cursor.
+      if (isCursorOverControls()) {
+        hideTimeoutRef.current = setTimeout(tick, 1000)
+        return
+      }
+      isOverControlsRef.current = false
+      hideControls()
     }, 1000)
-  }, [])
+  }, [isCursorOverControls, hideControls])
 
   // Show on mouse move, auto-hide after 1s of inactivity.
   // Ignores the initial mousemove if the cursor was already in the window
   // area when it spawned — controls only appear on genuine cursor movement.
+  // Also tracks whether the cursor is over a control bar via coordinates
+  // (since Electron drag regions swallow onMouseEnter/Leave events).
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
       if (mode !== 'native' || isPoweringOn || isPoweringOff) return
@@ -680,31 +734,40 @@ export const GameWindow: React.FC = () => {
       if (last.x === clientX && last.y === clientY) return
 
       lastMousePositionRef.current = { x: clientX, y: clientY }
+
+      // Track whether cursor is over a control bar via coordinates.
+      // Drag regions swallow DOM mouse events, so onMouseEnter/Leave
+      // on the top bar is unreliable — this works regardless.
+      isOverControlsRef.current =
+        isPointInElement(clientX, clientY, topBarRef) ||
+        isPointInElement(clientX, clientY, bottomBarRef)
+
       setShowControls(true)
       scheduleHide()
     },
-    [mode, isPoweringOn, isPoweringOff, scheduleHide],
+    [mode, isPoweringOn, isPoweringOff, scheduleHide, isPointInElement],
   )
 
   const handleMouseLeave = useCallback((event: React.MouseEvent) => {
     if (mode !== 'native') return
+    // Only hide when the cursor truly left the window. In Electron's
+    // frameless window the root div spans the full viewport, so check
+    // whether the leave coordinates are outside the visible area.
+    // Use <= 0 / >= dimension to catch the exact window edge (the
+    // original > 0 / < dimension missed cursors resting on the border).
     const { clientX, clientY } = event
     const { innerWidth, innerHeight } = window
     if (clientX > 0 && clientX < innerWidth && clientY > 0 && clientY < innerHeight) {
       return
     }
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
-    setShowControls(false)
-  }, [mode, isPaused])
-
-  const handleControlsEnter = useCallback(() => {
-    isOverControlsRef.current = true
-  }, [])
-
-  const handleControlsLeave = useCallback(() => {
     isOverControlsRef.current = false
-    scheduleHide()
-  }, [scheduleHide])
+    setShowControls(false)
+    setShowSpeedMenu(false)
+    setShowShaderMenu(false)
+    setShowSettingsMenu(false)
+  }, [mode])
+
 
   if (!game) {
     return null
@@ -773,36 +836,40 @@ export const GameWindow: React.FC = () => {
         />
       )}
 
-      {/* Top control bar (draggable title area) — slides up on close */}
+      {/* Top control bar (draggable title area) — slides up on close.
+          Uses WebkitAppRegion: drag so the window is movable from this
+          bar. Hover detection is coordinate-based (in handleMouseMove)
+          since Electron drag regions swallow DOM mouse events. The badge
+          opts out with no-drag so its buttons stay clickable. */}
       <div
+        ref={topBarRef}
         className={`absolute top-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
           showControls && !isPoweringOff
             ? 'opacity-100 translate-y-0'
             : 'opacity-0 -translate-y-full pointer-events-none'
         }`}
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-        onMouseEnter={handleControlsEnter}
-        onMouseLeave={handleControlsLeave}
       >
         <div className="flex items-center justify-center px-4 py-2 bg-black/80 shadow-lg select-none">
           <div className="flex items-center gap-3">
             <h1 className="text-white font-semibold">{game.title}</h1>
             <span className="text-gray-400 text-sm">{game.system}</span>
-            <DevBranchBadge variant="overlay" />
+            <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+              <DevBranchBadge variant="overlay" />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Bottom control bar — slides down on close */}
       <div
+        ref={bottomBarRef}
         className={`absolute bottom-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
           showControls && !isPoweringOff
             ? 'opacity-100 translate-y-0'
             : 'opacity-0 translate-y-full pointer-events-none'
         }`}
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        onMouseEnter={handleControlsEnter}
-        onMouseLeave={handleControlsLeave}
       >
         <div className="flex items-center justify-between px-6 py-4 bg-black/80 shadow-lg">
           {/* Playback controls */}
