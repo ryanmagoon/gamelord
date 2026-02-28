@@ -285,20 +285,26 @@ Napi::Value LibretroCore::GetVideoFrame(const Napi::CallbackInfo &info) {
 Napi::Value LibretroCore::GetAudioBuffer(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
 
-  std::lock_guard<std::mutex> lock(audio_mutex_);
+  size_t count = audio_write_pos_ - audio_read_pos_;
+  if (count == 0) return env.Null();
 
-  if (audio_buffer_.empty()) {
-    return env.Null();
+  // Defensive clamp (should never exceed capacity)
+  if (count > AUDIO_RING_CAPACITY) count = AUDIO_RING_CAPACITY;
+
+  size_t byte_size = count * sizeof(int16_t);
+  Napi::ArrayBuffer ab = Napi::ArrayBuffer::New(env, byte_size);
+  int16_t *dest = static_cast<int16_t *>(ab.Data());
+
+  // Copy from ring buffer (handles wraparound)
+  size_t start = audio_read_pos_ % AUDIO_RING_CAPACITY;
+  size_t first_chunk = std::min(count, AUDIO_RING_CAPACITY - start);
+  memcpy(dest, audio_ring_ + start, first_chunk * sizeof(int16_t));
+  if (first_chunk < count) {
+    memcpy(dest + first_chunk, audio_ring_, (count - first_chunk) * sizeof(int16_t));
   }
 
-  size_t byte_size = audio_buffer_.size() * sizeof(int16_t);
-  Napi::ArrayBuffer ab = Napi::ArrayBuffer::New(env, byte_size);
-  memcpy(ab.Data(), audio_buffer_.data(), byte_size);
-
-  Napi::Int16Array arr = Napi::Int16Array::New(env, audio_buffer_.size(), ab, 0);
-  audio_buffer_.clear();
-
-  return arr;
+  audio_read_pos_ = audio_write_pos_;
+  return Napi::Int16Array::New(env, count, ab, 0);
 }
 
 void LibretroCore::SetInputState(const Napi::CallbackInfo &info) {
@@ -713,37 +719,49 @@ void LibretroCore::AudioSampleCallback(int16_t left, int16_t right) {
   LibretroCore *self = s_instance;
   if (!self) return;
 
-  std::lock_guard<std::mutex> lock(self->audio_mutex_);
-  if (self->audio_buffer_.size() >= MAX_AUDIO_BUFFER_SAMPLES) {
-    // Drop oldest samples to make room
-    self->audio_buffer_.erase(self->audio_buffer_.begin(), self->audio_buffer_.begin() + 2);
+  // Drop oldest stereo pair if full
+  if (self->audio_write_pos_ - self->audio_read_pos_ + 2 > AUDIO_RING_CAPACITY) {
+    self->audio_read_pos_ += 2;
   }
-  self->audio_buffer_.push_back(left);
-  self->audio_buffer_.push_back(right);
+
+  self->audio_ring_[self->audio_write_pos_ % AUDIO_RING_CAPACITY] = left;
+  self->audio_ring_[(self->audio_write_pos_ + 1) % AUDIO_RING_CAPACITY] = right;
+  self->audio_write_pos_ += 2;
 }
 
 size_t LibretroCore::AudioSampleBatchCallback(const int16_t *data, size_t frames) {
   LibretroCore *self = s_instance;
   if (!self || !data) return 0;
 
-  std::lock_guard<std::mutex> lock(self->audio_mutex_);
-  size_t incoming = frames * 2; // stereo samples
-  size_t currentSize = self->audio_buffer_.size();
+  size_t incoming = frames * 2; // stereo Int16 samples
+  size_t available = self->audio_write_pos_ - self->audio_read_pos_;
 
-  // If adding these samples would exceed the cap, drop oldest to make room
-  if (currentSize + incoming > MAX_AUDIO_BUFFER_SAMPLES) {
-    size_t excess = (currentSize + incoming) - MAX_AUDIO_BUFFER_SAMPLES;
-    if (excess >= currentSize) {
-      // Incoming data alone exceeds buffer — replace entirely, keep only the tail
-      self->audio_buffer_.clear();
-      size_t offset = incoming - MAX_AUDIO_BUFFER_SAMPLES;
-      self->audio_buffer_.insert(self->audio_buffer_.end(), data + offset, data + incoming);
-      return frames;
+  // If incoming alone exceeds capacity, keep only the tail
+  if (incoming >= AUDIO_RING_CAPACITY) {
+    size_t offset = incoming - AUDIO_RING_CAPACITY;
+    size_t wp = self->audio_write_pos_;
+    for (size_t i = 0; i < AUDIO_RING_CAPACITY; i++) {
+      self->audio_ring_[(wp + i) % AUDIO_RING_CAPACITY] = data[offset + i];
     }
-    self->audio_buffer_.erase(self->audio_buffer_.begin(), self->audio_buffer_.begin() + excess);
+    self->audio_read_pos_ = wp;
+    self->audio_write_pos_ = wp + AUDIO_RING_CAPACITY;
+    return frames;
   }
 
-  self->audio_buffer_.insert(self->audio_buffer_.end(), data, data + incoming);
+  // Drop oldest if adding would exceed capacity
+  if (available + incoming > AUDIO_RING_CAPACITY) {
+    self->audio_read_pos_ = self->audio_write_pos_ + incoming - AUDIO_RING_CAPACITY;
+  }
+
+  // Write to ring (handles wraparound with up to two memcpy segments)
+  size_t wp = self->audio_write_pos_ % AUDIO_RING_CAPACITY;
+  size_t first_chunk = std::min(incoming, AUDIO_RING_CAPACITY - wp);
+  memcpy(self->audio_ring_ + wp, data, first_chunk * sizeof(int16_t));
+  if (first_chunk < incoming) {
+    memcpy(self->audio_ring_, data + first_chunk, (incoming - first_chunk) * sizeof(int16_t));
+  }
+  self->audio_write_pos_ += incoming;
+
   return frames;
 }
 

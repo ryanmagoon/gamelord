@@ -107,12 +107,14 @@ private:
   unsigned video_height_ = 0;
   bool video_frame_ready_ = false;
 
-  // Audio buffer (written by callback, read by JS)
-  // Capped at ~100ms of stereo audio at 48kHz (9600 samples) to prevent
-  // unbounded growth when the renderer falls behind.
-  static constexpr size_t MAX_AUDIO_BUFFER_SAMPLES = 48000 / 10 * 2; // ~100ms stereo
-  std::mutex audio_mutex_;
-  std::vector<int16_t> audio_buffer_;
+  // Audio ring buffer (single-threaded: callbacks and GetAudioBuffer run
+  // sequentially on the same utility-process thread, so no mutex needed).
+  // Power-of-2 capacity for efficient modular arithmetic.
+  // 16384 Int16 samples = 8192 stereo frames ≈ 170ms @ 48kHz.
+  static constexpr size_t AUDIO_RING_CAPACITY = 16384;
+  int16_t audio_ring_[AUDIO_RING_CAPACITY] = {};
+  size_t audio_write_pos_ = 0; // monotonic write counter
+  size_t audio_read_pos_ = 0;  // monotonic read counter
 
   // Input state (written by JS, read by callback)
   std::mutex input_mutex_;
