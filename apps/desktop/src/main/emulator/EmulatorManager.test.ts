@@ -1,0 +1,119 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { EventEmitter } from 'events'
+
+// --- Module mocks (hoisted before imports) ---
+
+vi.mock('electron', () => ({
+  powerSaveBlocker: {
+    start: vi.fn(() => 42),
+    stop: vi.fn(),
+    isStarted: vi.fn(() => true),
+  },
+  app: {
+    getPath: vi.fn(() => '/tmp/test'),
+    getAppPath: vi.fn(() => '/tmp/test-app'),
+  },
+}))
+
+vi.mock('fs', () => ({
+  existsSync: vi.fn(() => false),
+  readdirSync: vi.fn(() => []),
+  mkdirSync: vi.fn(),
+}))
+
+vi.mock('os', () => ({
+  homedir: vi.fn(() => '/home/test'),
+}))
+
+vi.mock('./CoreDownloader', () => {
+  const { EventEmitter: EE } = require('events')
+  class FakeCoreDownloader extends EE {
+    getCoresDirectory() { return '/tmp/cores' }
+    getCoresForSystem() { return [] }
+    getCorePath() { return '/tmp/cores/test_libretro.dylib' }
+    async downloadCore() { return '/tmp/cores/test_libretro.dylib' }
+    async downloadCoreForSystem() { return '/tmp/cores/test_libretro.dylib' }
+  }
+  return { CoreDownloader: FakeCoreDownloader }
+})
+
+vi.mock('./RetroArchCore')
+vi.mock('./LibretroNativeCore', () => {
+  const { EventEmitter: EE } = require('events')
+  class FakeLibretroNativeCore extends EE {
+    isActive() { return false }
+    async launch() { /* no-op */ }
+    async terminate() { /* no-op */ }
+  }
+  return { LibretroNativeCore: FakeLibretroNativeCore }
+})
+
+vi.mock('./EmulationWorkerClient')
+
+import { powerSaveBlocker } from 'electron'
+import { EmulatorManager } from './EmulatorManager'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function internals(mgr: EmulatorManager) {
+  return mgr as unknown as Record<string, unknown>
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('EmulatorManager — power save blocker', () => {
+  let manager: EmulatorManager
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(powerSaveBlocker.start).mockReturnValue(42)
+    vi.mocked(powerSaveBlocker.isStarted).mockReturnValue(true)
+    manager = new EmulatorManager()
+  })
+
+  it('starts a power save blocker when launching a game', async () => {
+    await manager.launchGame('/rom.nes', 'nes')
+
+    expect(powerSaveBlocker.start).toHaveBeenCalledWith('prevent-display-sleep')
+    expect(internals(manager).powerSaveBlockerId).toBe(42)
+  })
+
+  it('stops the power save blocker when stopping the emulator', async () => {
+    await manager.launchGame('/rom.nes', 'nes')
+    await manager.stopEmulator()
+
+    expect(powerSaveBlocker.stop).toHaveBeenCalledWith(42)
+    expect(internals(manager).powerSaveBlockerId).toBeNull()
+  })
+
+  it('does not start duplicate blockers on consecutive launches', async () => {
+    await manager.launchGame('/rom.nes', 'nes')
+    await manager.launchGame('/rom2.nes', 'nes')
+
+    // start is called once; the second launch sees the existing blocker
+    expect(powerSaveBlocker.start).toHaveBeenCalledTimes(1)
+  })
+
+  it('handles stopEmulator gracefully when no blocker is active', async () => {
+    await manager.stopEmulator()
+
+    expect(powerSaveBlocker.stop).not.toHaveBeenCalled()
+  })
+
+  it('handles already-stopped blocker gracefully', async () => {
+    await manager.launchGame('/rom.nes', 'nes')
+
+    // Simulate the blocker having been stopped externally
+    vi.mocked(powerSaveBlocker.isStarted).mockReturnValue(false)
+
+    await manager.stopEmulator()
+
+    // stop() should not be called since isStarted returned false
+    expect(powerSaveBlocker.stop).not.toHaveBeenCalled()
+    expect(internals(manager).powerSaveBlockerId).toBeNull()
+  })
+})
