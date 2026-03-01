@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { powerSaveBlocker } from 'electron';
 import { EmulatorCore, EmulatorInfo } from './EmulatorCore';
 import { RetroArchCore } from './RetroArchCore';
 import { LibretroNativeCore } from './LibretroNativeCore';
@@ -17,6 +18,7 @@ export class EmulatorManager extends EventEmitter {
   private workerClient: EmulationWorkerClient | null = null;
   private availableEmulators: Map<string, EmulatorInfo> = new Map();
   private coreDownloader: CoreDownloader;
+  private powerSaveBlockerId: number | null = null;
 
   constructor() {
     super();
@@ -182,6 +184,8 @@ export class EmulatorManager extends EventEmitter {
 
     // Launch the game
     await this.currentEmulator.launch(romPath, options);
+
+    this.startPowerSaveBlocker();
 
     this.emit('gameLaunched', {
       romPath,
@@ -455,6 +459,8 @@ export class EmulatorManager extends EventEmitter {
    * Stop the current emulator
    */
   async stopEmulator(): Promise<void> {
+    this.stopPowerSaveBlocker();
+
     if (this.workerClient?.isRunning()) {
       await this.workerClient.shutdown();
       this.workerClient = null;
@@ -463,6 +469,21 @@ export class EmulatorManager extends EventEmitter {
       await this.currentEmulator.terminate();
       this.currentEmulator = null;
     }
+  }
+
+  /** Prevent the display from sleeping while a game is running. */
+  private startPowerSaveBlocker(): void {
+    if (this.powerSaveBlockerId !== null) return;
+    this.powerSaveBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+  }
+
+  /** Allow the display to sleep again. */
+  private stopPowerSaveBlocker(): void {
+    if (this.powerSaveBlockerId === null) return;
+    if (powerSaveBlocker.isStarted(this.powerSaveBlockerId)) {
+      powerSaveBlocker.stop(this.powerSaveBlockerId);
+    }
+    this.powerSaveBlockerId = null;
   }
 
   /**

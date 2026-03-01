@@ -8,11 +8,15 @@ At the start of every new conversation, before doing anything else:
 
 Never give advice about what to work on next, or start new work, from a stale branch.
 
+## Native Addon
+
+Before manually testing any emulator functionality, ensure the native addon is built: `cd apps/desktop/native && npx node-gyp rebuild`. The app will start without it, but emulator cores won't load. Rebuild after `pnpm install` (which may clear `node_modules`) or when switching to a worktree (build artifacts aren't shared).
+
 ## Worktree Setup
 
 When working in a git worktree (`.claude/worktrees/`), dependencies and build artifacts are not shared with the main repo. After `pnpm install`, also run:
 
-1. **Build the native addon** — `cd apps/desktop/native && npx node-gyp rebuild`. Without this, the emulator cores won't load.
+1. **Build the native addon** (see above).
 2. **Symlink `.env`** — `ln -s /Users/ryanmagoon/code/gamelord/apps/desktop/.env apps/desktop/.env`. The worktree only has `.env.example`; the real credentials (ScreenScraper, etc.) live in the main repo.
 
 ### Rename auto-generated worktree branches
