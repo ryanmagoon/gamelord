@@ -103,6 +103,24 @@ describe('EmulatorManager — power save blocker', () => {
     expect(powerSaveBlocker.stop).not.toHaveBeenCalled()
   })
 
+  it('releases the blocker when the emulator emits "exited"', async () => {
+    await manager.launchGame('/rom.nes', 'nes')
+    const emulator = internals(manager).currentEmulator as import('events').EventEmitter
+    emulator.emit('exited', { code: 0 })
+
+    expect(powerSaveBlocker.stop).toHaveBeenCalledWith(42)
+    expect(internals(manager).powerSaveBlockerId).toBeNull()
+  })
+
+  it('releases the blocker when the emulator emits "terminated"', async () => {
+    await manager.launchGame('/rom.nes', 'nes')
+    const emulator = internals(manager).currentEmulator as import('events').EventEmitter
+    emulator.emit('terminated')
+
+    expect(powerSaveBlocker.stop).toHaveBeenCalledWith(42)
+    expect(internals(manager).powerSaveBlockerId).toBeNull()
+  })
+
   it('handles already-stopped blocker gracefully', async () => {
     await manager.launchGame('/rom.nes', 'nes')
 
