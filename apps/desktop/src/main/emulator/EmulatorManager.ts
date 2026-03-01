@@ -316,7 +316,10 @@ export class EmulatorManager extends EventEmitter {
    */
   private setupEventForwarding(emulator: EmulatorCore): void {
     emulator.on('launched', (data) => this.emit('emulator:launched', data));
-    emulator.on('exited', (data) => this.emit('emulator:exited', data));
+    emulator.on('exited', (data) => {
+      this.stopPowerSaveBlocker();
+      this.emit('emulator:exited', data);
+    });
     emulator.on('error', (error) => this.emit('emulator:error', error));
     emulator.on('stateSaved', (data) => this.emit('emulator:stateSaved', data));
     emulator.on('stateLoaded', (data) => this.emit('emulator:stateLoaded', data));
@@ -324,7 +327,10 @@ export class EmulatorManager extends EventEmitter {
     emulator.on('paused', () => this.emit('emulator:paused'));
     emulator.on('resumed', () => this.emit('emulator:resumed'));
     emulator.on('reset', () => this.emit('emulator:reset'));
-    emulator.on('terminated', () => this.emit('emulator:terminated'));
+    emulator.on('terminated', () => {
+      this.stopPowerSaveBlocker();
+      this.emit('emulator:terminated');
+    });
   }
 
   /**
