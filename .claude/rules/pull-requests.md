@@ -16,3 +16,13 @@ Before running `gh pr create`, prompt the user:
 > This PR has visual changes — do you have a screenshot or short video showing the result? I'll include it in the PR description.
 
 If the user provides media, embed it in the PR body using GitHub markdown (`![description](url)` or a `<video>` tag). If they don't have one ready, offer to proceed without it but note in the PR body that a visual is pending.
+
+## Review Comments
+
+After creating or merging a PR, check for review comments before moving on:
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{number}/comments
+```
+
+Address any actionable feedback (bugs, code review suggestions, bot reports). If the PR is still open, push fixes to the same branch. If already merged, open a follow-up PR for the fix. Don't wait for the user to relay comments — check proactively.
