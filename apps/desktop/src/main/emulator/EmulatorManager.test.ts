@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { EventEmitter } from 'events'
 
 // --- Module mocks (hoisted before imports) ---
 
@@ -25,9 +24,9 @@ vi.mock('os', () => ({
   homedir: vi.fn(() => '/home/test'),
 }))
 
-vi.mock('./CoreDownloader', () => {
-  const { EventEmitter: EE } = require('events')
-  class FakeCoreDownloader extends EE {
+vi.mock('./CoreDownloader', async () => {
+  const { EventEmitter } = await import('events')
+  class FakeCoreDownloader extends EventEmitter {
     getCoresDirectory() { return '/tmp/cores' }
     getCoresForSystem() { return [] }
     getCorePath() { return '/tmp/cores/test_libretro.dylib' }
@@ -38,9 +37,9 @@ vi.mock('./CoreDownloader', () => {
 })
 
 vi.mock('./RetroArchCore')
-vi.mock('./LibretroNativeCore', () => {
-  const { EventEmitter: EE } = require('events')
-  class FakeLibretroNativeCore extends EE {
+vi.mock('./LibretroNativeCore', async () => {
+  const { EventEmitter } = await import('events')
+  class FakeLibretroNativeCore extends EventEmitter {
     isActive() { return false }
     async launch() { /* no-op */ }
     async terminate() { /* no-op */ }
