@@ -304,7 +304,7 @@ body {
   opacity: 0;
   transition: opacity 300ms ease;
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
 }
 
 .game-card-border:hover::before,
