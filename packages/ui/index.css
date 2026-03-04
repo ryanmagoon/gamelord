@@ -78,9 +78,9 @@
 
 /* ──────────────────────────────────────────────────────────────────
  * NSO-style rotating shiny border on GameCard hover/focus.
- * A conic-gradient pseudo-element spins behind the card content;
- * the inner element sits on top with a 3px inset, revealing the
- * gradient as a glowing animated border.
+ * A conic-gradient pseudo-element extends outside the card on hover
+ * via negative inset, creating a glowing animated border without
+ * any resting padding (so cards sit edge-to-edge at rest).
  * ────────────────────────────────────────────────────────────────── */
 @keyframes border-rotate {
   from { --border-angle: 0deg; }
@@ -96,7 +96,8 @@
 .game-card-border {
   position: relative;
   border-radius: 0;
-  padding: 3px;
+  /* No padding — cards sit edge-to-edge. Border is revealed via
+     negative inset on ::before that extends outside the card. */
   transition:
     scale 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
     translate 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -107,26 +108,12 @@
 .game-card-border::before {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: -3px;
   border-radius: inherit;
-  background: conic-gradient(
-    from var(--border-angle),
-    transparent 5%,
-    rgba(255, 255, 255, 0.08) 15%,
-    transparent 25%,
-    rgba(255, 255, 255, 0.08) 35%,
-    transparent 45%,
-    rgba(255, 255, 255, 0.08) 55%,
-    transparent 65%,
-    rgba(255, 255, 255, 0.08) 75%,
-    transparent 85%,
-    rgba(255, 255, 255, 0.08) 95%,
-    transparent 100%
-  );
   opacity: 0;
   transition: opacity 300ms ease;
   pointer-events: none;
-  z-index: 0;
+  z-index: 2;
 }
 
 .game-card-border:hover::before,
@@ -135,25 +122,44 @@
   animation: border-rotate 2.5s linear infinite;
   background: conic-gradient(
     from var(--border-angle),
-    #ff4d8d,
-    #c74dff,
-    #4d8dff,
-    #4dffc7,
-    #ffc74d,
-    #ff4d8d
+    rgba(0, 0, 0, 0.1),
+    rgba(0, 0, 0, 0.6),
+    rgba(0, 0, 0, 0.1),
+    rgba(0, 0, 0, 0.6),
+    rgba(0, 0, 0, 0.1)
   );
 }
 
-/* Soft outer glow that picks up the border's color palette */
+.dark .game-card-border:hover::before,
+.dark .game-card-border:focus-within::before {
+  background: conic-gradient(
+    from var(--border-angle),
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0.8),
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0.8),
+    rgba(255, 255, 255, 0.15)
+  );
+}
+
+/* Soft outer glow — adapts to light/dark mode */
 .game-card-border:hover,
 .game-card-border:focus-within {
   box-shadow:
-    0 0 15px 2px rgba(100, 140, 255, 0.4),
-    0 0 30px 4px rgba(200, 100, 255, 0.2),
+    0 0 15px 2px rgba(0, 0, 0, 0.15),
+    0 0 30px 4px rgba(0, 0, 0, 0.08),
     0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
-/* Inner content mask — reveals the spinning gradient only as a border. */
+.dark .game-card-border:hover,
+.dark .game-card-border:focus-within {
+  box-shadow:
+    0 0 15px 2px rgba(255, 255, 255, 0.3),
+    0 0 30px 4px rgba(255, 255, 255, 0.1),
+    0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Inner content — flush with card edges, no padding. */
 .game-card-border > .game-card-inner {
   position: relative;
   z-index: 1;
