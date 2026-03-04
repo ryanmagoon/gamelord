@@ -31,6 +31,7 @@ This project uses **pnpm**. Always use `pnpm` for installing dependencies, runni
 
 ## Git Conventions
 
+- **Never push directly to `main`.** Branch protection with required status checks is enabled. Always create a feature branch and open a PR, even for trivial changes.
 - Use descriptive branch names: `<type>/<short-descriptive-name>`
 - Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 - Examples: `feat/game-library-search`, `fix/storybook-tailwind`, `refactor/emulator-manager`
