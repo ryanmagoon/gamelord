@@ -150,6 +150,25 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P5 — Controls & Input
 
+**Controller support is first-class.** The entire app — library browsing, game launching, in-game menus, settings — must be fully operable with a controller and zero mouse/keyboard. Think Steam Big Picture, Nintendo Switch Online, or a console home screen. This is not an afterthought bolted onto a mouse UI; controller navigation should feel native and intentional.
+
+#### In-Game Controller UI
+
+- [ ] **Home button → game overlay** — Pressing the controller home/guide button during gameplay opens a radial or panel overlay (pause, save state, load state, screenshot, quit to library, settings). Navigable entirely with D-pad + A/B. Dismissing resumes gameplay. Must not conflict with OS-level home button behavior (intercept at the Gamepad API level, or use a configurable alternative like holding Select+Start). — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **Controller-navigable pause menu** — When paused (via home button or Start), all pause menu options (resume, save, load, reset, quit) are focusable and selectable with controller. No mouse required. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **On-screen button prompts** — Show controller-appropriate glyphs (Xbox ABXY, PlayStation ×○□△, or generic) in all overlays and menus. Auto-detect controller type from Gamepad API `id` string. Prompts swap dynamically when switching between controller and keyboard. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+
+#### Library / Console Mode
+
+- [ ] **Focus-based UI navigation** — Every interactive element in the library (game cards, toolbar buttons, filters, dropdowns, settings) is reachable via D-pad/analog stick. Spatial navigation algorithm (move focus to nearest element in the pressed direction). Tab-order fallback for linear lists. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **Controller input mapping for UI** — A = select/launch, B = back/close, Start = open menu, bumpers = switch tabs/pages, triggers = scroll fast, analog stick = smooth scroll. Consistent across all screens. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **Visible focus indicator** — A prominent, animated focus ring (glow, scale-up, or border highlight) that tracks the currently focused element. Must be visually distinct from mouse hover. Styled to feel console-native — not a browser focus outline. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **Console Mode layout** — Optional fullscreen UI optimized for TV/controller: larger cards, bigger text, simplified toolbar, no hover-dependent interactions. Auto-activates when a controller is the only input (no recent mouse/keyboard activity), or toggled manually from settings. Exit by pressing Escape or clicking with mouse. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **Auto-detect input mode** — Track last input source (mouse, keyboard, controller). When controller input is detected and mouse hasn't moved recently, switch to controller-focused mode (show focus ring, enable spatial nav, show controller prompts). On mouse move, switch back to mouse mode. Seamless, no explicit toggle required. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **Controller-navigable settings** — Settings panel, shader picker, filter dropdowns, and all modal dialogs are fully navigable with controller. No dead ends where controller input stops working. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+
+#### Configuration
+
 - [ ] Controller configuration UI with 3D interactive controller model — [#81](https://github.com/ryanmagoon/gamelord/issues/81)
   - [ ] Three.js rendering of a realistic controller model that the user can rotate/inspect
   - [ ] Highlight each button on the 3D model as it becomes the active assignment target
@@ -157,6 +176,7 @@ Items are grouped by priority. Work top-down within each tier.
   - [ ] Support for multiple controller types (Xbox, PlayStation, generic) with matching 3D models
 - [x] Gamepad API support in renderer — detect connected controllers, read input state
 - [ ] Per-game input mappings — override default bindings on a per-game or per-system basis — [#82](https://github.com/ryanmagoon/gamelord/issues/82)
+- [ ] **Remap UI navigation buttons** — Let users customize which controller buttons map to UI actions (select, back, menu, etc.) separately from in-game bindings. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
 
 ### P6 — Rewind
 
