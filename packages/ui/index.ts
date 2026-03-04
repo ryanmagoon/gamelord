@@ -21,6 +21,8 @@ export type { ShaderPresetDefinition } from './webgl/types';
 export { useFlipAnimation } from './hooks/useFlipAnimation';
 export type { FlipItem, FlipAnimationState, UseFlipAnimationOptions } from './hooks/useFlipAnimation';
 export { ArtworkSyncStore, useArtworkSyncPhase } from './hooks/useArtworkSyncStore';
+export { useEdgeAwareHover, computeEdgeTranslate, findScrollContainer } from './hooks/useEdgeAwareHover';
+export type { UseEdgeAwareHoverOptions, UseEdgeAwareHoverResult } from './hooks/useEdgeAwareHover';
 
 // Utils
 export * from './utils';
