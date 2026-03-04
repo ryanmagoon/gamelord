@@ -193,6 +193,16 @@ Items are grouped by priority. Work top-down within each tier.
   - [ ] Mode/state readout: current mode, paused state, active core, ROM info
 - [ ] Persist debug overlay preferences in localStorage — [#86](https://github.com/ryanmagoon/gamelord/issues/86)
 
+### Alpha Release Milestone — [#143](https://github.com/ryanmagoon/gamelord/issues/143)
+
+Tracking issue for the first alpha release. All items below must be completed before shipping.
+
+- [ ] **Graceful app startup** — [#125](https://github.com/ryanmagoon/gamelord/issues/125)
+- [ ] **Library UI redesign — shelf-based home view** — Replace the dashboard layout with a Netflix/Steam Deck-style shelf layout: hero section, horizontal scroll rows (Recently Played, Favorites, per-platform), Cmd+K command palette, no persistent chrome. Existing mosaic grid becomes the "browse all" sub-view. — [#141](https://github.com/ryanmagoon/gamelord/issues/141)
+- [ ] **Cmd+K command palette** — Fuzzy search overlay for games, platforms, and actions. Replaces inline search toolbar. — [#142](https://github.com/ryanmagoon/gamelord/issues/142)
+- [ ] **Settings panel** — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
+- [ ] **DMG packaging + code signing** — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
+
 ### P8 — UI Polish
 
 - [ ] **TV static animation hitches during artwork sync** ([#23](https://github.com/ryanmagoon/gamelord/issues/23)) — When artwork syncs for any card (download, error, or not-found), all other cards' TV static animations freeze momentarily. React-level optimizations already applied: stable style refs for React.memo (`useFlipAnimation`), shared `TVStaticManager` singleton (one rAF loop instead of 50+), per-game `UiGame` object cache, and `ArtworkSyncStore` backed by `useSyncExternalStore` to bypass parent re-renders. Hitches persist — likely caused by browser-level bottleneck: canvas `putImageData` cost across 50+ canvases, forced reflow during `useAspectRatioTransition` height changes, or image decode blocking the main thread. Next steps: profile with Chrome DevTools Performance panel to identify the exact frame-time spike, consider `OffscreenCanvas` in a Web Worker for noise generation, investigate batching `putImageData` calls with `requestIdleCallback`, and test whether pausing static on off-screen cards via `IntersectionObserver` eliminates the jank.
