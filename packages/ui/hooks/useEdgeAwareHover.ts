@@ -1,12 +1,14 @@
 import { useState, useCallback, useRef } from 'react'
 
 export interface UseEdgeAwareHoverOptions {
-  /** Scale factor applied on hover. @default 1.15 */
+  /** Scale factor applied on hover. @default 1.25 */
   scaleFactor?: number
   /** Extra padding in px to keep clear of container edges (border + glow). @default 18 */
   glowPadding?: number
   /** Disable the effect (e.g. during launch or when card is disabled). */
   disabled?: boolean
+  /** Lock the current translate in place (e.g. while launching). Prevents onPointerLeave from clearing the offset. */
+  locked?: boolean
 }
 
 export interface UseEdgeAwareHoverResult {
@@ -85,6 +87,7 @@ export function useEdgeAwareHover({
   scaleFactor = 1.25,
   glowPadding = 18,
   disabled = false,
+  locked = false,
 }: UseEdgeAwareHoverOptions = {}): UseEdgeAwareHoverResult {
   const [edgeTranslate, setEdgeTranslate] = useState<{ x: number; y: number } | null>(null)
   const containerRef = useRef<HTMLElement | null>(null)
@@ -104,8 +107,9 @@ export function useEdgeAwareHover({
   }, [disabled, scaleFactor, glowPadding])
 
   const onPointerLeave = useCallback(() => {
+    if (locked) return
     setEdgeTranslate(null)
-  }, [])
+  }, [locked])
 
   return { onPointerEnter, onPointerLeave, edgeTranslate }
 }

@@ -133,9 +133,11 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const isFallback = !game.coverArt && !isActivelySyncing && !isTerminalPhase && !isDone
   const showStatic = isActivelySyncing || isTerminalPhase || isDone || isFallback
 
-  // Edge-aware hover: shift card inward when scaled-up version would clip
+  // Edge-aware hover: shift card inward when scaled-up version would clip.
+  // Lock the translate during launch so the card holds position when the modal opens.
   const { onPointerEnter, onPointerLeave, edgeTranslate } = useEdgeAwareHover({
-    disabled: disabled || isLaunching,
+    disabled,
+    locked: isLaunching,
   })
 
   // Merge edge-aware translate into existing style prop
