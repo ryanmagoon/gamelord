@@ -76,6 +76,102 @@
   border-color: var(--border);
 }
 
+/* ──────────────────────────────────────────────────────────────────
+ * NSO-style rotating shiny border on GameCard hover/focus.
+ * A conic-gradient pseudo-element extends outside the card on hover
+ * via negative inset, creating a glowing animated border without
+ * any resting padding (so cards sit edge-to-edge at rest).
+ * ────────────────────────────────────────────────────────────────── */
+@keyframes border-rotate {
+  from { --border-angle: 0deg; }
+  to { --border-angle: 360deg; }
+}
+
+@property --border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.game-card-border {
+  position: relative;
+  border-radius: 0;
+  /* No padding — cards sit edge-to-edge. Border is revealed via
+     negative inset on ::before that extends outside the card. */
+  transition:
+    scale 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    translate 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.game-card-border::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.game-card-border:hover::before,
+.game-card-border:focus-within::before,
+.game-card-border.game-card-active::before {
+  opacity: 1;
+  animation: border-rotate 2.5s linear infinite;
+  background: conic-gradient(
+    from var(--border-angle),
+    rgba(0, 0, 0, 0.1),
+    rgba(0, 0, 0, 0.6),
+    rgba(0, 0, 0, 0.1),
+    rgba(0, 0, 0, 0.6),
+    rgba(0, 0, 0, 0.1)
+  );
+}
+
+.dark .game-card-border:hover::before,
+.dark .game-card-border:focus-within::before,
+.dark .game-card-border.game-card-active::before {
+  background: conic-gradient(
+    from var(--border-angle),
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0.8),
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0.8),
+    rgba(255, 255, 255, 0.15)
+  );
+}
+
+/* Soft outer glow — adapts to light/dark mode */
+.game-card-border:hover,
+.game-card-border:focus-within,
+.game-card-border.game-card-active {
+  box-shadow:
+    0 0 15px 2px rgba(0, 0, 0, 0.15),
+    0 0 30px 4px rgba(0, 0, 0, 0.08),
+    0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.dark .game-card-border:hover,
+.dark .game-card-border:focus-within,
+.dark .game-card-border.game-card-active {
+  box-shadow:
+    0 0 15px 2px rgba(255, 255, 255, 0.3),
+    0 0 30px 4px rgba(255, 255, 255, 0.1),
+    0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Inner content — flush with card edges, no padding. */
+.game-card-border > .game-card-inner {
+  position: relative;
+  z-index: 1;
+  border-radius: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);

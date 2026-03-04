@@ -14,6 +14,13 @@ const meta = {
     onPlay: { action: 'play' },
     onOptions: { action: 'options' },
   },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 200, height: 280 }}>
+        <Story />
+      </div>
+    ),
+  ],
 } satisfies Meta<typeof GameCard>;
 
 export default meta;
