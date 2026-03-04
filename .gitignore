@@ -100,3 +100,10 @@ dist/
 *storybook.log
 storybook-static
 test-roms/
+
+# Claude Code
+.claude/settings.json
+.claude/worktrees/
+
+# Entire
+.entire/
