@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react'
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import {
@@ -11,6 +11,7 @@ import { cn } from '../utils'
 import { MoreVertical, Heart } from 'lucide-react'
 import { TVStatic } from './TVStatic'
 import { useArtworkSyncPhase, type ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
+import { useEdgeAwareHover } from '../hooks/useEdgeAwareHover'
 
 export interface Game {
   id: string
@@ -132,6 +133,20 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const isFallback = !game.coverArt && !isActivelySyncing && !isTerminalPhase && !isDone
   const showStatic = isActivelySyncing || isTerminalPhase || isDone || isFallback
 
+  // Edge-aware hover: shift card inward when scaled-up version would clip
+  const { onPointerEnter, onPointerLeave, edgeTranslate } = useEdgeAwareHover({
+    disabled: disabled || isLaunching,
+  })
+
+  // Merge edge-aware translate into existing style prop
+  const mergedStyle = useMemo(() => {
+    if (!edgeTranslate) return style
+    return {
+      ...style,
+      translate: `${edgeTranslate.x}px ${edgeTranslate.y}px`,
+    }
+  }, [style, edgeTranslate])
+
   // Merge forwarded ref and internal cardRef
   const mergedCardRef = useCallback((el: HTMLDivElement | null) => {
     cardRef.current = el
@@ -150,7 +165,9 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
         isLaunching && 'cursor-wait z-10 scale-[1.15]',
         className
       )}
-      style={style}
+      style={mergedStyle}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       onClick={handlePlay}
       onKeyDown={handleKeyDown}
       role="button"
