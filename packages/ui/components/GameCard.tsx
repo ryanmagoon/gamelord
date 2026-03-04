@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react'
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import {
@@ -11,6 +11,7 @@ import { cn } from '../utils'
 import { MoreVertical, Heart } from 'lucide-react'
 import { TVStatic } from './TVStatic'
 import { useArtworkSyncPhase, type ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
+import { useEdgeAwareHover } from '../hooks/useEdgeAwareHover'
 
 export interface Game {
   id: string
@@ -132,6 +133,22 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   const isFallback = !game.coverArt && !isActivelySyncing && !isTerminalPhase && !isDone
   const showStatic = isActivelySyncing || isTerminalPhase || isDone || isFallback
 
+  // Edge-aware hover: shift card inward when scaled-up version would clip.
+  // Lock the translate during launch so the card holds position when the modal opens.
+  const { onPointerEnter, onPointerLeave, edgeTranslate } = useEdgeAwareHover({
+    disabled,
+    locked: isLaunching,
+  })
+
+  // Merge edge-aware translate into existing style prop
+  const mergedStyle = useMemo(() => {
+    if (!edgeTranslate) return style
+    return {
+      ...style,
+      translate: `${edgeTranslate.x}px ${edgeTranslate.y}px`,
+    }
+  }, [style, edgeTranslate])
+
   // Merge forwarded ref and internal cardRef
   const mergedCardRef = useCallback((el: HTMLDivElement | null) => {
     cardRef.current = el
@@ -143,17 +160,16 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
     <Card
       ref={mergedCardRef}
       className={cn(
-        'group relative overflow-hidden rounded-none border-0 w-full h-full',
+        'game-card-border group relative rounded-none border-0 w-full h-full',
         disabled
           ? 'pointer-events-none opacity-50'
-          : 'hover:scale-105 hover:shadow-lg hover:z-10 cursor-pointer',
-        isLaunching && 'cursor-wait z-10 scale-105 shadow-lg',
+          : 'hover:scale-[1.25] hover:z-10 cursor-pointer',
+        isLaunching && 'game-card-active cursor-wait z-10 scale-[1.25]',
         className
       )}
-      style={{
-        ...style,
-        transition: 'transform 200ms, box-shadow 200ms, height 400ms cubic-bezier(0.25, 1, 0.5, 1)',
-      }}
+      style={mergedStyle}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       onClick={handlePlay}
       onKeyDown={handleKeyDown}
       role="button"
@@ -161,7 +177,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
       aria-label={`Play ${game.title}`}
       title={game.title}
     >
-      <CardContent className="p-0 h-full">
+      <CardContent className="p-0 game-card-inner">
         <div className="relative bg-muted overflow-hidden h-full">
           {/*
            * Cover art image — ALWAYS in the DOM so React never has to mount/
