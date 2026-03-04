@@ -327,6 +327,101 @@ describe('ArtworkService', () => {
       await expect(service.syncGame('game1')).rejects.toThrow('Invalid username or password.');
     });
 
+    it('updates system to regional name when ScreenScraper returns JP region for SNES game', async () => {
+      const game = makeGame({
+        id: 'jp-snes-game',
+        title: 'Some Japanese Game',
+        system: 'Super Nintendo Entertainment System',
+        systemId: 'snes',
+      });
+      const libraryService = createMockLibraryService([game]);
+      const service = new ArtworkService(libraryService);
+      await flushPromises();
+      await service.setCredentials('user', 'pass');
+
+      mockFetchByHash.mockResolvedValue({
+        title: 'スーパーマリオワールド',
+        region: 'jp',
+        developer: 'Nintendo',
+        publisher: 'Nintendo',
+        genre: 'Platform',
+        players: 1,
+        rating: 0.9,
+        releaseDate: '1990-11-21',
+        media: {},
+      });
+
+      await service.syncGame('jp-snes-game');
+
+      expect(libraryService.updateGame).toHaveBeenCalledWith(
+        'jp-snes-game',
+        expect.objectContaining({ system: 'Super Famicom' }),
+      );
+    });
+
+    it('updates system to Mega Drive for Genesis game with EU region', async () => {
+      const game = makeGame({
+        id: 'eu-genesis-game',
+        title: 'Sonic The Hedgehog',
+        system: 'Sega Genesis',
+        systemId: 'genesis',
+      });
+      const libraryService = createMockLibraryService([game]);
+      const service = new ArtworkService(libraryService);
+      await flushPromises();
+      await service.setCredentials('user', 'pass');
+
+      mockFetchByHash.mockResolvedValue({
+        title: 'Sonic The Hedgehog',
+        region: 'eu',
+        developer: 'Sonic Team',
+        publisher: 'Sega',
+        genre: 'Platform',
+        players: 1,
+        rating: 0.85,
+        releaseDate: '1991-06-23',
+        media: {},
+      });
+
+      await service.syncGame('eu-genesis-game');
+
+      expect(libraryService.updateGame).toHaveBeenCalledWith(
+        'eu-genesis-game',
+        expect.objectContaining({ system: 'Mega Drive' }),
+      );
+    });
+
+    it('does not set system field when region has no variant for that system', async () => {
+      const game = makeGame({
+        id: 'jp-gb-game',
+        title: 'Pokemon Red',
+        system: 'Game Boy',
+        systemId: 'gb',
+      });
+      const libraryService = createMockLibraryService([game]);
+      const service = new ArtworkService(libraryService);
+      await flushPromises();
+      await service.setCredentials('user', 'pass');
+
+      mockFetchByHash.mockResolvedValue({
+        title: 'Pocket Monsters Red',
+        region: 'jp',
+        developer: 'Game Freak',
+        publisher: 'Nintendo',
+        genre: 'RPG',
+        players: 1,
+        rating: 0.9,
+        releaseDate: '1996-02-27',
+        media: {},
+      });
+
+      await service.syncGame('jp-gb-game');
+
+      // updateGame should NOT contain a 'system' key since Game Boy has no regional variants
+      const updateCall = (libraryService.updateGame as any).mock.calls[0][1];
+      expect(updateCall).not.toHaveProperty('system');
+    });
+
     it('falls through to name search on non-auth errors from hash lookup', async () => {
       const game = makeGame();
       const service = new ArtworkService(createMockLibraryService([game]));

@@ -168,7 +168,9 @@ export class ScreenScraperClient {
    * Extract normalized game info from a ScreenScraper `jeu` object.
    */
   private extractGameInfo(jeu: Record<string, unknown>): ScreenScraperGameInfo {
-    const title = this.selectRegionText(jeu.noms as LocalizedEntry[] | undefined) ?? 'Unknown';
+    const titleResult = this.selectRegionText(jeu.noms as LocalizedEntry[] | undefined);
+    const title = titleResult?.text ?? 'Unknown';
+    const region = titleResult?.region;
     const synopsis = this.selectLanguageText(jeu.synopsis as LocalizedEntry[] | undefined);
     const developer = (jeu.developpeur as TextEntry | undefined)?.text;
     const publisher = (jeu.editeur as TextEntry | undefined)?.text;
@@ -177,7 +179,7 @@ export class ScreenScraperClient {
     const players = playersText ? parseInt(playersText, 10) || undefined : undefined;
     const ratingText = (jeu.note as TextEntry | undefined)?.text;
     const rating = ratingText ? parseFloat(ratingText) / 20 : undefined;
-    const releaseDate = this.selectRegionText(jeu.dates as LocalizedEntry[] | undefined);
+    const releaseDate = this.selectRegionText(jeu.dates as LocalizedEntry[] | undefined)?.text;
 
     const medias = jeu.medias as MediaEntry[] | undefined;
     const media = {
@@ -187,22 +189,28 @@ export class ScreenScraperClient {
       fanart: this.selectMedia(medias, 'fanart'),
     };
 
-    return { title, synopsis, developer, publisher, genre, players, rating, releaseDate, media };
+    return { title, region, synopsis, developer, publisher, genre, players, rating, releaseDate, media };
   }
 
   /**
    * Select the best text entry from a region-tagged array using the priority list.
+   * Returns both the selected text and the winning region code.
    */
-  private selectRegionText(entries: LocalizedEntry[] | undefined): string | undefined {
+  private selectRegionText(
+    entries: LocalizedEntry[] | undefined,
+  ): { text: string; region: string } | undefined {
     if (!entries || entries.length === 0) return undefined;
 
     for (const region of REGION_PRIORITY) {
       const match = entries.find(entry => entry.region === region);
-      if (match?.text) return match.text;
+      if (match?.text) return { text: match.text, region };
     }
 
     // Fallback to first available entry with text
-    return entries.find(entry => entry.text)?.text;
+    const fallback = entries.find(entry => entry.text);
+    if (fallback?.text) return { text: fallback.text, region: fallback.region ?? 'us' };
+
+    return undefined;
   }
 
   /**
