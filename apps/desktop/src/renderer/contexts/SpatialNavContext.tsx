@@ -110,21 +110,49 @@ export function SpatialNavProvider({
   const handleAction = useCallback(
     (action: UIAction) => {
       // Detect if a Radix dialog is open (portal mounted in the DOM)
-      const dialogOpen = document.querySelector('[data-radix-portal]') !== null
+      const dialogPortal = document.querySelector('[data-radix-portal]')
 
-      if (dialogOpen) {
-        // In dialog mode, translate A/B to Enter/Escape for Radix
+      if (dialogPortal) {
         if (action === 'select') {
+          // Click the currently focused element inside the dialog
           const el = document.activeElement as HTMLElement | null
           el?.click()
         } else if (action === 'back') {
-          document.dispatchEvent(
+          // Dispatch Escape from within the dialog content so Radix's
+          // DismissableLayer event listener picks it up correctly.
+          const target = document.activeElement ?? dialogPortal
+          target.dispatchEvent(
             new KeyboardEvent('keydown', {
               key: 'Escape',
               code: 'Escape',
               bubbles: true,
+              cancelable: true,
             }),
           )
+        } else if (
+          action === 'navigate-up' ||
+          action === 'navigate-down' ||
+          action === 'navigate-left' ||
+          action === 'navigate-right'
+        ) {
+          // Navigate between focusable elements inside the dialog.
+          // Translate D-pad directions to Tab/Shift+Tab so Radix's
+          // focus trap handles boundary wrapping.
+          const forward = action === 'navigate-down' || action === 'navigate-right'
+          const focusables = dialogPortal.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+          )
+          if (focusables.length === 0) return
+          const items = Array.from(focusables)
+          const current = document.activeElement as HTMLElement | null
+          const currentIndex = current ? items.indexOf(current) : -1
+          let nextIndex: number
+          if (forward) {
+            nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0
+          } else {
+            nextIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1
+          }
+          items[nextIndex]?.focus()
         }
         return
       }
@@ -179,11 +207,13 @@ export function SpatialNavProvider({
 
       // Back action — close dropdown menus, clear search, etc.
       if (action === 'back') {
-        document.dispatchEvent(
+        const target = document.activeElement ?? document.body
+        target.dispatchEvent(
           new KeyboardEvent('keydown', {
             key: 'Escape',
             code: 'Escape',
             bubbles: true,
+            cancelable: true,
           }),
         )
         return
