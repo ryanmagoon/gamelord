@@ -478,10 +478,13 @@ export class LibraryService extends EventEmitter {
     if (existingGameId) {
       const existingGame = this.games.get(existingGameId);
       if (existingGame && existingGame.romMtime === mtimeMs) {
-        // File unchanged — update title/system in case config changed, but skip hash
+        // File unchanged — update title/system in case config changed, but skip hash.
+        // Preserve regional system name if ScreenScraper metadata has already been applied.
         const title = this.cleanGameTitle(path.basename(path.basename(fullPath), ext));
         existingGame.title = title;
-        existingGame.system = system.name;
+        if (!existingGame.metadata) {
+          existingGame.system = system.name;
+        }
         existingGame.systemId = system.id;
         return { game: existingGame, isNew: false };
       }
@@ -494,8 +497,9 @@ export class LibraryService extends EventEmitter {
       const existing = this.games.get(gameId);
       const title = this.cleanGameTitle(path.basename(path.basename(fullPath), ext));
       const isNew = !existing;
+      // Preserve regional system name if ScreenScraper metadata has already been applied
       const game: Game = existing
-        ? { ...existing, title, system: system.name, systemId: system.id, romPath: fullPath, romMtime: mtimeMs, romHashes: existing.romHashes ?? hashes }
+        ? { ...existing, title, system: existing.metadata ? existing.system : system.name, systemId: system.id, romPath: fullPath, romMtime: mtimeMs, romHashes: existing.romHashes ?? hashes }
         : { id: gameId, title, system: system.name, systemId: system.id, romPath: fullPath, romMtime: mtimeMs, romHashes: hashes };
 
       this.games.set(gameId, game);

@@ -54,6 +54,8 @@ export interface ArtworkSyncStatus {
 
 export interface ScreenScraperGameInfo {
   title: string;
+  /** ScreenScraper region code for the matched title (e.g., 'us', 'jp', 'eu'). */
+  region?: string;
   synopsis?: string;
   developer?: string;
   publisher?: string;
