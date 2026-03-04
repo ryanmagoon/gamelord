@@ -161,7 +161,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
       aria-label={`Play ${game.title}`}
       title={game.title}
     >
-      <CardContent className="p-0 h-full game-card-inner">
+      <CardContent className="p-0 game-card-inner">
         <div className="relative bg-muted overflow-hidden h-full">
           {/*
            * Cover art image — ALWAYS in the DOM so React never has to mount/

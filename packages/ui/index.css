@@ -79,7 +79,7 @@
 /* ──────────────────────────────────────────────────────────────────
  * NSO-style rotating shiny border on GameCard hover/focus.
  * A conic-gradient pseudo-element spins behind the card content;
- * the inner element sits on top with a 2px inset, revealing the
+ * the inner element sits on top with a 3px inset, revealing the
  * gradient as a glowing animated border.
  * ────────────────────────────────────────────────────────────────── */
 @keyframes border-rotate {
@@ -96,6 +96,7 @@
 .game-card-border {
   position: relative;
   border-radius: 0;
+  padding: 3px;
 }
 
 .game-card-border::before {
@@ -152,10 +153,7 @@
   position: relative;
   z-index: 1;
   border-radius: 0;
-  margin: 3px;
   overflow: hidden;
-  height: calc(100% - 6px);
-  width: calc(100% - 6px);
 }
 
 body {
