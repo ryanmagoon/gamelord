@@ -150,10 +150,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
         isLaunching && 'cursor-wait z-10 scale-[1.15]',
         className
       )}
-      style={{
-        ...style,
-        transition: 'transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 400ms cubic-bezier(0.16, 1, 0.3, 1), height 400ms cubic-bezier(0.25, 1, 0.5, 1)',
-      }}
+      style={style}
       onClick={handlePlay}
       onKeyDown={handleKeyDown}
       role="button"
