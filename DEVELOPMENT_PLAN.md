@@ -160,11 +160,11 @@ Items are grouped by priority. Work top-down within each tier.
 
 #### Library / Console Mode
 
-- [x] **Focus-based UI navigation** — Spatial navigation engine navigates game cards via D-pad/analog stick/arrow keys. Geometry-based focus scoring (Android TV/tvOS style). Bumpers cycle system filter tabs. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
-- [x] **Controller input mapping for UI** — A = select/launch, B = back/close, Start = open menu, bumpers = switch tabs/pages, analog stick = navigate. Keyboard arrows also drive navigation. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
-- [x] **Visible focus indicator** — Animated focus ring (blue ring, scale-up, shadow, pulse animation) tracks the focused game card. Visually distinct from mouse hover. Styled to feel console-native. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **Focus-based UI navigation** — Spatial navigation engine navigates game cards via D-pad/analog stick/arrow keys. Geometry-based focus scoring (Android TV/tvOS style). Bumpers cycle system filter tabs. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **Controller input mapping for UI** — A = select/launch, B = back/close, Start = open menu, bumpers = switch tabs/pages, analog stick = navigate. Keyboard arrows also drive navigation. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **Visible focus indicator** — Animated focus ring (blue ring, scale-up, shadow, pulse animation) tracks the focused game card. Visually distinct from mouse hover. Styled to feel console-native. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
 - [ ] **Console Mode layout** — Optional fullscreen UI optimized for TV/controller: larger cards, bigger text, simplified toolbar, no hover-dependent interactions. Auto-activates when a controller is the only input (no recent mouse/keyboard activity), or toggled manually from settings. Exit by pressing Escape or clicking with mouse. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
-- [x] **Input-adaptive UI (no modality)** — Mouse and controller work simultaneously. useInputDevice tracks last input device; focus ring and button prompts appear for gamepad/keyboard, fade on mouse movement. No state machine or mode toggle. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
+- [ ] **Input-adaptive UI (no modality)** — Mouse and controller work simultaneously. useInputDevice tracks last input device; focus ring and button prompts appear for gamepad/keyboard, fade on mouse movement. No state machine or mode toggle. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
 - [ ] **Controller-navigable settings** — Settings panel, shader picker, filter dropdowns, and all modal dialogs are fully navigable with controller. No dead ends where controller input stops working. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
 
 #### Configuration
@@ -282,6 +282,12 @@ cd apps/desktop/native && npx node-gyp rebuild
 ARM64 cores from: `https://buildbot.libretro.com/nightly/apple/osx/arm64/latest/`
 
 ### Known Issues
+- **Controller library nav (PR #147) was closed — needs redesign.** The branch `feat/controller-library-nav` has working primitives (spatial nav engine, gamepad UI polling, focus ring, input device tracking) but the integration was broken. Key architectural facts the next attempt must account for:
+  1. **Game runs in a separate `BrowserWindow`** — `GameWindowManager.ts` opens a dedicated window. The library window (`App.tsx`) stays mounted. The `viewState` machine (`to-game`/`game`/`to-library`) in App.tsx is dead code — never wired up. `showGame` is always `false`.
+  2. **`useGamepad` (emulation) runs in the game window** (`game-window.tsx` / `GameWindow.tsx`), not the library window. So `useGamepadUI` and `useGamepad` don't coexist in the same window — there's no conflict to manage.
+  3. **Disable `useGamepadUI` when game is running** — listen for `emulator:launched` / `emulator:exited` / `emulator:terminated` IPC events in the library window to set a `gameRunning` flag. Pass `enabled={!gameRunning}` to `SpatialNavProvider`.
+  4. **Radix dialog/menu control needs rethinking** — Dispatching synthetic `KeyboardEvent`s on DOM elements is fragile and doesn't reliably interact with Radix's internal focus management. Consider: (a) using Radix's own keyboard handlers by dispatching events on `window` instead, (b) programmatic `.focus()` + `.click()` without synthetic events, or (c) wrapping Radix components to expose imperative focus/select APIs.
+  5. **Salvageable code from the branch**: `packages/ui/lib/spatialNav.ts` (geometry engine — well-tested, 100% pure), `useGamepadUI.ts` (polling loop — works correctly when start/stop is wired properly), `useInputDevice.ts` (last-input tracking), `ui-mappings.ts` (button → action map), `GameCard` focus ring styles in `app.css`.
 - Mesen core fails to load games via the native addon (works in standalone C test). Use fceumm instead.
 - `node-gyp` v5.0.6 bundled with npm is incompatible with Node 24; must use `npx node-gyp` (v10+).
 - Hard-refreshing the game window causes the emulation to run at uncapped speed (the main-process emulation loop keeps pushing frames while the renderer resets its state).
