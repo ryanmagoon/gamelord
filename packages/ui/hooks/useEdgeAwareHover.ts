@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 
 export interface UseEdgeAwareHoverOptions {
   /** Scale factor applied on hover. @default 1.25 */
@@ -109,6 +109,15 @@ export function useEdgeAwareHover({
   const onPointerLeave = useCallback(() => {
     if (locked) return
     setEdgeTranslate(null)
+  }, [locked])
+
+  // Clear translate when lock releases (launch ended, pointer already left)
+  const prevLockedRef = useRef(locked)
+  useEffect(() => {
+    if (prevLockedRef.current && !locked) {
+      setEdgeTranslate(null)
+    }
+    prevLockedRef.current = locked
   }, [locked])
 
   return { onPointerEnter, onPointerLeave, edgeTranslate }
