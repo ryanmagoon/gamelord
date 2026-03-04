@@ -4,7 +4,9 @@
 
 At the start of every new conversation, before doing anything else:
 
-1. `git fetch origin && git checkout main && git pull origin main` — ensure you're on the latest `main`.
+1. **Sync with latest main:**
+   - **Normal repo:** `git fetch origin && git checkout main && git pull origin main`
+   - **Worktree** (detected by path containing `.claude/worktrees/`): `git fetch origin && git rebase origin/main` — you cannot checkout main in a worktree because it's already checked out by the main repo.
 2. If there are stashed or uncommitted changes from a previous session, surface them to the user and ask what to do (keep, drop, or stash).
 3. Read `DEVELOPMENT_PLAN.md` for current project state.
 
