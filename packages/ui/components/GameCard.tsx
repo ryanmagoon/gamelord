@@ -143,16 +143,16 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
     <Card
       ref={mergedCardRef}
       className={cn(
-        'group relative overflow-hidden rounded-none border-0 w-full h-full',
+        'game-card-border group relative rounded-none border-0 w-full h-full',
         disabled
           ? 'pointer-events-none opacity-50'
-          : 'hover:scale-105 hover:shadow-lg hover:z-10 cursor-pointer',
-        isLaunching && 'cursor-wait z-10 scale-105 shadow-lg',
+          : 'hover:scale-[1.15] hover:z-10 cursor-pointer',
+        isLaunching && 'cursor-wait z-10 scale-[1.15]',
         className
       )}
       style={{
         ...style,
-        transition: 'transform 200ms, box-shadow 200ms, height 400ms cubic-bezier(0.25, 1, 0.5, 1)',
+        transition: 'transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 400ms cubic-bezier(0.16, 1, 0.3, 1), height 400ms cubic-bezier(0.25, 1, 0.5, 1)',
       }}
       onClick={handlePlay}
       onKeyDown={handleKeyDown}
@@ -161,7 +161,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
       aria-label={`Play ${game.title}`}
       title={game.title}
     >
-      <CardContent className="p-0 h-full">
+      <CardContent className="p-0 h-full game-card-inner">
         <div className="relative bg-muted overflow-hidden h-full">
           {/*
            * Cover art image — ALWAYS in the DOM so React never has to mount/

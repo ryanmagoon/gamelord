@@ -76,6 +76,88 @@
   border-color: var(--border);
 }
 
+/* ──────────────────────────────────────────────────────────────────
+ * NSO-style rotating shiny border on GameCard hover/focus.
+ * A conic-gradient pseudo-element spins behind the card content;
+ * the inner element sits on top with a 2px inset, revealing the
+ * gradient as a glowing animated border.
+ * ────────────────────────────────────────────────────────────────── */
+@keyframes border-rotate {
+  from { --border-angle: 0deg; }
+  to { --border-angle: 360deg; }
+}
+
+@property --border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.game-card-border {
+  position: relative;
+  border-radius: 0;
+}
+
+.game-card-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--border-angle),
+    transparent 5%,
+    rgba(255, 255, 255, 0.08) 15%,
+    transparent 25%,
+    rgba(255, 255, 255, 0.08) 35%,
+    transparent 45%,
+    rgba(255, 255, 255, 0.08) 55%,
+    transparent 65%,
+    rgba(255, 255, 255, 0.08) 75%,
+    transparent 85%,
+    rgba(255, 255, 255, 0.08) 95%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.game-card-border:hover::before,
+.game-card-border:focus-within::before {
+  opacity: 1;
+  animation: border-rotate 2.5s linear infinite;
+  background: conic-gradient(
+    from var(--border-angle),
+    #ff4d8d,
+    #c74dff,
+    #4d8dff,
+    #4dffc7,
+    #ffc74d,
+    #ff4d8d
+  );
+}
+
+/* Soft outer glow that picks up the border's color palette */
+.game-card-border:hover,
+.game-card-border:focus-within {
+  box-shadow:
+    0 0 15px 2px rgba(100, 140, 255, 0.4),
+    0 0 30px 4px rgba(200, 100, 255, 0.2),
+    0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Inner content mask — reveals the spinning gradient only as a border. */
+.game-card-border > .game-card-inner {
+  position: relative;
+  z-index: 1;
+  border-radius: 0;
+  margin: 3px;
+  overflow: hidden;
+  height: calc(100% - 6px);
+  width: calc(100% - 6px);
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);

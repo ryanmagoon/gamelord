@@ -303,7 +303,10 @@ describe('GameCard', () => {
       // The outer Card element
       const card = screen.getByRole('button', { name: /play super mario bros/i })
       expect(card.className).toContain('h-full')
-      expect(card.className).toContain('overflow-hidden')
+
+      // Overflow is handled by the inner game-card-inner element
+      const cardInner = card.querySelector('.game-card-inner')
+      expect(cardInner).not.toBeNull()
 
       // The inner container fills the card
       const innerContainer = container.querySelector('.bg-muted')
