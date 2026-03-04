@@ -76,6 +76,9 @@ function App() {
   /** Tracks which game is currently being launched (shimmer + disable other cards). */
   const [launchingGameId, setLaunchingGameId] = useState<string | null>(null)
 
+  /** Whether a game is currently running in a separate game window. */
+  const [gameRunning, setGameRunning] = useState(false)
+
   // Listen for resume game dialog requests from main process
   useEffect(() => {
     const handleShowResumeDialog = (data: { requestId: string; gameTitle: string }) => {
@@ -93,20 +96,23 @@ function App() {
     }
   }, [api])
 
-  // Transition to game view when the emulator reports the game is running.
+  // Track whether a game is running so we can disable spatial nav.
+  // The game renders in a separate Electron BrowserWindow, so the
+  // library window stays mounted — we just stop processing controller
+  // input for UI navigation while the game window is active.
   useEffect(() => {
-    const handleGameLaunched = () => {
-      if (viewTimerRef.current) clearTimeout(viewTimerRef.current)
-      setViewState('to-game')
-      viewTimerRef.current = setTimeout(() => {
-        setViewState('game')
-        viewTimerRef.current = null
-      }, VIEW_TRANSITION_MS)
-    }
+    const handleLaunched = () => setGameRunning(true)
+    const handleExited = () => setGameRunning(false)
+    const handleTerminated = () => setGameRunning(false)
 
-    api.on('emulator:launched', handleGameLaunched)
+    api.on('emulator:launched', handleLaunched)
+    api.on('emulator:exited', handleExited)
+    api.on('emulator:terminated', handleTerminated)
+
     return () => {
       api.removeAllListeners('emulator:launched')
+      api.removeAllListeners('emulator:exited')
+      api.removeAllListeners('emulator:terminated')
     }
   }, [api])
 
@@ -388,7 +394,7 @@ function App() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <SpatialNavProvider enabled={viewState === 'library'}>
+          <SpatialNavProvider enabled={!gameRunning}>
             <div className="flex-1 overflow-hidden">
               <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} launchingGameId={launchingGameId} />
             </div>
