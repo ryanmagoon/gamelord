@@ -93,6 +93,23 @@ function App() {
     }
   }, [api])
 
+  // Transition to game view when the emulator reports the game is running.
+  useEffect(() => {
+    const handleGameLaunched = () => {
+      if (viewTimerRef.current) clearTimeout(viewTimerRef.current)
+      setViewState('to-game')
+      viewTimerRef.current = setTimeout(() => {
+        setViewState('game')
+        viewTimerRef.current = null
+      }, VIEW_TRANSITION_MS)
+    }
+
+    api.on('emulator:launched', handleGameLaunched)
+    return () => {
+      api.removeAllListeners('emulator:launched')
+    }
+  }, [api])
+
   const handleResumeDialogResponse = useCallback((shouldResume: boolean) => {
     api.dialog.respondResumeGame(resumeDialog.requestId, shouldResume)
     // Only set open to false — keep data intact so the close animation

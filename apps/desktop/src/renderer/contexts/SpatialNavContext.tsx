@@ -118,6 +118,30 @@ export function SpatialNavProvider({
         // need manual focus cycling.
         const isMenu = dialogPortal.querySelector('[role="menu"]') !== null
 
+        // Ensure focus is inside the portal. Radix auto-focuses the
+        // content wrapper, but the first *button* may not be focused.
+        // If activeElement is outside the portal, move focus in first.
+        const activeEl = document.activeElement as HTMLElement | null
+        const focusIsInPortal = activeEl && dialogPortal.contains(activeEl)
+        if (!focusIsInPortal) {
+          const firstFocusable = dialogPortal.querySelector<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"]), [role="menuitem"]',
+          )
+          if (firstFocusable) {
+            firstFocusable.focus()
+            // For navigation actions, just moving focus is enough on the
+            // first press — don't also navigate further.
+            if (
+              action === 'navigate-up' ||
+              action === 'navigate-down' ||
+              action === 'navigate-left' ||
+              action === 'navigate-right'
+            ) {
+              return
+            }
+          }
+        }
+
         if (action === 'select') {
           if (isMenu) {
             // Radix menu items activate on Enter
