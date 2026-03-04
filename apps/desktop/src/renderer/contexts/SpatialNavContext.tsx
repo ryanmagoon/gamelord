@@ -113,12 +113,30 @@ export function SpatialNavProvider({
       const dialogPortal = document.querySelector('[data-radix-portal]')
 
       if (dialogPortal) {
+        // Determine whether the portal contains a Radix menu (dropdown)
+        // or a dialog. Menus handle ArrowUp/ArrowDown natively; dialogs
+        // need manual focus cycling.
+        const isMenu = dialogPortal.querySelector('[role="menu"]') !== null
+
         if (action === 'select') {
-          // Click the currently focused element inside the dialog
-          const el = document.activeElement as HTMLElement | null
-          el?.click()
+          if (isMenu) {
+            // Radix menu items activate on Enter
+            const target = document.activeElement ?? dialogPortal
+            target.dispatchEvent(
+              new KeyboardEvent('keydown', {
+                key: 'Enter',
+                code: 'Enter',
+                bubbles: true,
+                cancelable: true,
+              }),
+            )
+          } else {
+            // Dialog — click the currently focused element
+            const el = document.activeElement as HTMLElement | null
+            el?.click()
+          }
         } else if (action === 'back') {
-          // Dispatch Escape from within the dialog content so Radix's
+          // Dispatch Escape from within the portal so Radix's
           // DismissableLayer event listener picks it up correctly.
           const target = document.activeElement ?? dialogPortal
           target.dispatchEvent(
@@ -135,24 +153,40 @@ export function SpatialNavProvider({
           action === 'navigate-left' ||
           action === 'navigate-right'
         ) {
-          // Navigate between focusable elements inside the dialog.
-          // Translate D-pad directions to Tab/Shift+Tab so Radix's
-          // focus trap handles boundary wrapping.
-          const forward = action === 'navigate-down' || action === 'navigate-right'
-          const focusables = dialogPortal.querySelectorAll<HTMLElement>(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-          )
-          if (focusables.length === 0) return
-          const items = Array.from(focusables)
-          const current = document.activeElement as HTMLElement | null
-          const currentIndex = current ? items.indexOf(current) : -1
-          let nextIndex: number
-          if (forward) {
-            nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0
+          if (isMenu) {
+            // Radix menus handle ArrowUp/ArrowDown natively for focus.
+            // Simulate the corresponding keyboard event.
+            const vertical = action === 'navigate-up' || action === 'navigate-down'
+            const key = vertical
+              ? (action === 'navigate-up' ? 'ArrowUp' : 'ArrowDown')
+              : (action === 'navigate-left' ? 'ArrowLeft' : 'ArrowRight')
+            const target = document.activeElement ?? dialogPortal
+            target.dispatchEvent(
+              new KeyboardEvent('keydown', {
+                key,
+                code: key,
+                bubbles: true,
+                cancelable: true,
+              }),
+            )
           } else {
-            nextIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1
+            // Dialog — cycle between focusable elements manually.
+            const forward = action === 'navigate-down' || action === 'navigate-right'
+            const focusables = dialogPortal.querySelectorAll<HTMLElement>(
+              'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+            )
+            if (focusables.length === 0) return
+            const items = Array.from(focusables)
+            const current = document.activeElement as HTMLElement | null
+            const currentIndex = current ? items.indexOf(current) : -1
+            let nextIndex: number
+            if (forward) {
+              nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0
+            } else {
+              nextIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1
+            }
+            items[nextIndex]?.focus()
           }
-          items[nextIndex]?.focus()
         }
         return
       }
