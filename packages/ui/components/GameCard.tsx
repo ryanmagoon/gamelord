@@ -52,6 +52,10 @@ export interface GameCardProps {
   /** Whether this card is disabled (e.g. another game is launching). Dims the card and prevents interaction. */
   disabled?: boolean
   className?: string
+  /** Whether this card is the current spatial-nav focus target. */
+  isFocused?: boolean
+  /** Whether to show the focus ring (hidden when mouse is the last input device). */
+  showFocusRing?: boolean
   /** Inline styles forwarded to the root card element (useful for animation delays). */
   style?: React.CSSProperties
   /** Ref forwarded to the root Card element (used for FLIP measurements). */
@@ -68,6 +72,8 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   artworkSyncStore,
   isLaunching,
   disabled,
+  isFocused,
+  showFocusRing,
   className,
   style,
   ref,
@@ -139,20 +145,32 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
     else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el
   }, [ref])
 
+  // Focus restoration: when isFocused becomes true and the element is in the DOM, focus it.
+  // preventScroll because the SpatialNavProvider handles scrolling.
+  useEffect(() => {
+    if (isFocused && cardRef.current) {
+      cardRef.current.focus({ preventScroll: true })
+    }
+  }, [isFocused])
+
+  const hasFocusRing = isFocused && showFocusRing
+
   return (
     <Card
       ref={mergedCardRef}
+      data-focusable-id={game.id}
       className={cn(
         'group relative overflow-hidden rounded-none border-0 w-full h-full',
         disabled
           ? 'pointer-events-none opacity-50'
           : 'hover:scale-105 hover:shadow-lg hover:z-10 cursor-pointer',
         isLaunching && 'cursor-wait z-10 scale-105 shadow-lg',
+        hasFocusRing && 'ring-2 ring-blue-500 ring-offset-2 ring-offset-background scale-105 shadow-lg z-20 animate-focus-ring-pulse',
         className
       )}
       style={{
         ...style,
-        transition: 'transform 200ms, box-shadow 200ms, height 400ms cubic-bezier(0.25, 1, 0.5, 1)',
+        transition: 'transform 200ms, box-shadow 200ms, ring 200ms, height 400ms cubic-bezier(0.25, 1, 0.5, 1)',
       }}
       onClick={handlePlay}
       onKeyDown={handleKeyDown}
@@ -324,6 +342,8 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
     prev.artworkSyncStore === next.artworkSyncStore &&
     prev.isLaunching === next.isLaunching &&
     prev.disabled === next.disabled &&
+    prev.isFocused === next.isFocused &&
+    prev.showFocusRing === next.showFocusRing &&
     prev.className === next.className &&
     prev.style === next.style &&
     prev.ref === next.ref

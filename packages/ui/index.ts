@@ -22,5 +22,9 @@ export { useFlipAnimation } from './hooks/useFlipAnimation';
 export type { FlipItem, FlipAnimationState, UseFlipAnimationOptions } from './hooks/useFlipAnimation';
 export { ArtworkSyncStore, useArtworkSyncPhase } from './hooks/useArtworkSyncStore';
 
+// Spatial Navigation
+export { findNextFocusable } from './lib/spatialNav';
+export type { FocusableRect, Direction } from './lib/spatialNav';
+
 // Utils
 export * from './utils';

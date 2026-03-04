@@ -18,6 +18,7 @@ import { useMosaicVirtualizer } from '../hooks/useMosaicVirtualizer';
 import { useScrollLetterIndicator } from '../hooks/useScrollLetterIndicator';
 import { ScrollLetterIndicator } from './ScrollLetterIndicator';
 import type { ArtworkSyncStore } from '../hooks/useArtworkSyncStore';
+import type { FocusableRect } from '../lib/spatialNav';
 import { ROW_HEIGHT, MOSAIC_GAP, computeCardWidth } from '../utils/mosaicGrid';
 import { computeRowLayout } from '../utils/mosaicLayout';
 
@@ -38,6 +39,12 @@ export interface GameLibraryProps {
   launchingGameId?: string | null;
   /** Ref to the scrollable container (for virtualization). */
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
+  /** ID of the currently focused game card (spatial navigation). */
+  focusedGameId?: string | null;
+  /** Whether to show the focus ring on the focused card. */
+  showFocusRing?: boolean;
+  /** Callback to register layout rects for spatial navigation. */
+  onLayoutChange?: (items: FocusableRect[]) => void;
   className?: string;
 }
 
@@ -74,6 +81,9 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   artworkSyncStore,
   launchingGameId,
   scrollContainerRef,
+  focusedGameId,
+  showFocusRing: showFocusRingProp,
+  onLayoutChange,
   className
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -182,6 +192,19 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     }
     return computeRowLayout(aspectRatios, containerWidth);
   }, [aspectRatios, containerWidth]);
+
+  // Register layout rects for spatial navigation whenever the layout changes.
+  useEffect(() => {
+    if (!onLayoutChange || layout.items.length === 0) return
+    const rects: FocusableRect[] = layout.items.map((pos, index) => ({
+      id: filteredGames[index].id,
+      x: pos.x,
+      y: pos.y,
+      width: pos.width,
+      height: pos.height,
+    }))
+    onLayoutChange(rects)
+  }, [layout, filteredGames, onLayoutChange])
 
   const { scrollTop, viewportHeight } = useScrollContainer(scrollContainerRef);
 
@@ -371,6 +394,8 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
                   artworkSyncStore={artworkSyncStore}
                   isLaunching={launchingGameId === game.id}
                   disabled={launchingGameId != null && launchingGameId !== game.id}
+                  isFocused={focusedGameId === game.id}
+                  showFocusRing={showFocusRingProp}
                   className={cn(isEntering && 'animate-card-enter')}
                   style={{
                     position: 'absolute',
@@ -408,6 +433,8 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
                   artworkSyncStore={artworkSyncStore}
                   isLaunching={launchingGameId === flipItem.item.id}
                   disabled={launchingGameId != null && launchingGameId !== flipItem.item.id}
+                  isFocused={focusedGameId === flipItem.item.id}
+                  showFocusRing={showFocusRingProp}
                   className={cn(
                     flipItem.animationState === 'entering' && 'animate-card-enter',
                     flipItem.animationState === 'exiting' && 'animate-card-exit',

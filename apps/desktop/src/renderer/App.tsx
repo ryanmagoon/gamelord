@@ -7,6 +7,7 @@ import { DevBranchBadge } from './components/DevBranchBadge'
 import { LibraryView } from './components/LibraryView'
 import { ResumeGameDialog } from './components/ResumeGameDialog'
 import { CoreSelectDialog } from './components/CoreSelectDialog'
+import { SpatialNavProvider } from './contexts/SpatialNavContext'
 import type { GamelordAPI, CoreInfo } from './types/global'
 
 interface ResumeDialogState {
@@ -370,9 +371,11 @@ function App() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <div className="flex-1 overflow-hidden">
-            <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} launchingGameId={launchingGameId} />
-          </div>
+          <SpatialNavProvider enabled={viewState === 'library'}>
+            <div className="flex-1 overflow-hidden">
+              <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} launchingGameId={launchingGameId} />
+            </div>
+          </SpatialNavProvider>
 
           {/* Resume game dialog */}
           <ResumeGameDialog

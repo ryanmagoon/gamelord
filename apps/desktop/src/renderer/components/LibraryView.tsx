@@ -23,6 +23,7 @@ import type { Game as AppGame, GameSystem } from '../../types/library'
 import type { ArtworkProgress } from '../../types/artwork'
 import type { GamelordAPI } from '../types/global'
 import { EmptyLibrary } from './EmptyLibrary'
+import { useSpatialNav } from '../contexts/SpatialNavContext'
 
 interface CoreDownloadProgress {
   coreName: string;
@@ -52,7 +53,16 @@ export const LibraryView: React.FC<{
   // Each GameCard subscribes to its own phase via useSyncExternalStore.
   const [artworkSyncStore] = useState(() => new ArtworkSyncStore())
   const [syncCounter, setSyncCounter] = useState<{ current: number; total: number } | null>(null)
+
+  // Spatial navigation context — provides focus state, layout registration, and bumper actions.
+  const spatialNav = useSpatialNav()
+
+  // Attach the scroll container ref to the spatial nav context so it can auto-scroll.
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    spatialNav.scrollContainerRef.current = scrollContainerRef.current
+    return () => { spatialNav.scrollContainerRef.current = null }
+  }, [])
   const phaseCleanupTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   /** Track sync results for the notification summary. */
   const syncResults = useRef<{ found: number; notFound: number; errors: number; lastErrorCode?: string; lastError?: string }>({ found: 0, notFound: 0, errors: 0 })
@@ -446,6 +456,24 @@ export const LibraryView: React.FC<{
     setSelectedSystem(nextSystem)
   }, [])
 
+  // Register bumper page action handler for spatial nav (cycles system filter tabs).
+  useEffect(() => {
+    if (systems.length === 0) return
+
+    spatialNav.setOnPageAction((direction) => {
+      setSelectedSystem((current) => {
+        // Tab order: null (All), then each system in order
+        const tabs: (string | null)[] = [null, ...systems.map((s) => s.id)]
+        const currentIndex = tabs.indexOf(current)
+        if (direction === 'right') {
+          return tabs[(currentIndex + 1) % tabs.length] ?? null
+        } else {
+          return tabs[(currentIndex - 1 + tabs.length) % tabs.length] ?? null
+        }
+      })
+    })
+  }, [systems, spatialNav.setOnPageAction])
+
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games])
 
   /** Delegate to the parent's onPlayGame so App.tsx can handle core selection. */
@@ -670,6 +698,9 @@ export const LibraryView: React.FC<{
             artworkSyncStore={artworkSyncStore}
             launchingGameId={launchingGameId}
             scrollContainerRef={scrollContainerRef}
+            focusedGameId={spatialNav.focusedId}
+            showFocusRing={spatialNav.showFocusRing}
+            onLayoutChange={spatialNav.registerLayout}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
