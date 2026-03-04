@@ -162,7 +162,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
         disabled
           ? 'pointer-events-none opacity-50'
           : 'hover:scale-[1.15] hover:z-10 cursor-pointer',
-        isLaunching && 'cursor-wait z-10 scale-[1.15]',
+        isLaunching && 'game-card-active cursor-wait z-10 scale-[1.15]',
         className
       )}
       style={mergedStyle}

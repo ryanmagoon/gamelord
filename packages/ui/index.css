@@ -117,7 +117,8 @@
 }
 
 .game-card-border:hover::before,
-.game-card-border:focus-within::before {
+.game-card-border:focus-within::before,
+.game-card-border.game-card-active::before {
   opacity: 1;
   animation: border-rotate 2.5s linear infinite;
   background: conic-gradient(
@@ -131,7 +132,8 @@
 }
 
 .dark .game-card-border:hover::before,
-.dark .game-card-border:focus-within::before {
+.dark .game-card-border:focus-within::before,
+.dark .game-card-border.game-card-active::before {
   background: conic-gradient(
     from var(--border-angle),
     rgba(255, 255, 255, 0.15),
@@ -144,7 +146,8 @@
 
 /* Soft outer glow — adapts to light/dark mode */
 .game-card-border:hover,
-.game-card-border:focus-within {
+.game-card-border:focus-within,
+.game-card-border.game-card-active {
   box-shadow:
     0 0 15px 2px rgba(0, 0, 0, 0.15),
     0 0 30px 4px rgba(0, 0, 0, 0.08),
@@ -152,7 +155,8 @@
 }
 
 .dark .game-card-border:hover,
-.dark .game-card-border:focus-within {
+.dark .game-card-border:focus-within,
+.dark .game-card-border.game-card-active {
   box-shadow:
     0 0 15px 2px rgba(255, 255, 255, 0.3),
     0 0 30px 4px rgba(255, 255, 255, 0.1),
