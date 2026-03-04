@@ -82,7 +82,7 @@ export function computeEdgeTranslate(
  * where edge cards shift inward to remain fully visible.
  */
 export function useEdgeAwareHover({
-  scaleFactor = 1.15,
+  scaleFactor = 1.25,
   glowPadding = 18,
   disabled = false,
 }: UseEdgeAwareHoverOptions = {}): UseEdgeAwareHoverResult {

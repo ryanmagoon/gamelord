@@ -11,7 +11,7 @@ function rect(x: number, y: number, width: number, height: number): DOMRect {
   }
 }
 
-const SCALE = 1.15
+const SCALE = 1.25
 const GLOW = 18
 
 describe('computeEdgeTranslate', () => {
