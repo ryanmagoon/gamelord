@@ -4,7 +4,9 @@
 
 At the start of every new conversation, before doing anything else:
 
-1. `git fetch origin && git checkout main && git pull origin main` — ensure you're on the latest `main`.
+1. **Sync with latest main:**
+   - **Normal repo:** `git fetch origin && git checkout main && git pull origin main`
+   - **Worktree** (detected by path containing `.claude/worktrees/`): `git fetch origin && git rebase origin/main` — you cannot checkout main in a worktree because it's already checked out by the main repo.
 2. If there are stashed or uncommitted changes from a previous session, surface them to the user and ask what to do (keep, drop, or stash).
 3. Read `DEVELOPMENT_PLAN.md` for current project state.
 
@@ -29,6 +31,7 @@ This project uses **pnpm**. Always use `pnpm` for installing dependencies, runni
 
 ## Git Conventions
 
+- **Never push directly to `main`.** Branch protection with required status checks is enabled. Always create a feature branch and open a PR, even for trivial changes.
 - Use descriptive branch names: `<type>/<short-descriptive-name>`
 - Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 - Examples: `feat/game-library-search`, `fix/storybook-tailwind`, `refactor/emulator-manager`
