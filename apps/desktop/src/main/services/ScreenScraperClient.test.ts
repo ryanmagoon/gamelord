@@ -96,6 +96,7 @@ describe('ScreenScraperClient', () => {
 
       expect(result).not.toBeNull();
       expect(result!.title).toBe('Super Mario Bros.');
+      expect(result!.region).toBe('us');
       expect(result!.developer).toBe('Nintendo R&D4');
       expect(result!.publisher).toBe('Nintendo');
       expect(result!.genre).toBe('Platform');
@@ -259,6 +260,30 @@ describe('ScreenScraperClient', () => {
       });
       const result = client.parseGameResponse(fixture);
       expect(result!.title).toBe('BR Title');
+      expect(result!.region).toBe('br');
+    });
+
+    it('returns jp region when only Japanese title is available', () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        noms: [{ region: 'jp', text: 'スーパーマリオブラザーズ' }],
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(result!.title).toBe('スーパーマリオブラザーズ');
+      expect(result!.region).toBe('jp');
+    });
+
+    it('returns eu region when EU is the best match', () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        noms: [
+          { region: 'jp', text: 'JP Title' },
+          { region: 'eu', text: 'EU Title' },
+        ],
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(result!.title).toBe('EU Title');
+      expect(result!.region).toBe('eu');
     });
   });
 

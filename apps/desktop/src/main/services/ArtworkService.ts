@@ -16,6 +16,7 @@ import {
   ScreenScraperGameInfo,
 } from '../../types/artwork';
 import { readImageDimensions } from '../utils/readImageDimensions';
+import { getRegionalSystemName } from '../../types/library';
 
 /** Minimum delay between API requests in milliseconds. */
 const RATE_LIMIT_DELAY_MS = 1100;
@@ -225,10 +226,12 @@ export class ArtworkService extends EventEmitter {
       }
     }
 
-    // Step 5: Update game record
+    // Step 5: Update game record (including regional system name if applicable)
+    const regionalName = getRegionalSystemName(game.systemId, gameInfo.region);
     await this.libraryService.updateGame(gameId, {
       ...(coverArtPath ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl!)}` } : {}),
       ...(coverArtAspectRatio !== undefined ? { coverArtAspectRatio } : {}),
+      ...(regionalName ? { system: regionalName } : {}),
       metadata: {
         developer: gameInfo.developer,
         publisher: gameInfo.publisher,

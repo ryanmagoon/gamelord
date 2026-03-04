@@ -115,3 +115,41 @@ export const DEFAULT_SYSTEMS: GameSystem[] = [
     extensions: ['.zip', '.7z'],
   },
 ];
+
+/**
+ * Regional display-name variants for systems with meaningful regional splits.
+ * Maps systemId → ScreenScraper region code → display name.
+ * Systems not listed here have no regional variants and keep their default name.
+ */
+export const REGIONAL_SYSTEM_NAMES: Record<string, Record<string, string>> = {
+  nes: {
+    us: 'NES',
+    eu: 'NES',
+    wor: 'NES',
+    jp: 'Famicom',
+    ss: 'NES',
+  },
+  snes: {
+    us: 'SNES',
+    eu: 'SNES',
+    wor: 'SNES',
+    jp: 'Super Famicom',
+    ss: 'SNES',
+  },
+  genesis: {
+    us: 'Genesis',
+    eu: 'Mega Drive',
+    wor: 'Genesis',
+    jp: 'Mega Drive',
+    ss: 'Genesis',
+  },
+};
+
+/** Look up the regional system display name for a given system and region. */
+export function getRegionalSystemName(
+  systemId: string,
+  region: string | undefined,
+): string | undefined {
+  if (!region) return undefined;
+  return REGIONAL_SYSTEM_NAMES[systemId]?.[region];
+}
