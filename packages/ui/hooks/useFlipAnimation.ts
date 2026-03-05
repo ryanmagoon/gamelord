@@ -45,7 +45,7 @@ export interface UseFlipAnimationOptions {
 }
 
 /** Shared style for stable (persisting) items — never changes, so React.memo sees the same reference. */
-const STABLE_STYLE: CSSProperties = { position: 'relative', zIndex: 1 } as const
+const STABLE_STYLE: CSSProperties = { position: 'relative' } as const
 
 interface PositionRecord {
   left: number
@@ -334,7 +334,7 @@ export function useFlipAnimation<T>(
       // the same object reference across renders.
       let cached = enteringStyleCache.current.get(delay)
       if (!cached) {
-        cached = { position: 'relative', zIndex: 1, animationDelay: `${delay}ms` }
+        cached = { position: 'relative', animationDelay: `${delay}ms` }
         enteringStyleCache.current.set(delay, cached)
       }
       style = cached
