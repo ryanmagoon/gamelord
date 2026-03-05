@@ -23,6 +23,7 @@ import type { Game as AppGame, GameSystem } from '../../types/library'
 import type { ArtworkProgress } from '../../types/artwork'
 import type { GamelordAPI } from '../types/global'
 import { EmptyLibrary } from './EmptyLibrary'
+import { useSfx } from '../hooks/useSfx'
 
 interface CoreDownloadProgress {
   coreName: string;
@@ -39,6 +40,9 @@ export const LibraryView: React.FC<{
   launchingGameId?: string | null
 }> = ({ onPlayGame, getMenuItems, launchingGameId }) => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
+  const { play: playSfx } = useSfx()
+  const playSfxRef = useRef(playSfx)
+  playSfxRef.current = playSfx
 
   const [games, setGames] = useState<AppGame[]>([])
   const [systems, setSystems] = useState<GameSystem[]>([])
@@ -157,6 +161,8 @@ export const LibraryView: React.FC<{
       const { found, notFound, errors, lastErrorCode, lastError } = syncResults.current
       const total = found + notFound + errors
       if (total > 0) {
+        const hasError = lastErrorCode === 'config-error' || lastErrorCode === 'auth-failed' || lastErrorCode === 'timeout' || lastErrorCode === 'rate-limited' || errors > 0
+        playSfxRef.current(hasError ? 'error' : 'syncComplete')
         if (lastErrorCode === 'config-error') {
           setSyncNotification({
             message: 'Artwork sync stopped: developer credentials are missing from the .env file.',
@@ -475,12 +481,13 @@ export const LibraryView: React.FC<{
     const fullGame = idToGame.get(uiGame.id)
     if (!fullGame) return
     const nextFavorite = !fullGame.favorite
+    playSfx('favoritePop')
     // Optimistic in-place update (same pattern as artwork update)
     setGames(prev => prev.map(g =>
       g.id === uiGame.id ? { ...g, favorite: nextFavorite } : g
     ))
     api.library.updateGame(uiGame.id, { favorite: nextFavorite })
-  }, [idToGame, api])
+  }, [idToGame, api, playSfx])
 
   const filteredGames = useMemo(
     () => selectedSystem ? games.filter((game) => game.systemId === selectedSystem) : games,
