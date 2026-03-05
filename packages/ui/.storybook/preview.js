@@ -1,5 +1,5 @@
 import React from 'react';
-import { isChromatic } from 'chromatic/isChromatic';
+import isChromatic from 'chromatic/isChromatic';
 import { Agentation } from 'agentation';
 import { tvStaticManager } from '../components/TVStaticManager';
 import '../index.css';
