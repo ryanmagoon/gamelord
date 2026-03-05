@@ -31,6 +31,7 @@ import { DevBranchBadge } from './DevBranchBadge'
 import { PowerAnimation } from './animations'
 import { getDisplayType } from '../../types/displayType'
 import { useGamepad } from '../hooks/useGamepad'
+import { useSfx } from '../hooks/useSfx'
 
 // Keyboard → libretro joypad button mapping
 const KEY_MAP: Record<string, number> = {
@@ -95,6 +96,10 @@ export const GameWindow: React.FC = () => {
   // and trigger state updates during the power-on sequence).
   const handlePowerOnComplete = useCallback(() => setIsPoweringOn(false), [])
   const handlePowerOffComplete = useCallback(() => api.gameWindow.readyToClose(), [api])
+
+  const { play: playSfx, preferences: sfxPreferences, setEnabled: setSfxEnabled, setVolume: setSfxVolume } = useSfx()
+  const playSfxRef = useRef(playSfx)
+  playSfxRef.current = playSfx
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -300,6 +305,7 @@ export const GameWindow: React.FC = () => {
     api.on('game:ready-for-boot', () => {
       bootReadyRef.current = true
       setIsPoweringOn(true)
+      playSfxRef.current('powerOn')
     })
 
     api.on('game:mode', (m: string) => {
@@ -323,6 +329,7 @@ export const GameWindow: React.FC = () => {
       setShowShaderMenu(false)
       setShowSettingsMenu(false)
       setShowSpeedMenu(false)
+      playSfxRef.current('powerOff')
     })
 
     api.on('game:av-info', (avInfo: any) => {
@@ -565,6 +572,7 @@ export const GameWindow: React.FC = () => {
 
   const handlePauseResume = async () => {
     try {
+      playSfx(isPaused ? 'resume' : 'pause')
       if (isPaused) {
         await api.emulation.resume()
       } else {
@@ -576,14 +584,17 @@ export const GameWindow: React.FC = () => {
   }
 
   const handleSaveState = async () => {
+    playSfx('saveState')
     await api.saveState.save(selectedSlot)
   }
 
   const handleLoadState = async () => {
+    playSfx('loadState')
     await api.saveState.load(selectedSlot)
   }
 
   const handleScreenshot = async () => {
+    playSfx('screenshot')
     await api.emulation.screenshot()
   }
 
@@ -615,6 +626,7 @@ export const GameWindow: React.FC = () => {
   }
 
   const handleToggleFastForward = async () => {
+    playSfx('fastForward')
     const nextSpeed = speedMultiplier > 1 ? 1 : preferredFastForwardSpeed
     await handleSetSpeed(nextSpeed)
   }
@@ -928,7 +940,7 @@ export const GameWindow: React.FC = () => {
                   {SPEED_OPTIONS.map((speed) => (
                     <button
                       key={speed}
-                      onClick={() => { void handleSetSpeed(speed, true); setShowSpeedMenu(false) }}
+                      onClick={() => { playSfx('click'); void handleSetSpeed(speed, true); setShowSpeedMenu(false) }}
                       className={`w-full text-left px-4 py-2 text-sm transition-colors ${
                         speedMultiplier === speed
                           ? 'text-yellow-400 bg-white/10'
@@ -951,7 +963,7 @@ export const GameWindow: React.FC = () => {
                 {[0, 1, 2, 3, 4].map((slot) => (
                   <button
                     key={slot}
-                    onClick={() => setSelectedSlot(slot)}
+                    onClick={() => { playSfx('click'); setSelectedSlot(slot) }}
                     className={`w-8 h-8 rounded flex items-center justify-center text-sm font-medium transition-colors ${
                       selectedSlot === slot
                         ? 'bg-blue-500 text-white'
@@ -988,7 +1000,7 @@ export const GameWindow: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsMuted((m) => !m)}
+              onClick={() => { playSfx(isMuted ? 'toggleOn' : 'toggleOff'); setIsMuted((m) => !m) }}
               className="text-white hover:bg-white/20 hover:text-white"
             >
               {isMuted || volume === 0 ? (
@@ -1027,7 +1039,7 @@ export const GameWindow: React.FC = () => {
                   {SHADER_PRESETS.map((preset) => (
                     <button
                       key={preset}
-                      onClick={() => { setShader(preset); setShowShaderMenu(false) }}
+                      onClick={() => { playSfx('click'); setShader(preset); setShowShaderMenu(false) }}
                       className={`w-full text-left px-4 py-2 text-sm transition-colors ${
                         shader === preset
                           ? 'text-blue-400 bg-white/10'
@@ -1061,7 +1073,7 @@ export const GameWindow: React.FC = () => {
               {showSettingsMenu && (
                 <div className="absolute bottom-full right-0 mb-2 bg-black/95 rounded-lg shadow-lg py-1 min-w-[160px]">
                   <button
-                    onClick={() => setShowFps((v) => !v)}
+                    onClick={() => { playSfx(showFps ? 'toggleOff' : 'toggleOn'); setShowFps((v) => !v) }}
                     className="w-full flex items-center justify-between px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
                   >
                     <span>Show FPS</span>
@@ -1069,6 +1081,29 @@ export const GameWindow: React.FC = () => {
                       {showFps ? 'ON' : 'OFF'}
                     </span>
                   </button>
+                  <button
+                    onClick={() => { playSfx(sfxPreferences.enabled ? 'toggleOff' : 'toggleOn'); setSfxEnabled(!sfxPreferences.enabled) }}
+                    className="w-full flex items-center justify-between px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                  >
+                    <span>UI Sounds</span>
+                    <span className={`ml-3 text-xs font-medium ${sfxPreferences.enabled ? 'text-green-400' : 'text-white/40'}`}>
+                      {sfxPreferences.enabled ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                  {sfxPreferences.enabled && (
+                    <div className="px-4 py-2 flex items-center gap-2">
+                      <span className="text-xs text-white/50">SFX Vol</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={sfxPreferences.volume}
+                        onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
+                        className="flex-1 h-1 accent-white/80"
+                      />
+                    </div>
+                  )}
                   {process.env.NODE_ENV === 'development' && (
                     <button
                       onClick={() => setShowAgentation((v) => !v)}
