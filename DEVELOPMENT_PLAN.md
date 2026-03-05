@@ -123,6 +123,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] Cover art downloading and caching (artwork:// custom protocol, per-game and bulk sync)
 - [x] Grid view with cover art thumbnails
 - [x] Search, filter, and sorting
+- [ ] **Fuzzy library search** — Replace exact substring matching with fuzzy search (tolerance for typos, partial matches, abbreviations). Searching "zelda" should match "The Legend of Zelda: A Link to the Past." Evaluate lightweight options (Fuse.js or similar) with TypeScript support and zero transitive deps.
 - [x] **Scan-time zip extraction** — Library scanner extracts ROMs from `.zip` archives at scan time for all non-arcade systems. Extracted ROMs cached in `<userData>/roms-cache/` with hash-prefixed filenames. Arcade `.zip` files are passed through natively (MAME expects zips). Cache cleaned up on game removal.
 - [ ] **Artwork sync performance** — Current implementation downloads full-resolution images serially with a new TCP connection per request, taking several seconds per game. Improvements ordered by impact:
   - [ ] Request smaller images via `maxwidth`/`maxheight` params (2–3x faster downloads) — [#37](https://github.com/ryanmagoon/gamelord/issues/37)
@@ -132,8 +133,10 @@ Items are grouped by priority. Work top-down within each tier.
   - [ ] Progressive artwork loading UX (show art as each game resolves) — [#41](https://github.com/ryanmagoon/gamelord/issues/41)
   - [ ] Multi-threaded ScreenScraper access for Patreon-tier users (up to 5x throughput) — [#42](https://github.com/ryanmagoon/gamelord/issues/42)
   - [ ] **Metadata-only resync** — Smart resync mode that re-queries the API for games missing specific fields (e.g., `region` for regional system names) without re-downloading artwork. Skips games that already have complete metadata. Useful for backfilling new metadata fields added in later versions.
+- [ ] **SteamGridDB fallback artwork** — When ScreenScraper returns no artwork for a game (homebrew, romhacks, obscure titles), fall back to SteamGridDB as a secondary source. Auto-search by game title with manual override. Requires a free API key from steamgriddb.com.
 - [ ] Recently played tracking — [#69](https://github.com/ryanmagoon/gamelord/issues/69)
 - [ ] **Rating display** — Show ScreenScraper community rating on cards or in a detail view. Already stored as `metadata.rating` (0–1 scale). Consider a 5-star or 10-point visual treatment. — [#70](https://github.com/ryanmagoon/gamelord/issues/70)
+- [ ] **How Long To Beat integration** — Show estimated completion times (main story, completionist, etc.) on game detail views. Helps users decide what to play based on time commitment. Fetch data from HLTB by game title, cache results locally.
 - [ ] **Game detail view (Wikipedia-style)** — A rich, enthusiast-oriented detail page for each game, inspired by Wikipedia articles. Covers history, developer background, release timeline, platform ports, reception, and trivia — not just a metadata card. Includes cover art, screenshots, genre/player count/rating, and any ScreenScraper metadata we have, but the feel should be editorial and informational, like reading a game's encyclopedia entry. Triggered by clicking a game card (the card itself transitions/expands into the detail view). A minimalist play button on the card (or within the detail view) launches the game. This replaces the current "click card to launch" behavior — cards become the entry point to the detail view, not the emulator. — [#71](https://github.com/ryanmagoon/gamelord/issues/71)
 - [ ] **Card → detail view transition** — When a game card is clicked, it expands/morphs into the full detail view (FLIP-style or shared-element transition). The play button moves to the detail view (or stays as a small overlay on the card). This is the interaction change that decouples "click card" from "launch game." — [#72](https://github.com/ryanmagoon/gamelord/issues/72)
 - [ ] **Filter by genre** — Genre is already stored per-game from ScreenScraper. Add a genre filter dropdown alongside the existing platform filter. — [#73](https://github.com/ryanmagoon/gamelord/issues/73)
@@ -151,7 +154,7 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P5 — Controls & Input
 
-**Controller support is first-class.** The entire app — library browsing, game launching, in-game menus, settings — must be fully operable with a controller and zero mouse/keyboard. Think Steam Big Picture, Nintendo Switch Online, or a console home screen. This is not an afterthought bolted onto a mouse UI; controller navigation should feel native and intentional.
+**Controller support is first-class.** The entire app — library browsing, game launching, in-game menus, settings — must be fully operable with a controller and zero mouse/keyboard. The experience should feel like a console home screen: spatial navigation, contextual button prompts, and no dead ends. This is not an afterthought bolted onto a mouse UI; controller navigation should feel native and intentional.
 
 #### In-Game Controller UI
 
@@ -214,12 +217,18 @@ Items are grouped by priority. Work top-down within each tier.
   - [ ] Mode/state readout: current mode, paused state, active core, ROM info
 - [ ] Persist debug overlay preferences in localStorage — [#86](https://github.com/ryanmagoon/gamelord/issues/86)
 
+### Integration & Extensibility
+
+- [ ] **`gamelord://` deep link protocol** — Register a custom URL protocol handler (`app.setAsDefaultProtocolClient`) so games can be launched from external tools (Spotlight, Alfred, Raycast, Stream Deck, shell scripts). Format: `gamelord://launch/<gameId>`. Also supports `gamelord://library` to open the library window.
+- [ ] **Discord Rich Presence** — Show the currently playing game, system, and elapsed time in the user's Discord status (e.g. "Playing Super Metroid (SNES)"). Toggle in settings. Uses Discord's local IPC socket — no network requests, no Discord SDK dependency needed (lightweight RPC client).
+- [ ] **Before/after launch scripts** — Let users configure shell commands to run before game launch and after game exit. Per-game or global. Use cases: switch audio output, dim smart lights, post to a Discord webhook, back up saves, toggle system settings.
+
 ### Alpha Release Milestone — [#143](https://github.com/ryanmagoon/gamelord/issues/143)
 
 Tracking issue for the first alpha release. All items below must be completed before shipping.
 
 - [ ] **Graceful app startup** — [#125](https://github.com/ryanmagoon/gamelord/issues/125)
-- [ ] **Library UI redesign — shelf-based home view** — Replace the dashboard layout with a Netflix/Steam Deck-style shelf layout: hero section, horizontal scroll rows (Recently Played, Favorites, per-platform), Cmd+K command palette, no persistent chrome. Existing mosaic grid becomes the "browse all" sub-view. — [#141](https://github.com/ryanmagoon/gamelord/issues/141)
+- [ ] **Library UI redesign — shelf-based home view** — Replace the dashboard layout with a shelf-based layout: hero section, horizontal scroll rows grouped by category (Recently Played, Favorites, per-platform), Cmd+K command palette, no persistent chrome. Existing mosaic grid becomes the "browse all" sub-view. — [#141](https://github.com/ryanmagoon/gamelord/issues/141)
 - [ ] **Cmd+K command palette** — Fuzzy search overlay for games, platforms, and actions. Replaces inline search toolbar. — [#142](https://github.com/ryanmagoon/gamelord/issues/142)
 - [ ] **Settings panel** — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
 - [ ] **DMG packaging + code signing** — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
