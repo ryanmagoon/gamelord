@@ -8,6 +8,11 @@
  *
  * The loop auto-starts when the first canvas registers and auto-stops when
  * the last one unregisters.
+ *
+ * **Deterministic mode:** When `setDeterministic(true)` is called (e.g. by
+ * Chromatic's Storybook preview), the manager uses a seeded PRNG and draws
+ * exactly one frame per canvas registration — no animation loop. This ensures
+ * screenshots are pixel-identical across runs.
  */
 
 /** Target FPS for the noise animation — authentic CRT flicker rate. */
@@ -15,6 +20,20 @@ const TARGET_FPS = 15
 
 /** Width of the noise buffer in pixels. Canvases are CSS-scaled for chunky pixels. */
 const NOISE_WIDTH = 64
+
+/**
+ * Simple mulberry32 seeded PRNG — produces deterministic 0-1 floats from
+ * a 32-bit seed. Used in place of Math.random() for Chromatic snapshots.
+ */
+function mulberry32(seed: number): () => number {
+  let s = seed | 0
+  return () => {
+    s = (s + 0x6d2b79f5) | 0
+    let t = Math.imul(s ^ (s >>> 15), 1 | s)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
 
 interface RegisteredCanvas {
   canvas: HTMLCanvasElement
@@ -29,6 +48,17 @@ class TVStaticManager {
   /** Shared ImageData buffer — sized to the largest registered canvas height. */
   private imageData: ImageData | null = null
   private maxNoiseHeight = 0
+  /** When true, draw a single deterministic frame instead of animating. */
+  private deterministic = false
+
+  /**
+   * Enable or disable deterministic mode.
+   * In deterministic mode, each registered canvas receives exactly one
+   * frame generated from a fixed seed — no rAF loop runs.
+   */
+  setDeterministic(enabled: boolean): void {
+    this.deterministic = enabled
+  }
 
   /**
    * Register a canvas to receive shared noise frames.
@@ -43,6 +73,12 @@ class TVStaticManager {
 
     const entry: RegisteredCanvas = { canvas, ctx, noiseHeight }
     this.canvases.set(canvas, entry)
+
+    if (this.deterministic) {
+      // Draw one deterministic frame immediately — no animation loop.
+      this.drawDeterministicFrame(entry)
+      return () => { this.canvases.delete(canvas) }
+    }
 
     // Rebuild shared buffer if this canvas is taller than the current max
     if (noiseHeight > this.maxNoiseHeight) {
@@ -66,6 +102,23 @@ class TVStaticManager {
         this.recalcMaxHeight()
       }
     }
+  }
+
+  /** Draw a single frame with a fixed seed — pixel-identical across runs. */
+  private drawDeterministicFrame(entry: RegisteredCanvas) {
+    const { ctx, noiseHeight } = entry
+    const imageData = new ImageData(NOISE_WIDTH, noiseHeight)
+    const data = imageData.data
+    const pixels = NOISE_WIDTH * noiseHeight * 4
+    const rand = mulberry32(42)
+    for (let i = 0; i < pixels; i += 4) {
+      const value = rand() * 255
+      data[i] = value     // R
+      data[i + 1] = value // G
+      data[i + 2] = value // B
+      data[i + 3] = 255   // A
+    }
+    ctx.putImageData(imageData, 0, 0)
   }
 
   private recalcMaxHeight() {
