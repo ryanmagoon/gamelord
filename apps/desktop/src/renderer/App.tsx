@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuItem } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
+import { useSfx } from './hooks/useSfx'
 import { Check, Monitor, Tv, Sun, Moon, Cpu, Heart, SunMoon } from 'lucide-react'
 import { DevAgentation } from './components/DevAgentation'
 import { DevBranchBadge } from './components/DevBranchBadge'
@@ -51,6 +52,9 @@ function App() {
   const viewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { currentShader, handleRendererReady, changeShader } =
     useWebGLRenderer()
+  const { play: playSfx } = useSfx()
+  const playSfxRef = useRef(playSfx)
+  playSfxRef.current = playSfx
   type ThemeMode = 'system' | 'dark' | 'light'
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('gamelord:theme')
@@ -78,6 +82,7 @@ function App() {
   // Listen for resume game dialog requests from main process
   useEffect(() => {
     const handleShowResumeDialog = (data: { requestId: string; gameTitle: string }) => {
+      playSfxRef.current('dialogOpen')
       setResumeDialog({
         open: true,
         requestId: data.requestId,
@@ -93,11 +98,12 @@ function App() {
   }, [api])
 
   const handleResumeDialogResponse = useCallback((shouldResume: boolean) => {
+    playSfx('dialogClose')
     api.dialog.respondResumeGame(resumeDialog.requestId, shouldResume)
     // Only set open to false — keep data intact so the close animation
     // doesn't show blank content. Data is overwritten on next open.
     setResumeDialog((previous) => ({ ...previous, open: false }))
-  }, [api, resumeDialog.requestId])
+  }, [api, resumeDialog.requestId, playSfx])
 
   /** Applies the dark class to <html> with a smooth crossfade transition. */
   const applyDarkClass = useCallback((shouldBeDark: boolean) => {
@@ -184,6 +190,7 @@ function App() {
     // Prevent double-launches
     if (launchingGameId) return
 
+    playSfx('cardLaunch')
     const systemId = getSystemId(game)
     setLaunchingGameId(game.id)
 
@@ -215,6 +222,7 @@ function App() {
       }
 
       // Multiple cores available and no preference saved — show the dialog
+      playSfx('dialogOpen')
       setCoreSelectDialog({
         open: true,
         systemId,
@@ -234,6 +242,7 @@ function App() {
     const { pendingGame, systemId } = coreSelectDialog
 
     // Close the dialog immediately
+    playSfx('dialogClose')
     setCoreSelectDialog((previous) => ({ ...previous, open: false }))
 
     if (remember) {
@@ -248,6 +257,7 @@ function App() {
   const handleCoreSelectCancel = () => {
     // Only set open to false — keep data intact so the close animation
     // doesn't show blank content. Data is overwritten on next open.
+    playSfx('dialogClose')
     setCoreSelectDialog((previous) => ({ ...previous, open: false }))
     setLaunchingGameId(null)
   }
