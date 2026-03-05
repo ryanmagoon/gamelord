@@ -38,6 +38,8 @@ export interface NativeLibretroCore {
   getMemorySize(memType?: number): number
   setMemoryData(data: Uint8Array, memType?: number): void
   getLogMessages(): Array<{ level: number; message: string }>
+  getCoreOptions(): Record<string, string>
+  setCoreOption(key: string, value: string): boolean
 }
 
 export interface NativeAddon {

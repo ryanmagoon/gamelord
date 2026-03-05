@@ -47,6 +47,8 @@ private:
   Napi::Value GetMemorySize(const Napi::CallbackInfo &info);
   void SetMemoryData(const Napi::CallbackInfo &info);
   Napi::Value GetLogMessages(const Napi::CallbackInfo &info);
+  Napi::Value GetCoreOptions(const Napi::CallbackInfo &info);
+  Napi::Value SetCoreOption(const Napi::CallbackInfo &info);
 
   // Internal
   void CloseCore();
@@ -142,6 +144,15 @@ private:
   std::string game_dir_;
   std::string game_name_;
   std::string game_ext_;
+
+  // Core options: key → current value (initially the default from the core)
+  std::unordered_map<std::string, std::string> core_options_;
+  bool core_options_dirty_ = false;
+
+  // Parse helpers for the three option registration formats
+  void ParseLegacyVariables(const struct retro_variable *vars);
+  void ParseCoreOptionsV1(const struct retro_core_option_definition *defs);
+  void ParseCoreOptionsV2(const struct retro_core_option_v2_definition *defs);
 };
 
 #endif // LIBRETRO_CORE_H
