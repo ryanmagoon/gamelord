@@ -137,8 +137,9 @@ export const AccessibilityTest: Story = {
     const optionsButton = canvas.getByRole('button', { name: /options for test game/i });
     await expect(optionsButton).toBeInTheDocument();
 
-    // Options button should have focus:opacity-100 for keyboard accessibility
-    await expect(optionsButton.className).toContain('focus:opacity-100');
+    // Options button container should have focus-within:opacity-100 for keyboard accessibility
+    const optionsContainer = optionsButton.closest('.focus-within\\:opacity-100');
+    await expect(optionsContainer).not.toBeNull();
 
     // Test keyboard navigation - tab to Play button
     await userEvent.tab();
