@@ -248,7 +248,7 @@ describe('useFlipAnimation', () => {
     expect(exitingItems[0].style.zIndex).toBe(0)
   })
 
-  it('gives stable/entering items a higher z-index than exiters', () => {
+  it('stable items omit zIndex so CSS hover classes can control stacking', () => {
     const items: TestItem[] = [
       { id: '1', label: 'A' },
       { id: '2', label: 'B' },
@@ -271,7 +271,11 @@ describe('useFlipAnimation', () => {
 
     expect(stableItem).toBeDefined()
     expect(exitingItem).toBeDefined()
-    expect((stableItem!.style.zIndex as number)).toBeGreaterThan(exitingItem!.style.zIndex as number)
+    // Stable items must NOT set inline zIndex — this allows Tailwind's
+    // hover:z-10 class to work. Exiters stay at zIndex: 0 so they paint
+    // behind flow-positioned stable items.
+    expect(stableItem!.style.zIndex).toBeUndefined()
+    expect(exitingItem!.style.zIndex).toBe(0)
   })
 
   it('returns empty list for empty input', () => {

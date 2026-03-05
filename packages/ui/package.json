@@ -39,6 +39,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "agentation": "^2.2.1",
     "autoprefixer": "^10.4.21",
+    "chromatic": "^15.2.0",
     "eslint": "^8.57.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
