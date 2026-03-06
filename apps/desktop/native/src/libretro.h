@@ -172,6 +172,58 @@ typedef unsigned (*retro_get_region_t)(void);
 typedef void *(*retro_get_memory_data_t)(unsigned id);
 typedef size_t (*retro_get_memory_size_t)(unsigned id);
 
+/* Core options v1 structures */
+struct retro_core_option_value {
+  const char *value;
+  const char *label;
+};
+
+struct retro_core_option_definition {
+  const char *key;
+  const char *desc;
+  const char *info;
+  struct retro_core_option_value values[128];
+  const char *default_value;
+};
+
+struct retro_core_options_intl {
+  const struct retro_core_option_definition *us;
+  const struct retro_core_option_definition *local;
+};
+
+/* Core options v2 structures */
+struct retro_core_option_v2_category {
+  const char *key;
+  const char *desc;
+  const char *info;
+};
+
+struct retro_core_option_v2_definition {
+  const char *key;
+  const char *desc;
+  const char *desc_categorized;
+  const char *info;
+  const char *info_categorized;
+  const char *category_key;
+  struct retro_core_option_value values[128];
+  const char *default_value;
+};
+
+struct retro_core_options_v2 {
+  struct retro_core_option_v2_category *categories;
+  struct retro_core_option_v2_definition *definitions;
+};
+
+struct retro_core_options_v2_intl {
+  struct retro_core_options_v2 *us;
+  struct retro_core_options_v2 *local;
+};
+
+struct retro_core_option_display {
+  const char *key;
+  bool visible;
+};
+
 struct retro_game_info_ext {
   const char *full_path;
   const char *archive_path;
