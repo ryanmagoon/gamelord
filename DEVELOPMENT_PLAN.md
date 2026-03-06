@@ -244,7 +244,7 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [ ] **Cmd+K command palette** — Fuzzy search overlay for games, platforms, and actions. Replaces inline search toolbar. — [#142](https://github.com/ryanmagoon/gamelord/issues/142)
 - [x] **Settings panel** — Modal dialog with sidebar tabs (General, Emulation, Library, About). Toolbar gear button + Cmd+, shortcut. Theme, SFX, shader, FPS counter, fast-forward speed, ROM directories, ScreenScraper credentials, about/credits. — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
 - [x] **Bundled homebrew ROMs** — Ships 3 permissively-licensed NES homebrew ROMs (Lawn Mower CC0, NESert Golfing CC BY 4.0, 8-Bit Table Tennis MIT). HomebrewService auto-imports to user's ROM directory on first launch when library is empty, with metadata enrichment. Marker file prevents re-import. — [#139](https://github.com/ryanmagoon/gamelord/issues/139)
-- [ ] **DMG packaging** — Unsigned DMG via electron-builder, CI release workflow on tagged pushes — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
+- [x] **DMG packaging** — Unsigned DMG via electron-builder (`identity: null`), GitHub Actions release workflow on `v*` tags uploads `.dmg` to GitHub Releases as draft — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
 - [ ] **Sentry crash & error reporting** — Integrate `@sentry/electron` for crash reporting before alpha ship. Captures JS exceptions in both main and renderer processes, native crashes (Minidumps) from the main process (critical for native addon segfaults), offline event queuing, source map uploads. Session Replay for error-context reproduction. Free tier: 5K errors/month.
 
 ### P8 — UI Polish

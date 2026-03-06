@@ -1,6 +1,6 @@
 appId: com.gamelord.app
 productName: GameLord
-copyright: Copyright © 2025 GameLord
+copyright: Copyright © 2026 GameLord
 
 directories:
   buildResources: build
@@ -10,7 +10,7 @@ files:
   - out/**/*
 
 asarUnpack:
-  - "**/*.node"
+  - out/**/*.node
 
 extraResources:
   - from: native/build/Release/gamelord_libretro.node
@@ -20,12 +20,21 @@ extraResources:
 
 mac:
   category: public.app-category.games
-  icon: assets/icons/icon.icns
-  identity: ${env.APPLE_DEVELOPER_ID}
-  entitlementsInherit: entitlements.plist
-  hardenedRuntime: true
-  notarize:
-    teamId: ${env.APPLE_TEAM_ID}
+  target:
+    - dmg
+  # No code signing yet — deferred until Apple Developer cert is obtained
+  identity: null
+
+dmg:
+  title: GameLord
+  iconSize: 100
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
 
 win:
   target:
@@ -38,10 +47,5 @@ linux:
     - rpm
     - AppImage
 
-electronFuses:
-  RunAsNode: false
-  EnableCookieEncryption: true
-  EnableNodeOptionsEnvironmentVariable: false
-  EnableNodeCliInspectArguments: false
-  EnableEmbeddedAsarIntegrityValidation: true
-  OnlyLoadAppFromAsar: false
+# electronFuses — not supported by electron-builder v25; configure via
+# @electron/fuses afterPack hook when code signing is added.
