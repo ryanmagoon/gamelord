@@ -80,6 +80,10 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] **Bounded audio buffer** — Replace unbounded `std::vector` insert in `libretro_core.cc` with a fixed-size circular buffer to prevent memory exhaustion when renderer falls behind
 - [x] **Path validation** — Validate `romPath` and `corePath` are within expected directories before passing to `dlopen()` and filesystem operations; prevent path traversal
 
+### P0.5 — Code Quality (fix before new features)
+
+- [ ] **Remove all `!` non-null assertions and `as any` casts** — ~204 lint warnings across test and source files. Use proper null checks, typed mock helpers, and guard clauses. — [#173](https://github.com/ryanmagoon/gamelord/issues/173)
+
 ### P1 — High Priority (stability & correctness)
 
 - [x] **Structured logging** — Replace ad-hoc `console.error`/`console.warn` with a logging library (e.g. `electron-log` or `pino`); add log levels, categories, and file output
