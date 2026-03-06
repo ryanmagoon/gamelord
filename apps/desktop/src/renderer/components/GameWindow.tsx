@@ -276,6 +276,7 @@ export const GameWindow: React.FC = () => {
     api.removeAllListeners('game:prepare-close')
     api.removeAllListeners('game:ready-for-boot')
     api.removeAllListeners('emulator:speedChanged')
+    api.removeAllListeners('game:emulation-error')
 
     // Register for SharedArrayBuffer delivery via MessagePort bridge.
     // The main process sends SABs through a MessagePort because contextBridge
