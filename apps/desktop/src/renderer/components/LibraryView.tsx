@@ -594,6 +594,22 @@ export const LibraryView: React.FC<{
     [games, selectedSystem],
   );
 
+  // Tracks whether the library content has been revealed. Once loading
+  // finishes for the first time we flip this to true, triggering a CSS
+  // opacity transition on the main container so the toolbar, tabs, and
+  // grid all fade in together instead of popping in abruptly.
+  const [contentRevealed, setContentRevealed] = useState(false)
+  useEffect(() => {
+    if (!loading && !contentRevealed) {
+      // Double-rAF: first frame paints at opacity 0, second triggers the transition.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setContentRevealed(true)
+        })
+      })
+    }
+  }, [loading, contentRevealed])
+
   // Per-game UI object cache — only recreates a UiGame when its source
   // AppGame object reference changes. This prevents ALL cards from
   // re-rendering when only one game's coverArt is updated.
@@ -639,18 +655,32 @@ export const LibraryView: React.FC<{
 
   if (games.length === 0 && !isScanning) {
     return (
-      <EmptyLibrary
-        onAddSystem={handleAddSystem}
-        onScanDirectory={handleSelectDirectory}
-        onQuickScan={handleQuickScan}
-        availableSystems={systems.length > 0 ? systems : []}
-        isImportingHomebrew={isImportingHomebrew}
-      />
+      <div
+        className="h-full"
+        style={{
+          opacity: contentRevealed ? 1 : 0,
+          transition: 'opacity 250ms ease',
+        }}
+      >
+        <EmptyLibrary
+          onAddSystem={handleAddSystem}
+          onScanDirectory={handleSelectDirectory}
+          onQuickScan={handleQuickScan}
+          availableSystems={systems.length > 0 ? systems : []}
+          isImportingHomebrew={isImportingHomebrew}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full"
+      style={{
+        opacity: contentRevealed ? 1 : 0,
+        transition: 'opacity 250ms ease',
+      }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-4">
