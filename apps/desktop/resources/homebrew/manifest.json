@@ -1,0 +1,35 @@
+[
+  {
+    "filename": "lawn-mower.nes",
+    "title": "Lawn Mower",
+    "systemId": "nes",
+    "developer": "Shiru",
+    "description": "Mow lawns before running out of gas. Collect fuel cans to extend your session across 10 levels of increasing difficulty.",
+    "genre": "Arcade",
+    "players": 1,
+    "license": "CC0-1.0",
+    "attribution": null
+  },
+  {
+    "filename": "nesert-golfing.nes",
+    "title": "NESert Golfing",
+    "systemId": "nes",
+    "developer": "Brad Smith (rainwarrior)",
+    "description": "Procedurally generated 2D golf with weather effects. Hundreds of unique levels, 1\u20134 players.",
+    "genre": "Sports",
+    "players": 4,
+    "license": "CC-BY-4.0",
+    "attribution": "NESert Golfing by Brad Smith, licensed under CC BY 4.0"
+  },
+  {
+    "filename": "8bit-table-tennis.nes",
+    "title": "8-Bit Table Tennis",
+    "systemId": "nes",
+    "developer": "Mike",
+    "description": "Classic table tennis with 1-player and 2-player modes. Simple controls, satisfying gameplay.",
+    "genre": "Sports",
+    "players": 2,
+    "license": "MIT",
+    "attribution": "8-Bit Table Tennis by Mike, licensed under MIT"
+  }
+]
