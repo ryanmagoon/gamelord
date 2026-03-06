@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,10 +12,11 @@ import {
   Game as UiGame,
   cn,
   type GameCardMenuItem,
+  type CommandAction,
 } from "@gamelord/ui";
 import { useWebGLRenderer } from "./hooks/useWebGLRenderer";
 import { useSfx } from "./hooks/useSfx";
-import { AlertTriangle, Monitor, Tv, Cpu, Heart, Settings } from "lucide-react";
+import { AlertTriangle, Monitor, Tv, Cpu, Heart, Settings, SunMoon, Moon, Sun } from "lucide-react";
 import { DevAgentation } from "./components/DevAgentation";
 import { DevBranchBadge } from "./components/DevBranchBadge";
 import { LibraryView } from "./components/LibraryView";
@@ -378,6 +379,34 @@ function App() {
     }
   };
 
+  // Theme actions for the command palette
+  const themeActions = useMemo<CommandAction[]>(() => [
+    {
+      id: "theme-system",
+      label: "Theme: System",
+      group: "Settings",
+      icon: <SunMoon className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
+      onSelect: () => setTheme("system"),
+      keywords: ["theme", "auto", "system", "os"],
+    },
+    {
+      id: "theme-dark",
+      label: "Theme: Dark",
+      group: "Settings",
+      icon: <Moon className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
+      onSelect: () => setTheme("dark"),
+      keywords: ["theme", "dark", "night"],
+    },
+    {
+      id: "theme-light",
+      label: "Theme: Light",
+      group: "Settings",
+      icon: <Sun className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
+      onSelect: () => setTheme("light"),
+      keywords: ["theme", "light", "bright"],
+    },
+  ], [setTheme]);
+
   const showLibrary =
     viewState === "library" || viewState === "to-game" || viewState === "to-library";
   const showGame = viewState === "game" || viewState === "to-game" || viewState === "to-library";
@@ -416,6 +445,7 @@ function App() {
               onPlayGame={handlePlayGame}
               getMenuItems={getMenuItems}
               launchingGameId={launchingGameId}
+              commandPaletteActions={themeActions}
             />
           </div>
 

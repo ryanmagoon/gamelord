@@ -12,12 +12,14 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
   CoreDownloadBanner,
+  CommandPalette,
   cn,
   ArtworkSyncStore,
   type Game,
   type Game as UiGame,
   type GameCardMenuItem,
   type ArtworkSyncPhase,
+  type CommandAction,
 } from "@gamelord/ui";
 import { Plus, FolderOpen, RefreshCw, ImageDown, X } from "lucide-react";
 import type { Game as AppGame, GameSystem } from "../../types/library";
@@ -40,7 +42,9 @@ export const LibraryView: React.FC<{
   getMenuItems?: (game: Game) => Array<GameCardMenuItem>;
   /** ID of a game currently being launched. Shows shimmer on that card and disables others. */
   launchingGameId?: string | null;
-}> = ({ onPlayGame, getMenuItems, launchingGameId }) => {
+  /** Extra actions to show in the command palette (e.g. theme toggles from parent). */
+  commandPaletteActions?: CommandAction[];
+}> = ({ onPlayGame, getMenuItems, launchingGameId, commandPaletteActions = [] }) => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord;
   const { play: playSfx } = useSfx();
   const playSfxRef = useRef(playSfx);
@@ -88,6 +92,27 @@ export const LibraryView: React.FC<{
   // Game options menu state
   const [optionsMenuGame, setOptionsMenuGame] = useState<AppGame | null>(null);
   const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
+
+  // Command palette state
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+
+  // Global Cmd+K / Ctrl+K listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        playSfxRef.current(commandPaletteOpen ? 'dialogClose' : 'dialogOpen')
+        setCommandPaletteOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [commandPaletteOpen])
+
+  const handleCommandPaletteOpenChange = useCallback((open: boolean) => {
+    playSfxRef.current(open ? 'dialogOpen' : 'dialogClose')
+    setCommandPaletteOpen(open)
+  }, [])
 
   /**
    * Set a sync phase for a game card and optionally schedule its cleanup.
@@ -629,6 +654,37 @@ export const LibraryView: React.FC<{
     return result;
   }, [filteredGames]);
 
+  // Build command palette actions: library-level actions + parent-provided actions
+  const allPaletteActions = useMemo<CommandAction[]>(() => {
+    const libraryActions: CommandAction[] = [
+      {
+        id: 'scan-library',
+        label: 'Scan Library',
+        group: 'Actions',
+        icon: <RefreshCw className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
+        onSelect: () => void handleScanSystemFolders(),
+        keywords: ['rescan', 'refresh', 'import'],
+      },
+      {
+        id: 'add-folder',
+        label: 'Add Folder',
+        group: 'Actions',
+        icon: <FolderOpen className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
+        onSelect: () => void handleSelectDirectory(),
+        keywords: ['browse', 'directory', 'import'],
+      },
+      {
+        id: 'download-artwork',
+        label: 'Download Artwork',
+        group: 'Actions',
+        icon: <ImageDown className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
+        onSelect: () => void handleDownloadArtwork(),
+        keywords: ['art', 'cover', 'metadata', 'sync'],
+      },
+    ]
+    return [...libraryActions, ...commandPaletteActions]
+  }, [commandPaletteActions])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -775,6 +831,7 @@ export const LibraryView: React.FC<{
             artworkSyncStore={artworkSyncStore}
             launchingGameId={launchingGameId}
             scrollContainerRef={scrollContainerRef}
+            onSearchClick={() => handleCommandPaletteOpenChange(true)}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -835,6 +892,15 @@ export const LibraryView: React.FC<{
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Command palette */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={handleCommandPaletteOpenChange}
+        games={uiGames}
+        onSelectGame={(game) => void handlePlayUiGame(game)}
+        actions={allPaletteActions}
+      />
 
       {/* ScreenScraper credentials dialog */}
       <AlertDialog open={showCredentialsDialog} onOpenChange={setShowCredentialsDialog}>
