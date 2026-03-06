@@ -67,6 +67,14 @@ async function createService(): Promise<LibraryService> {
   return service;
 }
 
+/** Assert a value is defined, returning the narrowed type. Throws with a descriptive error if not. */
+function assertDefined<T>(value: T | null | undefined, message = "Expected value to be defined"): T {
+  if (value === null || value === undefined) {
+    throw new Error(message);
+  }
+  return value;
+}
+
 /** Compute the SHA-256 of a file's content (mirrors computeRomHashes gameId). */
 function sha256File(filePath: string): string {
   const content = fs.readFileSync(filePath);
@@ -278,7 +286,7 @@ describe("LibraryService", () => {
       const found = systems.find((s) => s.id === "custom");
 
       expect(found).toBeDefined();
-      expect(found!.name).toBe("Custom System");
+      expect(assertDefined(found).name).toBe("Custom System");
     });
 
     it("does not add a duplicate system with the same id", async () => {
