@@ -336,7 +336,11 @@ export function useFlipAnimation<T>(
   // Current items
   for (const item of items) {
     const key = getKey(item);
-    const isEntering = isFirstRender || !previousItems.has(key);
+    // On first render all items are new, but we skip the entrance animation
+    // so the host's own reveal transition (e.g. #root opacity fade) is the
+    // only visual entrance — individual cards don't need to animate in on
+    // top of that, which would cause a competing double-fade / tearing look.
+    const isEntering = !isFirstRender && !previousItems.has(key);
     const delay = isEntering ? Math.min(enterIndex * staggerEnter, maxStaggerDelay) : 0;
 
     let style: CSSProperties;
