@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ScrollLetterIndicator } from './ScrollLetterIndicator';
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { ScrollLetterIndicator } from "./ScrollLetterIndicator";
 
 const meta = {
   component: ScrollLetterIndicator,
@@ -11,10 +11,10 @@ const meta = {
     ),
   ],
   parameters: {
-    layout: 'fullscreen',
+    layout: "fullscreen",
   },
-  tags: ['autodocs'],
-  title: 'Components/ScrollLetterIndicator',
+  tags: ["autodocs"],
+  title: "Components/ScrollLetterIndicator",
 } satisfies Meta<typeof ScrollLetterIndicator>;
 
 export default meta;
@@ -23,28 +23,28 @@ type Story = StoryObj<typeof meta>;
 export const Visible: Story = {
   args: {
     isVisible: true,
-    letter: 'A',
+    letter: "A",
   },
 };
 
 export const Hidden: Story = {
   args: {
     isVisible: false,
-    letter: 'A',
+    letter: "A",
   },
 };
 
 export const NumberSymbol: Story = {
   args: {
     isVisible: true,
-    letter: '#',
+    letter: "#",
   },
 };
 
 export const LetterM: Story = {
   args: {
     isVisible: true,
-    letter: 'M',
+    letter: "M",
   },
 };
 

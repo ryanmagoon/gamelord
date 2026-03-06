@@ -1,4 +1,4 @@
-import React from 'react'
+import React from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,14 +8,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@gamelord/ui'
-import { Play, RotateCcw } from 'lucide-react'
+} from "@gamelord/ui";
+import { Play, RotateCcw } from "lucide-react";
 
 export interface ResumeGameDialogProps {
-  gameTitle: string
-  onResume: () => void
-  onStartFresh: () => void
-  open: boolean
+  gameTitle: string;
+  onResume: () => void;
+  onStartFresh: () => void;
+  open: boolean;
 }
 
 export const ResumeGameDialog: React.FC<ResumeGameDialogProps> = ({
@@ -30,8 +30,9 @@ export const ResumeGameDialog: React.FC<ResumeGameDialogProps> = ({
         <AlertDialogHeader>
           <AlertDialogTitle>Resume Game?</AlertDialogTitle>
           <AlertDialogDescription>
-            An autosave was found for <span className="font-semibold text-foreground">{gameTitle}</span>.
-            Would you like to continue where you left off?
+            An autosave was found for{" "}
+            <span className="font-semibold text-foreground">{gameTitle}</span>. Would you like to
+            continue where you left off?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col sm:flex-row gap-2">
@@ -46,5 +47,5 @@ export const ResumeGameDialog: React.FC<ResumeGameDialogProps> = ({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  )
-}
+  );
+};

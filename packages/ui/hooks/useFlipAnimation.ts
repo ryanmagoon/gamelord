@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect, useCallback, type CSSProperties } from 'react'
+import { useState, useRef, useLayoutEffect, useCallback, type CSSProperties } from "react";
 
 /**
  * Animation state for an item managed by the FLIP hook.
@@ -10,48 +10,48 @@ import { useState, useRef, useLayoutEffect, useCallback, type CSSProperties } fr
  *                known position with a fade-out animation, then removed from
  *                the DOM.
  */
-export type FlipAnimationState = 'stable' | 'entering' | 'exiting'
+export type FlipAnimationState = "stable" | "entering" | "exiting";
 
 /** A single item returned by `useFlipAnimation`. */
 export interface FlipItem<T> {
   /** Current animation phase. */
-  animationState: FlipAnimationState
+  animationState: FlipAnimationState;
   /**
    * Staggered entrance delay in ms (only meaningful when `animationState` is
    * `entering`). Apply as `animationDelay` on the entrance CSS animation.
    */
-  enterDelay: number
-  item: T
-  key: string
+  enterDelay: number;
+  item: T;
+  key: string;
   /** Ref callback — attach to the DOM element for position measurement. */
-  ref: (element: HTMLElement | null) => void
+  ref: (element: HTMLElement | null) => void;
   /** Inline styles to apply (transforms, transitions, absolute positioning for exiters). */
-  style: CSSProperties
+  style: CSSProperties;
 }
 
 export interface UseFlipAnimationOptions {
   /** Duration of the FLIP slide animation in ms. @default 300 */
-  duration?: number
+  duration?: number;
   /** CSS easing for the FLIP slide. @default 'cubic-bezier(0.25, 1, 0.5, 1)' */
-  easing?: string
+  easing?: string;
   /** Duration of the exit animation in ms. @default 200 */
-  exitDuration?: number
+  exitDuration?: number;
   /** Ref to the grid container element. Used to compute relative positions. */
-  gridRef: React.RefObject<HTMLElement | null>
+  gridRef: React.RefObject<HTMLElement | null>;
   /** Maximum stagger delay cap in ms. @default 600 */
-  maxStaggerDelay?: number
+  maxStaggerDelay?: number;
   /** Stagger interval between entering cards in ms. @default 40 */
-  staggerEnter?: number
+  staggerEnter?: number;
 }
 
 /** Shared style for stable (persisting) items — never changes, so React.memo sees the same reference. */
-const STABLE_STYLE: CSSProperties = { position: 'relative' } as const
+const STABLE_STYLE: CSSProperties = { position: "relative" } as const;
 
 interface PositionRecord {
-  height: number
-  left: number
-  top: number
-  width: number
+  height: number;
+  left: number;
+  top: number;
+  width: number;
 }
 
 /**
@@ -68,106 +68,108 @@ export function useFlipAnimation<T>(
 ): Array<FlipItem<T>> {
   const {
     duration = 300,
-    easing = 'cubic-bezier(0.25, 1, 0.5, 1)',
+    easing = "cubic-bezier(0.25, 1, 0.5, 1)",
     exitDuration = 200,
     gridRef,
     maxStaggerDelay = 600,
     staggerEnter = 40,
-  } = options
+  } = options;
 
   // ---- Refs (mutable across renders) ----
 
   /** Map of key -> DOM element, populated by ref callbacks. */
-  const elementMapRef = useRef<Map<string, HTMLElement>>(new Map())
+  const elementMapRef = useRef<Map<string, HTMLElement>>(new Map());
   /** Cached positions from the previous committed render. */
-  const previousPositionsRef = useRef<Map<string, PositionRecord>>(new Map())
+  const previousPositionsRef = useRef<Map<string, PositionRecord>>(new Map());
   /** Item snapshots from the previous render (needed to render exiters). */
-  const previousItemsRef = useRef<Map<string, T>>(new Map())
+  const previousItemsRef = useRef<Map<string, T>>(new Map());
   /** Ordered key list from the previous render — used to detect reordering vs property-only changes. */
-  const previousKeyOrderRef = useRef<Array<string>>([])
+  const previousKeyOrderRef = useRef<Array<string>>([]);
   /** Whether any render has committed yet. */
-  const isFirstRenderRef = useRef(true)
+  const isFirstRenderRef = useRef(true);
   /** Active cleanup timeouts. */
-  const cleanupTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+  const cleanupTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   // ---- State: exiting items that are still animating out ----
-  const [exiters, setExiters] = useState<
-    Map<string, { item: T; position: PositionRecord }>
-  >(() => new Map())
+  const [exiters, setExiters] = useState<Map<string, { item: T; position: PositionRecord }>>(
+    () => new Map(),
+  );
 
   /** Measures element position relative to grid container. */
   const measurePosition = useCallback(
     (element: HTMLElement): PositionRecord | null => {
-      const grid = gridRef.current
-      if (!grid) {return null}
-      const gridRect = grid.getBoundingClientRect()
-      const elementRect = element.getBoundingClientRect()
+      const grid = gridRef.current;
+      if (!grid) {
+        return null;
+      }
+      const gridRect = grid.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
       return {
         height: elementRect.height,
         left: elementRect.left - gridRect.left,
         top: elementRect.top - gridRect.top,
         width: elementRect.width,
-      }
+      };
     },
     [gridRef],
-  )
+  );
 
   /** Captures positions of all tracked elements. */
   const capturePositions = useCallback((): Map<string, PositionRecord> => {
-    const positions = new Map<string, PositionRecord>()
+    const positions = new Map<string, PositionRecord>();
     for (const [key, element] of elementMapRef.current) {
-      const position = measurePosition(element)
+      const position = measurePosition(element);
       if (position) {
-        positions.set(key, position)
+        positions.set(key, position);
       }
     }
-    return positions
-  }, [measurePosition])
+    return positions;
+  }, [measurePosition]);
 
   /** Creates a stable ref callback for a given item key. */
-  const refCallbackCacheRef = useRef<Map<string, (element: HTMLElement | null) => void>>(new Map())
+  const refCallbackCacheRef = useRef<Map<string, (element: HTMLElement | null) => void>>(new Map());
 
   const getRefCallback = useCallback((key: string) => {
-    let callback = refCallbackCacheRef.current.get(key)
+    let callback = refCallbackCacheRef.current.get(key);
     if (!callback) {
       callback = (element: HTMLElement | null) => {
         if (element) {
-          elementMapRef.current.set(key, element)
+          elementMapRef.current.set(key, element);
         } else {
-          elementMapRef.current.delete(key)
+          elementMapRef.current.delete(key);
         }
-      }
-      refCallbackCacheRef.current.set(key, callback)
+      };
+      refCallbackCacheRef.current.set(key, callback);
     }
-    return callback
-  }, [])
+    return callback;
+  }, []);
 
   // ---- Single useLayoutEffect for all FLIP logic ----
   useLayoutEffect(() => {
-    const currentKeys = items.map(getKey)
-    const currentKeySet = new Set(currentKeys)
+    const currentKeys = items.map(getKey);
+    const currentKeySet = new Set(currentKeys);
 
     if (isFirstRenderRef.current) {
-      isFirstRenderRef.current = false
+      isFirstRenderRef.current = false;
 
       // Snapshot items for next transition
-      const itemMap = new Map<string, T>()
+      const itemMap = new Map<string, T>();
       for (const item of items) {
-        itemMap.set(getKey(item), item)
+        itemMap.set(getKey(item), item);
       }
-      previousItemsRef.current = itemMap
-      previousKeyOrderRef.current = currentKeys
+      previousItemsRef.current = itemMap;
+      previousKeyOrderRef.current = currentKeys;
 
       // Capture initial positions after first paint
       requestAnimationFrame(() => {
-        previousPositionsRef.current = capturePositions()
-      })
-      return
+        previousPositionsRef.current = capturePositions();
+      });
+      return;
     }
 
-    const previousPositions = previousPositionsRef.current
-    const previousItems = previousItemsRef.current
-    const previousKeyOrder = previousKeyOrderRef.current
+    const previousPositions = previousPositionsRef.current;
+    const previousItems = previousItemsRef.current;
+    const previousKeyOrder = previousKeyOrderRef.current;
 
     // Detect whether the key sequence actually changed (items added, removed,
     // or reordered). If only item properties changed (e.g. coverArtAspectRatio
@@ -175,206 +177,219 @@ export function useFlipAnimation<T>(
     // positions so the grid reflows naturally without every card sliding around.
     const keysChanged =
       currentKeys.length !== previousKeyOrder.length ||
-      currentKeys.some((key, i) => key !== previousKeyOrder[i])
+      currentKeys.some((key, i) => key !== previousKeyOrder[i]);
 
     if (!keysChanged) {
       // Property-only change — just update refs and re-capture positions
-      const itemMap = new Map<string, T>()
+      const itemMap = new Map<string, T>();
       for (const item of items) {
-        itemMap.set(getKey(item), item)
+        itemMap.set(getKey(item), item);
       }
-      previousItemsRef.current = itemMap
+      previousItemsRef.current = itemMap;
       requestAnimationFrame(() => {
-        previousPositionsRef.current = capturePositions()
-      })
-      return
+        previousPositionsRef.current = capturePositions();
+      });
+      return;
     }
 
     // ---- Classify items ----
-    const newExiters = new Map<string, { item: T; position: PositionRecord }>()
+    const newExiters = new Map<string, { item: T; position: PositionRecord }>();
     for (const [key, item] of previousItems) {
       if (!currentKeySet.has(key)) {
-        const position = previousPositions.get(key)
+        const position = previousPositions.get(key);
         if (position) {
-          newExiters.set(key, { item, position })
+          newExiters.set(key, { item, position });
         }
       }
     }
 
     // Collect persisting items
-    const persistingKeys: Array<string> = []
+    const persistingKeys: Array<string> = [];
     for (const item of items) {
-      const key = getKey(item)
+      const key = getKey(item);
       if (previousItems.has(key)) {
-        persistingKeys.push(key)
+        persistingKeys.push(key);
       }
     }
 
     // ---- Exiting items ----
     if (newExiters.size > 0) {
       setExiters((previous) => {
-        const next = new Map(previous)
+        const next = new Map(previous);
         for (const [key, value] of newExiters) {
-          next.set(key, value)
+          next.set(key, value);
         }
-        return next
-      })
+        return next;
+      });
 
       const timer = setTimeout(() => {
         setExiters((previous) => {
-          const next = new Map(previous)
+          const next = new Map(previous);
           for (const key of newExiters.keys()) {
-            next.delete(key)
+            next.delete(key);
           }
-          return next
-        })
-        cleanupTimersRef.current.delete(timer)
-      }, exitDuration + 16)
+          return next;
+        });
+        cleanupTimersRef.current.delete(timer);
+      }, exitDuration + 16);
 
-      cleanupTimersRef.current.add(timer)
+      cleanupTimersRef.current.add(timer);
     }
 
     // ---- FLIP persisting items ----
     const elementsToAnimate: Array<{
-      deltaX: number
-      deltaY: number
-      element: HTMLElement
-    }> = []
+      deltaX: number;
+      deltaY: number;
+      element: HTMLElement;
+    }> = [];
 
     for (const key of persistingKeys) {
-      const element = elementMapRef.current.get(key)
-      const oldPosition = previousPositions.get(key)
-      if (!element || !oldPosition) {continue}
+      const element = elementMapRef.current.get(key);
+      const oldPosition = previousPositions.get(key);
+      if (!element || !oldPosition) {
+        continue;
+      }
 
-      const newPosition = measurePosition(element)
-      if (!newPosition) {continue}
+      const newPosition = measurePosition(element);
+      if (!newPosition) {
+        continue;
+      }
 
-      const deltaX = oldPosition.left - newPosition.left
-      const deltaY = oldPosition.top - newPosition.top
+      const deltaX = oldPosition.left - newPosition.left;
+      const deltaY = oldPosition.top - newPosition.top;
 
       // Skip if the delta is sub-pixel (no visible movement)
-      if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) {continue}
+      if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) {
+        continue;
+      }
 
-      elementsToAnimate.push({ deltaX, deltaY, element })
+      elementsToAnimate.push({ deltaX, deltaY, element });
     }
 
     if (elementsToAnimate.length > 0) {
       // Invert: snap to old position with no transition
       for (const { deltaX, deltaY, element } of elementsToAnimate) {
-        element.style.transform = `translate(${deltaX}px, ${deltaY}px)`
-        element.style.transition = 'none'
+        element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        element.style.transition = "none";
       }
 
       // Force synchronous reflow so the browser registers the inverted position.
       // Reading offsetHeight is the canonical way to trigger this.
-      void gridRef.current?.offsetHeight
+      void gridRef.current?.offsetHeight;
 
       // Play: animate from inverted position to natural position.
       // Use a brief delay (roughly half the exit duration) so exiting cards
       // begin fading out before persisting cards start sliding, preventing
       // the sliding cards from visually cutting through the fading ones.
-      const slideDelay = Math.round(exitDuration * 0.4)
+      const slideDelay = Math.round(exitDuration * 0.4);
       setTimeout(() => {
         requestAnimationFrame(() => {
           for (const { element } of elementsToAnimate) {
-            element.style.transition = `transform ${duration}ms ${easing}`
-            element.style.transform = ''
+            element.style.transition = `transform ${duration}ms ${easing}`;
+            element.style.transform = "";
           }
-        })
-      }, slideDelay)
+        });
+      }, slideDelay);
 
       // Clean up inline styles after the slide animation completes
-      const cleanupTimer = setTimeout(() => {
-        for (const { element } of elementsToAnimate) {
-          element.style.transition = ''
-          element.style.transform = ''
-        }
-        previousPositionsRef.current = capturePositions()
-        cleanupTimersRef.current.delete(cleanupTimer)
-      }, slideDelay + duration + 16)
+      const cleanupTimer = setTimeout(
+        () => {
+          for (const { element } of elementsToAnimate) {
+            element.style.transition = "";
+            element.style.transform = "";
+          }
+          previousPositionsRef.current = capturePositions();
+          cleanupTimersRef.current.delete(cleanupTimer);
+        },
+        slideDelay + duration + 16,
+      );
 
-      cleanupTimersRef.current.add(cleanupTimer)
+      cleanupTimersRef.current.add(cleanupTimer);
     } else {
       // No FLIP animation — just capture new positions
       requestAnimationFrame(() => {
-        previousPositionsRef.current = capturePositions()
-      })
+        previousPositionsRef.current = capturePositions();
+      });
     }
 
     // Snapshot current items for next transition
-    const itemMap = new Map<string, T>()
+    const itemMap = new Map<string, T>();
     for (const item of items) {
-      itemMap.set(getKey(item), item)
+      itemMap.set(getKey(item), item);
     }
-    previousItemsRef.current = itemMap
-    previousKeyOrderRef.current = currentKeys
-  }, [items, getKey, duration, easing, exitDuration, capturePositions, measurePosition, gridRef])
+    previousItemsRef.current = itemMap;
+    previousKeyOrderRef.current = currentKeys;
+  }, [items, getKey, duration, easing, exitDuration, capturePositions, measurePosition, gridRef]);
 
   // ---- Build the output list ----
 
-  const previousItems = previousItemsRef.current
-  const isFirstRender = isFirstRenderRef.current
+  const previousItems = previousItemsRef.current;
+  const isFirstRender = isFirstRenderRef.current;
 
   // Memoize entering item styles keyed by delay so the same delay always
   // returns the same object reference (React.memo-friendly).
-  const enteringStyleCache = useRef<Map<number, CSSProperties>>(new Map())
+  const enteringStyleCache = useRef<Map<number, CSSProperties>>(new Map());
 
-  let enterIndex = 0
-  const result: Array<FlipItem<T>> = []
+  let enterIndex = 0;
+  const result: Array<FlipItem<T>> = [];
 
   // Current items
   for (const item of items) {
-    const key = getKey(item)
-    const isEntering = isFirstRender || !previousItems.has(key)
-    const delay = isEntering ? Math.min(enterIndex * staggerEnter, maxStaggerDelay) : 0
+    const key = getKey(item);
+    const isEntering = isFirstRender || !previousItems.has(key);
+    const delay = isEntering ? Math.min(enterIndex * staggerEnter, maxStaggerDelay) : 0;
 
-    let style: CSSProperties
+    let style: CSSProperties;
     if (isEntering) {
       // Cache entering styles by delay value so the same delay always yields
       // the same object reference across renders.
-      let cached = enteringStyleCache.current.get(delay)
+      let cached = enteringStyleCache.current.get(delay);
       if (!cached) {
-        cached = { animationDelay: `${delay}ms`, position: 'relative' }
-        enteringStyleCache.current.set(delay, cached)
+        cached = { animationDelay: `${delay}ms`, position: "relative" };
+        enteringStyleCache.current.set(delay, cached);
       }
-      style = cached
+      style = cached;
     } else {
-      style = STABLE_STYLE
+      style = STABLE_STYLE;
     }
 
     result.push({
-      animationState: isEntering ? 'entering' : 'stable',
+      animationState: isEntering ? "entering" : "stable",
       enterDelay: delay,
       item,
       key,
       ref: getRefCallback(key),
       style,
-    })
+    });
 
-    if (isEntering) {enterIndex++}
+    if (isEntering) {
+      enterIndex++;
+    }
   }
 
   // Exiting items (absolute-positioned at their last known location)
-  const currentKeySet = new Set(items.map(getKey))
+  const currentKeySet = new Set(items.map(getKey));
   for (const [key, { item, position }] of exiters) {
-    if (currentKeySet.has(key)) {continue}
+    if (currentKeySet.has(key)) {
+      continue;
+    }
 
     result.push({
-      animationState: 'exiting',
+      animationState: "exiting",
       enterDelay: 0,
       item,
       key,
       ref: getRefCallback(key),
       style: {
-        position: 'absolute',
+        position: "absolute",
         left: position.left,
         top: position.top,
         width: position.width,
         height: position.height,
         zIndex: 0,
       },
-    })
+    });
   }
 
-  return result
+  return result;
 }

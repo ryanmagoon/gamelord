@@ -21,13 +21,13 @@ export interface ScreenScraperCredentials {
 }
 
 export type ArtworkErrorCode =
-  | 'auth-failed'
-  | 'config-error'
-  | 'rate-limited'
-  | 'timeout'
-  | 'network-error'
-  | 'hash-failed'
-  | 'not-found';
+  | "auth-failed"
+  | "config-error"
+  | "rate-limited"
+  | "timeout"
+  | "network-error"
+  | "hash-failed"
+  | "not-found";
 
 export interface ArtworkProgress {
   /** The artwork:// URL for the downloaded cover art. Present when phase is 'done'. */
@@ -39,7 +39,7 @@ export interface ArtworkProgress {
   errorCode?: ArtworkErrorCode;
   gameId: string;
   gameTitle: string;
-  phase: 'hashing' | 'querying' | 'downloading' | 'done' | 'not-found' | 'error';
+  phase: "hashing" | "querying" | "downloading" | "done" | "not-found" | "error";
   total: number;
 }
 

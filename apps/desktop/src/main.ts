@@ -1,17 +1,17 @@
-import { config as loadDotenv } from 'dotenv';
-import { app, BrowserWindow, nativeTheme, net, protocol, session } from 'electron';
-import path from 'node:path';
-import { setupAppMenu } from './main/appMenu';
-import { IPCHandlers } from './main/ipc/handlers';
-import { mainLog } from './main/logger';
-import { getSavedWindowBounds, manageWindowState } from './main/utils/windowState';
+import { config as loadDotenv } from "dotenv";
+import { app, BrowserWindow, nativeTheme, net, protocol, session } from "electron";
+import path from "node:path";
+import { setupAppMenu } from "./main/appMenu";
+import { IPCHandlers } from "./main/ipc/handlers";
+import { mainLog } from "./main/logger";
+import { getSavedWindowBounds, manageWindowState } from "./main/utils/windowState";
 
 // Load .env from the desktop app root (apps/desktop/.env) before anything
 // reads process.env. This provides SCREENSCRAPER_DEV_ID / DEV_PASSWORD, etc.
-loadDotenv({ path: path.join(__dirname, '../../.env') });
+loadDotenv({ path: path.join(__dirname, "../../.env") });
 
 // Set app name for macOS menu bar (must be called before app is ready)
-app.setName('GameLord');
+app.setName("GameLord");
 
 // Initialize IPC handlers
 let ipcHandlers: IPCHandlers;
@@ -24,12 +24,12 @@ const createWindow = () => {
     ...savedBounds,
     minWidth: 800,
     minHeight: 600,
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: "hiddenInset",
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload: path.join(__dirname, "../preload/index.js"),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true
+      sandbox: true,
     },
   });
 
@@ -40,18 +40,18 @@ const createWindow = () => {
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
 
-  if (process.env.OPEN_DEV_TOOLS || process.argv.includes('--dev-tools')) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  if (process.env.OPEN_DEV_TOOLS || process.argv.includes("--dev-tools")) {
+    mainWindow.webContents.openDevTools({ mode: "detach" });
   }
 };
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.on('ready', () => {
+app.on("ready", () => {
   // Enable SharedArrayBuffer by setting cross-origin isolation headers.
   // Required for zero-copy frame transfer between the emulation worker
   // and the renderer. Only affects local responses (file:// and dev server).
@@ -59,8 +59,8 @@ app.on('ready', () => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Cross-Origin-Opener-Policy': ['same-origin'],
-        'Cross-Origin-Embedder-Policy': ['require-corp'],
+        "Cross-Origin-Opener-Policy": ["same-origin"],
+        "Cross-Origin-Embedder-Policy": ["require-corp"],
       },
     });
   });
@@ -72,7 +72,7 @@ app.on('ready', () => {
   // Deny microphone/camera to prevent macOS system permission dialogs —
   // AudioContext only needs audio output, not input.
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    if (permission === 'media') {
+    if (permission === "media") {
       // 'media' covers both mic and camera — deny to avoid macOS prompts.
       // AudioContext playback works without media capture permission.
       callback(false);
@@ -84,12 +84,12 @@ app.on('ready', () => {
   // Register artwork:// protocol to serve cached cover art images
   // from the sandboxed renderer via <img src="artwork://gameId.png">.
   // The CORP header is required because COEP require-corp is enabled above.
-  protocol.handle('artwork', async (request) => {
-    const filename = request.url.slice('artwork://'.length);
-    const filePath = path.join(app.getPath('userData'), 'artwork', filename);
+  protocol.handle("artwork", async (request) => {
+    const filename = request.url.slice("artwork://".length);
+    const filePath = path.join(app.getPath("userData"), "artwork", filename);
     const response = await net.fetch(`file://${filePath}`);
     const headers = new Headers(response.headers);
-    headers.set('Cross-Origin-Resource-Policy', 'same-origin');
+    headers.set("Cross-Origin-Resource-Policy", "same-origin");
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
@@ -98,7 +98,7 @@ app.on('ready', () => {
   });
 
   // Initialize IPC handlers before creating window
-  const preloadPath = path.join(__dirname, '../preload/index.js');
+  const preloadPath = path.join(__dirname, "../preload/index.js");
   ipcHandlers = new IPCHandlers(preloadPath);
   setupAppMenu();
   createWindow();
@@ -108,12 +108,12 @@ app.on('ready', () => {
   // prefers-color-scheme, so we use nativeTheme as the source of truth.
   // The short delay works around a macOS timing issue where
   // shouldUseDarkColors may not reflect the new value immediately.
-  nativeTheme.on('updated', () => {
+  nativeTheme.on("updated", () => {
     setTimeout(() => {
       const isDark = nativeTheme.shouldUseDarkColors;
-      mainLog.info(`OS theme changed: ${isDark ? 'dark' : 'light'}`);
+      mainLog.info(`OS theme changed: ${isDark ? "dark" : "light"}`);
       for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send('theme:systemChanged', isDark);
+        window.webContents.send("theme:systemChanged", isDark);
       }
     }, 50);
   });
@@ -124,8 +124,10 @@ app.on('ready', () => {
 // when Electron tears down utility processes, but EmulationWorkerClient
 // still has `running = true` if shutdown() was never called).
 let isCleaningUp = false;
-app.on('before-quit', async (event) => {
-  if (isCleaningUp || !ipcHandlers) {return;}
+app.on("before-quit", async (event) => {
+  if (isCleaningUp || !ipcHandlers) {
+    return;
+  }
   event.preventDefault();
   isCleaningUp = true;
   await ipcHandlers.cleanup();
@@ -135,11 +137,11 @@ app.on('before-quit', async (event) => {
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
-app.on('window-all-closed', () => {
+app.on("window-all-closed", () => {
   app.quit();
 });
 
-app.on('activate', () => {
+app.on("activate", () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {

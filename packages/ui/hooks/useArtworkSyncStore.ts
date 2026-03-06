@@ -1,7 +1,7 @@
-import { useCallback, useRef, useSyncExternalStore } from 'react'
-import type { ArtworkSyncPhase } from '../components/TVStatic'
+import { useCallback, useRef, useSyncExternalStore } from "react";
+import type { ArtworkSyncPhase } from "../components/TVStatic";
 
-type Listener = () => void
+type Listener = () => void;
 
 /**
  * External store for per-game artwork sync phases.
@@ -11,38 +11,38 @@ type Listener = () => void
  * grid. Built on `useSyncExternalStore` for tear-free reads.
  */
 export class ArtworkSyncStore {
-  private phases = new Map<string, ArtworkSyncPhase>()
-  private listeners = new Set<Listener>()
+  private phases = new Map<string, ArtworkSyncPhase>();
+  private listeners = new Set<Listener>();
 
   /** Get the current phase for a game. */
   getPhase(gameId: string): ArtworkSyncPhase | undefined {
-    return this.phases.get(gameId)
+    return this.phases.get(gameId);
   }
 
   /** Update a game's phase and notify subscribers. */
   setPhase(gameId: string, phase: ArtworkSyncPhase | null) {
     if (phase === null) {
-      this.phases.delete(gameId)
+      this.phases.delete(gameId);
     } else {
-      this.phases.set(gameId, phase)
+      this.phases.set(gameId, phase);
     }
-    this.notify()
+    this.notify();
   }
 
   /** Clear all phases. */
   clear() {
-    this.phases.clear()
-    this.notify()
+    this.phases.clear();
+    this.notify();
   }
 
   subscribe(listener: Listener): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   private notify() {
     for (const listener of this.listeners) {
-      listener()
+      listener();
     }
   }
 }
@@ -59,25 +59,31 @@ export function useArtworkSyncPhase(
 ): ArtworkSyncPhase | undefined {
   const subscribe = useCallback(
     (onStoreChange: () => void) => {
-      if (!store) {return () => { /* intentional no-op */ }}
-      return store.subscribe(onStoreChange)
+      if (!store) {
+        return () => {
+          /* intentional no-op */
+        };
+      }
+      return store.subscribe(onStoreChange);
     },
     [store],
-  )
+  );
 
   // Cache the previous value so useSyncExternalStore can skip re-renders
   // when this specific game's phase hasn't changed (even though the store
   // notified all subscribers).
-  const prevRef = useRef<ArtworkSyncPhase | undefined>(undefined)
+  const prevRef = useRef<ArtworkSyncPhase | undefined>(undefined);
 
   const getSnapshot = useCallback(() => {
-    const current = store?.getPhase(gameId)
+    const current = store?.getPhase(gameId);
     // Return the same reference if the value hasn't changed, so
     // useSyncExternalStore's Object.is comparison skips the re-render.
-    if (current === prevRef.current) {return prevRef.current}
-    prevRef.current = current
-    return current
-  }, [store, gameId])
+    if (current === prevRef.current) {
+      return prevRef.current;
+    }
+    prevRef.current = current;
+    return current;
+  }, [store, gameId]);
 
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

@@ -69,7 +69,7 @@ function send(event: WorkerEvent): void {
 }
 
 function sendResponse(requestId: string, success: boolean, error?: string, data?: unknown): void {
-  send({ data, error, requestId, success, type: "response" });
+  send({ type: "response", requestId, success, error, data });
 }
 
 // ---------------------------------------------------------------------------
@@ -194,7 +194,7 @@ function takeScreenshot(outputPath?: string): string {
 // ---------------------------------------------------------------------------
 
 function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
-  const { addonPath, corePath, saveDir, systemDir } = command;
+  const { addonPath, corePath, systemDir, saveDir } = command;
 
   // Store paths for later use
   romPath = command.romPath;
@@ -236,7 +236,7 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   isPaused = false;
   consecutiveErrors = 0;
 
-  send({ avInfo: avInfo as AVInfo, type: "ready" });
+  send({ type: "ready", avInfo: avInfo as AVInfo });
 
   startEmulationLoop();
 }
@@ -246,7 +246,7 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
 // ---------------------------------------------------------------------------
 
 /** Write a video frame into the inactive double-buffer and swap the active flag. */
-function writeVideoToSAB(frame: { data: Uint8Array; height: number; width: number }): void {
+function writeVideoToSAB(frame: { data: Uint8Array; width: number; height: number }): void {
   const ctrl = controlView!;
   const video = videoView!;
 
@@ -287,23 +287,23 @@ function writeAudioToSAB(samples: Int16Array): void {
 }
 
 /** Send a video frame via copy-based IPC (fallback path). */
-function sendVideoFrame(frame: { data: Uint8Array; height: number; width: number }): void {
+function sendVideoFrame(frame: { data: Uint8Array; width: number; height: number }): void {
   send({
+    type: "videoFrame",
     data: Buffer.from(
       frame.data.buffer.slice(frame.data.byteOffset, frame.data.byteOffset + frame.data.byteLength),
     ),
-    height: frame.height,
-    type: "videoFrame",
     width: frame.width,
+    height: frame.height,
   });
 }
 
 /** Send audio samples via copy-based IPC (fallback path). */
 function sendAudioSamples(audio: Int16Array): void {
   send({
-    sampleRate,
-    samples: Buffer.from(audio.buffer.slice(audio.byteOffset, audio.byteOffset + audio.byteLength)),
     type: "audioSamples",
+    samples: Buffer.from(audio.buffer.slice(audio.byteOffset, audio.byteOffset + audio.byteLength)),
+    sampleRate,
   });
 }
 
@@ -382,16 +382,16 @@ function startEmulationLoop(): void {
         consecutiveErrors++;
         const message = error instanceof Error ? error.message : String(error);
         send({
+          type: "log",
           level: 3,
           message: `Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${message}`,
-          type: "log",
         });
 
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
           send({
-            fatal: true,
-            message: `Emulation crashed: ${message}`,
             type: "error",
+            message: `Emulation crashed: ${message}`,
+            fatal: true,
           });
           stopEmulationLoop();
           return;
@@ -424,7 +424,7 @@ function startEmulationLoop(): void {
     // Drain buffered log messages from the native addon
     const logs = native.getLogMessages();
     for (const entry of logs) {
-      send({ level: entry.level, message: entry.message, type: "log" });
+      send({ type: "log", level: entry.level, message: entry.message });
     }
 
     scheduleNext();
@@ -456,16 +456,16 @@ function startEmulationLoop(): void {
         consecutiveErrors++;
         const message = error instanceof Error ? error.message : String(error);
         send({
+          type: "log",
           level: 3,
           message: `Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${message}`,
-          type: "log",
         });
 
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
           send({
-            fatal: true,
-            message: `Emulation crashed: ${message}`,
             type: "error",
+            message: `Emulation crashed: ${message}`,
+            fatal: true,
           });
           stopEmulationLoop();
           return;
@@ -495,7 +495,7 @@ function startEmulationLoop(): void {
       // Drain buffered log messages from the native addon
       const logs = native.getLogMessages();
       for (const entry of logs) {
-        send({ level: entry.level, message: entry.message, type: "log" });
+        send({ type: "log", level: entry.level, message: entry.message });
       }
     }
 
@@ -534,9 +534,9 @@ function handleMessage(command: WorkerCommand): void {
         initialize(command);
       } catch (error) {
         send({
-          fatal: true,
-          message: error instanceof Error ? error.message : String(error),
           type: "error",
+          message: error instanceof Error ? error.message : String(error),
+          fatal: true,
         });
       }
       break;
@@ -570,7 +570,7 @@ function handleMessage(command: WorkerCommand): void {
         }
       }
       speedMultiplier = newMultiplier;
-      send({ multiplier: speedMultiplier, type: "speedChanged" });
+      send({ type: "speedChanged", multiplier: speedMultiplier });
       if (wasRunning) {
         startEmulationLoop();
       }

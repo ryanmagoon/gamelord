@@ -1,10 +1,10 @@
-import type { BrowserWindow } from 'electron'
+import type { BrowserWindow } from "electron";
 
 /** Duration of the OS-level window fade/shrink animation in ms. */
-export const WINDOW_CLOSE_ANIMATION_DURATION = 250
+export const WINDOW_CLOSE_ANIMATION_DURATION = 250;
 
 /** Number of discrete animation steps (~60fps at 250ms). */
-export const WINDOW_CLOSE_ANIMATION_STEPS = 15
+export const WINDOW_CLOSE_ANIMATION_STEPS = 15;
 
 /**
  * Animate a BrowserWindow's opacity and bounds as it closes.
@@ -17,52 +17,52 @@ export const WINDOW_CLOSE_ANIMATION_STEPS = 15
 export function animateWindowClose(window: BrowserWindow): Promise<void> {
   return new Promise<void>((resolve) => {
     if (window.isDestroyed()) {
-      resolve()
-      return
+      resolve();
+      return;
     }
 
-    const totalSteps = WINDOW_CLOSE_ANIMATION_STEPS
-    const stepDuration = WINDOW_CLOSE_ANIMATION_DURATION / totalSteps
-    let currentStep = 0
+    const totalSteps = WINDOW_CLOSE_ANIMATION_STEPS;
+    const stepDuration = WINDOW_CLOSE_ANIMATION_DURATION / totalSteps;
+    let currentStep = 0;
 
-    const isFullScreen = window.isFullScreen()
-    const initialBounds = window.getBounds()
-    const centerX = initialBounds.x + initialBounds.width / 2
-    const centerY = initialBounds.y + initialBounds.height / 2
+    const isFullScreen = window.isFullScreen();
+    const initialBounds = window.getBounds();
+    const centerX = initialBounds.x + initialBounds.width / 2;
+    const centerY = initialBounds.y + initialBounds.height / 2;
 
     const interval = setInterval(() => {
-      currentStep++
+      currentStep++;
 
       if (window.isDestroyed()) {
-        clearInterval(interval)
-        resolve()
-        return
+        clearInterval(interval);
+        resolve();
+        return;
       }
 
       // Progress from 0 → 1
-      const progress = currentStep / totalSteps
+      const progress = currentStep / totalSteps;
 
       // Quadratic ease-out: starts fast, decelerates
-      const easedProgress = 1 - Math.pow(1 - progress, 2)
+      const easedProgress = 1 - Math.pow(1 - progress, 2);
 
       // Fade opacity from 1 to 0
-      const opacity = Math.max(0, 1 - easedProgress)
-      window.setOpacity(opacity)
+      const opacity = Math.max(0, 1 - easedProgress);
+      window.setOpacity(opacity);
 
       // Shrink bounds toward center (skip for fullscreen windows)
       if (!isFullScreen) {
-        const scale = 1 - easedProgress * 0.08
-        const newWidth = Math.round(initialBounds.width * scale)
-        const newHeight = Math.round(initialBounds.height * scale)
-        const newX = Math.round(centerX - newWidth / 2)
-        const newY = Math.round(centerY - newHeight / 2)
-        window.setBounds({ height: newHeight, width: newWidth, x: newX, y: newY })
+        const scale = 1 - easedProgress * 0.08;
+        const newWidth = Math.round(initialBounds.width * scale);
+        const newHeight = Math.round(initialBounds.height * scale);
+        const newX = Math.round(centerX - newWidth / 2);
+        const newY = Math.round(centerY - newHeight / 2);
+        window.setBounds({ height: newHeight, width: newWidth, x: newX, y: newY });
       }
 
       if (currentStep >= totalSteps) {
-        clearInterval(interval)
-        resolve()
+        clearInterval(interval);
+        resolve();
       }
-    }, stepDuration)
-  })
+    }, stepDuration);
+  });
 }

@@ -1,4 +1,4 @@
-import React from 'react'
+import React from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -7,13 +7,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@gamelord/ui'
-import { AlertTriangle } from 'lucide-react'
+} from "@gamelord/ui";
+import { AlertTriangle } from "lucide-react";
 
 export interface EmulationErrorDialogProps {
-  message: string
-  onClose: () => void
-  open: boolean
+  message: string;
+  onClose: () => void;
+  open: boolean;
 }
 
 /**
@@ -50,5 +50,5 @@ export const EmulationErrorDialog: React.FC<EmulationErrorDialogProps> = ({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  )
-}
+  );
+};

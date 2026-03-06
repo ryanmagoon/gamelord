@@ -24,6 +24,8 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "typecheck": "turbo typecheck",
+    "format": "turbo format",
+    "format:check": "turbo format:check",
     "storybook": "turbo storybook",
     "build-storybook": "turbo build-storybook"
   },
@@ -35,6 +37,7 @@
     "eslint-plugin-perfectionist": "^5.6.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-unused-imports": "^4.4.1",
+    "oxfmt": "^0.36.0",
     "oxlint": "^1.51.0",
     "turbo": "^2.5.5",
     "typescript": "5.8.3"

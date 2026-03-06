@@ -1,9 +1,9 @@
-import React from 'react'
-import { AlertTriangle, RotateCcw } from 'lucide-react'
+import React from "react";
+import { AlertTriangle, RotateCcw } from "lucide-react";
 
 interface ErrorBoundaryState {
-  error: Error | null
-  hasError: boolean
+  error: Error | null;
+  hasError: boolean;
 }
 
 /**
@@ -16,21 +16,21 @@ export class ErrorBoundary extends React.Component<
   ErrorBoundaryState
 > {
   constructor(props: { children: React.ReactNode }) {
-    super(props)
-    this.state = { error: null, hasError: false }
+    super(props);
+    this.state = { error: null, hasError: false };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { error, hasError: true }
+    return { error, hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error('Uncaught error in React tree:', error, errorInfo)
+    console.error("Uncaught error in React tree:", error, errorInfo);
   }
 
   handleRestart = () => {
-    window.location.reload()
-  }
+    window.location.reload();
+  };
 
   render() {
     if (this.state.hasError) {
@@ -40,9 +40,7 @@ export class ErrorBoundary extends React.Component<
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
               <AlertTriangle className="h-8 w-8 text-destructive" />
             </div>
-            <h1 className="mb-2 text-xl font-semibold text-foreground">
-              Something went wrong
-            </h1>
+            <h1 className="mb-2 text-xl font-semibold text-foreground">Something went wrong</h1>
             <p className="mb-6 text-sm text-muted-foreground">
               An unexpected error occurred. Restarting should fix the problem.
             </p>
@@ -60,9 +58,9 @@ export class ErrorBoundary extends React.Component<
             </button>
           </div>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }

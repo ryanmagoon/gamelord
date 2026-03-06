@@ -1,68 +1,68 @@
-import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { TVStatic } from './TVStatic'
-import { tvStaticManager } from './TVStaticManager'
+import { describe, it, expect, afterEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { TVStatic } from "./TVStatic";
+import { tvStaticManager } from "./TVStaticManager";
 
-describe('TVStatic', () => {
+describe("TVStatic", () => {
   afterEach(() => {
-    tvStaticManager.setDeterministic(false)
-  })
+    tvStaticManager.setDeterministic(false);
+  });
 
-  it('renders nothing when not active', () => {
-    const { container } = render(<TVStatic active={false} />)
-    expect(container.firstChild).toBeNull()
-  })
+  it("renders nothing when not active", () => {
+    const { container } = render(<TVStatic active={false} />);
+    expect(container.firstChild).toBeNull();
+  });
 
-  it('renders the static noise overlay when active', () => {
-    render(<TVStatic active={true} />)
-    expect(screen.getByLabelText('Loading artwork')).toBeInTheDocument()
-  })
+  it("renders the static noise overlay when active", () => {
+    render(<TVStatic active={true} />);
+    expect(screen.getByLabelText("Loading artwork")).toBeInTheDocument();
+  });
 
-  it('renders a canvas element for noise when active', () => {
-    const { container } = render(<TVStatic active={true} />)
-    const canvas = container.querySelector('canvas')
-    expect(canvas).not.toBeNull()
-  })
+  it("renders a canvas element for noise when active", () => {
+    const { container } = render(<TVStatic active={true} />);
+    const canvas = container.querySelector("canvas");
+    expect(canvas).not.toBeNull();
+  });
 
-  it('uses status text as aria-label when provided', () => {
-    render(<TVStatic active={true} statusText="Downloading..." />)
-    expect(screen.getByLabelText('Downloading...')).toBeInTheDocument()
-  })
+  it("uses status text as aria-label when provided", () => {
+    render(<TVStatic active={true} statusText="Downloading..." />);
+    expect(screen.getByLabelText("Downloading...")).toBeInTheDocument();
+  });
 
-  it('uses default aria-label when no status text provided', () => {
-    render(<TVStatic active={true} />)
-    expect(screen.getByLabelText('Loading artwork')).toBeInTheDocument()
-  })
+  it("uses default aria-label when no status text provided", () => {
+    render(<TVStatic active={true} />);
+    expect(screen.getByLabelText("Loading artwork")).toBeInTheDocument();
+  });
 
-  it('applies red tint for error phase', () => {
-    const { container } = render(<TVStatic active={true} phase="error" />)
-    const redOverlay = container.querySelector(String.raw`.bg-red-500\/15`)
-    expect(redOverlay).not.toBeNull()
-  })
+  it("applies red tint for error phase", () => {
+    const { container } = render(<TVStatic active={true} phase="error" />);
+    const redOverlay = container.querySelector(String.raw`.bg-red-500\/15`);
+    expect(redOverlay).not.toBeNull();
+  });
 
-  it('applies amber tint for not-found phase', () => {
-    const { container } = render(<TVStatic active={true} phase="not-found" />)
-    const amberOverlay = container.querySelector(String.raw`.bg-amber-500\/15`)
-    expect(amberOverlay).not.toBeNull()
-  })
+  it("applies amber tint for not-found phase", () => {
+    const { container } = render(<TVStatic active={true} phase="not-found" />);
+    const amberOverlay = container.querySelector(String.raw`.bg-amber-500\/15`);
+    expect(amberOverlay).not.toBeNull();
+  });
 
-  it('does not apply color tint for normal sync phases', () => {
-    const { container } = render(<TVStatic active={true} phase="querying" />)
-    expect(container.querySelector(String.raw`.bg-red-500\/15`)).toBeNull()
-    expect(container.querySelector(String.raw`.bg-amber-500\/15`)).toBeNull()
-  })
+  it("does not apply color tint for normal sync phases", () => {
+    const { container } = render(<TVStatic active={true} phase="querying" />);
+    expect(container.querySelector(String.raw`.bg-red-500\/15`)).toBeNull();
+    expect(container.querySelector(String.raw`.bg-amber-500\/15`)).toBeNull();
+  });
 
-  it('renders a solid placeholder instead of canvas in deterministic mode', () => {
-    tvStaticManager.setDeterministic(true)
-    const { container } = render(<TVStatic active={true} />)
-    expect(container.querySelector('canvas')).toBeNull()
-    expect(screen.getByLabelText('Loading artwork')).toBeInTheDocument()
-  })
+  it("renders a solid placeholder instead of canvas in deterministic mode", () => {
+    tvStaticManager.setDeterministic(true);
+    const { container } = render(<TVStatic active={true} />);
+    expect(container.querySelector("canvas")).toBeNull();
+    expect(screen.getByLabelText("Loading artwork")).toBeInTheDocument();
+  });
 
-  it('preserves tint overlays in deterministic mode', () => {
-    tvStaticManager.setDeterministic(true)
-    const { container } = render(<TVStatic active={true} phase="error" />)
-    expect(container.querySelector('canvas')).toBeNull()
-    expect(container.querySelector('.bg-red-500\\/15')).not.toBeNull()
-  })
-})
+  it("preserves tint overlays in deterministic mode", () => {
+    tvStaticManager.setDeterministic(true);
+    const { container } = render(<TVStatic active={true} phase="error" />);
+    expect(container.querySelector("canvas")).toBeNull();
+    expect(container.querySelector(String.raw`.bg-red-500\/15`)).not.toBeNull();
+  });
+});

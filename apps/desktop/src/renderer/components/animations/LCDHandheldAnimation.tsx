@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from "react";
 
 interface LCDHandheldAnimationProps {
   /** Whether this is a power-on or power-off animation. */
-  direction: 'on' | 'off'
+  direction: "on" | "off";
   /** Total duration of the animation in ms. */
-  duration?: number
+  duration?: number;
   /** Called when the animation completes. */
-  onComplete: () => void
+  onComplete: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -17,12 +17,12 @@ interface LCDHandheldAnimationProps {
 //   fade-out → afterimage → off → done
 // ---------------------------------------------------------------------------
 
-type PowerOnPhase = 'grid' | 'backlight' | 'fade-in' | 'done'
-type PowerOffPhase = 'fade-out' | 'afterimage' | 'off' | 'done'
+type PowerOnPhase = "grid" | "backlight" | "fade-in" | "done";
+type PowerOffPhase = "fade-out" | "afterimage" | "off" | "done";
 
 /** Game Boy-era green tint color. */
-const LCD_GREEN = 'rgb(144, 160, 144)'
-const LCD_GREEN_DARK = 'rgb(56, 72, 56)'
+const LCD_GREEN = "rgb(144, 160, 144)";
+const LCD_GREEN_DARK = "rgb(56, 72, 56)";
 
 /**
  * LCD handheld power on/off animation (Game Boy, GBA, NDS).
@@ -35,14 +35,14 @@ const LCD_GREEN_DARK = 'rgb(56, 72, 56)'
  */
 export const LCDHandheldAnimation: React.FC<LCDHandheldAnimationProps> = ({
   direction,
-  duration = direction === 'on' ? 700 : 450,
+  duration = direction === "on" ? 700 : 450,
   onComplete,
 }) => {
-  if (direction === 'on') {
-    return <LCDPowerOn duration={duration} onComplete={onComplete} />
+  if (direction === "on") {
+    return <LCDPowerOn duration={duration} onComplete={onComplete} />;
   }
-  return <LCDPowerOff duration={duration} onComplete={onComplete} />
-}
+  return <LCDPowerOff duration={duration} onComplete={onComplete} />;
+};
 
 // ---------------------------------------------------------------------------
 // Shared pixel grid overlay
@@ -53,48 +53,50 @@ const PixelGrid: React.FC<{ opacity: number }> = ({ opacity }) => (
     className="absolute inset-0"
     style={{
       backgroundImage:
-        'repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px),' +
-        'repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px)',
-      backgroundSize: '3px 3px',
+        "repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px)," +
+        "repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px)",
+      backgroundSize: "3px 3px",
       opacity,
     }}
   />
-)
+);
 
 // ---------------------------------------------------------------------------
 // Power-on
 // ---------------------------------------------------------------------------
 
-const LCDPowerOn: React.FC<{ duration: number; onComplete: () => void; }> = ({
+const LCDPowerOn: React.FC<{ duration: number; onComplete: () => void }> = ({
   duration,
   onComplete,
 }) => {
-  const [phase, setPhase] = useState<PowerOnPhase>('grid')
+  const [phase, setPhase] = useState<PowerOnPhase>("grid");
 
   useEffect(() => {
     const timings = {
       backlight: duration * 0.35,
       fadeIn: duration * 0.45,
-      grid: duration * 0.20,
-    }
+      grid: duration * 0.2,
+    };
 
-    const backlightTimer = setTimeout(() => setPhase('backlight'), timings.grid)
-    const fadeInTimer = setTimeout(() => setPhase('fade-in'), timings.grid + timings.backlight)
+    const backlightTimer = setTimeout(() => setPhase("backlight"), timings.grid);
+    const fadeInTimer = setTimeout(() => setPhase("fade-in"), timings.grid + timings.backlight);
     const doneTimer = setTimeout(() => {
-      setPhase('done')
-      onComplete()
-    }, duration)
+      setPhase("done");
+      onComplete();
+    }, duration);
 
     return () => {
-      clearTimeout(backlightTimer)
-      clearTimeout(fadeInTimer)
-      clearTimeout(doneTimer)
-    }
-  }, [duration, onComplete])
+      clearTimeout(backlightTimer);
+      clearTimeout(fadeInTimer);
+      clearTimeout(doneTimer);
+    };
+  }, [duration, onComplete]);
 
-  if (phase === 'done') {return null}
+  if (phase === "done") {
+    return null;
+  }
 
-  const isBacklit = phase === 'backlight' || phase === 'fade-in'
+  const isBacklit = phase === "backlight" || phase === "fade-in";
 
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
@@ -104,59 +106,59 @@ const LCDPowerOn: React.FC<{ duration: number; onComplete: () => void; }> = ({
         style={{
           backgroundColor: isBacklit ? LCD_GREEN : LCD_GREEN_DARK,
           transitionDuration: `${duration * 0.35}ms`,
-          transitionTimingFunction: 'ease-out',
+          transitionTimingFunction: "ease-out",
         }}
       />
 
       {/* Pixel grid overlay */}
-      <PixelGrid opacity={phase === 'grid' ? 0.6 : 0.3} />
+      <PixelGrid opacity={phase === "grid" ? 0.6 : 0.3} />
 
       {/* Content fade — black overlay that fades out */}
       <div
         className="absolute inset-0 transition-opacity"
         style={{
-          backgroundColor: 'black',
-          opacity: phase === 'fade-in' ? 0 : phase === 'backlight' ? 0.4 : 0.85,
+          backgroundColor: "black",
+          opacity: phase === "fade-in" ? 0 : phase === "backlight" ? 0.4 : 0.85,
           transitionDuration: `${duration * 0.45}ms`,
-          transitionTimingFunction: 'ease-out',
+          transitionTimingFunction: "ease-out",
         }}
       />
 
       <style>{`/* LCD handheld animation — no keyframes needed, pure transitions */`}</style>
     </div>
-  )
-}
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Power-off
 // ---------------------------------------------------------------------------
 
-const LCDPowerOff: React.FC<{ duration: number; onComplete: () => void; }> = ({
+const LCDPowerOff: React.FC<{ duration: number; onComplete: () => void }> = ({
   duration,
   onComplete,
 }) => {
-  const [phase, setPhase] = useState<PowerOffPhase>('fade-out')
+  const [phase, setPhase] = useState<PowerOffPhase>("fade-out");
 
   useEffect(() => {
     const timings = {
       afterimage: duration * 0.35,
-      fadeOut: duration * 0.30,
+      fadeOut: duration * 0.3,
       off: duration * 0.35,
-    }
+    };
 
-    const afterimageTimer = setTimeout(() => setPhase('afterimage'), timings.fadeOut)
-    const offTimer = setTimeout(() => setPhase('off'), timings.fadeOut + timings.afterimage)
+    const afterimageTimer = setTimeout(() => setPhase("afterimage"), timings.fadeOut);
+    const offTimer = setTimeout(() => setPhase("off"), timings.fadeOut + timings.afterimage);
     const doneTimer = setTimeout(() => {
-      setPhase('done')
-      onComplete()
-    }, duration)
+      setPhase("done");
+      onComplete();
+    }, duration);
 
     return () => {
-      clearTimeout(afterimageTimer)
-      clearTimeout(offTimer)
-      clearTimeout(doneTimer)
-    }
-  }, [duration, onComplete])
+      clearTimeout(afterimageTimer);
+      clearTimeout(offTimer);
+      clearTimeout(doneTimer);
+    };
+  }, [duration, onComplete]);
 
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
@@ -164,27 +166,27 @@ const LCDPowerOff: React.FC<{ duration: number; onComplete: () => void; }> = ({
       <div
         className="absolute inset-0 transition-all"
         style={{
-          backgroundColor: phase === 'off' || phase === 'done' ? 'black' : LCD_GREEN,
-          opacity: phase === 'fade-out' ? 0.5 : 1,
+          backgroundColor: phase === "off" || phase === "done" ? "black" : LCD_GREEN,
+          opacity: phase === "fade-out" ? 0.5 : 1,
           transitionDuration: `${duration * 0.35}ms`,
-          transitionTimingFunction: 'ease-in',
+          transitionTimingFunction: "ease-in",
         }}
       />
 
       {/* Pixel grid — stays visible during afterimage, fades with backlight */}
-      <PixelGrid opacity={phase === 'off' || phase === 'done' ? 0 : 0.4} />
+      <PixelGrid opacity={phase === "off" || phase === "done" ? 0 : 0.4} />
 
       {/* Dark overlay — stays opaque through 'done' so the game canvas
           never flashes through while the OS window fade plays */}
       <div
         className="absolute inset-0 transition-opacity"
         style={{
-          backgroundColor: 'black',
-          opacity: phase === 'fade-out' ? 0.3 : phase === 'afterimage' ? 0.6 : 1,
+          backgroundColor: "black",
+          opacity: phase === "fade-out" ? 0.3 : phase === "afterimage" ? 0.6 : 1,
           transitionDuration: `${duration * 0.35}ms`,
-          transitionTimingFunction: 'ease-in',
+          transitionTimingFunction: "ease-in",
         }}
       />
     </div>
-  )
-}
+  );
+};

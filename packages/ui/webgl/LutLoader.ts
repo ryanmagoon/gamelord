@@ -1,4 +1,4 @@
-import type { LutDefinition, FilterMode, WrapMode } from './types';
+import type { LutDefinition, FilterMode, WrapMode } from "./types";
 
 interface LutEntry {
   definition: LutDefinition;
@@ -57,7 +57,7 @@ export class LutLoader {
   private loadImage(url: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      img.crossOrigin = "anonymous";
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error(`Failed to load LUT image: ${url}`));
       img.src = url;
@@ -65,16 +65,19 @@ export class LutLoader {
   }
 
   private getFilter(filter: FilterMode): number {
-    return filter === 'linear' ? this.gl.LINEAR : this.gl.NEAREST;
+    return filter === "linear" ? this.gl.LINEAR : this.gl.NEAREST;
   }
 
   private getWrap(wrap: WrapMode): number {
     const gl = this.gl;
     switch (wrap) {
-      case 'repeat': return gl.REPEAT;
-      case 'mirror': return gl.MIRRORED_REPEAT;
-      case 'clamp':
-      default: return gl.CLAMP_TO_EDGE;
+      case "repeat":
+        return gl.REPEAT;
+      case "mirror":
+        return gl.MIRRORED_REPEAT;
+      case "clamp":
+      default:
+        return gl.CLAMP_TO_EDGE;
     }
   }
 }

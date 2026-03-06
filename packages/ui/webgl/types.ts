@@ -1,10 +1,10 @@
-export type ScaleType = 'source' | 'viewport' | 'absolute';
+export type ScaleType = "source" | "viewport" | "absolute";
 
-export type FilterMode = 'nearest' | 'linear';
+export type FilterMode = "nearest" | "linear";
 
-export type FramebufferFormat = 'rgba8' | 'rgba16f' | 'rgba32f';
+export type FramebufferFormat = "rgba8" | "rgba16f" | "rgba32f";
 
-export type WrapMode = 'clamp' | 'repeat' | 'mirror';
+export type WrapMode = "clamp" | "repeat" | "mirror";
 
 export interface PassScale {
   type: ScaleType;

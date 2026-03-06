@@ -1,17 +1,17 @@
-import type { ShaderPresetDefinition } from '../types';
-import { halftoneFragmentShader } from '../shaders';
+import type { ShaderPresetDefinition } from "../types";
+import { halftoneFragmentShader } from "../shaders";
 
 export const halftonePreset: ShaderPresetDefinition = {
-  id: 'halftone',
-  label: 'Halftone',
+  id: "halftone",
+  label: "Halftone",
   luts: [],
   passes: [
     {
       index: 0,
       fragmentSource: halftoneFragmentShader,
-      scale: { type: 'viewport', x: 1, y: 1 },
-      filter: 'nearest',
-      format: 'rgba8',
+      scale: { type: "viewport", x: 1, y: 1 },
+      filter: "nearest",
+      format: "rgba8",
     },
   ],
 };

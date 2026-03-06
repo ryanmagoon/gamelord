@@ -1,14 +1,14 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense } from "react";
 
-const Agentation = lazy(() =>
-  import('agentation').then((mod) => ({ default: mod.Agentation }))
-)
+const Agentation = lazy(() => import("agentation").then((mod) => ({ default: mod.Agentation })));
 
 export function DevAgentation() {
-  if (process.env.NODE_ENV !== 'development') {return null}
+  if (process.env.NODE_ENV !== "development") {
+    return null;
+  }
   return (
     <Suspense fallback={null}>
       <Agentation copyToClipboard={true} endpoint="http://localhost:4747" />
     </Suspense>
-  )
+  );
 }

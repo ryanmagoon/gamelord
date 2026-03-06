@@ -12,6 +12,8 @@
     "start": "electron-vite preview",
     "package": "npm run build && electron-builder --dir",
     "make": "npm run build && electron-builder",
+    "format": "oxfmt --write src/",
+    "format:check": "oxfmt --check src/",
     "lint": "oxlint",
     "test": "vitest run",
     "test:watch": "vitest",

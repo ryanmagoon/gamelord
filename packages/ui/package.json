@@ -6,6 +6,8 @@
   "types": "./index.ts",
   "scripts": {
     "build": "tsc --noEmit",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

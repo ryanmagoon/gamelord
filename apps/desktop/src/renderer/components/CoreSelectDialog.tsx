@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState } from "react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -6,22 +6,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
-} from '@gamelord/ui'
-import { Download, Check, Cpu, Loader2 } from 'lucide-react'
-import type { CoreInfo } from '../types/global'
+} from "@gamelord/ui";
+import { Download, Check, Cpu, Loader2 } from "lucide-react";
+import type { CoreInfo } from "../types/global";
 
 export interface CoreSelectDialogProps {
-  cores: Array<CoreInfo>
-  onCancel: () => void
-  onSelect: (coreName: string, remember: boolean) => void
-  open: boolean
+  cores: Array<CoreInfo>;
+  onCancel: () => void;
+  onSelect: (coreName: string, remember: boolean) => void;
+  open: boolean;
   /**
    * When true, the backdrop overlay appears instantly (no fade-in animation).
    * Use this when transitioning from another overlay (e.g. a dropdown menu)
    * to prevent a flash of the underlying UI between the two overlays.
    */
-  suppressOverlayAnimation?: boolean
-  systemName: string
+  suppressOverlayAnimation?: boolean;
+  systemName: string;
 }
 
 /**
@@ -41,17 +41,15 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
   suppressOverlayAnimation = false,
   systemName,
 }) => {
-  const [remember, setRemember] = useState(false)
-  const isLoading = cores.length === 0
+  const [remember, setRemember] = useState(false);
+  const isLoading = cores.length === 0;
 
   return (
     <AlertDialog open={open}>
       <AlertDialogContent
         className="sm:max-w-md"
-        overlayClassName={
-          suppressOverlayAnimation ? '[animation-duration:0ms]' : undefined
-        }
-        style={suppressOverlayAnimation ? { animationDelay: '0ms' } : undefined}
+        overlayClassName={suppressOverlayAnimation ? "[animation-duration:0ms]" : undefined}
+        style={suppressOverlayAnimation ? { animationDelay: "0ms" } : undefined}
       >
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
@@ -60,12 +58,12 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
           </AlertDialogTitle>
           <AlertDialogDescription>
             {isLoading ? (
-              'Loading available cores\u2026'
+              "Loading available cores\u2026"
             ) : (
               <>
-                Multiple cores are available for{' '}
-                <span className="font-semibold text-foreground">{systemName}</span>.
-                Pick the one you&apos;d like to use.
+                Multiple cores are available for{" "}
+                <span className="font-semibold text-foreground">{systemName}</span>. Pick the one
+                you&apos;d like to use.
               </>
             )}
           </AlertDialogDescription>
@@ -100,9 +98,7 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="font-medium">{core.displayName}</div>
                   {core.description && (
-                    <div className="text-sm text-muted-foreground">
-                      {core.description}
-                    </div>
+                    <div className="text-sm text-muted-foreground">{core.description}</div>
                   )}
                 </div>
                 {core.installed ? (
@@ -132,5 +128,5 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
         </div>
       </AlertDialogContent>
     </AlertDialog>
-  )
-}
+  );
+};

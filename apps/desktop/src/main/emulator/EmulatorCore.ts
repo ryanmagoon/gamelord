@@ -1,5 +1,5 @@
-import { EventEmitter } from 'node:events';
-import { ChildProcess } from 'node:child_process';
+import { EventEmitter } from "node:events";
+import { ChildProcess } from "node:child_process";
 
 /**
  * Abstract base class for all emulator implementations.
@@ -12,7 +12,7 @@ export abstract class EmulatorCore extends EventEmitter {
 
   constructor(
     public readonly name: string,
-    public readonly emulatorPath: string
+    public readonly emulatorPath: string,
   ) {
     super();
   }
@@ -64,18 +64,18 @@ export abstract class EmulatorCore extends EventEmitter {
         }
 
         const timeout = setTimeout(() => {
-          this.process?.kill('SIGKILL');
+          this.process?.kill("SIGKILL");
           this.cleanup();
           resolve();
         }, 5000);
 
-        this.process.once('exit', () => {
+        this.process.once("exit", () => {
           clearTimeout(timeout);
           this.cleanup();
           resolve();
         });
 
-        this.process.kill('SIGTERM');
+        this.process.kill("SIGTERM");
       });
     }
   }
@@ -100,7 +100,7 @@ export abstract class EmulatorCore extends EventEmitter {
   protected cleanup(): void {
     this.process = null;
     this.isRunning = false;
-    this.emit('terminated');
+    this.emit("terminated");
   }
 }
 

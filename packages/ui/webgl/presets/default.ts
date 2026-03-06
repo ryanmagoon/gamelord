@@ -1,17 +1,17 @@
-import type { ShaderPresetDefinition } from '../types';
-import { defaultFragmentShader } from '../shaders';
+import type { ShaderPresetDefinition } from "../types";
+import { defaultFragmentShader } from "../shaders";
 
 export const defaultPreset: ShaderPresetDefinition = {
-  id: 'default',
-  label: 'None',
+  id: "default",
+  label: "None",
   luts: [],
   passes: [
     {
       index: 0,
       fragmentSource: defaultFragmentShader,
-      scale: { type: 'viewport', x: 1, y: 1 },
-      filter: 'nearest',
-      format: 'rgba8',
+      scale: { type: "viewport", x: 1, y: 1 },
+      filter: "nearest",
+      format: "rgba8",
     },
   ],
 };

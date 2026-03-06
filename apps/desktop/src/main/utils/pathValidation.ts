@@ -1,7 +1,7 @@
-import path from 'node:path'
-import fs from 'node:fs'
+import path from "node:path";
+import fs from "node:fs";
 
-const CORE_EXTENSIONS = ['.dylib', '.dll', '.so']
+const CORE_EXTENSIONS = [".dylib", ".dll", ".so"];
 
 /**
  * Validate that a file path is absolute, exists, and resolves to a location
@@ -10,23 +10,21 @@ const CORE_EXTENSIONS = ['.dylib', '.dll', '.so']
  */
 function validatePathWithinDirs(filePath: string, allowedDirs: Array<string>): string {
   if (!path.isAbsolute(filePath)) {
-    throw new Error(`Path must be absolute: ${filePath}`)
+    throw new Error(`Path must be absolute: ${filePath}`);
   }
 
-  const resolved = path.resolve(filePath)
+  const resolved = path.resolve(filePath);
 
   const withinAllowed = allowedDirs.some((dir) => {
-    const resolvedDir = path.resolve(dir)
-    return resolved.startsWith(resolvedDir + path.sep) || resolved === resolvedDir
-  })
+    const resolvedDir = path.resolve(dir);
+    return resolved.startsWith(resolvedDir + path.sep) || resolved === resolvedDir;
+  });
 
   if (!withinAllowed) {
-    throw new Error(
-      `Path is outside allowed directories: ${resolved}`,
-    )
+    throw new Error(`Path is outside allowed directories: ${resolved}`);
   }
 
-  return resolved
+  return resolved;
 }
 
 /**
@@ -37,18 +35,20 @@ function validatePathWithinDirs(filePath: string, allowedDirs: Array<string>): s
  * - Exists on disk
  */
 export function validateCorePath(corePath: string, allowedCoreDirs: Array<string>): string {
-  const resolved = validatePathWithinDirs(corePath, allowedCoreDirs)
+  const resolved = validatePathWithinDirs(corePath, allowedCoreDirs);
 
-  const ext = path.extname(resolved).toLowerCase()
+  const ext = path.extname(resolved).toLowerCase();
   if (!CORE_EXTENSIONS.includes(ext)) {
-    throw new Error(`Invalid core file extension "${ext}". Expected one of: ${CORE_EXTENSIONS.join(', ')}`)
+    throw new Error(
+      `Invalid core file extension "${ext}". Expected one of: ${CORE_EXTENSIONS.join(", ")}`,
+    );
   }
 
   if (!fs.existsSync(resolved)) {
-    throw new Error(`Core file does not exist: ${resolved}`)
+    throw new Error(`Core file does not exist: ${resolved}`);
   }
 
-  return resolved
+  return resolved;
 }
 
 /**
@@ -59,20 +59,20 @@ export function validateCorePath(corePath: string, allowedCoreDirs: Array<string
  */
 export function validateRomPath(romPath: string): string {
   if (!path.isAbsolute(romPath)) {
-    throw new Error(`ROM path must be absolute: ${romPath}`)
+    throw new Error(`ROM path must be absolute: ${romPath}`);
   }
 
-  const resolved = path.resolve(romPath)
+  const resolved = path.resolve(romPath);
 
   if (!fs.existsSync(resolved)) {
-    throw new Error(`ROM file does not exist: ${resolved}`)
+    throw new Error(`ROM file does not exist: ${resolved}`);
   }
 
   // Ensure it's a file, not a directory
-  const stat = fs.statSync(resolved)
+  const stat = fs.statSync(resolved);
   if (!stat.isFile()) {
-    throw new Error(`ROM path is not a file: ${resolved}`)
+    throw new Error(`ROM path is not a file: ${resolved}`);
   }
 
-  return resolved
+  return resolved;
 }

@@ -1,21 +1,20 @@
-import React, { useRef, useEffect, useCallback } from 'react';
-import { WebGLRenderer } from '../webgl/WebGLRenderer';
-import { cn } from '../utils';
+import React, { useRef, useEffect, useCallback } from "react";
+import { WebGLRenderer } from "../webgl/WebGLRenderer";
+import { cn } from "../utils";
 
 interface WebGLRendererProps {
   className?: string;
   onReady?: () => void;
 }
 
-export const WebGLRendererComponent: React.FC<WebGLRendererProps> = ({ 
-  className, 
-  onReady 
-}) => {
+export const WebGLRendererComponent: React.FC<WebGLRendererProps> = ({ className, onReady }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<WebGLRenderer | null>(null);
 
   useEffect(() => {
-    if (!canvasRef.current) {return;}
+    if (!canvasRef.current) {
+      return;
+    }
 
     // Initialize WebGL renderer
     try {
@@ -23,7 +22,7 @@ export const WebGLRendererComponent: React.FC<WebGLRendererProps> = ({
       rendererRef.current.initialize();
       onReady?.();
     } catch (error) {
-      console.error('Failed to initialize WebGL renderer:', error);
+      console.error("Failed to initialize WebGL renderer:", error);
     }
 
     // Set up video frame listener
@@ -33,7 +32,7 @@ export const WebGLRendererComponent: React.FC<WebGLRendererProps> = ({
       }
     };
 
-    window.gamelord.on('video:frame', handleVideoFrame);
+    window.gamelord.on("video:frame", handleVideoFrame);
 
     // Handle resize
     const handleResize = () => {
@@ -47,12 +46,12 @@ export const WebGLRendererComponent: React.FC<WebGLRendererProps> = ({
       }
     };
 
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
     handleResize(); // Initial size
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      window.gamelord.removeAllListeners('video:frame');
+      window.removeEventListener("resize", handleResize);
+      window.gamelord.removeAllListeners("video:frame");
       rendererRef.current?.destroy();
     };
   }, [onReady]);
@@ -67,11 +66,7 @@ export const WebGLRendererComponent: React.FC<WebGLRendererProps> = ({
 
   return (
     <div className={cn("relative bg-black", className)}>
-      <canvas
-        className="w-full h-full"
-        onDoubleClick={handleFullscreen}
-        ref={canvasRef}
-      />
+      <canvas className="w-full h-full" onDoubleClick={handleFullscreen} ref={canvasRef} />
     </div>
   );
 };

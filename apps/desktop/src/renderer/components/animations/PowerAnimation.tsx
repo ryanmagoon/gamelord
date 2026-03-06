@@ -1,18 +1,18 @@
-import React from 'react'
-import type { DisplayType } from '../../../types/displayType'
-import { CRTAnimation } from './CRTAnimation'
-import { LCDHandheldAnimation } from './LCDHandheldAnimation'
-import { LCDPortableAnimation } from './LCDPortableAnimation'
+import React from "react";
+import type { DisplayType } from "../../../types/displayType";
+import { CRTAnimation } from "./CRTAnimation";
+import { LCDHandheldAnimation } from "./LCDHandheldAnimation";
+import { LCDPortableAnimation } from "./LCDPortableAnimation";
 
 interface PowerAnimationProps {
   /** Whether this is a power-on or power-off animation. */
-  direction: 'on' | 'off'
+  direction: "on" | "off";
   /** The display technology of the original hardware. */
-  displayType: DisplayType
+  displayType: DisplayType;
   /** Total duration override in ms. Each animation type has its own default. */
-  duration?: number
+  duration?: number;
   /** Called when the animation completes. */
-  onComplete: () => void
+  onComplete: () => void;
 }
 
 /**
@@ -26,11 +26,15 @@ export const PowerAnimation: React.FC<PowerAnimationProps> = ({
   onComplete,
 }) => {
   switch (displayType) {
-    case 'crt':
-      return <CRTAnimation direction={direction} duration={duration} onComplete={onComplete} />
-    case 'lcd-handheld':
-      return <LCDHandheldAnimation direction={direction} duration={duration} onComplete={onComplete} />
-    case 'lcd-portable':
-      return <LCDPortableAnimation direction={direction} duration={duration} onComplete={onComplete} />
+    case "crt":
+      return <CRTAnimation direction={direction} duration={duration} onComplete={onComplete} />;
+    case "lcd-handheld":
+      return (
+        <LCDHandheldAnimation direction={direction} duration={duration} onComplete={onComplete} />
+      );
+    case "lcd-portable":
+      return (
+        <LCDPortableAnimation direction={direction} duration={duration} onComplete={onComplete} />
+      );
   }
-}
+};
