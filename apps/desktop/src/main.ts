@@ -1,6 +1,7 @@
 import { config as loadDotenv } from 'dotenv';
 import { app, BrowserWindow, nativeTheme, net, protocol, session } from 'electron';
 import path from 'node:path';
+import { setupAppMenu } from './main/appMenu';
 import { IPCHandlers } from './main/ipc/handlers';
 import { mainLog } from './main/logger';
 import { getSavedWindowBounds, manageWindowState } from './main/utils/windowState';
@@ -91,6 +92,7 @@ app.on('ready', () => {
   // Initialize IPC handlers before creating window
   const preloadPath = path.join(__dirname, '../preload/index.js');
   ipcHandlers = new IPCHandlers(preloadPath);
+  setupAppMenu();
   createWindow();
 
   // Forward OS theme changes to the renderer so "system" mode updates live.
