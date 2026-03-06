@@ -55,6 +55,16 @@ export class IPCHandlers {
           throw new Error('Game not found in library');
         }
 
+        // Validate BIOS files before attempting to launch
+        const biosCheck = this.emulatorManager.validateBios(systemId);
+        if (!biosCheck.valid) {
+          const fileList = biosCheck.missingFiles.join(', ');
+          return {
+            success: false,
+            error: `${biosCheck.systemName} requires BIOS files that are missing: ${fileList}. Place them in: ${biosCheck.biosDir}`,
+          };
+        }
+
         // Convert renderer-relative card bounds to screen coordinates
         let cardScreenBounds: { x: number; y: number; width: number; height: number } | undefined;
         if (cardBounds) {

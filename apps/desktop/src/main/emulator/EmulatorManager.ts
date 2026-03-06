@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { powerSaveBlocker } from 'electron';
+import { app, powerSaveBlocker } from 'electron';
 import { EmulatorCore, EmulatorInfo } from './EmulatorCore';
 import { RetroArchCore } from './RetroArchCore';
 import { LibretroNativeCore } from './LibretroNativeCore';
@@ -8,6 +8,28 @@ import { CoreDownloader, CoreInfo } from './CoreDownloader';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+
+/**
+ * Systems that require BIOS files to run. Maps system ID to an array of
+ * required filenames that must be present in the BIOS directory.
+ */
+const BIOS_REQUIREMENTS: Record<string, { files: string[]; systemName: string }> = {
+  saturn: {
+    files: ['sega_101.bin', 'mpr-17933.bin'],
+    systemName: 'Sega Saturn',
+  },
+  psx: {
+    files: ['scph5501.bin'],
+    systemName: 'PlayStation',
+  },
+};
+
+export interface BiosValidationResult {
+  valid: boolean
+  missingFiles: string[]
+  biosDir: string
+  systemName: string
+}
 
 /**
  * Manages emulator instances and provides a unified interface for launching games.
@@ -31,6 +53,30 @@ export class EmulatorManager extends EventEmitter {
 
   getCoreDownloader(): CoreDownloader {
     return this.coreDownloader;
+  }
+
+  /**
+   * Checks whether required BIOS files exist for a given system.
+   * Returns a result with missing file names if validation fails.
+   * Systems without BIOS requirements always pass.
+   */
+  validateBios(systemId: string): BiosValidationResult {
+    const requirement = BIOS_REQUIREMENTS[systemId];
+    if (!requirement) {
+      return { valid: true, missingFiles: [], biosDir: '', systemName: '' };
+    }
+
+    const biosDir = path.join(app.getPath('userData'), 'BIOS');
+    const missingFiles = requirement.files.filter(
+      (file) => !fs.existsSync(path.join(biosDir, file))
+    );
+
+    return {
+      valid: missingFiles.length === 0,
+      missingFiles,
+      biosDir,
+      systemName: requirement.systemName,
+    };
   }
 
   /**

@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuItem } from '@gamelord/ui'
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuItem } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
 import { useSfx } from './hooks/useSfx'
-import { Check, Monitor, Tv, Sun, Moon, Cpu, Heart, SunMoon } from 'lucide-react'
+import { AlertTriangle, Check, Monitor, Tv, Sun, Moon, Cpu, Heart, SunMoon } from 'lucide-react'
 import { DevAgentation } from './components/DevAgentation'
 import { DevBranchBadge } from './components/DevBranchBadge'
 import { LibraryView } from './components/LibraryView'
@@ -78,6 +78,8 @@ function App() {
   const pendingCardBoundsRef = useRef<CardBounds | null>(null)
   /** Tracks which game is currently being launched (shimmer + disable other cards). */
   const [launchingGameId, setLaunchingGameId] = useState<string | null>(null)
+  /** Error dialog state for launch/IPC failures. */
+  const [launchError, setLaunchError] = useState<string | null>(null)
 
   // Listen for resume game dialog requests from main process
   useEffect(() => {
@@ -159,7 +161,7 @@ function App() {
         if (selectedCore && !selectedCore.installed) {
           const downloadResult = await api.emulator.downloadCore(coreName, systemId)
           if (!downloadResult.success) {
-            alert(`Failed to download core: ${downloadResult.error}`)
+            setLaunchError(downloadResult.error ?? 'Failed to download core')
             setLaunchingGameId(null)
             return
           }
@@ -176,11 +178,11 @@ function App() {
 
       if (!result.success) {
         console.error('Failed to launch emulator:', result.error)
-        alert(`Failed to launch game: ${result.error}`)
+        setLaunchError(result.error ?? 'Failed to launch game')
       }
     } catch (error) {
       console.error('Error launching game:', error)
-      alert(`Error: ${error}`)
+      setLaunchError(error instanceof Error ? error.message : String(error))
     } finally {
       setLaunchingGameId(null)
     }
@@ -233,7 +235,7 @@ function App() {
       })
     } catch (error) {
       console.error('Error launching game:', error)
-      alert(`Error: ${error}`)
+      setLaunchError(error instanceof Error ? error.message : String(error))
       setLaunchingGameId(null)
     }
   }
@@ -446,6 +448,26 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Launch error dialog */}
+      <AlertDialog open={launchError !== null}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <AlertDialogTitle>Launch Failed</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="pt-2">
+              {launchError}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setLaunchError(null)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <DevAgentation />
     </div>

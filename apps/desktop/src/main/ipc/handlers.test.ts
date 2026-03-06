@@ -115,6 +115,7 @@ beforeEach(() => {
       loadState: vi.fn(),
       screenshot: vi.fn(),
       setWorkerClient: vi.fn(),
+      validateBios: vi.fn(() => ({ valid: true, missingFiles: [], biosDir: '', systemName: '' })),
     });
     return emulatorManagerInstance;
   } as any);

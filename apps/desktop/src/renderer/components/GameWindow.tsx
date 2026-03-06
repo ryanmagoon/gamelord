@@ -28,6 +28,7 @@ import {
   CTRL_AUDIO_SAMPLE_RATE,
 } from '../../main/workers/shared-frame-protocol'
 import { DevBranchBadge } from './DevBranchBadge'
+import { EmulationErrorDialog } from './EmulationErrorDialog'
 import { PowerAnimation } from './animations'
 import { getDisplayType } from '../../types/displayType'
 import { useGamepad } from '../hooks/useGamepad'
@@ -79,6 +80,7 @@ export const GameWindow: React.FC = () => {
   const [fps, setFps] = useState(0)
   const [isPoweringOn, setIsPoweringOn] = useState(false)
   const [isPoweringOff, setIsPoweringOff] = useState(false)
+  const [emulationError, setEmulationError] = useState<string | null>(null)
   const [speedMultiplier, setSpeedMultiplier] = useState(1)
   const [showSpeedMenu, setShowSpeedMenu] = useState(false)
   // The last fast-forward speed the user explicitly chose (persisted).
@@ -274,6 +276,7 @@ export const GameWindow: React.FC = () => {
     api.removeAllListeners('game:prepare-close')
     api.removeAllListeners('game:ready-for-boot')
     api.removeAllListeners('emulator:speedChanged')
+    api.removeAllListeners('game:emulation-error')
 
     // Register for SharedArrayBuffer delivery via MessagePort bridge.
     // The main process sends SABs through a MessagePort because contextBridge
@@ -321,6 +324,10 @@ export const GameWindow: React.FC = () => {
     api.on('emulator:resumed', () => setIsPaused(false))
     api.on('emulator:speedChanged', (data: { multiplier: number }) => {
       setSpeedMultiplier(data.multiplier)
+    })
+
+    api.on('game:emulation-error', (data: { message: string }) => {
+      setEmulationError(data.message || 'An unknown error occurred')
     })
 
     api.on('game:prepare-close', () => {
@@ -459,6 +466,7 @@ export const GameWindow: React.FC = () => {
       api.removeAllListeners('game:prepare-close')
       api.removeAllListeners('game:ready-for-boot')
       api.removeAllListeners('emulator:speedChanged')
+      api.removeAllListeners('game:emulation-error')
 
       cancelAnimationFrame(rafIdRef.current)
       pendingFrameRef.current = null
@@ -1122,6 +1130,15 @@ export const GameWindow: React.FC = () => {
         </div>
       </div>
 
+      {/* Fatal emulation error dialog */}
+      <EmulationErrorDialog
+        open={emulationError !== null}
+        message={emulationError ?? ''}
+        onClose={() => {
+          setEmulationError(null)
+          api.gameWindow.readyToClose()
+        }}
+      />
     </div>
   )
 }
