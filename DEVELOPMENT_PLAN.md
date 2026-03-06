@@ -228,9 +228,9 @@ Items are grouped by priority. Work top-down within each tier.
 Tracking issue for the first alpha release. All items below must be completed before shipping.
 
 - [x] **Error resilience** — Emulation crash modal in GameWindow, React ErrorBoundary for both windows, BIOS pre-launch validation (Saturn/PS1), IPC launch errors shown as AlertDialogs instead of alert(). — PR [#163](https://github.com/ryanmagoon/gamelord/pull/163), closes [#161](https://github.com/ryanmagoon/gamelord/issues/161)
-- [ ] **Core download retry** — Add retry button when core download fails (currently shows error banner that auto-dismisses after 2s)
+- [x] **Core download retry** — Error banner persists on failure with Retry + Dismiss buttons; red styling distinguishes errors from progress
 - [ ] **Graceful app startup** — [#125](https://github.com/ryanmagoon/gamelord/issues/125)
-- [ ] **Custom app menu** — About, Preferences (Cmd+,), Scan Library, Help links — [#162](https://github.com/ryanmagoon/gamelord/issues/162)
+- [x] **Custom app menu** — GameLord (About, Preferences Cmd+,, Quit), File (Scan Library, Add ROM Folder), Edit, View, Window, Help (Report Issue, Documentation). Menu events wired to renderer via IPC. Preferences stubs to console.log until settings panel is built (#96). — [#162](https://github.com/ryanmagoon/gamelord/issues/162)
 - [ ] **Library UI redesign — shelf-based home view** — Replace the dashboard layout with a shelf-based layout: hero section, horizontal scroll rows grouped by category (Recently Played, Favorites, per-platform), Cmd+K command palette, no persistent chrome. Existing mosaic grid becomes the "browse all" sub-view. — [#141](https://github.com/ryanmagoon/gamelord/issues/141) (deferred to alpha.2)
 - [ ] **Cmd+K command palette** — Fuzzy search overlay for games, platforms, and actions. Replaces inline search toolbar. — [#142](https://github.com/ryanmagoon/gamelord/issues/142)
 - [x] **Settings panel** — Modal dialog with sidebar tabs (General, Emulation, Library, About). Toolbar gear button + Cmd+, shortcut. Theme, SFX, shader, FPS counter, fast-forward speed, ROM directories, ScreenScraper credentials, about/credits. — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
