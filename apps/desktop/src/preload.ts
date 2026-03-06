@@ -85,7 +85,10 @@ contextBridge.exposeInMainWorld('gamelord', {
       'game:prepare-close',
       'game:emulation-error',
       'game:ready-for-boot',
-      'theme:systemChanged'
+      'theme:systemChanged',
+      'menu:openSettings',
+      'menu:scanLibrary',
+      'menu:addRomFolder'
     ];
 
     if (validChannels.includes(channel)) {
