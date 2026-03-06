@@ -57,7 +57,7 @@ contextBridge.exposeInMainWorld('gamelord', {
     ipcRenderer.send('game:input', port, id, pressed),
 
   // Event listeners
-  on: (channel: string, callback: (...args: any[]) => void) => {
+  on: (channel: string, callback: (...args: unknown[]) => void) => {
     const validChannels = [
       'emulator:launched',
       'emulator:exited',
@@ -117,7 +117,7 @@ contextBridge.exposeInMainWorld('gamelord', {
   // Library management
   library: {
     getSystems: () => ipcRenderer.invoke('library:getSystems'),
-    addSystem: (system: any) => ipcRenderer.invoke('library:addSystem', system),
+    addSystem: (system: unknown) => ipcRenderer.invoke('library:addSystem', system),
     removeSystem: (systemId: string) => ipcRenderer.invoke('library:removeSystem', systemId),
     updateSystemPath: (systemId: string, romsPath: string) => 
       ipcRenderer.invoke('library:updateSystemPath', systemId, romsPath),
@@ -126,7 +126,7 @@ contextBridge.exposeInMainWorld('gamelord', {
     addGame: (romPath: string, systemId: string) => 
       ipcRenderer.invoke('library:addGame', romPath, systemId),
     removeGame: (gameId: string) => ipcRenderer.invoke('library:removeGame', gameId),
-    updateGame: (gameId: string, updates: any) => 
+    updateGame: (gameId: string, updates: unknown) =>
       ipcRenderer.invoke('library:updateGame', gameId, updates),
     
     scanDirectory: (directoryPath: string, systemId?: string) => 

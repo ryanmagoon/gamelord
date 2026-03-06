@@ -79,7 +79,7 @@ export class ArtworkService extends EventEmitter {
     for (const game of needsBackfill) {
       try {
         // Resolve artwork:// URL to filesystem path
-        const filename = game.coverArt!.replace('artwork://', '');
+        const filename = (game.coverArt ?? '').replace('artwork://', '');
         const filePath = path.join(this.artworkDirectory, filename);
 
         const dimensions = await readImageDimensions(filePath);
@@ -229,7 +229,7 @@ export class ArtworkService extends EventEmitter {
     // Step 5: Update game record (including regional system name if applicable)
     const regionalName = getRegionalSystemName(game.systemId, gameInfo.region);
     await this.libraryService.updateGame(gameId, {
-      ...(coverArtPath ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl!)}` } : {}),
+      ...(coverArtPath && artworkUrl ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl)}` } : {}),
       ...(coverArtAspectRatio !== undefined ? { coverArtAspectRatio } : {}),
       ...(regionalName ? { system: regionalName } : {}),
       metadata: {

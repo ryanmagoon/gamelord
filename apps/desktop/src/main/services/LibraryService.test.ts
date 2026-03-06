@@ -36,6 +36,12 @@ import type { ScanProgressEvent } from './LibraryService'
 import { DEFAULT_SYSTEMS } from '../../types/library'
 import type { GameSystem, Game } from '../../types/library'
 
+/** Assert a value is non-null and return it with narrowed type. */
+function assertDefined<T>(value: T | null | undefined, message = 'Expected value to be defined'): T {
+  if (value === null || value === undefined) throw new Error(message)
+  return value
+}
+
 /**
  * The constructor fires off async loadConfig() and loadLibrary() without awaiting them.
  * We need to let those promises settle before interacting with the service.
@@ -177,7 +183,8 @@ describe('LibraryService', () => {
     it('scaffolds per-system ROM folders on first launch and sets romsPath', async () => {
       const service = await createService()
       const config = service.getConfig()
-      const basePath = config.romsBasePath!
+      if (!config.romsBasePath) throw new Error('Expected romsBasePath to be set')
+      const basePath = config.romsBasePath
 
       // Every system in the default config should have a folder created and romsPath set
       for (const system of config.systems) {
@@ -231,7 +238,7 @@ describe('LibraryService', () => {
       // Folders should have been created and romsPath set for the newly added systems
       const saturnDir = path.join(TEST_DIR, 'backfill-roms', 'Saturn')
       expect(fs.existsSync(saturnDir)).toBe(true)
-      const saturn = systems.find(s => s.id === 'saturn')!
+      const saturn = assertDefined(systems.find(s => s.id === 'saturn'))
       expect(saturn.romsPath).toBe(saturnDir)
 
       // Clean up
@@ -258,7 +265,7 @@ describe('LibraryService', () => {
       const found = systems.find(s => s.id === 'custom')
 
       expect(found).toBeDefined()
-      expect(found!.name).toBe('Custom System')
+      expect(assertDefined(found).name).toBe('Custom System')
     })
 
     it('does not add a duplicate system with the same id', async () => {
@@ -418,16 +425,16 @@ describe('LibraryService', () => {
       const game = await service.addGame(romPath, 'nes')
 
       expect(game).not.toBeNull()
-      expect(game!.id).toBe(sha256File(romPath))
-      expect(game!.id).toHaveLength(64) // SHA-256 hex digest
-      expect(game!.title).toBe('test game')
-      expect(game!.system).toBe('Nintendo Entertainment System')
-      expect(game!.systemId).toBe('nes')
-      expect(game!.romPath).toBe(romPath)
+      expect(assertDefined(game).id).toBe(sha256File(romPath))
+      expect(assertDefined(game).id).toHaveLength(64) // SHA-256 hex digest
+      expect(assertDefined(game).title).toBe('test game')
+      expect(assertDefined(game).system).toBe('Nintendo Entertainment System')
+      expect(assertDefined(game).systemId).toBe('nes')
+      expect(assertDefined(game).romPath).toBe(romPath)
 
       // Verify romHashes
       const expected = computeExpectedHashes(romContent)
-      expect(game!.romHashes).toEqual(expected)
+      expect(assertDefined(game).romHashes).toEqual(expected)
 
       fs.unlinkSync(romPath)
     })
@@ -481,7 +488,7 @@ describe('LibraryService', () => {
       const game = await service.addGame(romPath, 'nes')
       expect(service.getGames()).toHaveLength(1)
 
-      await service.removeGame(game!.id)
+      await service.removeGame(assertDefined(game).id)
       expect(service.getGames()).toHaveLength(0)
 
       // Verify persistence
@@ -502,13 +509,13 @@ describe('LibraryService', () => {
       const service = await createService()
       const game = await service.addGame(romPath, 'nes')
 
-      await service.updateGame(game!.id, {
+      await service.updateGame(assertDefined(game).id, {
         title: 'Updated Title',
         favorite: true,
         playTime: 3600,
       })
 
-      const updated = service.getGames().find(g => g.id === game!.id)
+      const updated = service.getGames().find(g => g.id === assertDefined(game).id)
       expect(updated?.title).toBe('Updated Title')
       expect(updated?.favorite).toBe(true)
       expect(updated?.playTime).toBe(3600)
@@ -616,7 +623,7 @@ describe('LibraryService', () => {
 
       const gameC = games.find(g => g.title === 'game c')
       expect(gameC).toBeDefined()
-      expect(gameC!.systemId).toBe('nes')
+      expect(assertDefined(gameC).systemId).toBe('nes')
     })
 
     it('scans with a specific systemId filter', async () => {
@@ -980,7 +987,7 @@ describe('LibraryService', () => {
 
       expect(game).not.toBeNull()
       const expected = computeExpectedHashes(content)
-      expect(game!.romHashes).toEqual(expected)
+      expect(assertDefined(game).romHashes).toEqual(expected)
 
       fs.unlinkSync(romPath)
     })
@@ -1175,7 +1182,7 @@ describe('LibraryService', () => {
       const service = await createService()
       const game = await service.addGame(romPath, 'nes')
 
-      expect(game!.title).toBe('Super Mario Bros')
+      expect(assertDefined(game).title).toBe('Super Mario Bros')
 
       fs.unlinkSync(romPath)
     })
@@ -1187,7 +1194,7 @@ describe('LibraryService', () => {
       const service = await createService()
       const game = await service.addGame(romPath, 'nes')
 
-      expect(game!.title).toBe('Zelda')
+      expect(assertDefined(game).title).toBe('Zelda')
 
       fs.unlinkSync(romPath)
     })
@@ -1199,7 +1206,7 @@ describe('LibraryService', () => {
       const service = await createService()
       const game = await service.addGame(romPath, 'nes')
 
-      expect(game!.title).toBe('Metroid')
+      expect(assertDefined(game).title).toBe('Metroid')
 
       fs.unlinkSync(romPath)
     })
@@ -1211,7 +1218,7 @@ describe('LibraryService', () => {
       const service = await createService()
       const game = await service.addGame(romPath, 'nes')
 
-      expect(game!.title).toBe('Mega Man 2')
+      expect(assertDefined(game).title).toBe('Mega Man 2')
 
       fs.unlinkSync(romPath)
     })
@@ -1223,7 +1230,7 @@ describe('LibraryService', () => {
       const service = await createService()
       const game = await service.addGame(romPath, 'nes')
 
-      expect(game!.title).toBe('Final Fantasy')
+      expect(assertDefined(game).title).toBe('Final Fantasy')
 
       fs.unlinkSync(romPath)
     })
@@ -1383,9 +1390,9 @@ describe('LibraryService', () => {
 
       const zipGame = games.find(g => g.title === 'Tetris')
       expect(zipGame).toBeDefined()
-      expect(zipGame!.romPath).toContain('roms-cache')
-      expect(zipGame!.romPath).toContain('.gb')
-      expect(fs.existsSync(zipGame!.romPath)).toBe(true)
+      expect(assertDefined(zipGame).romPath).toContain('roms-cache')
+      expect(assertDefined(zipGame).romPath).toContain('.gb')
+      expect(fs.existsSync(assertDefined(zipGame).romPath)).toBe(true)
     })
 
     it('sets sourceArchivePath on games extracted from zips', async () => {
@@ -1429,7 +1436,7 @@ describe('LibraryService', () => {
 
       // The ID should be SHA-256 of the ROM content, not the zip file
       const expectedId = sha256String('fake-gb-tetris-data')
-      expect(zipGame!.id).toBe(expectedId)
+      expect(assertDefined(zipGame).id).toBe(expectedId)
     })
 
     it('derives title from ROM filename inside zip, not zip filename', async () => {
@@ -1449,7 +1456,7 @@ describe('LibraryService', () => {
       // Title should come from "Tetris (World).gb" -> cleaned to "Tetris"
       const zipGame = games.find(g => g.sourceArchivePath?.endsWith('tetris.zip'))
       expect(zipGame).toBeDefined()
-      expect(zipGame!.title).toBe('Tetris')
+      expect(assertDefined(zipGame).title).toBe('Tetris')
     })
 
     it('skips zip files with no matching ROM extensions', async () => {
@@ -1487,8 +1494,8 @@ describe('LibraryService', () => {
 
       const rawGame = games.find(g => g.title === 'raw-game')
       expect(rawGame).toBeDefined()
-      expect(rawGame!.romPath).toBe(path.join(zipScanDir, 'raw-game.gb'))
-      expect(rawGame!.sourceArchivePath).toBeUndefined()
+      expect(assertDefined(rawGame).romPath).toBe(path.join(zipScanDir, 'raw-game.gb'))
+      expect(assertDefined(rawGame).sourceArchivePath).toBeUndefined()
     })
 
     it('does not re-extract on subsequent scan (deduplication)', async () => {
@@ -1565,9 +1572,9 @@ describe('LibraryService', () => {
       const game = await service.addGame(path.join(addGameZipDir, 'game.zip'), 'gb')
 
       expect(game).not.toBeNull()
-      expect(game!.romPath).toContain('roms-cache')
-      expect(game!.systemId).toBe('gb')
-      expect(game!.sourceArchivePath).toBe(path.join(addGameZipDir, 'game.zip'))
+      expect(assertDefined(game).romPath).toContain('roms-cache')
+      expect(assertDefined(game).systemId).toBe('gb')
+      expect(assertDefined(game).sourceArchivePath).toBe(path.join(addGameZipDir, 'game.zip'))
     })
 
     it('returns null for zip with no matching ROM for the given system', async () => {
@@ -1620,10 +1627,10 @@ describe('LibraryService', () => {
       const service = await createService()
       const game = await service.addGame(path.join(removeCacheDir, 'game.zip'), 'gb')
       expect(game).not.toBeNull()
-      expect(fs.existsSync(game!.romPath)).toBe(true)
+      expect(fs.existsSync(assertDefined(game).romPath)).toBe(true)
 
-      const cachedRomPath = game!.romPath
-      await service.removeGame(game!.id)
+      const cachedRomPath = assertDefined(game).romPath
+      await service.removeGame(assertDefined(game).id)
 
       expect(fs.existsSync(cachedRomPath)).toBe(false)
       expect(service.getGames()).toHaveLength(0)
@@ -1913,8 +1920,8 @@ describe('LibraryService', () => {
       const game = await service.addGame(romPath, 'nes')
 
       expect(game).not.toBeNull()
-      expect(game!.romMtime).toBeDefined()
-      expect(typeof game!.romMtime).toBe('number')
+      expect(assertDefined(game).romMtime).toBeDefined()
+      expect(typeof assertDefined(game).romMtime).toBe('number')
 
       fs.unlinkSync(romPath)
     })

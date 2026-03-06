@@ -233,8 +233,9 @@ function initialize(command: Extract<WorkerCommand, { action: 'init' }>): void {
 
 /** Write a video frame into the inactive double-buffer and swap the active flag. */
 function writeVideoToSAB(frame: { data: Uint8Array; width: number; height: number }): void {
-  const ctrl = controlView!
-  const video = videoView!
+  if (!controlView || !videoView) return
+  const ctrl = controlView
+  const video = videoView
 
   // Write to the opposite buffer from the one the renderer is reading
   const currentActive = Atomics.load(ctrl, CTRL_ACTIVE_BUFFER)
@@ -257,8 +258,9 @@ function writeVideoToSAB(frame: { data: Uint8Array; width: number; height: numbe
 
 /** Write audio samples into the SPSC ring buffer. */
 function writeAudioToSAB(samples: Int16Array): void {
-  const ctrl = controlView!
-  const ring = audioView!
+  if (!controlView || !audioView) return
+  const ctrl = controlView
+  const ring = audioView
   const ringLen = ring.length
 
   let writePos = Atomics.load(ctrl, CTRL_AUDIO_WRITE_POS)

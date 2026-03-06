@@ -18,7 +18,7 @@ export interface GamelordAPI {
       cardBounds?: { x: number; y: number; width: number; height: number },
     ) => Promise<{ success: boolean; error?: string }>
     stop: () => Promise<{ success: boolean; error?: string }>
-    getAvailable: () => Promise<any>
+    getAvailable: () => Promise<unknown[]>
     isRunning: () => Promise<boolean>
     getCoresForSystem: (systemId: string) => Promise<CoreInfo[]>
     downloadCore: (
@@ -42,20 +42,20 @@ export interface GamelordAPI {
   // Library management (matches preload API)
   library: {
     getSystems: () => Promise<GameSystem[]>
-    addSystem: (system: GameSystem) => Promise<any>
-    removeSystem: (systemId: string) => Promise<any>
-    updateSystemPath: (systemId: string, romsPath: string) => Promise<any>
+    addSystem: (system: GameSystem) => Promise<{ success: boolean }>
+    removeSystem: (systemId: string) => Promise<{ success: boolean }>
+    updateSystemPath: (systemId: string, romsPath: string) => Promise<{ success: boolean }>
 
     getGames: (systemId?: string) => Promise<Game[]>
     addGame: (romPath: string, systemId: string) => Promise<Game | null>
-    removeGame: (gameId: string) => Promise<any>
-    updateGame: (gameId: string, updates: Partial<Game>) => Promise<any>
+    removeGame: (gameId: string) => Promise<{ success: boolean }>
+    updateGame: (gameId: string, updates: Partial<Game>) => Promise<{ success: boolean }>
 
     scanDirectory: (directoryPath: string, systemId?: string) => Promise<Game[]>
-    scanSystemFolders: () => Promise<any>
+    scanSystemFolders: () => Promise<Game[]>
 
     getConfig: () => Promise<LibraryConfig>
-    setRomsBasePath: (basePath: string) => Promise<any>
+    setRomsBasePath: (basePath: string) => Promise<{ success: boolean }>
   }
 
   // Artwork & metadata
@@ -96,7 +96,7 @@ export interface GamelordAPI {
     onMessage: (callback: (data: unknown) => void) => void
   }
 
-  on: (channel: string, callback: (...args: any[]) => void) => void
+  on: (channel: string, callback: (...args: unknown[]) => void) => void
   removeAllListeners: (channel: string) => void
 }
 

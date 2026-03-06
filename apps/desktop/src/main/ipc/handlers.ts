@@ -7,8 +7,12 @@ import { LibraryService } from '../services/LibraryService';
 import { ArtworkService } from '../services/ArtworkService';
 import { ScreenScraperError } from '../services/ScreenScraperClient';
 import { GameWindowManager } from '../GameWindowManager';
-import { GameSystem } from '../../types/library';
+import { Game, GameSystem } from '../../types/library';
 import { ipcLog } from '../logger';
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 export class IPCHandlers {
   private emulatorManager: EmulatorManager;
@@ -41,7 +45,7 @@ export class IPCHandlers {
         return { success: true, corePath };
       } catch (error) {
         ipcLog.error('Failed to download core:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -132,7 +136,7 @@ export class IPCHandlers {
         return { success: true };
       } catch (error) {
         ipcLog.error('Failed to launch emulator:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -142,7 +146,7 @@ export class IPCHandlers {
         return { success: true };
       } catch (error) {
         ipcLog.error('Failed to stop emulator:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -161,7 +165,7 @@ export class IPCHandlers {
         return { success: true };
       } catch (error) {
         ipcLog.error('Failed to pause emulation:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -171,7 +175,7 @@ export class IPCHandlers {
         return { success: true };
       } catch (error) {
         ipcLog.error('Failed to resume emulation:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -181,7 +185,7 @@ export class IPCHandlers {
         return { success: true };
       } catch (error) {
         ipcLog.error('Failed to reset emulation:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -191,7 +195,7 @@ export class IPCHandlers {
         return { success: true };
       } catch (error) {
         ipcLog.error('Failed to set emulation speed:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -202,7 +206,7 @@ export class IPCHandlers {
         return { success: true };
       } catch (error) {
         ipcLog.error('Failed to save state:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -212,7 +216,7 @@ export class IPCHandlers {
         return { success: true };
       } catch (error) {
         ipcLog.error('Failed to load state:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -223,14 +227,14 @@ export class IPCHandlers {
         return { success: true, path };
       } catch (error) {
         ipcLog.error('Failed to take screenshot:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
   }
 
   private setupEmulatorEventForwarding(): void {
     // Forward emulator events to all renderer windows
-    const forwardEvent = (eventName: string, data?: any) => {
+    const forwardEvent = (eventName: string, data?: unknown) => {
       const windows = BrowserWindow.getAllWindows();
       windows.forEach((window: BrowserWindow) => {
         window.webContents.send(eventName, data);
@@ -295,7 +299,7 @@ export class IPCHandlers {
       return { success: true };
     });
 
-    ipcMain.handle('library:updateGame', async (event, gameId: string, updates: any) => {
+    ipcMain.handle('library:updateGame', async (event, gameId: string, updates: Partial<Game>) => {
       await this.libraryService.updateGame(gameId, updates);
       return { success: true };
     });
@@ -376,7 +380,7 @@ export class IPCHandlers {
         const success = await this.artworkService.syncGame(gameId);
         return { success };
       } catch (error) {
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -430,7 +434,7 @@ export class IPCHandlers {
         await this.artworkService.setCredentials(userId, userPassword);
         return { success: true };
       } catch (error) {
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
 
@@ -439,7 +443,7 @@ export class IPCHandlers {
         await this.artworkService.clearCredentials();
         return { success: true };
       } catch (error) {
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: errorMessage(error) };
       }
     });
   }

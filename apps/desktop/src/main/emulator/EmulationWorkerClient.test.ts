@@ -131,7 +131,7 @@ describe('EmulationWorkerClient', () => {
 
       await initPromise
       expect(caughtError).toBeInstanceOf(Error)
-      expect((caughtError as Error).message).toMatch('did not become ready')
+      expect(caughtError instanceof Error ? caughtError.message : '').toMatch('did not become ready')
     })
   })
 
@@ -247,7 +247,7 @@ describe('EmulationWorkerClient', () => {
 
       await savePromise
       expect(caughtError).toBeInstanceOf(Error)
-      expect((caughtError as Error).message).toMatch('timed out')
+      expect(caughtError instanceof Error ? caughtError.message : '').toMatch('timed out')
     })
   })
 
@@ -437,20 +437,20 @@ describe('EmulationWorkerClient', () => {
       await initPromise
 
       const bufs = client.getSharedBuffers()
-      expect(bufs).not.toBeNull()
-      expect(bufs!.control).toBeInstanceOf(SharedArrayBuffer)
-      expect(bufs!.video).toBeInstanceOf(SharedArrayBuffer)
-      expect(bufs!.audio).toBeInstanceOf(SharedArrayBuffer)
+      if (!bufs) throw new Error('Expected shared buffers to be allocated')
+      expect(bufs.control).toBeInstanceOf(SharedArrayBuffer)
+      expect(bufs.video).toBeInstanceOf(SharedArrayBuffer)
+      expect(bufs.audio).toBeInstanceOf(SharedArrayBuffer)
 
       // Verify setupSharedBuffers command was sent to the worker
       const setupCall = mockPostMessage.mock.calls.find(
         (call) => call[0].action === 'setupSharedBuffers',
       )
-      expect(setupCall).toBeDefined()
-      expect(setupCall![0].controlSAB).toBe(bufs!.control)
-      expect(setupCall![0].videoSAB).toBe(bufs!.video)
-      expect(setupCall![0].audioSAB).toBe(bufs!.audio)
-      expect(setupCall![0].videoBufferSize).toBeGreaterThan(0)
+      if (!setupCall) throw new Error('Expected setupSharedBuffers command to be sent')
+      expect(setupCall[0].controlSAB).toBe(bufs.control)
+      expect(setupCall[0].videoSAB).toBe(bufs.video)
+      expect(setupCall[0].audioSAB).toBe(bufs.audio)
+      expect(setupCall[0].videoBufferSize).toBeGreaterThan(0)
     })
 
     it('initializes audio sample rate in control buffer', async () => {
@@ -458,7 +458,8 @@ describe('EmulationWorkerClient', () => {
       emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
       await initPromise
 
-      const bufs = client.getSharedBuffers()!
+      const bufs = client.getSharedBuffers()
+      if (!bufs) throw new Error('Expected shared buffers to be allocated')
       const ctrl = new Int32Array(bufs.control)
       // CTRL_AUDIO_SAMPLE_RATE is at index 6
       expect(Atomics.load(ctrl, 6)).toBe(TEST_AV_INFO.timing.sampleRate)

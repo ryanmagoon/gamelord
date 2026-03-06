@@ -83,7 +83,8 @@ function App() {
 
   // Listen for resume game dialog requests from main process
   useEffect(() => {
-    const handleShowResumeDialog = (data: { requestId: string; gameTitle: string }) => {
+    const handleShowResumeDialog = (raw: unknown) => {
+      const data = raw as { requestId: string; gameTitle: string }
       playSfxRef.current('dialogOpen')
       setResumeDialog({
         open: true,
@@ -122,8 +123,8 @@ function App() {
   useEffect(() => {
     if (themeMode !== 'system') return
 
-    const handleSystemThemeChange = (isDark: boolean) => {
-      applyDarkClass(isDark)
+    const handleSystemThemeChange = (raw: unknown) => {
+      applyDarkClass(raw as boolean)
     }
 
     api.on('theme:systemChanged', handleSystemThemeChange)

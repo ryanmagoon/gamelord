@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'events';
+import type { IpcMainInvokeEvent, BrowserWindow as BrowserWindowType } from 'electron';
 
 // ---------------------------------------------------------------------------
 // Mocks — vi.mock calls are hoisted above imports by vitest
@@ -46,35 +47,111 @@ import type { Game, GameSystem } from '../../types/library';
 // Helpers
 // ---------------------------------------------------------------------------
 
+type IpcHandler = (...args: unknown[]) => unknown;
+
 /**
  * Extract a registered ipcMain.handle handler by channel name.
+ * Throws if the channel was not registered.
  */
-function getHandler(channel: string): ((...args: any[]) => any) | undefined {
+function getHandler(channel: string): IpcHandler {
   const calls = vi.mocked(ipcMain.handle).mock.calls;
   const match = calls.find(([ch]) => ch === channel);
-  return match?.[1] as ((...args: any[]) => any) | undefined;
+  if (!match) throw new Error(`No handler registered for channel: ${channel}`);
+  return match[1] as IpcHandler;
 }
 
 /**
  * Extract a registered ipcMain.on listener by channel name.
+ * Throws if the channel was not registered.
  */
-function getOnListener(channel: string): ((...args: any[]) => any) | undefined {
+function getOnListener(channel: string): IpcHandler {
   const calls = vi.mocked(ipcMain.on).mock.calls;
   const match = calls.find(([ch]) => ch === channel);
-  return match?.[1] as ((...args: any[]) => any) | undefined;
+  if (!match) throw new Error(`No listener registered for channel: ${channel}`);
+  return match[1] as IpcHandler;
 }
 
 /** Stub IpcMainInvokeEvent */
-const fakeEvent = {} as any;
+const fakeEvent = {} as unknown as IpcMainInvokeEvent;
+
+// ---------------------------------------------------------------------------
+// Mock instance interfaces — typed alternatives to `any`
+// ---------------------------------------------------------------------------
+
+interface MockEmulatorManager {
+  on: ReturnType<typeof vi.fn>;
+  emit: (...args: unknown[]) => boolean;
+  removeListener: (...args: unknown[]) => EventEmitter;
+  getCoresForSystem: ReturnType<typeof vi.fn>;
+  getCoreDownloader: ReturnType<typeof vi.fn>;
+  launchGame: ReturnType<typeof vi.fn>;
+  stopEmulator: ReturnType<typeof vi.fn>;
+  getAvailableEmulators: ReturnType<typeof vi.fn>;
+  isEmulatorRunning: ReturnType<typeof vi.fn>;
+  isNativeMode: ReturnType<typeof vi.fn>;
+  getCurrentEmulator: ReturnType<typeof vi.fn>;
+  getCurrentEmulatorPid: ReturnType<typeof vi.fn>;
+  pause: ReturnType<typeof vi.fn>;
+  resume: ReturnType<typeof vi.fn>;
+  reset: ReturnType<typeof vi.fn>;
+  saveState: ReturnType<typeof vi.fn>;
+  loadState: ReturnType<typeof vi.fn>;
+  screenshot: ReturnType<typeof vi.fn>;
+  setWorkerClient: ReturnType<typeof vi.fn>;
+  validateBios: ReturnType<typeof vi.fn>;
+  setSpeed?: ReturnType<typeof vi.fn>;
+  [key: string]: unknown;
+}
+
+interface MockLibraryService {
+  getSystems: ReturnType<typeof vi.fn>;
+  addSystem: ReturnType<typeof vi.fn>;
+  removeSystem: ReturnType<typeof vi.fn>;
+  updateSystemPath: ReturnType<typeof vi.fn>;
+  getGames: ReturnType<typeof vi.fn>;
+  addGame: ReturnType<typeof vi.fn>;
+  removeGame: ReturnType<typeof vi.fn>;
+  updateGame: ReturnType<typeof vi.fn>;
+  scanDirectory: ReturnType<typeof vi.fn>;
+  scanSystemFolders: ReturnType<typeof vi.fn>;
+  getConfig: ReturnType<typeof vi.fn>;
+  setRomsBasePath: ReturnType<typeof vi.fn>;
+  [key: string]: unknown;
+}
+
+interface MockGameWindowManager {
+  createNativeGameWindow: ReturnType<typeof vi.fn>;
+  createGameWindow: ReturnType<typeof vi.fn>;
+  startTrackingRetroArchWindow: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
+  [key: string]: unknown;
+}
+
+interface MockWorkerClient {
+  init: ReturnType<typeof vi.fn>;
+  setInput: ReturnType<typeof vi.fn>;
+  pause: ReturnType<typeof vi.fn>;
+  resume: ReturnType<typeof vi.fn>;
+  reset: ReturnType<typeof vi.fn>;
+  saveState: ReturnType<typeof vi.fn>;
+  loadState: ReturnType<typeof vi.fn>;
+  saveSram: ReturnType<typeof vi.fn>;
+  screenshot: ReturnType<typeof vi.fn>;
+  shutdown: ReturnType<typeof vi.fn>;
+  destroy: ReturnType<typeof vi.fn>;
+  isRunning: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
+  [key: string]: unknown;
+}
 
 // ---------------------------------------------------------------------------
 // Test-level state
 // ---------------------------------------------------------------------------
 
-let emulatorManagerInstance: any;
-let libraryServiceInstance: any;
-let gameWindowManagerInstance: any;
-let workerClientInstance: any;
+let emulatorManagerInstance: MockEmulatorManager;
+let libraryServiceInstance: MockLibraryService;
+let gameWindowManagerInstance: MockGameWindowManager;
+let workerClientInstance: MockWorkerClient;
 let emulatorEmitter: EventEmitter;
 
 const fakeAvInfo = {
@@ -116,9 +193,9 @@ beforeEach(() => {
       screenshot: vi.fn(),
       setWorkerClient: vi.fn(),
       validateBios: vi.fn(() => ({ valid: true, missingFiles: [], biosDir: '', systemName: '' })),
-    });
-    return emulatorManagerInstance;
-  } as any);
+    }) as unknown as MockEmulatorManager;
+    return emulatorManagerInstance as unknown as EmulatorManager;
+  } as unknown as () => EmulatorManager);
 
   // Configure EmulationWorkerClient mock constructor
   vi.mocked(EmulationWorkerClient).mockImplementation(function (this: Record<string, unknown>) {
@@ -136,9 +213,9 @@ beforeEach(() => {
       destroy: vi.fn().mockResolvedValue(undefined),
       isRunning: vi.fn(() => true),
       on: vi.fn(),
-    });
-    return workerClientInstance;
-  } as any);
+    }) as unknown as MockWorkerClient;
+    return workerClientInstance as unknown as EmulationWorkerClient;
+  } as unknown as () => EmulationWorkerClient);
 
   // Configure resolveAddonPath mock
   vi.mocked(resolveAddonPath).mockReturnValue('/fake/addon.node');
@@ -158,9 +235,9 @@ beforeEach(() => {
       scanSystemFolders: vi.fn(),
       getConfig: vi.fn(),
       setRomsBasePath: vi.fn(),
-    });
-    return libraryServiceInstance;
-  } as any);
+    }) as unknown as MockLibraryService;
+    return libraryServiceInstance as unknown as LibraryService;
+  } as unknown as () => LibraryService);
 
   // Configure GameWindowManager mock constructor
   vi.mocked(GameWindowManager).mockImplementation(function (this: Record<string, unknown>) {
@@ -168,10 +245,10 @@ beforeEach(() => {
       createNativeGameWindow: vi.fn(),
       createGameWindow: vi.fn(),
       startTrackingRetroArchWindow: vi.fn(),
-    });
+    }) as unknown as MockGameWindowManager;
     gameWindowManagerInstance.on = vi.fn(() => gameWindowManagerInstance);
-    return gameWindowManagerInstance;
-  } as any);
+    return gameWindowManagerInstance as unknown as GameWindowManager;
+  } as unknown as () => GameWindowManager);
 
   // Instantiate IPCHandlers — triggers all handler registrations
   new IPCHandlers('/fake/preload.js');
@@ -241,7 +318,7 @@ describe('IPCHandlers', () => {
       const cores = [{ name: 'fceumm', installed: true }];
       emulatorManagerInstance.getCoresForSystem.mockReturnValue(cores);
 
-      const handler = getHandler('emulator:getCoresForSystem')!;
+      const handler = getHandler('emulator:getCoresForSystem');
       const result = await handler(fakeEvent, 'nes');
 
       expect(emulatorManagerInstance.getCoresForSystem).toHaveBeenCalledWith('nes');
@@ -257,7 +334,7 @@ describe('IPCHandlers', () => {
       const downloadMock = vi.fn().mockResolvedValue('/cores/fceumm.dylib');
       emulatorManagerInstance.getCoreDownloader.mockReturnValue({ downloadCore: downloadMock });
 
-      const handler = getHandler('emulator:downloadCore')!;
+      const handler = getHandler('emulator:downloadCore');
       const result = await handler(fakeEvent, 'fceumm', 'nes');
 
       expect(downloadMock).toHaveBeenCalledWith('fceumm', 'nes');
@@ -268,7 +345,7 @@ describe('IPCHandlers', () => {
       const downloadMock = vi.fn().mockRejectedValue(new Error('Network error'));
       emulatorManagerInstance.getCoreDownloader.mockReturnValue({ downloadCore: downloadMock });
 
-      const handler = getHandler('emulator:downloadCore')!;
+      const handler = getHandler('emulator:downloadCore');
       const result = await handler(fakeEvent, 'fceumm', 'nes');
 
       expect(result).toEqual({ success: false, error: 'Network error' });
@@ -306,7 +383,7 @@ describe('IPCHandlers', () => {
       emulatorManagerInstance.getCurrentEmulator.mockReturnValue(nativeCoreMock);
       gameWindowManagerInstance.createNativeGameWindow.mockReturnValue({});
 
-      const handler = getHandler('emulator:launch')!;
+      const handler = getHandler('emulator:launch');
       const result = await handler(fakeEvent, '/roms/smb.nes', 'nes', undefined, 'fceumm');
 
       expect(libraryServiceInstance.getGames).toHaveBeenCalledWith('nes');
@@ -336,7 +413,7 @@ describe('IPCHandlers', () => {
       emulatorManagerInstance.isNativeMode.mockReturnValue(false);
       emulatorManagerInstance.getCurrentEmulatorPid.mockReturnValue(12345);
 
-      const handler = getHandler('emulator:launch')!;
+      const handler = getHandler('emulator:launch');
       const result = await handler(fakeEvent, '/roms/smb.nes', 'nes', 'retroarch');
 
       expect(gameWindowManagerInstance.createGameWindow).toHaveBeenCalledWith(fakeGame);
@@ -347,7 +424,7 @@ describe('IPCHandlers', () => {
     it('returns error when game is not found in library', async () => {
       libraryServiceInstance.getGames.mockReturnValue([]);
 
-      const handler = getHandler('emulator:launch')!;
+      const handler = getHandler('emulator:launch');
       const result = await handler(fakeEvent, '/roms/missing.nes', 'nes');
 
       expect(result).toEqual({ success: false, error: 'Game not found in library' });
@@ -357,7 +434,7 @@ describe('IPCHandlers', () => {
       libraryServiceInstance.getGames.mockReturnValue([fakeGame]);
       emulatorManagerInstance.launchGame.mockRejectedValue(new Error('Core not found'));
 
-      const handler = getHandler('emulator:launch')!;
+      const handler = getHandler('emulator:launch');
       const result = await handler(fakeEvent, '/roms/smb.nes', 'nes');
 
       expect(result).toEqual({ success: false, error: 'Core not found' });
@@ -369,7 +446,7 @@ describe('IPCHandlers', () => {
       emulatorManagerInstance.isNativeMode.mockReturnValue(false);
       emulatorManagerInstance.getCurrentEmulatorPid.mockReturnValue(undefined);
 
-      const handler = getHandler('emulator:launch')!;
+      const handler = getHandler('emulator:launch');
       const result = await handler(fakeEvent, '/roms/smb.nes', 'nes', 'retroarch');
 
       expect(gameWindowManagerInstance.createGameWindow).toHaveBeenCalledWith(fakeGame);
@@ -385,7 +462,7 @@ describe('IPCHandlers', () => {
     it('returns success on successful stop', async () => {
       emulatorManagerInstance.stopEmulator.mockResolvedValue(undefined);
 
-      const handler = getHandler('emulator:stop')!;
+      const handler = getHandler('emulator:stop');
       const result = await handler(fakeEvent);
 
       expect(emulatorManagerInstance.stopEmulator).toHaveBeenCalled();
@@ -395,7 +472,7 @@ describe('IPCHandlers', () => {
     it('returns error on failure', async () => {
       emulatorManagerInstance.stopEmulator.mockRejectedValue(new Error('Stop failed'));
 
-      const handler = getHandler('emulator:stop')!;
+      const handler = getHandler('emulator:stop');
       const result = await handler(fakeEvent);
 
       expect(result).toEqual({ success: false, error: 'Stop failed' });
@@ -410,7 +487,7 @@ describe('IPCHandlers', () => {
       const emulators = [{ id: 'retroarch', name: 'RetroArch' }];
       emulatorManagerInstance.getAvailableEmulators.mockReturnValue(emulators);
 
-      const handler = getHandler('emulator:getAvailable')!;
+      const handler = getHandler('emulator:getAvailable');
       const result = handler(fakeEvent);
 
       expect(emulatorManagerInstance.getAvailableEmulators).toHaveBeenCalled();
@@ -425,7 +502,7 @@ describe('IPCHandlers', () => {
     it('delegates to EmulatorManager.isEmulatorRunning', () => {
       emulatorManagerInstance.isEmulatorRunning.mockReturnValue(true);
 
-      const handler = getHandler('emulator:isRunning')!;
+      const handler = getHandler('emulator:isRunning');
       const result = handler(fakeEvent);
 
       expect(emulatorManagerInstance.isEmulatorRunning).toHaveBeenCalled();
@@ -440,7 +517,7 @@ describe('IPCHandlers', () => {
     it('returns success when pause succeeds', async () => {
       emulatorManagerInstance.pause.mockResolvedValue(undefined);
 
-      const handler = getHandler('emulation:pause')!;
+      const handler = getHandler('emulation:pause');
       const result = await handler(fakeEvent);
 
       expect(emulatorManagerInstance.pause).toHaveBeenCalled();
@@ -450,7 +527,7 @@ describe('IPCHandlers', () => {
     it('returns error when pause fails', async () => {
       emulatorManagerInstance.pause.mockRejectedValue(new Error('No emulator running'));
 
-      const handler = getHandler('emulation:pause')!;
+      const handler = getHandler('emulation:pause');
       const result = await handler(fakeEvent);
 
       expect(result).toEqual({ success: false, error: 'No emulator running' });
@@ -464,7 +541,7 @@ describe('IPCHandlers', () => {
     it('returns success when resume succeeds', async () => {
       emulatorManagerInstance.resume.mockResolvedValue(undefined);
 
-      const handler = getHandler('emulation:resume')!;
+      const handler = getHandler('emulation:resume');
       const result = await handler(fakeEvent);
 
       expect(emulatorManagerInstance.resume).toHaveBeenCalled();
@@ -474,7 +551,7 @@ describe('IPCHandlers', () => {
     it('returns error when resume fails', async () => {
       emulatorManagerInstance.resume.mockRejectedValue(new Error('No emulator running'));
 
-      const handler = getHandler('emulation:resume')!;
+      const handler = getHandler('emulation:resume');
       const result = await handler(fakeEvent);
 
       expect(result).toEqual({ success: false, error: 'No emulator running' });
@@ -488,7 +565,7 @@ describe('IPCHandlers', () => {
     it('returns success when reset succeeds', async () => {
       emulatorManagerInstance.reset.mockResolvedValue(undefined);
 
-      const handler = getHandler('emulation:reset')!;
+      const handler = getHandler('emulation:reset');
       const result = await handler(fakeEvent);
 
       expect(emulatorManagerInstance.reset).toHaveBeenCalled();
@@ -498,7 +575,7 @@ describe('IPCHandlers', () => {
     it('returns error when reset fails', async () => {
       emulatorManagerInstance.reset.mockRejectedValue(new Error('No emulator running'));
 
-      const handler = getHandler('emulation:reset')!;
+      const handler = getHandler('emulation:reset');
       const result = await handler(fakeEvent);
 
       expect(result).toEqual({ success: false, error: 'No emulator running' });
@@ -512,7 +589,7 @@ describe('IPCHandlers', () => {
     it('returns success when setSpeed succeeds', async () => {
       emulatorManagerInstance.setSpeed = vi.fn();
 
-      const handler = getHandler('emulation:setSpeed')!;
+      const handler = getHandler('emulation:setSpeed');
       const result = await handler(fakeEvent, 2);
 
       expect(emulatorManagerInstance.setSpeed).toHaveBeenCalledWith(2);
@@ -524,7 +601,7 @@ describe('IPCHandlers', () => {
         throw new Error('No emulator running');
       });
 
-      const handler = getHandler('emulation:setSpeed')!;
+      const handler = getHandler('emulation:setSpeed');
       const result = await handler(fakeEvent, 4);
 
       expect(result).toEqual({ success: false, error: 'No emulator running' });
@@ -538,7 +615,7 @@ describe('IPCHandlers', () => {
     it('returns success when save state succeeds', async () => {
       emulatorManagerInstance.saveState.mockResolvedValue(undefined);
 
-      const handler = getHandler('savestate:save')!;
+      const handler = getHandler('savestate:save');
       const result = await handler(fakeEvent, 2);
 
       expect(emulatorManagerInstance.saveState).toHaveBeenCalledWith(2);
@@ -548,7 +625,7 @@ describe('IPCHandlers', () => {
     it('returns error when save state fails', async () => {
       emulatorManagerInstance.saveState.mockRejectedValue(new Error('Save failed'));
 
-      const handler = getHandler('savestate:save')!;
+      const handler = getHandler('savestate:save');
       const result = await handler(fakeEvent, 1);
 
       expect(result).toEqual({ success: false, error: 'Save failed' });
@@ -562,7 +639,7 @@ describe('IPCHandlers', () => {
     it('returns success when load state succeeds', async () => {
       emulatorManagerInstance.loadState.mockResolvedValue(undefined);
 
-      const handler = getHandler('savestate:load')!;
+      const handler = getHandler('savestate:load');
       const result = await handler(fakeEvent, 3);
 
       expect(emulatorManagerInstance.loadState).toHaveBeenCalledWith(3);
@@ -572,7 +649,7 @@ describe('IPCHandlers', () => {
     it('returns error when load state fails', async () => {
       emulatorManagerInstance.loadState.mockRejectedValue(new Error('Slot empty'));
 
-      const handler = getHandler('savestate:load')!;
+      const handler = getHandler('savestate:load');
       const result = await handler(fakeEvent, 0);
 
       expect(result).toEqual({ success: false, error: 'Slot empty' });
@@ -586,7 +663,7 @@ describe('IPCHandlers', () => {
     it('returns success with path when screenshot succeeds', async () => {
       emulatorManagerInstance.screenshot.mockResolvedValue('/screenshots/screen.png');
 
-      const handler = getHandler('emulation:screenshot')!;
+      const handler = getHandler('emulation:screenshot');
       const result = await handler(fakeEvent, '/screenshots/screen.png');
 
       expect(emulatorManagerInstance.screenshot).toHaveBeenCalledWith('/screenshots/screen.png');
@@ -596,7 +673,7 @@ describe('IPCHandlers', () => {
     it('uses default output path when none provided', async () => {
       emulatorManagerInstance.screenshot.mockResolvedValue('/tmp/default.png');
 
-      const handler = getHandler('emulation:screenshot')!;
+      const handler = getHandler('emulation:screenshot');
       const result = await handler(fakeEvent);
 
       expect(emulatorManagerInstance.screenshot).toHaveBeenCalledWith(undefined);
@@ -606,7 +683,7 @@ describe('IPCHandlers', () => {
     it('returns error when screenshot fails', async () => {
       emulatorManagerInstance.screenshot.mockRejectedValue(new Error('No emulator running'));
 
-      const handler = getHandler('emulation:screenshot')!;
+      const handler = getHandler('emulation:screenshot');
       const result = await handler(fakeEvent);
 
       expect(result).toEqual({ success: false, error: 'No emulator running' });
@@ -623,7 +700,7 @@ describe('IPCHandlers', () => {
       ];
       libraryServiceInstance.getSystems.mockReturnValue(systems);
 
-      const handler = getHandler('library:getSystems')!;
+      const handler = getHandler('library:getSystems');
       const result = handler(fakeEvent);
 
       expect(libraryServiceInstance.getSystems).toHaveBeenCalled();
@@ -644,7 +721,7 @@ describe('IPCHandlers', () => {
       };
       libraryServiceInstance.addSystem.mockResolvedValue(undefined);
 
-      const handler = getHandler('library:addSystem')!;
+      const handler = getHandler('library:addSystem');
       const result = await handler(fakeEvent, newSystem);
 
       expect(libraryServiceInstance.addSystem).toHaveBeenCalledWith(newSystem);
@@ -659,7 +736,7 @@ describe('IPCHandlers', () => {
     it('delegates to LibraryService.removeSystem and returns success', async () => {
       libraryServiceInstance.removeSystem.mockResolvedValue(undefined);
 
-      const handler = getHandler('library:removeSystem')!;
+      const handler = getHandler('library:removeSystem');
       const result = await handler(fakeEvent, 'nes');
 
       expect(libraryServiceInstance.removeSystem).toHaveBeenCalledWith('nes');
@@ -674,7 +751,7 @@ describe('IPCHandlers', () => {
     it('delegates to LibraryService.updateSystemPath and returns success', async () => {
       libraryServiceInstance.updateSystemPath.mockResolvedValue(undefined);
 
-      const handler = getHandler('library:updateSystemPath')!;
+      const handler = getHandler('library:updateSystemPath');
       const result = await handler(fakeEvent, 'nes', '/roms/nes');
 
       expect(libraryServiceInstance.updateSystemPath).toHaveBeenCalledWith('nes', '/roms/nes');
@@ -690,7 +767,7 @@ describe('IPCHandlers', () => {
       const games = [{ id: 'g1', title: 'SMB', systemId: 'nes' }];
       libraryServiceInstance.getGames.mockReturnValue(games);
 
-      const handler = getHandler('library:getGames')!;
+      const handler = getHandler('library:getGames');
       const result = handler(fakeEvent, 'nes');
 
       expect(libraryServiceInstance.getGames).toHaveBeenCalledWith('nes');
@@ -700,7 +777,7 @@ describe('IPCHandlers', () => {
     it('delegates without systemId to get all games', () => {
       libraryServiceInstance.getGames.mockReturnValue([]);
 
-      const handler = getHandler('library:getGames')!;
+      const handler = getHandler('library:getGames');
       const result = handler(fakeEvent);
 
       expect(libraryServiceInstance.getGames).toHaveBeenCalledWith(undefined);
@@ -716,7 +793,7 @@ describe('IPCHandlers', () => {
       const game = { id: 'g1', title: 'Zelda', systemId: 'nes', romPath: '/roms/zelda.nes' };
       libraryServiceInstance.addGame.mockResolvedValue(game);
 
-      const handler = getHandler('library:addGame')!;
+      const handler = getHandler('library:addGame');
       const result = await handler(fakeEvent, '/roms/zelda.nes', 'nes');
 
       expect(libraryServiceInstance.addGame).toHaveBeenCalledWith('/roms/zelda.nes', 'nes');
@@ -731,7 +808,7 @@ describe('IPCHandlers', () => {
     it('delegates to LibraryService.removeGame and returns success', async () => {
       libraryServiceInstance.removeGame.mockResolvedValue(undefined);
 
-      const handler = getHandler('library:removeGame')!;
+      const handler = getHandler('library:removeGame');
       const result = await handler(fakeEvent, 'game-123');
 
       expect(libraryServiceInstance.removeGame).toHaveBeenCalledWith('game-123');
@@ -746,7 +823,7 @@ describe('IPCHandlers', () => {
     it('delegates to LibraryService.updateGame and returns success', async () => {
       libraryServiceInstance.updateGame.mockResolvedValue(undefined);
 
-      const handler = getHandler('library:updateGame')!;
+      const handler = getHandler('library:updateGame');
       const result = await handler(fakeEvent, 'game-123', { favorite: true });
 
       expect(libraryServiceInstance.updateGame).toHaveBeenCalledWith('game-123', { favorite: true });
@@ -762,7 +839,7 @@ describe('IPCHandlers', () => {
       const games = [{ id: 'g1', title: 'SMB' }];
       libraryServiceInstance.scanDirectory.mockResolvedValue(games);
 
-      const handler = getHandler('library:scanDirectory')!;
+      const handler = getHandler('library:scanDirectory');
       const result = await handler(fakeEvent, '/roms', 'nes');
 
       expect(libraryServiceInstance.scanDirectory).toHaveBeenCalledWith('/roms', 'nes');
@@ -772,7 +849,7 @@ describe('IPCHandlers', () => {
     it('delegates without systemId', async () => {
       libraryServiceInstance.scanDirectory.mockResolvedValue([]);
 
-      const handler = getHandler('library:scanDirectory')!;
+      const handler = getHandler('library:scanDirectory');
       const result = await handler(fakeEvent, '/roms');
 
       expect(libraryServiceInstance.scanDirectory).toHaveBeenCalledWith('/roms', undefined);
@@ -788,7 +865,7 @@ describe('IPCHandlers', () => {
       const games = [{ id: 'g1', title: 'SMB' }];
       libraryServiceInstance.scanSystemFolders.mockResolvedValue(games);
 
-      const handler = getHandler('library:scanSystemFolders')!;
+      const handler = getHandler('library:scanSystemFolders');
       const result = await handler(fakeEvent);
 
       expect(libraryServiceInstance.scanSystemFolders).toHaveBeenCalled();
@@ -804,7 +881,7 @@ describe('IPCHandlers', () => {
       const config = { systems: [], romsBasePath: '/roms' };
       libraryServiceInstance.getConfig.mockReturnValue(config);
 
-      const handler = getHandler('library:getConfig')!;
+      const handler = getHandler('library:getConfig');
       const result = handler(fakeEvent);
 
       expect(libraryServiceInstance.getConfig).toHaveBeenCalled();
@@ -819,7 +896,7 @@ describe('IPCHandlers', () => {
     it('delegates to LibraryService.setRomsBasePath and returns success', async () => {
       libraryServiceInstance.setRomsBasePath.mockResolvedValue(undefined);
 
-      const handler = getHandler('library:setRomsBasePath')!;
+      const handler = getHandler('library:setRomsBasePath');
       const result = await handler(fakeEvent, '/new/roms');
 
       expect(libraryServiceInstance.setRomsBasePath).toHaveBeenCalledWith('/new/roms');
@@ -837,7 +914,7 @@ describe('IPCHandlers', () => {
         filePaths: ['/selected/directory'],
       });
 
-      const handler = getHandler('dialog:selectDirectory')!;
+      const handler = getHandler('dialog:selectDirectory');
       const result = await handler(fakeEvent);
 
       expect(dialog.showOpenDialog).toHaveBeenCalledWith({
@@ -853,7 +930,7 @@ describe('IPCHandlers', () => {
         filePaths: [],
       });
 
-      const handler = getHandler('dialog:selectDirectory')!;
+      const handler = getHandler('dialog:selectDirectory');
       const result = await handler(fakeEvent);
 
       expect(result).toBeNull();
@@ -878,7 +955,7 @@ describe('IPCHandlers', () => {
         filePaths: ['/roms/smb.nes'],
       });
 
-      const handler = getHandler('dialog:selectRomFile')!;
+      const handler = getHandler('dialog:selectRomFile');
       const result = await handler(fakeEvent, 'nes');
 
       expect(dialog.showOpenDialog).toHaveBeenCalledWith({
@@ -902,7 +979,7 @@ describe('IPCHandlers', () => {
         filePaths: ['/roms/game.rom'],
       });
 
-      const handler = getHandler('dialog:selectRomFile')!;
+      const handler = getHandler('dialog:selectRomFile');
       const result = await handler(fakeEvent, 'unknown');
 
       expect(dialog.showOpenDialog).toHaveBeenCalledWith({
@@ -921,7 +998,7 @@ describe('IPCHandlers', () => {
         filePaths: [],
       });
 
-      const handler = getHandler('dialog:selectRomFile')!;
+      const handler = getHandler('dialog:selectRomFile');
       const result = await handler(fakeEvent, 'nes');
 
       expect(result).toBeNull();
@@ -935,7 +1012,7 @@ describe('IPCHandlers', () => {
     it('forwards emulatorManager events to all BrowserWindows', () => {
       const sendMock = vi.fn();
       const fakeWindow = { webContents: { send: sendMock } };
-      vi.mocked(BrowserWindow.getAllWindows).mockReturnValue([fakeWindow as any]);
+      vi.mocked(BrowserWindow.getAllWindows).mockReturnValue([fakeWindow as unknown as BrowserWindowType]);
 
       const forwardedEvents = [
         { emitterEvent: 'gameLaunched', ipcEvent: 'emulator:launched', data: { romPath: '/rom' } },
@@ -963,8 +1040,8 @@ describe('IPCHandlers', () => {
       const send1 = vi.fn();
       const send2 = vi.fn();
       vi.mocked(BrowserWindow.getAllWindows).mockReturnValue([
-        { webContents: { send: send1 } } as any,
-        { webContents: { send: send2 } } as any,
+        { webContents: { send: send1 } } as unknown as BrowserWindowType,
+        { webContents: { send: send2 } } as unknown as BrowserWindowType,
       ]);
 
       emulatorEmitter.emit('emulator:paused');
@@ -984,7 +1061,7 @@ describe('IPCHandlers', () => {
     });
 
     it('does not throw when called with an unknown requestId', () => {
-      const listener = getOnListener('dialog:resumeGameResponse')!;
+      const listener = getOnListener('dialog:resumeGameResponse');
       expect(() => listener(fakeEvent, 'unknown-id', true)).not.toThrow();
     });
   });

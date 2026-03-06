@@ -132,8 +132,8 @@ describe('ArtworkService', () => {
 
     // Stub the internal sleep/rate-limit to avoid real delays in tests.
     // The prototype methods are patched so every ArtworkService instance is fast.
-    vi.spyOn(ArtworkService.prototype as any, 'sleep').mockResolvedValue(undefined);
-    vi.spyOn(ArtworkService.prototype as any, 'waitForRateLimit').mockResolvedValue(undefined);
+    vi.spyOn(ArtworkService.prototype as unknown as Record<string, () => Promise<void>>, 'sleep').mockResolvedValue(undefined);
+    vi.spyOn(ArtworkService.prototype as unknown as Record<string, () => Promise<void>>, 'waitForRateLimit').mockResolvedValue(undefined);
   });
 
   describe('credentials management', () => {
@@ -179,7 +179,7 @@ describe('ArtworkService', () => {
       const service = new ArtworkService(createMockLibraryService([game]));
       await flushPromises();
 
-      (service as any).syncing = true;
+      (service as unknown as Record<string, boolean>).syncing = true;
 
       const status = await service.syncAllGames();
       expect(status.inProgress).toBe(true);
@@ -200,7 +200,7 @@ describe('ArtworkService', () => {
       const service = new ArtworkService(createMockLibraryService([]));
       await flushPromises();
 
-      const syncCompletePromise = new Promise<any>(resolve => {
+      const syncCompletePromise = new Promise<{ inProgress: boolean }>(resolve => {
         service.on('syncComplete', resolve);
       });
 
@@ -246,25 +246,25 @@ describe('ArtworkService', () => {
   describe('getImageExtension', () => {
     it('extracts .png extension from URL', async () => {
       const service = new ArtworkService(createMockLibraryService());
-      const ext = (service as any).getImageExtension('https://example.com/image.png');
+      const ext = (service as unknown as Record<string, (url: string) => string>).getImageExtension('https://example.com/image.png');
       expect(ext).toBe('.png');
     });
 
     it('extracts .jpg extension from URL', async () => {
       const service = new ArtworkService(createMockLibraryService());
-      const ext = (service as any).getImageExtension('https://example.com/image.jpg');
+      const ext = (service as unknown as Record<string, (url: string) => string>).getImageExtension('https://example.com/image.jpg');
       expect(ext).toBe('.jpg');
     });
 
     it('defaults to .png for unknown extensions', async () => {
       const service = new ArtworkService(createMockLibraryService());
-      const ext = (service as any).getImageExtension('https://example.com/image.bmp');
+      const ext = (service as unknown as Record<string, (url: string) => string>).getImageExtension('https://example.com/image.bmp');
       expect(ext).toBe('.png');
     });
 
     it('handles URLs with query parameters', async () => {
       const service = new ArtworkService(createMockLibraryService());
-      const ext = (service as any).getImageExtension('https://example.com/image.jpeg?quality=80');
+      const ext = (service as unknown as Record<string, (url: string) => string>).getImageExtension('https://example.com/image.jpeg?quality=80');
       expect(ext).toBe('.jpeg');
     });
   });
@@ -418,7 +418,7 @@ describe('ArtworkService', () => {
       await service.syncGame('jp-gb-game');
 
       // updateGame should NOT contain a 'system' key since Game Boy has no regional variants
-      const updateCall = (libraryService.updateGame as any).mock.calls[0][1];
+      const updateCall = vi.mocked(libraryService.updateGame).mock.calls[0][1];
       expect(updateCall).not.toHaveProperty('system');
     });
 
@@ -530,7 +530,7 @@ describe('ArtworkService', () => {
     it('returns immediately if already syncing', async () => {
       const service = new ArtworkService(createMockLibraryService([]));
       await flushPromises();
-      (service as any).syncing = true;
+      (service as unknown as Record<string, boolean>).syncing = true;
 
       const status = await service.syncGames(['game1']);
       expect(status.inProgress).toBe(true);
@@ -564,8 +564,8 @@ describe('ArtworkService', () => {
 
       // Verify the error event has the correct errorCode
       const errorEvent = progressEvents.find(p => p.phase === 'error');
-      expect(errorEvent).toBeDefined();
-      expect(errorEvent!.errorCode).toBe('auth-failed');
+      if (!errorEvent) throw new Error('Expected an error progress event');
+      expect(errorEvent.errorCode).toBe('auth-failed');
     });
 
     it('continues batch on non-auth errors', async () => {
