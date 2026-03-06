@@ -106,4 +106,28 @@ describe('graceful startup — LibraryView contentReady', () => {
   it('calls api.contentReady() when library data finishes loading', () => {
     expect(source).toContain('api.contentReady()')
   })
+
+  it('waits for both loading=false and gridReady before revealing', () => {
+    // Reveal is gated by shouldReveal which requires both conditions
+    expect(source).toContain('gridReady')
+    expect(source).toContain('handleGridReady')
+    expect(source).toContain('onReady={handleGridReady}')
+  })
+})
+
+/**
+ * Verifies that GameLibrary fires onReady once the grid has laid out cards.
+ */
+describe('graceful startup — GameLibrary onReady', () => {
+  const libraryPath = path.resolve(__dirname, '../../../../packages/ui/components/GameLibrary.tsx')
+  const source = fs.readFileSync(libraryPath, 'utf-8')
+
+  it('accepts an onReady callback prop', () => {
+    expect(source).toContain('onReady')
+  })
+
+  it('fires onReady once when layout items are available', () => {
+    expect(source).toContain('hasSignalledReady')
+    expect(source).toContain('onReady?.()')
+  })
 })

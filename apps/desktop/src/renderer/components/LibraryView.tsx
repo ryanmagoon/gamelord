@@ -594,19 +594,29 @@ export const LibraryView: React.FC<{
     [games, selectedSystem],
   );
 
-  // Reveal #root once the library data has loaded. The inline CSS in
-  // index.html starts #root at opacity: 0; adding .mounted triggers a
+  // ---- Graceful reveal ----
+  // Reveal #root once the library UI is fully painted. The inline CSS in
+  // index.html starts #root at opacity 0; adding .mounted triggers a
   // 300ms CSS transition so the entire UI (titlebar, toolbar, tabs, grid)
   // fades in as one cohesive unit instead of popping in piece by piece.
   //
-  // On cold launch the BrowserWindow is hidden (show: false). We send
-  // `contentReady` to the main process so it can show the window *after*
-  // the content is rendered at opacity 0. The double-rAF ensures the
-  // browser paints the opacity-0 frame before adding .mounted, so the
-  // CSS transition plays visibly.
+  // Two conditions gate the reveal:
+  //  1. `loading` is false (library data returned from IPC).
+  //  2. The grid has measured its container and positioned cards (via the
+  //     `onReady` callback from GameLibrary). For virtualized lists the
+  //     ResizeObserver fires asynchronously, so without this gate the
+  //     #root fade would complete before any cards are in the DOM.
+  //
+  // For empty libraries (no games), condition 2 is skipped because there
+  // is no grid to wait for — the EmptyLibrary component renders instead.
   const hasRevealedRef = useRef(false)
+  const [gridReady, setGridReady] = useState(false)
+  const handleGridReady = useCallback(() => setGridReady(true), [])
+
+  const shouldReveal = !loading && (gridReady || games.length === 0)
+
   useEffect(() => {
-    if (!loading && !hasRevealedRef.current) {
+    if (shouldReveal && !hasRevealedRef.current) {
       hasRevealedRef.current = true
       // Tell the main process to show the window now that content is ready.
       api.contentReady()
@@ -616,7 +626,7 @@ export const LibraryView: React.FC<{
         })
       })
     }
-  }, [loading])
+  }, [shouldReveal])
 
   // Per-game UI object cache — only recreates a UiGame when its source
   // AppGame object reference changes. This prevents ALL cards from
@@ -807,6 +817,7 @@ export const LibraryView: React.FC<{
             artworkSyncStore={artworkSyncStore}
             launchingGameId={launchingGameId}
             scrollContainerRef={scrollContainerRef}
+            onReady={handleGridReady}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">

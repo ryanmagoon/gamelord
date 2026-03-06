@@ -33,6 +33,12 @@ export interface GameLibraryProps {
   onToggleFavorite?: (game: Game) => void;
   /** Ref to the scrollable container (for virtualization). */
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
+  /**
+   * Called once after the grid has measured its container and computed
+   * layout positions for the first time. The host can use this to defer
+   * reveal transitions until cards are actually in the DOM.
+   */
+  onReady?: () => void;
 }
 
 type ViewMode = "grid" | "list";
@@ -69,6 +75,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   onPlayGame,
   onToggleFavorite,
   scrollContainerRef,
+  onReady,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
@@ -177,6 +184,18 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     }
     return computeRowLayout(aspectRatios, containerWidth);
   }, [aspectRatios, containerWidth]);
+
+  // Signal the host that the grid has measured its container and cards
+  // are positioned. The host uses this to defer #root reveal until cards
+  // are actually in the DOM (prevents pop-in on virtualized lists where
+  // the ResizeObserver fires asynchronously after the data loads).
+  const hasSignalledReady = useRef(false);
+  useEffect(() => {
+    if (!hasSignalledReady.current && layout.items.length > 0) {
+      hasSignalledReady.current = true;
+      onReady?.();
+    }
+  }, [layout.items.length, onReady]);
 
   const { scrollTop, viewportHeight } = useScrollContainer(scrollContainerRef);
 
