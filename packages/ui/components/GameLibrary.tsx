@@ -185,18 +185,6 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     return computeRowLayout(aspectRatios, containerWidth);
   }, [aspectRatios, containerWidth]);
 
-  // Signal the host that the grid has measured its container and cards
-  // are positioned. The host uses this to defer #root reveal until cards
-  // are actually in the DOM (prevents pop-in on virtualized lists where
-  // the ResizeObserver fires asynchronously after the data loads).
-  const hasSignalledReady = useRef(false);
-  useEffect(() => {
-    if (!hasSignalledReady.current && layout.items.length > 0) {
-      hasSignalledReady.current = true;
-      onReady?.();
-    }
-  }, [layout.items.length, onReady]);
-
   const { scrollTop, viewportHeight } = useScrollContainer(scrollContainerRef);
 
   const gridOffsetTop = gridRef.current?.offsetTop ?? 0;
@@ -207,6 +195,19 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     scrollTop: gridRelativeScrollTop,
     viewportHeight,
   });
+
+  // Signal the host that the grid has cards ready to paint. For large
+  // (virtualized) lists this waits until visibleIndices is populated,
+  // which requires both container measurement AND viewport height. For
+  // small (FLIP) lists, flipItems is available immediately.
+  const hasSignalledReady = useRef(false);
+  const cardsReady = isLargeList ? visibleIndices.length > 0 : flipItems.length > 0;
+  useEffect(() => {
+    if (!hasSignalledReady.current && cardsReady) {
+      hasSignalledReady.current = true;
+      onReady?.();
+    }
+  }, [cardsReady, onReady]);
 
   // Scroll to top on filter/sort changes (large lists).
   // Track the actual filter criteria — NOT the filteredGames array reference,
