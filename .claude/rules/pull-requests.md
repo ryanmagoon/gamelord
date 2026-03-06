@@ -1,21 +1,27 @@
 # Pull Request Media
 
-Before creating a PR, evaluate whether the changes would benefit from a screenshot or short video to clearly communicate what changed. If so, **ask the user for media before opening the PR** so it can be included in the description.
+Before creating a PR, evaluate whether the changes would benefit from a screenshot or short video to clearly communicate what changed.
 
-## When to ask
+## When screenshots are needed
 
-- **Always ask** for UI changes: new components, layout changes, styling, animations, shader effects, theme changes, visual polish.
-- **Always ask** for new user-facing features: the PR reviewer (and future readers) should see what was built.
-- **Ask when helpful** for bug fixes with a visual symptom: before/after screenshots make the fix obvious.
+- **Always** for UI changes: new components, layout changes, styling, animations, shader effects, theme changes, visual polish.
+- **Always** for new user-facing features: the PR reviewer (and future readers) should see what was built.
+- **When helpful** for bug fixes with a visual symptom: before/after screenshots make the fix obvious.
 - **Skip** for purely internal changes: refactors, dependency bumps, test-only changes, CI config, docs-only changes.
 
-## How to ask
+## Capture screenshots yourself
 
-Before running `gh pr create`, prompt the user:
+If the changes are visible in Storybook or a dev server preview, **capture the screenshots yourself using preview tools before creating the PR.** Don't ask the user for screenshots when you can take them.
 
-> This PR has visual changes — do you have a screenshot or short video showing the result? I'll include it in the PR description.
+1. Start the relevant preview server (Storybook for component stories, desktop dev for full app)
+2. Navigate to the relevant story/page
+3. Use `preview_screenshot` to capture each meaningful state
+4. Resize the viewport to crop tightly around the component (`preview_resize`)
+5. Include the screenshots in the PR body using GitHub markdown
 
-If the user provides media, embed it in the PR body using GitHub markdown (`![description](url)` or a `<video>` tag). If they don't have one ready, offer to proceed without it but note in the PR body that a visual is pending.
+Only ask the user for media when the state can't be reproduced in a preview server (e.g., requires real hardware, real network conditions, or the full Electron runtime with IPC).
+
+If the user provides media, embed it in the PR body using GitHub markdown (`![description](url)` or a `<video>` tag). If screenshots can't be captured or provided, note in the PR body that a visual is pending.
 
 ## Review Comments
 
