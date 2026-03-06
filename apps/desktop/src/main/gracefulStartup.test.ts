@@ -4,19 +4,20 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 /**
- * Verifies that index.html contains the inline critical styles and meta tags
- * needed to prevent FOUC (flash of unstyled content) on cold launch.
+ * Verifies that index.html contains the inline critical styles and theme
+ * script needed to prevent FOUC (flash of unstyled content) on cold launch.
  */
 describe('graceful startup — index.html', () => {
   const htmlPath = path.resolve(__dirname, '../../index.html')
   const html = fs.readFileSync(htmlPath, 'utf-8')
 
-  it('has color-scheme meta tag set to dark', () => {
-    expect(html).toContain('<meta name="color-scheme" content="dark" />')
+  it('has an inline theme script that reads localStorage and sets colorScheme', () => {
+    expect(html).toContain("localStorage.getItem('gamelord:theme')")
+    expect(html).toContain('document.documentElement.style.colorScheme')
   })
 
-  it('has inline body background matching the app dark theme', () => {
-    expect(html).toMatch(/body\s*\{[^}]*background:\s*#0a0a0a/)
+  it('sets body background based on resolved theme', () => {
+    expect(html).toContain("document.body.style.background = dark ? '#000' : '#fff'")
   })
 
   it('starts #root with opacity 0 for fade-in', () => {
@@ -33,18 +34,23 @@ describe('graceful startup — index.html', () => {
 })
 
 /**
- * Verifies that App.tsx adds the .mounted class to #root after React mounts.
+ * Verifies that LibraryView adds the .mounted class to #root after data loads.
  */
-describe('graceful startup — App component', () => {
-  const appPath = path.resolve(__dirname, '../renderer/App.tsx')
-  const appSource = fs.readFileSync(appPath, 'utf-8')
+describe('graceful startup — LibraryView', () => {
+  const libraryViewPath = path.resolve(__dirname, '../renderer/components/LibraryView.tsx')
+  const source = fs.readFileSync(libraryViewPath, 'utf-8')
 
-  it('adds the mounted class to #root after React mounts', () => {
-    expect(appSource).toContain("classList.add('mounted')")
+  it('adds the mounted class to #root after library loads', () => {
+    expect(source).toContain("classList.add('mounted')")
   })
 
-  it('uses requestAnimationFrame inside useEffect to defer the class addition', () => {
-    expect(appSource).toContain('requestAnimationFrame')
+  it('uses double-rAF to ensure the browser paints before transitioning', () => {
+    // Double-rAF pattern: nested requestAnimationFrame calls
+    expect(source).toContain('requestAnimationFrame')
+  })
+
+  it('only reveals once (uses a ref to track)', () => {
+    expect(source).toContain('hasRevealedRef')
   })
 })
 
@@ -60,12 +66,44 @@ describe('graceful startup — main process', () => {
     expect(mainSource).toMatch(/show:\s*false/)
   })
 
-  it('sets backgroundColor to match the inline HTML background', () => {
-    expect(mainSource).toContain("backgroundColor: '#0a0a0a'")
+  it('does not hardcode a backgroundColor property (theme script handles it)', () => {
+    // Match the actual property assignment pattern, not the word in comments
+    expect(mainSource).not.toMatch(/backgroundColor\s*:/)
   })
 
-  it('listens for ready-to-show to call mainWindow.show()', () => {
+  it('listens for ready-to-show with a fallback timeout', () => {
     expect(mainSource).toContain("'ready-to-show'")
     expect(mainSource).toContain('mainWindow.show()')
+    // Fallback timeout so the window shows even if renderer never signals
+    expect(mainSource).toContain('setTimeout(showOnce')
+  })
+
+  it('listens for app:contentReady via ipcMain to show the window', () => {
+    expect(mainSource).toContain("ipcMain.once('app:contentReady'")
+  })
+})
+
+/**
+ * Verifies that the preload bridge exposes a contentReady method.
+ */
+describe('graceful startup — preload', () => {
+  const preloadPath = path.resolve(__dirname, '../preload.ts')
+  const preloadSource = fs.readFileSync(preloadPath, 'utf-8')
+
+  it('exposes contentReady that sends the app:contentReady IPC signal', () => {
+    expect(preloadSource).toContain("contentReady")
+    expect(preloadSource).toContain("'app:contentReady'")
+  })
+})
+
+/**
+ * Verifies that LibraryView sends contentReady when library data loads.
+ */
+describe('graceful startup — LibraryView contentReady', () => {
+  const libraryViewPath = path.resolve(__dirname, '../renderer/components/LibraryView.tsx')
+  const source = fs.readFileSync(libraryViewPath, 'utf-8')
+
+  it('calls api.contentReady() when library data finishes loading', () => {
+    expect(source).toContain('api.contentReady()')
   })
 })

@@ -594,21 +594,29 @@ export const LibraryView: React.FC<{
     [games, selectedSystem],
   );
 
-  // Tracks whether the library content has been revealed. Once loading
-  // finishes for the first time we flip this to true, triggering a CSS
-  // opacity transition on the main container so the toolbar, tabs, and
-  // grid all fade in together instead of popping in abruptly.
-  const [contentRevealed, setContentRevealed] = useState(false)
+  // Reveal #root once the library data has loaded. The inline CSS in
+  // index.html starts #root at opacity: 0; adding .mounted triggers a
+  // 300ms CSS transition so the entire UI (titlebar, toolbar, tabs, grid)
+  // fades in as one cohesive unit instead of popping in piece by piece.
+  //
+  // On cold launch the BrowserWindow is hidden (show: false). We send
+  // `contentReady` to the main process so it can show the window *after*
+  // the content is rendered at opacity 0. The double-rAF ensures the
+  // browser paints the opacity-0 frame before adding .mounted, so the
+  // CSS transition plays visibly.
+  const hasRevealedRef = useRef(false)
   useEffect(() => {
-    if (!loading && !contentRevealed) {
-      // Double-rAF: first frame paints at opacity 0, second triggers the transition.
+    if (!loading && !hasRevealedRef.current) {
+      hasRevealedRef.current = true
+      // Tell the main process to show the window now that content is ready.
+      api.contentReady()
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          setContentRevealed(true)
+          document.getElementById('root')?.classList.add('mounted')
         })
       })
     }
-  }, [loading, contentRevealed])
+  }, [loading])
 
   // Per-game UI object cache — only recreates a UiGame when its source
   // AppGame object reference changes. This prevents ALL cards from
@@ -674,13 +682,7 @@ export const LibraryView: React.FC<{
   }
 
   return (
-    <div
-      className="flex flex-col h-full"
-      style={{
-        opacity: contentRevealed ? 1 : 0,
-        transition: 'opacity 250ms ease',
-      }}
-    >
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-4">
