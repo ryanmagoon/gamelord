@@ -49,7 +49,7 @@ export const LibraryView: React.FC<{
   const [games, setGames] = useState<Array<AppGame>>([]);
   const [systems, setSystems] = useState<Array<GameSystem>>([]);
   const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<{
     processed: number;

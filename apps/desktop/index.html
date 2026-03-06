@@ -3,16 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
     <title>GameLord</title>
     <style>
       /* Inline critical styles to prevent FOUC on cold launch.
-         The dark background matches the app's default theme so the
-         window never flashes white before CSS/JS load. */
-      body { margin: 0; background: #0a0a0a; }
-      #root { opacity: 0; transition: opacity 200ms ease; }
+         Background color is set by the theme script below. */
+      body { margin: 0; }
+      #root { opacity: 0; transition: opacity 300ms ease; }
       #root.mounted { opacity: 1; }
     </style>
+    <script>
+      // Resolve the user's theme preference synchronously before first paint.
+      // Mirrors the logic in main.tsx but runs earlier (blocking <head> script)
+      // so the body background and color-scheme match from the very first frame.
+      ;(function() {
+        var saved = localStorage.getItem('gamelord:theme')
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        var dark = saved === 'dark' || (saved !== 'light' && prefersDark)
+        document.documentElement.classList.toggle('dark', dark)
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+        document.body.style.background = dark ? '#000' : '#fff'
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
