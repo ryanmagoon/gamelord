@@ -20,8 +20,12 @@ const createWindow = () => {
   const savedBounds = getSavedWindowBounds();
 
   // Create the browser window with saved position/size.
+  // `show: false` prevents a flash of unstyled content (FOUC) on cold launch.
+  // The window stays hidden until the renderer signals it's ready via `ready-to-show`.
   const mainWindow = new BrowserWindow({
     ...savedBounds,
+    show: false,
+    backgroundColor: '#0a0a0a',
     minWidth: 800,
     minHeight: 600,
     titleBarStyle: "hiddenInset",
@@ -31,6 +35,10 @@ const createWindow = () => {
       contextIsolation: true,
       sandbox: true,
     },
+  });
+
+  mainWindow.on('ready-to-show', () => {
+    mainWindow.show();
   });
 
   // Persist window position, size, and maximize state across sessions.
