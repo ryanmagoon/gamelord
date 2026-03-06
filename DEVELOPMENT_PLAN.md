@@ -75,7 +75,8 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P0 — Critical (fix before any new features)
 
-- [x] **CI/CD pipeline** — GitHub Actions workflow: lint, type-check, test, native addon build on every PR
+- [x] **CI/CD pipeline** — GitHub Actions workflow: lint, type-check, format-check, test, native addon build on every PR
+- [x] **Fast frontend tooling** — Replaced ESLint with Oxlint, added Oxfmt for formatting, replaced tsc with tsgo for type checking (10-100x faster). Deferred Oxlint rules tracked in [#174](https://github.com/ryanmagoon/gamelord/issues/174)
 - [x] **Emulation loop error handling** — Wrap `core.runFrame()` in try-catch in `GameWindowManager.ts`; stop loop and notify renderer on crash instead of silently freezing
 - [x] **Bounded audio buffer** — Replace unbounded `std::vector` insert in `libretro_core.cc` with a fixed-size circular buffer to prevent memory exhaustion when renderer falls behind
 - [x] **Path validation** — Validate `romPath` and `corePath` are within expected directories before passing to `dlopen()` and filesystem operations; prevent path traversal
