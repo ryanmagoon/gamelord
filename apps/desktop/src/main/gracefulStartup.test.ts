@@ -44,8 +44,10 @@ describe('graceful startup — LibraryView', () => {
     expect(source).toContain("classList.add('mounted')")
   })
 
-  it('uses double-rAF to ensure the browser paints before transitioning', () => {
-    // Double-rAF pattern: nested requestAnimationFrame calls
+  it('uses triple-rAF to let the compositor settle before fading in', () => {
+    // Triple-rAF pattern: nested requestAnimationFrame calls to give the
+    // GPU compositor time to rasterize the full window surface before the
+    // opacity transition begins.
     expect(source).toContain('requestAnimationFrame')
   })
 

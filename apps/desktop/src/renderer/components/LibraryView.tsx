@@ -622,14 +622,29 @@ export const LibraryView: React.FC<{
   useEffect(() => {
     if (shouldReveal && !hasRevealedRef.current) {
       hasRevealedRef.current = true
-      // Tell the main process to show the window now that content is ready.
+      // Tell the main process to show the window. This triggers
+      // mainWindow.show() which rasterizes the full window surface
+      // for the first time — an expensive compositing pass. We give
+      // the compositor 2 full frames to settle before starting the
+      // opacity fade, otherwise the fade animation drops frames while
+      // the GPU is still rasterizing layers.
       api.contentReady()
+      // Frame 1: browser composites the newly-shown window surface.
       requestAnimationFrame(() => {
+        // Frame 2: first fully-rasterized frame is on screen (at opacity 0).
         requestAnimationFrame(() => {
-          document.getElementById('root')?.classList.add('mounted')
-          // End reveal mode after the CSS transition completes (300ms) + buffer.
-          // This re-enables full overscan and card hover transitions.
-          setTimeout(() => setIsRevealing(false), 400)
+          // Frame 3: now safe to start the opacity transition.
+          requestAnimationFrame(() => {
+            document.getElementById('root')?.classList.add('mounted')
+            // End reveal mode after the CSS transition completes (400ms) + buffer.
+            // This re-enables full overscan and card hover transitions.
+            // Also remove will-change to free the dedicated GPU layer.
+            setTimeout(() => {
+              setIsRevealing(false)
+              const root = document.getElementById('root')
+              if (root) root.style.willChange = 'auto'
+            }, 500)
+          })
         })
       })
     }

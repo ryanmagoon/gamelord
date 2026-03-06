@@ -8,8 +8,19 @@
       /* Inline critical styles to prevent FOUC on cold launch.
          Background color is set by the theme script below. */
       body { margin: 0; }
-      #root { opacity: 0; transition: opacity 300ms ease; }
-      #root.mounted { opacity: 1; }
+      #root {
+        opacity: 0;
+        transition: opacity 400ms ease;
+        /* Promote to GPU layer so the opacity transition runs on the
+           compositor thread, independent of main-thread card mounting. */
+        will-change: opacity;
+      }
+      #root.mounted {
+        opacity: 1;
+        /* Remove will-change after the transition to free GPU memory.
+           The transition-end event isn't available from inline CSS, so
+           we use a delayed inline style set in JS instead (see LibraryView). */
+      }
     </style>
     <script>
       // Resolve the user's theme preference synchronously before first paint.
