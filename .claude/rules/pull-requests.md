@@ -19,10 +19,14 @@ If the user provides media, embed it in the PR body using GitHub markdown (`![de
 
 ## Review Comments
 
-After creating or merging a PR, check for review comments before moving on:
+**All review comments must be resolved before merging.** This is enforced by GitHub branch protection (`required_conversation_resolution`). Before merging any PR:
 
-```bash
-gh api repos/{owner}/{repo}/pulls/{number}/comments
-```
+1. Check for review comments:
+   ```bash
+   gh api repos/{owner}/{repo}/pulls/{number}/comments
+   gh api repos/{owner}/{repo}/pulls/{number}/reviews
+   ```
+2. Address every comment — push fixes to the same branch for code changes, reply to acknowledge non-actionable feedback.
+3. Verify no unresolved conversations remain before running `gh pr merge`.
 
-Address any actionable feedback (bugs, code review suggestions, bot reports). If the PR is still open, push fixes to the same branch. If already merged, open a follow-up PR for the fix. Don't wait for the user to relay comments — check proactively.
+After creating a PR, also check proactively for comments before moving on to other work. If the PR is already merged, open a follow-up PR for any unaddressed feedback.
