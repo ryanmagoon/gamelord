@@ -341,7 +341,8 @@ describe('manageWindowState', () => {
     const closeCall = mockOn.mock.calls.find((call: unknown[]) => call[0] === 'close')
     expect(closeCall).toBeDefined()
 
-    const closeHandler = closeCall![1] as () => void
+    if (!closeCall) throw new Error('Expected close handler to be registered')
+    const closeHandler = closeCall[1] as () => void
     closeHandler()
 
     expect(mockWriteFileSync).toHaveBeenCalledWith(
@@ -361,7 +362,8 @@ describe('manageWindowState', () => {
     manageWindowState(window)
 
     const closeCall = mockOn.mock.calls.find((call: unknown[]) => call[0] === 'close')
-    const closeHandler = closeCall![1] as () => void
+    if (!closeCall) throw new Error('Expected close handler to be registered')
+    const closeHandler = closeCall[1] as () => void
     closeHandler()
 
     expect(mockWriteFileSync).toHaveBeenCalledWith(
@@ -381,7 +383,8 @@ describe('manageWindowState', () => {
     manageWindowState(window)
 
     const closeCall = mockOn.mock.calls.find((call: unknown[]) => call[0] === 'close')
-    const closeHandler = closeCall![1] as () => void
+    if (!closeCall) throw new Error('Expected close handler to be registered')
+    const closeHandler = closeCall[1] as () => void
     closeHandler()
 
     expect(mockWriteFileSync).not.toHaveBeenCalled()

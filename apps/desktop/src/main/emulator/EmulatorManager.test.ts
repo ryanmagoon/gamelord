@@ -167,7 +167,7 @@ describe('EmulatorManager — BIOS validation', () => {
   })
 
   it('detects partial BIOS files', () => {
-    vi.mocked(fs.existsSync).mockImplementation((p: any) =>
+    vi.mocked(fs.existsSync).mockImplementation((p: fs.PathLike) =>
       String(p).endsWith('sega_101.bin')
     )
     const result = manager.validateBios('saturn')
