@@ -31,6 +31,8 @@ Napi::Object LibretroCore::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("getMemorySize", &LibretroCore::GetMemorySize),
     InstanceMethod("setMemoryData", &LibretroCore::SetMemoryData),
     InstanceMethod("getLogMessages", &LibretroCore::GetLogMessages),
+    InstanceMethod("getCoreOptions", &LibretroCore::GetCoreOptions),
+    InstanceMethod("setCoreOption", &LibretroCore::SetCoreOption),
   });
 
   Napi::FunctionReference *constructor = new Napi::FunctionReference();
@@ -460,6 +462,42 @@ void LibretroCore::SetMemoryData(const Napi::CallbackInfo &info) {
   memcpy(dest, arr.Data(), copySize);
 }
 
+Napi::Value LibretroCore::GetCoreOptions(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  Napi::Object result = Napi::Object::New(env);
+
+  for (const auto &pair : core_options_) {
+    result.Set(pair.first, Napi::String::New(env, pair.second));
+  }
+
+  return result;
+}
+
+Napi::Value LibretroCore::SetCoreOption(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+
+  if (info.Length() < 2 || !info[0].IsString() || !info[1].IsString()) {
+    Napi::TypeError::New(env, "Expected (key: string, value: string)")
+      .ThrowAsJavaScriptException();
+    return Napi::Boolean::New(env, false);
+  }
+
+  std::string key = info[0].As<Napi::String>().Utf8Value();
+  std::string value = info[1].As<Napi::String>().Utf8Value();
+
+  auto it = core_options_.find(key);
+  if (it == core_options_.end()) {
+    return Napi::Boolean::New(env, false);
+  }
+
+  if (it->second != value) {
+    it->second = value;
+    core_options_dirty_ = true;
+  }
+
+  return Napi::Boolean::New(env, true);
+}
+
 // ---------------------------------------------------------------------------
 // Internal
 // ---------------------------------------------------------------------------
@@ -474,6 +512,9 @@ void LibretroCore::CloseCore() {
     fn_deinit_();
     core_loaded_ = false;
   }
+
+  core_options_.clear();
+  core_options_dirty_ = false;
 
   if (dl_handle_) {
 #ifdef _WIN32
@@ -522,6 +563,60 @@ bool LibretroCore::ResolveFunctions() {
          fn_set_audio_sample_batch_ && fn_set_input_poll_ && fn_set_input_state_ &&
          fn_init_ && fn_deinit_ && fn_get_system_info_ && fn_get_system_av_info_ &&
          fn_run_ && fn_load_game_ && fn_unload_game_;
+}
+
+// ---------------------------------------------------------------------------
+// Core options parsing helpers
+// ---------------------------------------------------------------------------
+
+void LibretroCore::ParseLegacyVariables(const struct retro_variable *vars) {
+  core_options_.clear();
+  if (!vars) return;
+
+  for (const struct retro_variable *v = vars; v->key != nullptr; v++) {
+    // Legacy format: "Description; value1|value2|value3"
+    // First value after "; " is the default.
+    std::string val_str(v->value ? v->value : "");
+    size_t semi = val_str.find("; ");
+    if (semi != std::string::npos) {
+      std::string values_part = val_str.substr(semi + 2);
+      size_t pipe = values_part.find('|');
+      std::string default_val = (pipe != std::string::npos)
+        ? values_part.substr(0, pipe)
+        : values_part;
+      core_options_[v->key] = default_val;
+    }
+  }
+}
+
+void LibretroCore::ParseCoreOptionsV1(const struct retro_core_option_definition *defs) {
+  core_options_.clear();
+  if (!defs) return;
+
+  for (const struct retro_core_option_definition *d = defs; d->key != nullptr; d++) {
+    std::string default_val;
+    if (d->default_value) {
+      default_val = d->default_value;
+    } else if (d->values[0].value) {
+      default_val = d->values[0].value;
+    }
+    core_options_[d->key] = default_val;
+  }
+}
+
+void LibretroCore::ParseCoreOptionsV2(const struct retro_core_option_v2_definition *defs) {
+  core_options_.clear();
+  if (!defs) return;
+
+  for (const struct retro_core_option_v2_definition *d = defs; d->key != nullptr; d++) {
+    std::string default_val;
+    if (d->default_value) {
+      default_val = d->default_value;
+    } else if (d->values[0].value) {
+      default_val = d->values[0].value;
+    }
+    core_options_[d->key] = default_val;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -574,8 +669,15 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
     }
 
     case RETRO_ENVIRONMENT_GET_VARIABLE: {
-      // Return no variables for now
       struct retro_variable *var = static_cast<struct retro_variable *>(data);
+      if (!var || !var->key) {
+        return false;
+      }
+      auto it = self->core_options_.find(var->key);
+      if (it != self->core_options_.end()) {
+        var->value = it->second.c_str();
+        return true;
+      }
       var->value = nullptr;
       return false;
     }
@@ -587,18 +689,59 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
       return true;
     }
 
-    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS:
-    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_INTL:
-    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2:
-    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL:
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS: {
+      const struct retro_core_option_definition *const *defs =
+        static_cast<const struct retro_core_option_definition *const *>(data);
+      if (defs && *defs) {
+        self->ParseCoreOptionsV1(*defs);
+      }
+      return true;
+    }
+
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_INTL: {
+      const struct retro_core_options_intl *intl =
+        static_cast<const struct retro_core_options_intl *>(data);
+      if (intl && intl->us) {
+        self->ParseCoreOptionsV1(intl->us);
+      }
+      return true;
+    }
+
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2: {
+      const struct retro_core_options_v2 *opts =
+        static_cast<const struct retro_core_options_v2 *>(data);
+      if (opts && opts->definitions) {
+        self->ParseCoreOptionsV2(opts->definitions);
+      }
+      return true;
+    }
+
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL: {
+      const struct retro_core_options_v2_intl *intl =
+        static_cast<const struct retro_core_options_v2_intl *>(data);
+      if (intl && intl->us && intl->us->definitions) {
+        self->ParseCoreOptionsV2(intl->us->definitions);
+      }
+      return true;
+    }
+
     case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY:
     case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK:
-      // Accept core options silently (we don't use them yet)
       return true;
 
-    case RETRO_ENVIRONMENT_SET_VARIABLES:
-    case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
-      return false;
+    case RETRO_ENVIRONMENT_SET_VARIABLES: {
+      const struct retro_variable *vars =
+        static_cast<const struct retro_variable *>(data);
+      self->ParseLegacyVariables(vars);
+      return true;
+    }
+
+    case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE: {
+      bool *updated = static_cast<bool *>(data);
+      *updated = self->core_options_dirty_;
+      self->core_options_dirty_ = false;
+      return true;
+    }
 
     case RETRO_ENVIRONMENT_SET_CONTENT_INFO_OVERRIDE:
       return true;
