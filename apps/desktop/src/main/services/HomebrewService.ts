@@ -41,8 +41,8 @@ export class HomebrewService {
     if (app.isPackaged) {
       return path.join(process.resourcesPath, 'homebrew');
     }
-    // Development: resolve relative to the desktop app root
-    return path.join(__dirname, '../../../resources/homebrew');
+    // Development: __dirname is apps/desktop/out/main/
+    return path.join(__dirname, '../../resources/homebrew');
   }
 
   /**
