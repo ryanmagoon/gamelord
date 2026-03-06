@@ -17,7 +17,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import type { Game } from "../../types/library";
-import type { GamelordAPI } from "../types/global";
+import type { GamelordAPI, VideoFrame } from "../types/global";
+import type { AVInfo } from "../../main/workers/core-worker-protocol";
 import {
   CTRL_ACTIVE_BUFFER,
   CTRL_FRAME_SEQUENCE,
@@ -114,7 +115,7 @@ export const GameWindow: React.FC = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioNextTimeRef = useRef(0);
   const gainNodeRef = useRef<GainNode | null>(null);
-  const pendingFrameRef = useRef<any>(null);
+  const pendingFrameRef = useRef<VideoFrame | null>(null);
   /** Gate: don't render frames until the boot animation overlay is in place. */
   const bootReadyRef = useRef(false);
   const rafIdRef = useRef<number>(0);
@@ -225,7 +226,9 @@ export const GameWindow: React.FC = () => {
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.connect(gainNodeRef.current!);
+    const gainNode = gainNodeRef.current;
+    if (!gainNode) return;
+    source.connect(gainNode);
 
     const PRE_BUFFER_S = 0.06;
     const MAX_LOOKAHEAD_S = 0.12;
@@ -313,7 +316,8 @@ export const GameWindow: React.FC = () => {
       }
     });
 
-    api.on("game:loaded", (gameData: Game) => {
+    api.on("game:loaded", (raw: unknown) => {
+      const gameData = raw as Game;
       setGame(gameData);
 
       // Load per-system shader preference (e.g. CRT for NES, LCD for GBA)
@@ -337,22 +341,23 @@ export const GameWindow: React.FC = () => {
       playSfxRef.current("powerOn");
     });
 
-    api.on("game:mode", (m: string) => {
-      setMode(m as "overlay" | "native");
+    api.on("game:mode", (raw: unknown) => {
+      setMode(raw as "overlay" | "native");
       // Controls start hidden; user reveals them by moving mouse
     });
 
-    api.on("overlay:show-controls", (visible: boolean) => {
-      setShowControls(visible);
+    api.on("overlay:show-controls", (raw: unknown) => {
+      setShowControls(raw as boolean);
     });
 
     api.on("emulator:paused", () => setIsPaused(true));
     api.on("emulator:resumed", () => setIsPaused(false));
-    api.on("emulator:speedChanged", (data: { multiplier: number }) => {
-      setSpeedMultiplier(data.multiplier);
+    api.on("emulator:speedChanged", (raw: unknown) => {
+      setSpeedMultiplier((raw as { multiplier: number }).multiplier);
     });
 
-    api.on("game:emulation-error", (data: { message: string }) => {
+    api.on("game:emulation-error", (raw: unknown) => {
+      const data = raw as { message: string };
       setEmulationError(data.message || "An unknown error occurred");
     });
 
@@ -365,7 +370,8 @@ export const GameWindow: React.FC = () => {
       playSfxRef.current("powerOff");
     });
 
-    api.on("game:av-info", (avInfo: any) => {
+    api.on("game:av-info", (raw: unknown) => {
+      const avInfo = raw as AVInfo;
       const canvas = canvasRef.current;
       if (canvas) {
         canvas.width = avInfo.geometry.baseWidth;
@@ -379,7 +385,8 @@ export const GameWindow: React.FC = () => {
       setGameAspectRatio(aspectRatio);
     });
 
-    api.on("game:video-frame", (frameData: any) => {
+    api.on("game:video-frame", (raw: unknown) => {
+      const frameData = raw as VideoFrame;
       // Buffer the frame immediately so the latest state is always available,
       // but don't initialize the renderer or draw until the boot animation
       // overlay is in place. This prevents the game content from flashing
@@ -476,13 +483,14 @@ export const GameWindow: React.FC = () => {
     // IPC fallback audio path — used when SharedArrayBuffer is unavailable.
     // When SAB mode is active, audio is drained from the ring buffer in the
     // rAF loop instead (see drainAudioRing).
-    api.on("game:audio-samples", (audioData: any) => {
+    api.on("game:audio-samples", (audioDataRaw: unknown) => {
       if (useSharedBuffersRef.current) {
         return;
       }
 
       // audioData.samples arrives as Uint8Array after Electron IPC.
       // Interpret the raw bytes as interleaved stereo Int16 samples.
+      const audioData = audioDataRaw as { samples: Uint8Array; sampleRate: number };
       const raw: Uint8Array = audioData.samples;
       const samples = new Int16Array(raw.buffer, raw.byteOffset, raw.byteLength / 2);
       scheduleAudioChunk(samples, audioData.sampleRate);
