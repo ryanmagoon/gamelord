@@ -23,6 +23,7 @@ import type { Game as AppGame, GameSystem } from '../../types/library'
 import type { ArtworkProgress } from '../../types/artwork'
 import type { GamelordAPI } from '../types/global'
 import { EmptyLibrary } from './EmptyLibrary'
+import { useMenuEvents } from '../hooks/useMenuEvents'
 import { useSfx } from '../hooks/useSfx'
 
 interface CoreDownloadProgress {
@@ -364,6 +365,16 @@ export const LibraryView: React.FC<{
       setScanProgress(null)
     }
   }
+
+  // Wire app menu actions to existing handlers
+  useMenuEvents(api, {
+    onScanLibrary: handleScanSystemFolders,
+    onAddRomFolder: handleSelectDirectory,
+    onOpenSettings: () => {
+      // TODO: open settings panel — https://github.com/ryanmagoon/gamelord/issues/96
+      console.log('[menu] Preferences: settings panel not yet implemented')
+    },
+  })
 
   const handleAddRom = async (systemId: string) => {
     const romPath = await api.dialog.selectRomFile(systemId)
