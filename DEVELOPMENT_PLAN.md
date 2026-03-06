@@ -233,7 +233,7 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [ ] **Custom app menu** — About, Preferences (Cmd+,), Scan Library, Help links — [#162](https://github.com/ryanmagoon/gamelord/issues/162)
 - [ ] **Library UI redesign — shelf-based home view** — Replace the dashboard layout with a shelf-based layout: hero section, horizontal scroll rows grouped by category (Recently Played, Favorites, per-platform), Cmd+K command palette, no persistent chrome. Existing mosaic grid becomes the "browse all" sub-view. — [#141](https://github.com/ryanmagoon/gamelord/issues/141) (deferred to alpha.2)
 - [ ] **Cmd+K command palette** — Fuzzy search overlay for games, platforms, and actions. Replaces inline search toolbar. — [#142](https://github.com/ryanmagoon/gamelord/issues/142)
-- [ ] **Settings panel** — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
+- [x] **Settings panel** — Modal dialog with sidebar tabs (General, Emulation, Library, About). Toolbar gear button + Cmd+, shortcut. Theme, SFX, shader, FPS counter, fast-forward speed, ROM directories, ScreenScraper credentials, about/credits. — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
 - [ ] **Bundled homebrew ROMs** — Ship 2-3 public domain NES ROMs for instant playability on first launch — [#139](https://github.com/ryanmagoon/gamelord/issues/139)
 - [ ] **DMG packaging** — Unsigned DMG via electron-builder, CI release workflow on tagged pushes — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
 
@@ -255,7 +255,7 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [ ] **Native screenshot encoding** — Encode screenshots as PNG/JPEG in the native addon (e.g. via `stb_image_write`) instead of saving raw RGBA, reducing file size and avoiding JS-side encoding overhead — [#93](https://github.com/ryanmagoon/gamelord/issues/93)
 - [ ] Screenshot gallery per game — [#94](https://github.com/ryanmagoon/gamelord/issues/94)
 - [ ] Playtime tracking and statistics — [#95](https://github.com/ryanmagoon/gamelord/issues/95)
-- [ ] Settings panel — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
+- [x] Settings panel — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
 - [ ] **Graphics quality setting** — A simple quality preference (e.g. "Quality" / "Performance") that controls shader complexity and cosmetic effects. "Performance" disables multi-pass CRT shaders (falls back to single-pass or nearest), simplifies the VHS pause screen, and strips heavy overlays. Lets users on lower-end hardware or high-refresh displays trade eye candy for consistent frame pacing. — [#97](https://github.com/ryanmagoon/gamelord/issues/97)
 - [ ] **Visual regression testing** — Set up automated screenshot diffing to catch CSS/layout breakages across commits. Evaluate Storybook + Chromatic, Playwright visual comparison, or Percy. Should cover all GameCard states (cover art, fallback static, sync phases, hover, launching) and key layout scenarios (edge cards, grid density). Prompted by the `.game-card-inner` height regression that broke static tiles.
 - [ ] **Graceful app startup** — Eliminate the FOUC (flash of unstyled content) on first load. Phase 1: add `show: false` + `ready-to-show` to main BrowserWindow, inline critical CSS in `index.html` (dark background, color-scheme meta), fade `#root` in smoothly once React mounts. Phase 2 (future): branded splash/loading state, staggered UI element cascade, CRT power-on flicker effect on startup. — [#125](https://github.com/ryanmagoon/gamelord/issues/125)
