@@ -94,8 +94,8 @@ describe('crt-geom-deluxe preset', () => {
 
     it('reads from internal1 and blur_texture via extraInputs', () => {
       expect(pass.extraInputs).toEqual({
-        u_internal1: 'internal1',
         u_blur_texture: 'blur_texture',
+        u_internal1: 'internal1',
       });
     });
 

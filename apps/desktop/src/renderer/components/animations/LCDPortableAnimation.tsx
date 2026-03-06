@@ -3,10 +3,10 @@ import React, { useEffect, useState } from 'react'
 interface LCDPortableAnimationProps {
   /** Whether this is a power-on or power-off animation. */
   direction: 'on' | 'off'
-  /** Called when the animation completes. */
-  onComplete: () => void
   /** Total duration of the animation in ms. */
   duration?: number
+  /** Called when the animation completes. */
+  onComplete: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -28,22 +28,22 @@ type PowerOffPhase = 'white' | 'black' | 'done'
  */
 export const LCDPortableAnimation: React.FC<LCDPortableAnimationProps> = ({
   direction,
-  onComplete,
   duration = direction === 'on' ? 500 : 400,
+  onComplete,
 }) => {
   if (direction === 'on') {
-    return <PortablePowerOn onComplete={onComplete} duration={duration} />
+    return <PortablePowerOn duration={duration} onComplete={onComplete} />
   }
-  return <PortablePowerOff onComplete={onComplete} duration={duration} />
+  return <PortablePowerOff duration={duration} onComplete={onComplete} />
 }
 
 // ---------------------------------------------------------------------------
 // Power-on
 // ---------------------------------------------------------------------------
 
-const PortablePowerOn: React.FC<{ onComplete: () => void; duration: number }> = ({
-  onComplete,
+const PortablePowerOn: React.FC<{ duration: number; onComplete: () => void; }> = ({
   duration,
+  onComplete,
 }) => {
   const [phase, setPhase] = useState<PowerOnPhase>('backlight')
 
@@ -65,7 +65,7 @@ const PortablePowerOn: React.FC<{ onComplete: () => void; duration: number }> = 
     }
   }, [duration, onComplete])
 
-  if (phase === 'done') return null
+  if (phase === 'done') {return null}
 
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
@@ -87,16 +87,16 @@ const PortablePowerOn: React.FC<{ onComplete: () => void; duration: number }> = 
 // Power-off
 // ---------------------------------------------------------------------------
 
-const PortablePowerOff: React.FC<{ onComplete: () => void; duration: number }> = ({
-  onComplete,
+const PortablePowerOff: React.FC<{ duration: number; onComplete: () => void; }> = ({
   duration,
+  onComplete,
 }) => {
   const [phase, setPhase] = useState<PowerOffPhase>('white')
 
   useEffect(() => {
     const timings = {
-      white: duration * 0.45,
       black: duration * 0.55,
+      white: duration * 0.45,
     }
 
     const blackTimer = setTimeout(() => setPhase('black'), timings.white)

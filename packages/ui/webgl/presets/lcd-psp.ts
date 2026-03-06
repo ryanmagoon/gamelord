@@ -4,6 +4,7 @@ import { lcdPspFragmentShader } from '../shaders';
 export const lcdPspPreset: ShaderPresetDefinition = {
   id: 'lcd-psp',
   label: 'LCD PSP',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const lcdPspPreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

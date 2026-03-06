@@ -8,9 +8,8 @@ import { renderBuffer, soundGenerators } from './sounds'
  * We provide a real Float32Array-backed buffer so sample values can be
  * inspected without mocking the Web Audio API.
  */
-function createTestContext(sampleRate = 44100): BaseAudioContext {
+function createTestContext(sampleRate = 44_100): BaseAudioContext {
   return {
-    sampleRate,
     createBuffer(channels: number, length: number, sr: number) {
       const data = new Float32Array(length)
       return {
@@ -19,26 +18,27 @@ function createTestContext(sampleRate = 44100): BaseAudioContext {
         numberOfChannels: channels,
         duration: length / sr,
         getChannelData(channel: number) {
-          if (channel !== 0) throw new Error('Only mono buffers supported in test stub')
+          if (channel !== 0) {throw new Error('Only mono buffers supported in test stub')}
           return data
         },
         copyFromChannel: () => { /* stub */ },
         copyToChannel: () => { /* stub */ },
       } as unknown as AudioBuffer
     },
+    sampleRate,
   } as unknown as BaseAudioContext
 }
 
 describe('renderBuffer', () => {
   it('creates a buffer with the expected sample count', () => {
-    const ctx = createTestContext(44100)
+    const ctx = createTestContext(44_100)
     const buffer = renderBuffer(ctx, 0.1, (t) => Math.sin(2 * Math.PI * 440 * t))
-    expect(buffer.length).toBe(Math.ceil(0.1 * 44100))
+    expect(buffer.length).toBe(Math.ceil(0.1 * 44_100))
     expect(buffer.numberOfChannels).toBe(1)
   })
 
   it('fills the buffer with generator output', () => {
-    const ctx = createTestContext(44100)
+    const ctx = createTestContext(44_100)
     const buffer = renderBuffer(ctx, 0.01, () => 0.5)
     const data = buffer.getChannelData(0)
     for (let i = 0; i < data.length; i++) {
@@ -48,7 +48,7 @@ describe('renderBuffer', () => {
 })
 
 describe('sound generators', () => {
-  const ctx = createTestContext(44100)
+  const ctx = createTestContext(44_100)
 
   for (const [name, generator] of Object.entries(soundGenerators)) {
     describe(name, () => {

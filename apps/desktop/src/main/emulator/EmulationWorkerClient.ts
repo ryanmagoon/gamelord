@@ -1,7 +1,7 @@
 import { utilityProcess, UtilityProcess } from 'electron'
-import { EventEmitter } from 'events'
-import * as path from 'path'
-import * as crypto from 'crypto'
+import { EventEmitter } from 'node:events'
+import * as path from 'node:path'
+import * as crypto from 'node:crypto'
 import type { WorkerCommand, WorkerEvent, AVInfo } from '../workers/core-worker-protocol'
 import {
   computeVideoBufferSize,
@@ -12,23 +12,23 @@ import {
 import { libretroLog } from '../logger'
 
 export interface EmulationWorkerInitOptions {
+  addonPath: string
   corePath: string
   romPath: string
-  systemDir: string
   saveDir: string
-  sramDir: string
   saveStatesDir: string
-  addonPath: string
+  sramDir: string
+  systemDir: string
 }
 
 interface PendingRequest {
-  resolve: (data?: unknown) => void
   reject: (error: Error) => void
+  resolve: (data?: unknown) => void
   timeout: ReturnType<typeof setTimeout>
 }
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000
-const SHUTDOWN_TIMEOUT_MS = 5_000
+const SHUTDOWN_TIMEOUT_MS = 5000
 
 /**
  * Main-process client for the emulation utility process.
@@ -43,9 +43,9 @@ const SHUTDOWN_TIMEOUT_MS = 5_000
  * - `error` — `{ message: string, fatal: boolean }`
  */
 export interface SharedBuffers {
+  audio: SharedArrayBuffer
   control: SharedArrayBuffer
   video: SharedArrayBuffer
-  audio: SharedArrayBuffer
 }
 
 export class EmulationWorkerClient extends EventEmitter {
@@ -76,8 +76,8 @@ export class EmulationWorkerClient extends EventEmitter {
         // a graceful shutdown (the process can exit before the async
         // shutdown handshake completes, e.g. during app quit).
         this.emit('error', {
-          message: `Emulation worker exited unexpectedly (code ${code})`,
           fatal: true,
+          message: `Emulation worker exited unexpectedly (code ${code})`,
         })
       }
       this.cleanup()
@@ -134,7 +134,7 @@ export class EmulationWorkerClient extends EventEmitter {
    * expected (input is too high-frequency for request/response).
    */
   setInput(port: number, id: number, pressed: boolean): void {
-    this.postCommand({ action: 'input', port, id, pressed })
+    this.postCommand({ action: 'input', id, port, pressed })
   }
 
   pause(): void {
@@ -192,7 +192,7 @@ export class EmulationWorkerClient extends EventEmitter {
    * native core, and waits for the process to exit.
    */
   async shutdown(): Promise<void> {
-    if (!this.workerProcess || !this.running) return
+    if (!this.workerProcess || !this.running) {return}
 
     this.shuttingDown = true
     this.running = false
@@ -235,7 +235,7 @@ export class EmulationWorkerClient extends EventEmitter {
 
   private setupSharedBuffers(avInfo: AVInfo): void {
     try {
-      if (typeof SharedArrayBuffer === 'undefined') return
+      if (typeof SharedArrayBuffer === 'undefined') {return}
 
       const videoBufferSize = computeVideoBufferSize(
         avInfo.geometry.maxWidth,
@@ -250,25 +250,25 @@ export class EmulationWorkerClient extends EventEmitter {
 
       // Initialize audio sample rate in control buffer
       const ctrl = new Int32Array(controlSAB)
-      Atomics.store(ctrl, CTRL_AUDIO_SAMPLE_RATE, avInfo.timing.sampleRate || 44100)
+      Atomics.store(ctrl, CTRL_AUDIO_SAMPLE_RATE, avInfo.timing.sampleRate || 44_100)
 
-      this.sharedBuffers = { control: controlSAB, video: videoSAB, audio: audioSAB }
+      this.sharedBuffers = { audio: audioSAB, control: controlSAB, video: videoSAB }
 
       // Send SABs to the worker
       this.postCommand({
         action: 'setupSharedBuffers',
-        controlSAB,
-        videoSAB,
         audioSAB,
+        controlSAB,
         videoBufferSize,
+        videoSAB,
       })
 
       libretroLog.info(
         `SharedArrayBuffer enabled: video=${videoBufferSize * 2} bytes (double-buffered), ` +
         `audio=${AUDIO_RING_BYTE_LENGTH} bytes (ring buffer)`,
       )
-    } catch (err) {
-      libretroLog.warn('SharedArrayBuffer unavailable, using copy-based IPC:', err)
+    } catch (error) {
+      libretroLog.warn('SharedArrayBuffer unavailable, using copy-based IPC:', error)
       this.sharedBuffers = null
     }
   }
@@ -294,13 +294,13 @@ export class EmulationWorkerClient extends EventEmitter {
       }, timeoutMs)
 
       this.pendingRequests.set(requestId, {
-        resolve: (data?: unknown) => {
-          clearTimeout(timeout)
-          resolve(data)
-        },
         reject: (error: Error) => {
           clearTimeout(timeout)
           reject(error)
+        },
+        resolve: (data?: unknown) => {
+          clearTimeout(timeout)
+          resolve(data)
         },
         timeout,
       })
@@ -314,22 +314,22 @@ export class EmulationWorkerClient extends EventEmitter {
       case 'videoFrame':
         this.emit('videoFrame', {
           data: event.data,
-          width: event.width,
           height: event.height,
+          width: event.width,
         })
         break
 
       case 'audioSamples':
         this.emit('audioSamples', {
-          samples: event.samples,
           sampleRate: event.sampleRate,
+          samples: event.samples,
         })
         break
 
       case 'error':
         this.emit('error', {
-          message: event.message,
           fatal: event.fatal,
+          message: event.message,
         })
         break
 

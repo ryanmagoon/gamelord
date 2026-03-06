@@ -4,6 +4,7 @@ import { xbrzFreescaleFragmentShader } from '../shaders';
 export const xbrzFreescalePreset: ShaderPresetDefinition = {
   id: 'xbrz-freescale',
   label: 'xBRZ Freescale',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const xbrzFreescalePreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

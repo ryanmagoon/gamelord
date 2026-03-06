@@ -1,7 +1,7 @@
 import { EmulatorCore, EmulatorLaunchOptions } from './EmulatorCore'
-import * as path from 'path'
-import * as fs from 'fs'
-import * as os from 'os'
+import * as path from 'node:path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
 import { app } from 'electron'
 import { validateCorePath, validateRomPath } from '../utils/pathValidation'
 
@@ -46,7 +46,7 @@ export class LibretroNativeCore extends EmulatorCore {
    * Directories that are allowed to contain libretro cores.
    * Cores loaded via dlopen must come from one of these locations.
    */
-  private getAllowedCoreDirs(): string[] {
+  private getAllowedCoreDirs(): Array<string> {
     const dirs = [
       // App-managed cores directory
       path.join(app.getPath('userData'), 'cores'),
@@ -96,17 +96,17 @@ export class LibretroNativeCore extends EmulatorCore {
   // -------------------------------------------------------------------------
 
   getCorePath(): string {
-    if (!this._corePath) throw new Error('Core not launched — no core path available')
+    if (!this._corePath) {throw new Error('Core not launched — no core path available')}
     return this._corePath
   }
 
   getRomPath(): string {
-    if (!this.romPath) throw new Error('Core not launched — no ROM path available')
+    if (!this.romPath) {throw new Error('Core not launched — no ROM path available')}
     return this.romPath
   }
 
   getSystemDir(): string {
-    if (!this._systemDir) throw new Error('Core not launched — no system dir available')
+    if (!this._systemDir) {throw new Error('Core not launched — no system dir available')}
     return this._systemDir
   }
 

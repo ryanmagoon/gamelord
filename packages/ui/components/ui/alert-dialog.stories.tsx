@@ -13,12 +13,12 @@ import {
 import { Button } from './button'
 
 const meta: Meta<typeof AlertDialog> = {
-  title: 'UI/AlertDialog',
   component: AlertDialog,
   parameters: {
     layout: 'centered',
   },
   tags: ['autodocs'],
+  title: 'UI/AlertDialog',
 }
 
 export default meta

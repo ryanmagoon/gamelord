@@ -1,11 +1,11 @@
 import type { FramebufferFormat } from './types';
 
 interface FBOEntry {
+  format: FramebufferFormat;
   framebuffer: WebGLFramebuffer;
+  height: number;
   texture: WebGLTexture;
   width: number;
-  height: number;
-  format: FramebufferFormat;
 }
 
 interface FeedbackPair {
@@ -65,7 +65,7 @@ export class FramebufferManager {
   /** Swaps current and previous textures for a feedback pair. */
   swapFeedback(key: string): void {
     const pair = this.feedbackPairs.get(key);
-    if (!pair) return;
+    if (!pair) {return;}
     const temp = pair.current;
     pair.current = pair.previous;
     pair.previous = temp;
@@ -84,7 +84,7 @@ export class FramebufferManager {
   /** Generates mipmaps for a named FBO's texture. */
   generateMipmaps(key: string): void {
     const entry = this.fbos.get(key);
-    if (!entry) return;
+    if (!entry) {return;}
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, entry.texture);
     gl.generateMipmap(gl.TEXTURE_2D);
@@ -124,7 +124,7 @@ export class FramebufferManager {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
 
-    return { framebuffer, texture, width, height, format };
+    return { format, framebuffer, height, texture, width };
   }
 
   private destroyFBO(entry: FBOEntry): void {

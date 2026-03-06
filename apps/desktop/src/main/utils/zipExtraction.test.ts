@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { listZipContents, findRomInZip, extractFileFromZip } from './zipExtraction'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import { execFileSync } from 'child_process'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
+import { execFileSync } from 'node:child_process'
 
 const TEST_DIR = path.join(os.tmpdir(), 'gamelord-zip-extraction-test')
 const ZIPS_DIR = path.join(TEST_DIR, 'zips')
@@ -50,7 +50,7 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  fs.rmSync(TEST_DIR, { recursive: true, force: true })
+  fs.rmSync(TEST_DIR, { force: true, recursive: true })
 })
 
 describe('listZipContents', () => {
@@ -127,7 +127,7 @@ describe('extractFileFromZip', () => {
     )
     expect(extractedPath).toBe(path.join(EXTRACT_DIR, 'game.gb'))
     expect(fs.existsSync(extractedPath)).toBe(true)
-    expect(fs.readFileSync(extractedPath, 'utf-8')).toBe('fake gb rom data')
+    expect(fs.readFileSync(extractedPath, 'utf8')).toBe('fake gb rom data')
   })
 
   it('extracts flat, stripping internal directory paths', async () => {
@@ -139,7 +139,7 @@ describe('extractFileFromZip', () => {
     // Should be flat in EXTRACT_DIR, not in EXTRACT_DIR/subdir/
     expect(extractedPath).toBe(path.join(EXTRACT_DIR, 'nested.sfc'))
     expect(fs.existsSync(extractedPath)).toBe(true)
-    expect(fs.readFileSync(extractedPath, 'utf-8')).toBe('fake snes rom')
+    expect(fs.readFileSync(extractedPath, 'utf8')).toBe('fake snes rom')
   })
 
   it('throws when entry does not exist in the zip', async () => {

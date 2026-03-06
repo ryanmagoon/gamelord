@@ -5,28 +5,6 @@ const DEFAULT_DURATION = 400
 const DEFAULT_EASING = 'cubic-bezier(0.25, 1, 0.5, 1)'
 
 export interface UseAspectRatioTransitionOptions {
-  /** Target aspect ratio (width / height). */
-  aspectRatio: number
-  /**
-   * When true, triggers the height transition if the aspect ratio changed
-   * since the previous render. Typically set to `true` when artwork just
-   * loaded (e.g. `artworkSyncPhase === 'done'`).
-   */
-  enabled: boolean
-  /** Duration of the height transition in ms. @default 400 */
-  duration?: number
-  /** CSS easing for the height transition. @default 'cubic-bezier(0.25, 1, 0.5, 1)' */
-  easing?: string
-  /**
-   * Called just before the height transition starts, with the current height.
-   * Use this to pin overlay elements so they don't stretch during the resize.
-   */
-  onResizeStart?: (currentHeight: number) => void
-  /**
-   * Called once the height transition finishes (or immediately if no height
-   * change was needed). Use this to sequence the cross-fade after the resize.
-   */
-  onResizeComplete?: () => void
   /**
    * Whether to animate the container height when the aspect ratio changes.
    * When `false`, the hook fires `onResizeComplete` immediately without
@@ -34,6 +12,28 @@ export interface UseAspectRatioTransitionOptions {
    * @default true
    */
   animateHeight?: boolean
+  /** Target aspect ratio (width / height). */
+  aspectRatio: number
+  /** Duration of the height transition in ms. @default 400 */
+  duration?: number
+  /** CSS easing for the height transition. @default 'cubic-bezier(0.25, 1, 0.5, 1)' */
+  easing?: string
+  /**
+   * When true, triggers the height transition if the aspect ratio changed
+   * since the previous render. Typically set to `true` when artwork just
+   * loaded (e.g. `artworkSyncPhase === 'done'`).
+   */
+  enabled: boolean
+  /**
+   * Called once the height transition finishes (or immediately if no height
+   * change was needed). Use this to sequence the cross-fade after the resize.
+   */
+  onResizeComplete?: () => void
+  /**
+   * Called just before the height transition starts, with the current height.
+   * Use this to pin overlay elements so they don't stretch during the resize.
+   */
+  onResizeStart?: (currentHeight: number) => void
 }
 
 export interface UseAspectRatioTransitionResult {
@@ -53,13 +53,13 @@ export function useAspectRatioTransition(
   options: UseAspectRatioTransitionOptions,
 ): UseAspectRatioTransitionResult {
   const {
+    animateHeight = true,
     aspectRatio,
-    enabled,
     duration = DEFAULT_DURATION,
     easing = DEFAULT_EASING,
-    onResizeStart,
+    enabled,
     onResizeComplete,
-    animateHeight = true,
+    onResizeStart,
   } = options
 
   const elementRef = useRef<HTMLElement | null>(null)
@@ -88,7 +88,7 @@ export function useAspectRatioTransition(
     const previousRatio = previousRatioRef.current
     previousRatioRef.current = aspectRatio
 
-    if (!element) return
+    if (!element) {return}
 
     // If not enabled, just set the aspect ratio directly
     if (!enabled) {

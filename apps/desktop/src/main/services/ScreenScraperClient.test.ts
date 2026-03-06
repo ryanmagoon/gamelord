@@ -15,26 +15,13 @@ function makeGameResponseFixture(overrides?: Record<string, unknown>) {
     header: { APIversion: '2', success: 'true' },
     response: {
       jeu: {
-        id: '12345',
-        noms: [
-          { region: 'jp', text: 'Super Mario Bros.' },
-          { region: 'us', text: 'Super Mario Bros.' },
-          { region: 'eu', text: 'Super Mario Bros.' },
-        ],
-        synopsis: [
-          { langue: 'fr', text: 'Un jeu de plateforme classique.' },
-          { langue: 'en', text: 'A classic platform game featuring Mario.' },
-          { langue: 'de', text: 'Ein klassisches Plattformspiel.' },
-        ],
-        developpeur: { text: 'Nintendo R&D4' },
-        editeur: { text: 'Nintendo' },
-        joueurs: { text: '2' },
-        note: { text: '18' },
         dates: [
           { region: 'jp', text: '1985-09-13' },
           { region: 'us', text: '1985-10-18' },
           { region: 'eu', text: '1987-05-15' },
         ],
+        developpeur: { text: 'Nintendo R&D4' },
+        editeur: { text: 'Nintendo' },
         genres: [
           {
             noms: [
@@ -49,6 +36,8 @@ function makeGameResponseFixture(overrides?: Record<string, unknown>) {
             ],
           },
         ],
+        id: '12345',
+        joueurs: { text: '2' },
         medias: [
           { type: 'box-2D', region: 'us', url: 'https://screenscraper.fr/medias/box2d-us.png', format: 'png' },
           { type: 'box-2D', region: 'jp', url: 'https://screenscraper.fr/medias/box2d-jp.png', format: 'png' },
@@ -56,6 +45,17 @@ function makeGameResponseFixture(overrides?: Record<string, unknown>) {
           { type: 'box-3D', region: 'us', url: 'https://screenscraper.fr/medias/box3d-us.png', format: 'png' },
           { type: 'ss', region: 'us', url: 'https://screenscraper.fr/medias/ss-us.png', format: 'png' },
           { type: 'fanart', region: 'wor', url: 'https://screenscraper.fr/medias/fanart-wor.png', format: 'png' },
+        ],
+        noms: [
+          { region: 'jp', text: 'Super Mario Bros.' },
+          { region: 'us', text: 'Super Mario Bros.' },
+          { region: 'eu', text: 'Super Mario Bros.' },
+        ],
+        note: { text: '18' },
+        synopsis: [
+          { langue: 'fr', text: 'Un jeu de plateforme classique.' },
+          { langue: 'en', text: 'A classic platform game featuring Mario.' },
+          { langue: 'de', text: 'Ein klassisches Plattformspiel.' },
         ],
         ...overrides,
       },
@@ -69,18 +69,18 @@ function makeSearchResponseFixture() {
     response: {
       jeux: [
         {
-          id: '12345',
-          noms: [{ region: 'us', text: 'Super Mario Bros.' }],
+          dates: [{ region: 'us', text: '1985-10-18' }],
           developpeur: { text: 'Nintendo R&D4' },
           editeur: { text: 'Nintendo' },
-          joueurs: { text: '2' },
-          note: { text: '18' },
-          dates: [{ region: 'us', text: '1985-10-18' }],
           genres: [{ noms: [{ langue: 'en', text: 'Platform' }] }],
-          synopsis: [{ langue: 'en', text: 'A classic platformer.' }],
+          id: '12345',
+          joueurs: { text: '2' },
           medias: [
             { type: 'box-2D', region: 'us', url: 'https://screenscraper.fr/medias/box2d-us.png', format: 'png' },
           ],
+          noms: [{ region: 'us', text: 'Super Mario Bros.' }],
+          note: { text: '18' },
+          synopsis: [{ langue: 'en', text: 'A classic platformer.' }],
         },
       ],
     },
@@ -161,13 +161,13 @@ describe('ScreenScraperClient', () => {
     it('handles missing optional fields gracefully', () => {
       const client = new ScreenScraperClient(dummyCredentials);
       const fixture = makeGameResponseFixture({
-        synopsis: undefined,
         developpeur: undefined,
         editeur: undefined,
-        joueurs: undefined,
-        note: undefined,
         genres: undefined,
+        joueurs: undefined,
         medias: undefined,
+        note: undefined,
+        synopsis: undefined,
       });
       const result = client.parseGameResponse(fixture);
 
@@ -292,7 +292,7 @@ describe('ScreenScraperClient', () => {
       const client = new ScreenScraperClient(dummyCredentials);
       const fixture = makeGameResponseFixture({
         medias: [
-          { type: 'box-2D', region: 'us', url: 'https://example.com/box.png' },
+          { region: 'us', type: 'box-2D', url: 'https://example.com/box.png' },
         ],
       });
       const result = client.parseGameResponse(fixture);
@@ -305,7 +305,7 @@ describe('ScreenScraperClient', () => {
       const client = new ScreenScraperClient(dummyCredentials);
       const fixture = makeGameResponseFixture({
         medias: [
-          { type: 'box-2D', region: 'eu', url: 'https://example.com/box-eu.png' },
+          { region: 'eu', type: 'box-2D', url: 'https://example.com/box-eu.png' },
         ],
       });
       const result = client.parseGameResponse(fixture);

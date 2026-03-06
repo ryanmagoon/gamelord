@@ -5,21 +5,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 function createMockAudioBuffer(): AudioBuffer {
   return {
-    sampleRate: 44100,
-    length: 4410,
-    numberOfChannels: 1,
-    duration: 0.1,
-    getChannelData: () => new Float32Array(4410),
     copyFromChannel: vi.fn(),
     copyToChannel: vi.fn(),
+    duration: 0.1,
+    getChannelData: () => new Float32Array(4410),
+    length: 4410,
+    numberOfChannels: 1,
+    sampleRate: 44_100,
   } as unknown as AudioBuffer
 }
 
 function createMockGainNode(): GainNode {
   return {
-    gain: { value: 1 },
     connect: vi.fn(),
     disconnect: vi.fn(),
+    gain: { value: 1 },
   } as unknown as GainNode
 }
 
@@ -27,9 +27,9 @@ function createMockSourceNode(): AudioBufferSourceNode {
   return {
     buffer: null,
     connect: vi.fn(),
+    disconnect: vi.fn(),
     start: vi.fn(),
     stop: vi.fn(),
-    disconnect: vi.fn(),
   } as unknown as AudioBufferSourceNode
 }
 
@@ -45,7 +45,7 @@ function setupGlobalMocks() {
   mockSourceNode = createMockSourceNode()
 
   globalThis.AudioContext = vi.fn(function (this: Record<string, unknown>) {
-    this.sampleRate = 44100
+    this.sampleRate = 44_100
     this.destination = {}
     this.resume = mockResume
     this.createGain = () => mockGainNode

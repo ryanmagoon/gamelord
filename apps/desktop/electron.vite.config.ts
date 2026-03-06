@@ -1,12 +1,12 @@
-import { resolve } from 'path'
-import { execSync } from 'child_process'
+import { resolve } from 'node:path'
+import { execSync } from 'node:child_process'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
 
 function getGitBranch(): string | null {
   try {
-    return execSync('git branch --show-current', { encoding: 'utf-8' }).trim() || null
+    return execSync('git branch --show-current', { encoding: 'utf8' }).trim() || null
   } catch {
     return null
   }
@@ -14,7 +14,7 @@ function getGitBranch(): string | null {
 
 function getWorktreeInfo(): { name: string; path: string } | null {
   const match = process.cwd().match(/^(.*\/\.claude\/worktrees\/([^/]+))/)
-  if (!match) return null
+  if (!match) {return null}
   return { name: match[2], path: match[1] }
 }
 
@@ -33,19 +33,18 @@ function devGitInfoPlugin(): Plugin {
   return {
     name: 'dev-git-info',
     transform(code, id) {
-      if (!id.endsWith('.tsx') && !id.endsWith('.ts')) return
+      if (!id.endsWith('.tsx') && !id.endsWith('.ts')) {return}
       let result = code
       for (const [key, value] of Object.entries(replacements)) {
         result = result.replaceAll(key, value)
       }
-      if (result !== code) return { code: result, map: null }
+      if (result !== code) {return { code: result, map: null }}
     },
   }
 }
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
         input: {
@@ -55,9 +54,9 @@ export default defineConfig({
         external: [/\.node$/],
       },
     },
+    plugins: [externalizeDepsPlugin()],
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
         input: {
@@ -65,15 +64,9 @@ export default defineConfig({
         },
       },
     },
+    plugins: [externalizeDepsPlugin()],
   },
   renderer: {
-    root: '.',
-    server: {
-      headers: {
-        'Cross-Origin-Opener-Policy': 'same-origin',
-        'Cross-Origin-Embedder-Policy': 'require-corp',
-      },
-    },
     build: {
       rollupOptions: {
         input: {
@@ -81,6 +74,9 @@ export default defineConfig({
           'game-window': resolve(__dirname, 'game-window.html'),
         },
       },
+    },
+    optimizeDeps: {
+      exclude: ['@gamelord/ui'],
     },
     plugins: [react(), devGitInfoPlugin()],
     resolve: {
@@ -90,8 +86,12 @@ export default defineConfig({
       // installs transitive dependencies.
       preserveSymlinks: false,
     },
-    optimizeDeps: {
-      exclude: ['@gamelord/ui'],
+    root: '.',
+    server: {
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+      },
     },
   },
 })

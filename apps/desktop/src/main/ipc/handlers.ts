@@ -366,7 +366,7 @@ export class IPCHandlers {
         {
           name: `${system.name} ROMs`,
           extensions: [
-            ...system.extensions.map(ext => ext.substring(1)), // Remove dots
+            ...system.extensions.map(ext => ext.slice(1)), // Remove dots
             ...(systemId !== 'arcade' ? ['zip'] : []),
           ],
         }
@@ -419,7 +419,7 @@ export class IPCHandlers {
       return { success: true };
     });
 
-    ipcMain.handle('artwork:syncGames', (_event, gameIds: string[]) => {
+    ipcMain.handle('artwork:syncGames', (_event, gameIds: Array<string>) => {
       // Start targeted sync in background for auto-sync after import
       const syncPromise = this.artworkService.syncGames(gameIds);
       syncPromise.catch((error) => {
@@ -512,7 +512,7 @@ export class IPCHandlers {
           this.pendingResumeDialogs.delete(requestId);
           resolve(false);
         }
-      }, 30000);
+      }, 30_000);
     });
   }
 }

@@ -125,7 +125,7 @@ app.on('ready', () => {
 // still has `running = true` if shutdown() was never called).
 let isCleaningUp = false;
 app.on('before-quit', async (event) => {
-  if (isCleaningUp || !ipcHandlers) return;
+  if (isCleaningUp || !ipcHandlers) {return;}
   event.preventDefault();
   isCleaningUp = true;
   await ipcHandlers.cleanup();

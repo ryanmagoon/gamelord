@@ -13,16 +13,6 @@ if (isChromatic()) {
 
 /** @type { import('@storybook/react-vite').Preview } */
 const preview = {
-  parameters: {
-    controls: {
-      matchers: {
-        color: /(background|color)$/i,
-        date: /Date$/i,
-      },
-    },
-    // Pause all CSS animations at their first frame for Chromatic snapshots.
-    chromatic: { pauseAnimationAtEnd: true },
-  },
   decorators: [
     (Story) =>
       React.createElement(
@@ -35,6 +25,16 @@ const preview = {
         }),
       ),
   ],
+  parameters: {
+    controls: {
+      matchers: {
+        color: /(background|color)$/i,
+        date: /Date$/i,
+      },
+    },
+    // Pause all CSS animations at their first frame for Chromatic snapshots.
+    chromatic: { pauseAnimationAtEnd: true },
+  },
 }
 
 export default preview

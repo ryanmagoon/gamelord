@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
 import { readImageDimensions } from './readImageDimensions'
 
 const TEST_DIR = path.join(os.tmpdir(), 'gamelord-image-dimensions-test')
@@ -93,7 +93,7 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  fs.rmSync(TEST_DIR, { recursive: true, force: true })
+  fs.rmSync(TEST_DIR, { force: true, recursive: true })
 })
 
 describe('readImageDimensions', () => {
@@ -103,7 +103,7 @@ describe('readImageDimensions', () => {
       fs.writeFileSync(filePath, createMinimalPng(640, 480))
 
       const dimensions = await readImageDimensions(filePath)
-      expect(dimensions).toEqual({ width: 640, height: 480 })
+      expect(dimensions).toEqual({ height: 480, width: 640 })
     })
 
     it('reads large PNG dimensions', async () => {
@@ -111,7 +111,7 @@ describe('readImageDimensions', () => {
       fs.writeFileSync(filePath, createMinimalPng(3840, 2160))
 
       const dimensions = await readImageDimensions(filePath)
-      expect(dimensions).toEqual({ width: 3840, height: 2160 })
+      expect(dimensions).toEqual({ height: 2160, width: 3840 })
     })
 
     it('reads non-square PNG dimensions', async () => {
@@ -119,7 +119,7 @@ describe('readImageDimensions', () => {
       fs.writeFileSync(filePath, createMinimalPng(300, 420))
 
       const dimensions = await readImageDimensions(filePath)
-      expect(dimensions).toEqual({ width: 300, height: 420 })
+      expect(dimensions).toEqual({ height: 420, width: 300 })
     })
   })
 
@@ -129,7 +129,7 @@ describe('readImageDimensions', () => {
       fs.writeFileSync(filePath, createMinimalJpeg(800, 600))
 
       const dimensions = await readImageDimensions(filePath)
-      expect(dimensions).toEqual({ width: 800, height: 600 })
+      expect(dimensions).toEqual({ height: 600, width: 800 })
     })
 
     it('reads dimensions from JPEG with large EXIF segment', async () => {
@@ -137,7 +137,7 @@ describe('readImageDimensions', () => {
       fs.writeFileSync(filePath, createJpegWithLargeExif(1024, 768))
 
       const dimensions = await readImageDimensions(filePath)
-      expect(dimensions).toEqual({ width: 1024, height: 768 })
+      expect(dimensions).toEqual({ height: 768, width: 1024 })
     })
   })
 

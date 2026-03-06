@@ -4,6 +4,7 @@ import { ntscEncodeVertexShader, ntscEncodeFragmentShader, ntscDecodeVertexShade
 export const ntscAdaptivePreset: ShaderPresetDefinition = {
   id: 'ntsc-adaptive',
   label: 'NTSC Adaptive',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -23,5 +24,4 @@ export const ntscAdaptivePreset: ShaderPresetDefinition = {
       format: 'rgba16f',
     },
   ],
-  luts: [],
 };

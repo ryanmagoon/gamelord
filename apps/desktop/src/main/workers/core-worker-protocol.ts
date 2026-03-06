@@ -11,11 +11,14 @@
 // ---------------------------------------------------------------------------
 
 export interface NativeLibretroCore {
-  loadCore(corePath: string): boolean
-  loadGame(romPath: string): boolean
-  unloadGame(): void
-  run(): void
-  reset(): void
+  destroy(): void
+  getAudioBuffer(): Int16Array | null
+  getAVInfo(): AVInfo | null
+  getCoreOptions(): Record<string, string>
+  getLogMessages(): Array<{ level: number; message: string }>
+  getMemoryData(memType?: number): Uint8Array | null
+  getMemorySize(memType?: number): number
+  getSerializeSize(): number
   getSystemInfo(): {
     libraryName: string
     libraryVersion: string
@@ -23,23 +26,20 @@ export interface NativeLibretroCore {
     needFullpath: boolean
     blockExtract: boolean
   } | null
-  getAVInfo(): AVInfo | null
   getVideoFrame(): { data: Uint8Array; width: number; height: number } | null
-  getAudioBuffer(): Int16Array | null
-  setInputState(port: number, id: number, value: number): void
-  serializeState(): Uint8Array | null
-  unserializeState(data: Uint8Array): boolean
-  getSerializeSize(): number
-  destroy(): void
   isLoaded(): boolean
-  setSystemDirectory(dir: string): void
-  setSaveDirectory(dir: string): void
-  getMemoryData(memType?: number): Uint8Array | null
-  getMemorySize(memType?: number): number
-  setMemoryData(data: Uint8Array, memType?: number): void
-  getLogMessages(): Array<{ level: number; message: string }>
-  getCoreOptions(): Record<string, string>
+  loadCore(corePath: string): boolean
+  loadGame(romPath: string): boolean
+  reset(): void
+  run(): void
+  serializeState(): Uint8Array | null
   setCoreOption(key: string, value: string): boolean
+  setInputState(port: number, id: number, value: number): void
+  setMemoryData(data: Uint8Array, memType?: number): void
+  setSaveDirectory(dir: string): void
+  setSystemDirectory(dir: string): void
+  unloadGame(): void
+  unserializeState(data: Uint8Array): boolean
 }
 
 export interface NativeAddon {
@@ -52,11 +52,11 @@ export interface NativeAddon {
 
 export interface AVInfo {
   geometry: {
-    baseWidth: number
-    baseHeight: number
-    maxWidth: number
-    maxHeight: number
     aspectRatio: number
+    baseHeight: number
+    baseWidth: number
+    maxHeight: number
+    maxWidth: number
   }
   timing: {
     fps: number
@@ -71,31 +71,31 @@ export interface AVInfo {
 export type WorkerCommand =
   | {
       action: 'init'
+      addonPath: string
       corePath: string
       romPath: string
-      systemDir: string
       saveDir: string
-      sramDir: string
       saveStatesDir: string
-      addonPath: string
+      sramDir: string
+      systemDir: string
     }
   | { action: 'pause' }
   | { action: 'resume' }
   | { action: 'reset' }
-  | { action: 'input'; port: number; id: number; pressed: boolean }
-  | { action: 'saveState'; slot: number; requestId: string }
-  | { action: 'loadState'; slot: number; requestId: string }
+  | { action: 'input'; id: number; port: number; pressed: boolean }
+  | { action: 'saveState'; requestId: string; slot: number; }
+  | { action: 'loadState'; requestId: string; slot: number; }
   | { action: 'saveSram'; requestId: string }
-  | { action: 'screenshot'; requestId: string; outputPath?: string }
+  | { action: 'screenshot'; outputPath?: string; requestId: string; }
   | { action: 'setSpeed'; multiplier: number }
   | { action: 'setFastForwardAudio'; enabled: boolean }
   | { action: 'shutdown'; requestId: string }
   | {
       action: 'setupSharedBuffers'
-      controlSAB: SharedArrayBuffer
-      videoSAB: SharedArrayBuffer
       audioSAB: SharedArrayBuffer
+      controlSAB: SharedArrayBuffer
       videoBufferSize: number
+      videoSAB: SharedArrayBuffer
     }
 
 // ---------------------------------------------------------------------------
@@ -103,16 +103,16 @@ export type WorkerCommand =
 // ---------------------------------------------------------------------------
 
 export type WorkerEvent =
-  | { type: 'ready'; avInfo: AVInfo }
-  | { type: 'videoFrame'; data: Buffer; width: number; height: number }
-  | { type: 'audioSamples'; samples: Buffer; sampleRate: number }
-  | { type: 'error'; message: string; fatal: boolean }
-  | { type: 'log'; level: number; message: string }
-  | { type: 'speedChanged'; multiplier: number }
+  | { avInfo: AVInfo; type: 'ready'; }
+  | { data: Buffer; height: number; type: 'videoFrame'; width: number; }
+  | { sampleRate: number; samples: Buffer; type: 'audioSamples'; }
+  | { fatal: boolean; message: string; type: 'error'; }
+  | { level: number; message: string; type: 'log'; }
+  | { multiplier: number; type: 'speedChanged'; }
   | {
-      type: 'response'
+      data?: unknown
+      error?: string
       requestId: string
       success: boolean
-      error?: string
-      data?: unknown
+      type: 'response'
     }

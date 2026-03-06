@@ -4,6 +4,7 @@ import { crtApertureFragmentShader } from '../shaders';
 export const crtAperturePreset: ShaderPresetDefinition = {
   id: 'crt-aperture',
   label: 'CRT Aperture',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const crtAperturePreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

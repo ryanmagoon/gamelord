@@ -5,8 +5,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'happy-dom',
+    exclude: ['**/node_modules/**'],
     globals: true,
     include: ['src/**/*.test.{ts,tsx}'],
-    exclude: ['**/node_modules/**'],
   },
 })

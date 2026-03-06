@@ -15,20 +15,20 @@ import { PlatformIcon } from './PlatformIcon';
 import { cn } from '../utils';
 
 export interface GameDetailsProps {
+  className?: string;
   game: Game;
   onPlay: (game: Game) => void;
   onSettings?: (game: Game) => void;
-  className?: string;
 }
 
 export const GameDetails: React.FC<GameDetailsProps> = ({
+  className,
   game,
   onPlay,
-  onSettings,
-  className
+  onSettings
 }) => {
   const formatPlayTime = (seconds?: number) => {
-    if (!seconds) return 'Never played';
+    if (!seconds) {return 'Never played';}
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     if (hours > 0) {
@@ -38,15 +38,15 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
   };
 
   const formatLastPlayed = (date?: Date) => {
-    if (!date) return 'Never';
+    if (!date) {return 'Never';}
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+    if (days === 0) {return 'Today';}
+    if (days === 1) {return 'Yesterday';}
+    if (days < 7) {return `${days} days ago`;}
+    if (days < 30) {return `${Math.floor(days / 7)} weeks ago`;}
     return date.toLocaleDateString();
   };
 
@@ -59,9 +59,9 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
           <div className="w-48 h-64 bg-muted rounded-lg overflow-hidden">
             {game.coverArt ? (
               <img 
-                src={game.coverArt} 
-                alt={game.title}
+                alt={game.title} 
                 className="w-full h-full object-cover"
+                src={game.coverArt}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -77,7 +77,7 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
             <h1 className="text-3xl font-bold mb-2">{game.title}</h1>
             <div className="flex items-center gap-4 text-muted-foreground">
               <div className="flex items-center gap-2">
-                <PlatformIcon platform={game.platform} className="h-5 w-5" />
+                <PlatformIcon className="h-5 w-5" platform={game.platform} />
                 <span>{game.platform}</span>
               </div>
               {game.genre && (
@@ -94,9 +94,9 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
             </Button>
             {onSettings && (
               <Button 
-                variant="outline" 
-                onClick={() => onSettings(game)}
+                onClick={() => onSettings(game)} 
                 size="lg"
+                variant="outline"
               >
                 <Settings className="h-5 w-5 mr-2" />
                 Settings

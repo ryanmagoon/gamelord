@@ -12,13 +12,13 @@ const subscribers = new Set<() => void>()
 
 function updatePreferences(patch: Partial<typeof cachedPreferences>) {
   cachedPreferences = { ...cachedPreferences, ...patch }
-  for (const cb of subscribers) cb()
+  for (const cb of subscribers) {cb()}
 }
 
 vi.mock('../lib/audio/SfxEngine', () => ({
   sfxEngine: {
-    play: (...args: unknown[]) => mockPlay(...args),
     getPreferences: () => cachedPreferences,
+    play: (...args: Array<unknown>) => mockPlay(...args),
     setEnabled: (v: boolean) => {
       mockSetEnabled(v)
       updatePreferences({ enabled: v })
@@ -73,7 +73,7 @@ describe('useSfx', () => {
   })
 
   it('play returns a stable reference across renders', () => {
-    const { result, rerender } = renderHook(() => useSfx())
+    const { rerender, result } = renderHook(() => useSfx())
     const firstPlay = result.current.play
     rerender()
     expect(result.current.play).toBe(firstPlay)

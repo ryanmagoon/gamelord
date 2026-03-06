@@ -3,28 +3,28 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { CoreSelectDialog, CoreSelectDialogProps } from './CoreSelectDialog'
 import type { CoreInfo } from '../types/global'
 
-const MOCK_CORES: CoreInfo[] = [
+const MOCK_CORES: Array<CoreInfo> = [
   {
-    name: 'snes9x_libretro',
-    displayName: 'Snes9x',
     description: 'Fast, highly compatible. Best for most games.',
+    displayName: 'Snes9x',
     installed: true,
+    name: 'snes9x_libretro',
   },
   {
-    name: 'bsnes_libretro',
-    displayName: 'bsnes',
     description: 'Cycle-accurate. Perfect accuracy, higher CPU usage.',
+    displayName: 'bsnes',
     installed: false,
+    name: 'bsnes_libretro',
   },
 ]
 
 function renderDialog(overrides: Partial<CoreSelectDialogProps> = {}) {
   const defaultProps: CoreSelectDialogProps = {
+    cores: MOCK_CORES,
+    onCancel: vi.fn(),
+    onSelect: vi.fn(),
     open: true,
     systemName: 'SNES',
-    cores: MOCK_CORES,
-    onSelect: vi.fn(),
-    onCancel: vi.fn(),
   }
 
   const props = { ...defaultProps, ...overrides }
@@ -99,12 +99,12 @@ describe('CoreSelectDialog', () => {
   })
 
   it('handles cores without descriptions', () => {
-    const coresWithoutDescription: CoreInfo[] = [
+    const coresWithoutDescription: Array<CoreInfo> = [
       {
-        name: 'test_core',
-        displayName: 'Test Core',
         description: '',
+        displayName: 'Test Core',
         installed: true,
+        name: 'test_core',
       },
     ]
     renderDialog({ cores: coresWithoutDescription })

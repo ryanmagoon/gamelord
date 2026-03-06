@@ -14,7 +14,7 @@ interface UseGamepadOptions {
 
 interface GamepadButtonState {
   /** Tracked digital button states for change detection. Index = gamepad button index. */
-  buttons: boolean[]
+  buttons: Array<boolean>
   /** Tracked analog stick d-pad states: [up, down, left, right]. */
   analogDpad: [boolean, boolean, boolean, boolean]
 }
@@ -57,7 +57,7 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
 
   const releaseAllButtons = useCallback((port: number) => {
     const previousState = previousStatesRef.current.get(port)
-    if (!previousState || port >= 2) return
+    if (!previousState || port >= 2) {return}
 
     for (
       let buttonIndex = 0;
@@ -90,8 +90,8 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
         gamepadIndex++
       ) {
         const gamepad = gamepads[gamepadIndex]
-        if (!gamepad) continue
-        if (gamepad.mapping !== 'standard') continue
+        if (!gamepad) {continue}
+        if (gamepad.mapping !== 'standard') {continue}
 
         const port = gamepadIndex
         let previousState = previousStatesRef.current.get(gamepadIndex)
@@ -111,7 +111,7 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
           buttonIndex++
         ) {
           const retroId = STANDARD_GAMEPAD_MAPPING[buttonIndex]
-          if (retroId === null) continue
+          if (retroId === null) {continue}
 
           const pressed = gamepad.buttons[buttonIndex].pressed
           if (pressed !== previousState.buttons[buttonIndex]) {

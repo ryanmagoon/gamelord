@@ -36,7 +36,7 @@ class SfxEngine {
     const storedVolume = localStorage.getItem(STORAGE_KEY_VOLUME)
     this.preferences = {
       enabled: storedEnabled !== 'false', // default true
-      volume: storedVolume !== null ? parseFloat(storedVolume) : 0.5,
+      volume: storedVolume !== null ? Number.parseFloat(storedVolume) : 0.5,
     }
   }
 
@@ -45,7 +45,7 @@ class SfxEngine {
    * Called on first play() — guaranteed to be inside a user gesture.
    */
   private ensureInitialized(): void {
-    if (this.initialized) return
+    if (this.initialized) {return}
 
     this.ctx = new AudioContext()
     this.gainNode = this.ctx.createGain()
@@ -61,7 +61,7 @@ class SfxEngine {
 
   /** Fire-and-forget sound playback. No-op when disabled. */
   play(id: SfxId): void {
-    if (!this.preferences.enabled) return
+    if (!this.preferences.enabled) {return}
     this.ensureInitialized()
     const ctx = this.ctx!
 
@@ -70,7 +70,7 @@ class SfxEngine {
     }
 
     const buffer = this.buffers.get(id)
-    if (!buffer) return
+    if (!buffer) {return}
 
     const source = ctx.createBufferSource()
     source.buffer = buffer

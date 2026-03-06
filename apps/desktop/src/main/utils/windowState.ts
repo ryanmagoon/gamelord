@@ -4,21 +4,17 @@ import path from 'node:path'
 import { mainLog } from '../logger'
 
 interface WindowState {
+  height: number
+  isFullScreen: boolean
+  isMaximized: boolean
+  width: number
   x: number
   y: number
-  width: number
-  height: number
-  isMaximized: boolean
-  isFullScreen: boolean
 }
 
 export interface WindowStateConfig {
-  /** File name stored in the userData directory. */
-  stateFile: string
   /** Default state when no saved file exists. */
   defaults: WindowState
-  /** Track fullscreen instead of maximized state. */
-  trackFullScreen?: boolean
   /**
    * If true, the caller is responsible for saving state on close via
    * `saveWindowStateNow`. `manageWindowState` will not attach a `close`
@@ -26,10 +22,13 @@ export interface WindowStateConfig {
    * shutdown animation) that could corrupt saved bounds.
    */
   manualCloseSave?: boolean
+  /** File name stored in the userData directory. */
+  stateFile: string
+  /** Track fullscreen instead of maximized state. */
+  trackFullScreen?: boolean
 }
 
 export const MAIN_WINDOW_CONFIG: WindowStateConfig = {
-  stateFile: 'window-state.json',
   defaults: {
     x: -1,
     y: -1,
@@ -38,13 +37,14 @@ export const MAIN_WINDOW_CONFIG: WindowStateConfig = {
     isMaximized: false,
     isFullScreen: false,
   },
+  stateFile: 'window-state.json',
 }
 
 interface Bounds {
+  height: number
+  width: number
   x: number
   y: number
-  width: number
-  height: number
 }
 
 /**
@@ -61,28 +61,28 @@ function clampToNearestDisplay(bounds: Bounds): Bounds {
   const x = Math.max(wa.x, Math.min(bounds.x, wa.x + wa.width - width))
   const y = Math.max(wa.y, Math.min(bounds.y, wa.y + wa.height - height))
 
-  return { x, y, width, height }
+  return { height, width, x, y }
 }
 
 function loadWindowState(config: WindowStateConfig = MAIN_WINDOW_CONFIG): WindowState {
   const filePath = path.join(app.getPath('userData'), config.stateFile)
   try {
-    const raw = fs.readFileSync(filePath, 'utf-8')
+    const raw = fs.readFileSync(filePath, 'utf8')
     const parsed = JSON.parse(raw) as Partial<WindowState>
 
     const state: WindowState = {
+      height: typeof parsed.height === 'number' ? parsed.height : config.defaults.height,
+      isFullScreen: typeof parsed.isFullScreen === 'boolean' ? parsed.isFullScreen : config.defaults.isFullScreen,
+      isMaximized: typeof parsed.isMaximized === 'boolean' ? parsed.isMaximized : config.defaults.isMaximized,
+      width: typeof parsed.width === 'number' ? parsed.width : config.defaults.width,
       x: typeof parsed.x === 'number' ? parsed.x : config.defaults.x,
       y: typeof parsed.y === 'number' ? parsed.y : config.defaults.y,
-      width: typeof parsed.width === 'number' ? parsed.width : config.defaults.width,
-      height: typeof parsed.height === 'number' ? parsed.height : config.defaults.height,
-      isMaximized: typeof parsed.isMaximized === 'boolean' ? parsed.isMaximized : config.defaults.isMaximized,
-      isFullScreen: typeof parsed.isFullScreen === 'boolean' ? parsed.isFullScreen : config.defaults.isFullScreen,
     }
 
     // Clamp saved bounds to the nearest display so the window is never
     // off-screen or larger than the available work area.
     if (state.x !== -1 && state.y !== -1) {
-      const clamped = clampToNearestDisplay({ x: state.x, y: state.y, width: state.width, height: state.height })
+      const clamped = clampToNearestDisplay({ height: state.height, width: state.width, x: state.x, y: state.y })
       state.x = clamped.x
       state.y = clamped.y
       state.width = clamped.width
@@ -98,7 +98,7 @@ function loadWindowState(config: WindowStateConfig = MAIN_WINDOW_CONFIG): Window
 function saveWindowState(state: WindowState, config: WindowStateConfig = MAIN_WINDOW_CONFIG): void {
   const filePath = path.join(app.getPath('userData'), config.stateFile)
   try {
-    fs.writeFileSync(filePath, JSON.stringify(state, null, 2), 'utf-8')
+    fs.writeFileSync(filePath, JSON.stringify(state, null, 2), 'utf8')
   } catch (error) {
     mainLog.error('Failed to save window state:', error)
   }
@@ -109,7 +109,7 @@ function saveWindowState(state: WindowState, config: WindowStateConfig = MAIN_WI
  * manages its own close lifecycle (e.g. `manualCloseSave: true`).
  */
 export function saveWindowStateNow(window: BrowserWindow, config: WindowStateConfig): void {
-  if (window.isDestroyed()) return
+  if (window.isDestroyed()) {return}
 
   const isFullScreen = config.trackFullScreen ? window.isFullScreen() : false
   const isMaximized = !config.trackFullScreen ? window.isMaximized() : false
@@ -117,19 +117,19 @@ export function saveWindowStateNow(window: BrowserWindow, config: WindowStateCon
   if (!isFullScreen && !isMaximized) {
     const bounds = window.getBounds()
     saveWindowState({
+      height: bounds.height,
+      isFullScreen: false,
+      isMaximized: false,
+      width: bounds.width,
       x: bounds.x,
       y: bounds.y,
-      width: bounds.width,
-      height: bounds.height,
-      isMaximized: false,
-      isFullScreen: false,
     }, config)
   } else {
     const existing = loadWindowState(config)
     saveWindowState({
       ...existing,
-      isMaximized,
       isFullScreen,
+      isMaximized,
     }, config)
   }
 }
@@ -145,7 +145,7 @@ export function manageWindowState(window: BrowserWindow, config: WindowStateConf
 
   // Restore saved bounds
   if (state.x !== -1 && state.y !== -1) {
-    window.setBounds({ x: state.x, y: state.y, width: state.width, height: state.height })
+    window.setBounds({ height: state.height, width: state.width, x: state.x, y: state.y })
   } else {
     window.setSize(state.width, state.height)
     window.center()
@@ -160,21 +160,21 @@ export function manageWindowState(window: BrowserWindow, config: WindowStateConf
   // Debounced save — don't write to disk on every pixel of a resize/move
   let saveTimeout: ReturnType<typeof setTimeout> | null = null
   const scheduleSave = () => {
-    if (saveTimeout) clearTimeout(saveTimeout)
+    if (saveTimeout) {clearTimeout(saveTimeout)}
     saveTimeout = setTimeout(() => {
-      if (window.isDestroyed()) return
+      if (window.isDestroyed()) {return}
 
       if (config.trackFullScreen) {
         const isFullScreen = window.isFullScreen()
         if (!isFullScreen) {
           const bounds = window.getBounds()
           saveWindowState({
+            height: bounds.height,
+            isFullScreen: false,
+            isMaximized: false,
+            width: bounds.width,
             x: bounds.x,
             y: bounds.y,
-            width: bounds.width,
-            height: bounds.height,
-            isMaximized: false,
-            isFullScreen: false,
           }, config)
         } else {
           const existing = loadWindowState(config)
@@ -185,12 +185,12 @@ export function manageWindowState(window: BrowserWindow, config: WindowStateConf
         if (!isMaximized) {
           const bounds = window.getBounds()
           saveWindowState({
+            height: bounds.height,
+            isFullScreen: false,
+            isMaximized: false,
+            width: bounds.width,
             x: bounds.x,
             y: bounds.y,
-            width: bounds.width,
-            height: bounds.height,
-            isMaximized: false,
-            isFullScreen: false,
           }, config)
         } else {
           const existing = loadWindowState(config)
@@ -214,7 +214,7 @@ export function manageWindowState(window: BrowserWindow, config: WindowStateConf
   if (!config.manualCloseSave) {
     // Final save on close to ensure latest state is persisted
     window.on('close', () => {
-      if (saveTimeout) clearTimeout(saveTimeout)
+      if (saveTimeout) {clearTimeout(saveTimeout)}
       saveWindowStateNow(window, config)
     })
   }
@@ -224,10 +224,10 @@ export function manageWindowState(window: BrowserWindow, config: WindowStateConf
  * Get saved window state for use in BrowserWindow constructor options.
  * Returns width/height (and optionally x/y) from the last saved state.
  */
-export function getSavedWindowBounds(config: WindowStateConfig = MAIN_WINDOW_CONFIG): { width: number; height: number; x?: number; y?: number } {
+export function getSavedWindowBounds(config: WindowStateConfig = MAIN_WINDOW_CONFIG): { height: number; width: number; x?: number; y?: number } {
   const state = loadWindowState(config)
   if (state.x !== -1 && state.y !== -1) {
-    return { width: state.width, height: state.height, x: state.x, y: state.y }
+    return { height: state.height, width: state.width, x: state.x, y: state.y }
   }
-  return { width: state.width, height: state.height }
+  return { height: state.height, width: state.width }
 }

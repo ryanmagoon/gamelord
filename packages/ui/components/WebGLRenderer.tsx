@@ -15,7 +15,7 @@ export const WebGLRendererComponent: React.FC<WebGLRendererProps> = ({
   const rendererRef = useRef<WebGLRenderer | null>(null);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current) {return;}
 
     // Initialize WebGL renderer
     try {
@@ -68,9 +68,9 @@ export const WebGLRendererComponent: React.FC<WebGLRendererProps> = ({
   return (
     <div className={cn("relative bg-black", className)}>
       <canvas
-        ref={canvasRef}
         className="w-full h-full"
         onDoubleClick={handleFullscreen}
+        ref={canvasRef}
       />
     </div>
   );

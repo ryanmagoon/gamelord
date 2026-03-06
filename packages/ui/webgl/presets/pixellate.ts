@@ -4,6 +4,7 @@ import { pixellateFragmentShader } from '../shaders';
 export const pixellatePreset: ShaderPresetDefinition = {
   id: 'pixellate',
   label: 'Pixellate',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const pixellatePreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

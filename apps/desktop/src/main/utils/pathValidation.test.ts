@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { validateCorePath, validateRomPath } from './pathValidation'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
 
 const TEST_DIR = path.join(os.tmpdir(), 'gamelord-path-validation-test')
 const CORES_DIR = path.join(TEST_DIR, 'cores')
@@ -24,7 +24,7 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  fs.rmSync(TEST_DIR, { recursive: true, force: true })
+  fs.rmSync(TEST_DIR, { force: true, recursive: true })
 })
 
 describe('validateCorePath', () => {

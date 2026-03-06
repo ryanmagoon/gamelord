@@ -4,6 +4,7 @@ import { crtGeomFragmentShader } from '../shaders';
 export const crtGeomPreset: ShaderPresetDefinition = {
   id: 'crt-geom',
   label: 'CRT Geom',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const crtGeomPreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

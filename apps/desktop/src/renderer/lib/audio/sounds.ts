@@ -24,11 +24,11 @@ function sineWave(t: number, freq: number): number {
 /** Deterministic-ish white noise via simple hash. */
 function noise(sampleIndex: number): number {
   // Fast integer hash (xorshift-inspired) for reproducible noise
-  let x = (sampleIndex + 1) * 374761393
-  x = ((x >> 16) ^ x) * 668265263
-  x = ((x >> 16) ^ x) * 668265263
+  let x = (sampleIndex + 1) * 374_761_393
+  x = ((x >> 16) ^ x) * 668_265_263
+  x = ((x >> 16) ^ x) * 668_265_263
   x = (x >> 16) ^ x
-  return (x & 0xffff) / 0x8000 - 1 // range [-1, 1]
+  return (x & 0xff_ff) / 0x80_00 - 1 // range [-1, 1]
 }
 
 // ─── Envelope Helpers ────────────────────────────────────────────────
@@ -45,7 +45,7 @@ function expDecay(t: number, tau: number): number {
 
 /** Attack-decay envelope. */
 function adEnvelope(t: number, attack: number, decay: number): number {
-  if (t < attack) return t / attack
+  if (t < attack) {return t / attack}
   return expDecay(t - attack, decay)
 }
 
@@ -228,11 +228,11 @@ export function syncComplete(ctx: BaseAudioContext): AudioBuffer {
 
   return renderBuffer(ctx, dur, (t) => {
     const noteIndex = Math.floor(t / step)
-    if (noteIndex >= freqs.length) return 0
+    if (noteIndex >= freqs.length) {return 0}
 
     const noteStart = noteIndex * step
     const noteT = t - noteStart
-    if (noteT > noteLen) return 0 // in the gap
+    if (noteT > noteLen) {return 0} // in the gap
 
     return squareWave(t, freqs[noteIndex]) * expDecay(noteT, 0.03) * 0.25
   })
@@ -259,7 +259,7 @@ export function fastForward(ctx: BaseAudioContext): AudioBuffer {
 
   return renderBuffer(ctx, dur, (t) => {
     const phase = t % period
-    if (phase > burstLen) return 0 // in gap
+    if (phase > burstLen) {return 0} // in gap
     return squareWave(t, 1500) * expDecay(phase, 0.008) * 0.2
   })
 }
@@ -282,21 +282,21 @@ export function cardLaunch(ctx: BaseAudioContext): AudioBuffer {
 
 /** All sound synthesis functions keyed by SfxId. */
 export const soundGenerators = {
+  cardLaunch,
   click,
-  toggleOn,
-  toggleOff,
-  saveState,
-  loadState,
-  pause,
-  resume,
-  powerOn,
-  powerOff,
-  dialogOpen,
   dialogClose,
-  screenshot,
-  favoritePop,
-  syncComplete,
+  dialogOpen,
   error,
   fastForward,
-  cardLaunch,
+  favoritePop,
+  loadState,
+  pause,
+  powerOff,
+  powerOn,
+  resume,
+  saveState,
+  screenshot,
+  syncComplete,
+  toggleOff,
+  toggleOn,
 } as const

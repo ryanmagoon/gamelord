@@ -7,13 +7,13 @@ module.exports = {
       sources: [
         {
           base: path.resolve(__dirname, 'components'),
-          pattern: '**/*.{js,ts,jsx,tsx}',
           negated: false,
+          pattern: '**/*.{js,ts,jsx,tsx}',
         },
         {
           base: path.resolve(__dirname),
-          pattern: 'utils.ts',
           negated: false,
+          pattern: 'utils.ts',
         },
       ],
     }),

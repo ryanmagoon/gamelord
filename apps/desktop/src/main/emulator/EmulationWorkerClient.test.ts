@@ -11,16 +11,16 @@ const mockKill = vi.fn()
 const mockRemoveListener = vi.fn()
 
 /** Listeners registered via mockProcess.on() */
-let processListeners: Record<string, Array<(...args: unknown[]) => void>> = {}
+let processListeners: Record<string, Array<(...args: Array<unknown>) => void>> = {}
 
 const mockProcess = {
-  postMessage: mockPostMessage,
   kill: mockKill,
-  removeListener: mockRemoveListener,
-  on: vi.fn((event: string, listener: (...args: unknown[]) => void) => {
-    if (!processListeners[event]) processListeners[event] = []
+  on: vi.fn((event: string, listener: (...args: Array<unknown>) => void) => {
+    if (!processListeners[event]) {processListeners[event] = []}
     processListeners[event].push(listener)
   }),
+  postMessage: mockPostMessage,
+  removeListener: mockRemoveListener,
 }
 
 vi.mock('electron', () => ({
@@ -31,8 +31,8 @@ vi.mock('electron', () => ({
 
 vi.mock('electron-log/main', () => ({
   default: {
-    transports: { file: {}, console: {} },
     scope: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
+    transports: { file: {}, console: {} },
   },
 }))
 
@@ -42,26 +42,26 @@ vi.mock('electron-log/main', () => ({
 
 const TEST_AV_INFO: AVInfo = {
   geometry: {
-    baseWidth: 256,
-    baseHeight: 240,
-    maxWidth: 256,
-    maxHeight: 240,
     aspectRatio: 1.333,
+    baseHeight: 240,
+    baseWidth: 256,
+    maxHeight: 240,
+    maxWidth: 256,
   },
   timing: {
     fps: 60.0988,
-    sampleRate: 44100,
+    sampleRate: 44_100,
   },
 }
 
 const TEST_INIT_OPTIONS = {
+  addonPath: '/native/gamelord_libretro.node',
   corePath: '/cores/fceumm.dylib',
   romPath: '/roms/zelda.nes',
-  systemDir: '/bios',
   saveDir: '/saves',
-  sramDir: '/saves',
   saveStatesDir: '/savestates',
-  addonPath: '/native/gamelord_libretro.node',
+  sramDir: '/saves',
+  systemDir: '/bios',
 }
 
 /** Simulate the worker sending a message to the main process. */
@@ -98,7 +98,7 @@ describe('EmulationWorkerClient', () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
 
       // Worker responds with ready
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
 
       const avInfo = await initPromise
 
@@ -112,9 +112,9 @@ describe('EmulationWorkerClient', () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
 
       emitWorkerMessage({
-        type: 'error',
-        message: 'Failed to load core',
         fatal: true,
+        message: 'Failed to load core',
+        type: 'error',
       })
 
       await expect(initPromise).rejects.toThrow('Failed to load core')
@@ -122,8 +122,8 @@ describe('EmulationWorkerClient', () => {
 
     it('rejects on timeout if worker never becomes ready', async () => {
       let caughtError: unknown = null
-      const initPromise = client.init(TEST_INIT_OPTIONS).catch((err: unknown) => {
-        caughtError = err
+      const initPromise = client.init(TEST_INIT_OPTIONS).catch((error: unknown) => {
+        caughtError = error
       })
 
       // Advance past timeout
@@ -138,7 +138,7 @@ describe('EmulationWorkerClient', () => {
   describe('fire-and-forget commands', () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
       await initPromise
     })
 
@@ -146,8 +146,8 @@ describe('EmulationWorkerClient', () => {
       client.setInput(0, 3, true)
       expect(mockPostMessage).toHaveBeenCalledWith({
         action: 'input',
-        port: 0,
         id: 3,
+        port: 0,
         pressed: true,
       })
     })
@@ -171,7 +171,7 @@ describe('EmulationWorkerClient', () => {
   describe('request/response commands', () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
       await initPromise
     })
 
@@ -179,14 +179,14 @@ describe('EmulationWorkerClient', () => {
       const savePromise = client.saveState(1)
 
       // Extract the requestId from the postMessage call
-      const lastCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      const lastCall = mockPostMessage.mock.calls.at(-1)[0]
       expect(lastCall.action).toBe('saveState')
       expect(lastCall.slot).toBe(1)
 
       emitWorkerMessage({
-        type: 'response',
         requestId: lastCall.requestId,
         success: true,
+        type: 'response',
       })
 
       await expect(savePromise).resolves.toBeUndefined()
@@ -195,12 +195,12 @@ describe('EmulationWorkerClient', () => {
     it('loadState rejects on error response', async () => {
       const loadPromise = client.loadState(3)
 
-      const lastCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      const lastCall = mockPostMessage.mock.calls.at(-1)[0]
       emitWorkerMessage({
-        type: 'response',
+        error: 'No save state in slot 3',
         requestId: lastCall.requestId,
         success: false,
-        error: 'No save state in slot 3',
+        type: 'response',
       })
 
       await expect(loadPromise).rejects.toThrow('No save state in slot 3')
@@ -209,11 +209,11 @@ describe('EmulationWorkerClient', () => {
     it('saveSram resolves on success', async () => {
       const sramPromise = client.saveSram()
 
-      const lastCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      const lastCall = mockPostMessage.mock.calls.at(-1)[0]
       emitWorkerMessage({
-        type: 'response',
         requestId: lastCall.requestId,
         success: true,
+        type: 'response',
       })
 
       await expect(sramPromise).resolves.toBeUndefined()
@@ -222,15 +222,15 @@ describe('EmulationWorkerClient', () => {
     it('screenshot returns the file path', async () => {
       const screenshotPromise = client.screenshot('/tmp/shot.raw')
 
-      const lastCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      const lastCall = mockPostMessage.mock.calls.at(-1)[0]
       expect(lastCall.action).toBe('screenshot')
       expect(lastCall.outputPath).toBe('/tmp/shot.raw')
 
       emitWorkerMessage({
-        type: 'response',
+        data: { path: '/tmp/shot.raw' },
         requestId: lastCall.requestId,
         success: true,
-        data: { path: '/tmp/shot.raw' },
+        type: 'response',
       })
 
       await expect(screenshotPromise).resolves.toBe('/tmp/shot.raw')
@@ -238,8 +238,8 @@ describe('EmulationWorkerClient', () => {
 
     it('request times out after 10 seconds', async () => {
       let caughtError: unknown = null
-      const savePromise = client.saveState(0).catch((err: unknown) => {
-        caughtError = err
+      const savePromise = client.saveState(0).catch((error: unknown) => {
+        caughtError = error
       })
 
       // Don't send a response — let it timeout
@@ -254,7 +254,7 @@ describe('EmulationWorkerClient', () => {
   describe('event forwarding', () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
       await initPromise
     })
 
@@ -264,16 +264,16 @@ describe('EmulationWorkerClient', () => {
 
       const frameData = Buffer.alloc(256 * 240 * 4)
       emitWorkerMessage({
-        type: 'videoFrame',
         data: frameData,
-        width: 256,
         height: 240,
+        type: 'videoFrame',
+        width: 256,
       })
 
       expect(handler).toHaveBeenCalledWith({
         data: frameData,
-        width: 256,
         height: 240,
+        width: 256,
       })
     })
 
@@ -283,14 +283,14 @@ describe('EmulationWorkerClient', () => {
 
       const samples = Buffer.alloc(1470)
       emitWorkerMessage({
-        type: 'audioSamples',
+        sampleRate: 44_100,
         samples,
-        sampleRate: 44100,
+        type: 'audioSamples',
       })
 
       expect(handler).toHaveBeenCalledWith({
+        sampleRate: 44_100,
         samples,
-        sampleRate: 44100,
       })
     })
 
@@ -299,14 +299,14 @@ describe('EmulationWorkerClient', () => {
       client.on('error', handler)
 
       emitWorkerMessage({
-        type: 'error',
-        message: 'Emulation crashed',
         fatal: true,
+        message: 'Emulation crashed',
+        type: 'error',
       })
 
       expect(handler).toHaveBeenCalledWith({
-        message: 'Emulation crashed',
         fatal: true,
+        message: 'Emulation crashed',
       })
     })
   })
@@ -314,20 +314,20 @@ describe('EmulationWorkerClient', () => {
   describe('shutdown', () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
       await initPromise
     })
 
     it('sends shutdown command and resolves on response', async () => {
       const shutdownPromise = client.shutdown()
 
-      const lastCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      const lastCall = mockPostMessage.mock.calls.at(-1)[0]
       expect(lastCall.action).toBe('shutdown')
 
       emitWorkerMessage({
-        type: 'response',
         requestId: lastCall.requestId,
         success: true,
+        type: 'response',
       })
 
       await shutdownPromise
@@ -338,7 +338,7 @@ describe('EmulationWorkerClient', () => {
       const shutdownPromise = client.shutdown()
 
       // Don't respond — let it timeout and force kill
-      await vi.advanceTimersByTimeAsync(6_000)
+      await vi.advanceTimersByTimeAsync(6000)
 
       await shutdownPromise
       expect(mockKill).toHaveBeenCalled()
@@ -351,11 +351,11 @@ describe('EmulationWorkerClient', () => {
       // Shutdown before save completes
       const shutdownPromise = client.shutdown()
 
-      const shutdownCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      const shutdownCall = mockPostMessage.mock.calls.at(-1)[0]
       emitWorkerMessage({
-        type: 'response',
         requestId: shutdownCall.requestId,
         success: true,
+        type: 'response',
       })
 
       await shutdownPromise
@@ -368,7 +368,7 @@ describe('EmulationWorkerClient', () => {
   describe('unexpected exit', () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
       await initPromise
     })
 
@@ -383,8 +383,8 @@ describe('EmulationWorkerClient', () => {
       }
 
       expect(handler).toHaveBeenCalledWith({
-        message: 'Emulation worker exited unexpectedly (code 0)',
         fatal: true,
+        message: 'Emulation worker exited unexpectedly (code 0)',
       })
       expect(client.isRunning()).toBe(false)
     })
@@ -395,11 +395,11 @@ describe('EmulationWorkerClient', () => {
 
       // Graceful shutdown first
       const shutdownPromise = client.shutdown()
-      const lastCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      const lastCall = mockPostMessage.mock.calls.at(-1)[0]
       emitWorkerMessage({
-        type: 'response',
         requestId: lastCall.requestId,
         success: true,
+        type: 'response',
       })
       await shutdownPromise
 
@@ -433,7 +433,7 @@ describe('EmulationWorkerClient', () => {
   describe('SharedArrayBuffer allocation', () => {
     it('allocates SABs and sends setupSharedBuffers command after init', async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
       await initPromise
 
       const bufs = client.getSharedBuffers()
@@ -455,7 +455,7 @@ describe('EmulationWorkerClient', () => {
 
     it('initializes audio sample rate in control buffer', async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
       await initPromise
 
       const bufs = client.getSharedBuffers()!
@@ -466,17 +466,17 @@ describe('EmulationWorkerClient', () => {
 
     it('clears shared buffers on shutdown', async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
       await initPromise
 
       expect(client.getSharedBuffers()).not.toBeNull()
 
       const shutdownPromise = client.shutdown()
-      const lastCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      const lastCall = mockPostMessage.mock.calls.at(-1)[0]
       emitWorkerMessage({
-        type: 'response',
         requestId: lastCall.requestId,
         success: true,
+        type: 'response',
       })
       await shutdownPromise
 
@@ -495,7 +495,7 @@ describe('EmulationWorkerClient', () => {
 
     it('returns true after init', async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
       await initPromise
 
       expect(client.isRunning()).toBe(true)
@@ -503,15 +503,15 @@ describe('EmulationWorkerClient', () => {
 
     it('returns false after shutdown', async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS)
-      emitWorkerMessage({ type: 'ready', avInfo: TEST_AV_INFO })
+      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: 'ready' })
       await initPromise
 
       const shutdownPromise = client.shutdown()
-      const lastCall = mockPostMessage.mock.calls[mockPostMessage.mock.calls.length - 1][0]
+      const lastCall = mockPostMessage.mock.calls.at(-1)[0]
       emitWorkerMessage({
-        type: 'response',
         requestId: lastCall.requestId,
         success: true,
+        type: 'response',
       })
       await shutdownPromise
 

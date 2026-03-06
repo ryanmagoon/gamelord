@@ -4,10 +4,10 @@ import { computeEdgeTranslate } from './useEdgeAwareHover'
 /** Helper to create a DOMRect-like object. */
 function rect(x: number, y: number, width: number, height: number): DOMRect {
   return {
-    x, y, width, height,
-    left: x, top: y,
-    right: x + width, bottom: y + height,
-    toJSON: () => ({}),
+    bottom: y + height, height, left: x, right: x + width,
+    toJSON: () => ({}), top: y,
+    width, x,
+    y,
   }
 }
 

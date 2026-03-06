@@ -1,5 +1,5 @@
-import { spawn } from 'child_process'
-import { createSocket, Socket } from 'dgram'
+import { spawn } from 'node:child_process'
+import { createSocket, Socket } from 'node:dgram'
 import { EmulatorCore, EmulatorLaunchOptions } from './EmulatorCore'
 import { retroArchLog } from '../logger'
 
@@ -18,7 +18,7 @@ import { retroArchLog } from '../logger'
 export class RetroArchCore extends EmulatorCore {
   private udpClient: Socket | null = null
   private networkHost = 'localhost'
-  private networkPort = 55355
+  private networkPort = 55_355
   private corePath: string | null = null
   private paused = false
   private currentStateSlot = 0
@@ -50,7 +50,7 @@ export class RetroArchCore extends EmulatorCore {
     }
 
     // Build command-line arguments
-    const args: string[] = [
+    const args: Array<string> = [
       '-L',
       this.corePath, // Load core
       romPath, // Load ROM
@@ -76,8 +76,8 @@ export class RetroArchCore extends EmulatorCore {
     // Spawn RetroArch process
     this.process = spawn(this.emulatorPath, args, {
       cwd: options.cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
       detached: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     // Setup process event handlers
@@ -121,7 +121,7 @@ export class RetroArchCore extends EmulatorCore {
       }
 
       const settle = (fn: () => void) => {
-        if (settled) return
+        if (settled) {return}
         settled = true
         cleanupStartupWatchers()
         fn()
@@ -161,7 +161,7 @@ export class RetroArchCore extends EmulatorCore {
           this.initializeUDPClient()
 
           this.isRunning = true
-          this.emit('launched', { romPath, corePath: this.corePath })
+          this.emit('launched', { corePath: this.corePath, romPath })
           resolve()
         })
       }, startupDelayMs)
@@ -318,7 +318,7 @@ export class RetroArchCore extends EmulatorCore {
 
     try {
       await this.sendCommand('QUIT')
-    } catch (err) {
+    } catch {
       retroArchLog.error('Failed to send quit command, forcing termination')
       await this.terminate()
     }
@@ -348,7 +348,7 @@ export class RetroArchCore extends EmulatorCore {
     const desired = Math.max(0, Math.min(9, Math.trunc(slot)))
     const delta = desired - this.currentStateSlot
 
-    if (delta === 0) return
+    if (delta === 0) {return}
 
     const command = delta > 0 ? 'STATE_SLOT_INCREASE' : 'STATE_SLOT_DECREASE'
     const steps = Math.abs(delta)

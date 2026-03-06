@@ -13,6 +13,7 @@ import {
 export const crtGeomDeluxePreset: ShaderPresetDefinition = {
   id: 'crt-geom-deluxe',
   label: 'CRT Geom Deluxe',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -69,5 +70,4 @@ export const crtGeomDeluxePreset: ShaderPresetDefinition = {
       },
     },
   ],
-  luts: [],
 };

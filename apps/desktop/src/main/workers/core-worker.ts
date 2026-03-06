@@ -6,16 +6,16 @@
  * the main process via `process.parentPort`.
  */
 
-import * as path from 'path'
-import * as fs from 'fs'
-import { performance } from 'perf_hooks'
+import * as path from "node:path";
+import * as fs from "node:fs";
+import { performance } from "node:perf_hooks";
 import type {
   NativeAddon,
   NativeLibretroCore,
   WorkerCommand,
   WorkerEvent,
   AVInfo,
-} from './core-worker-protocol'
+} from "./core-worker-protocol";
 import {
   CTRL_ACTIVE_BUFFER,
   CTRL_FRAME_SEQUENCE,
@@ -23,60 +23,53 @@ import {
   CTRL_FRAME_HEIGHT,
   CTRL_AUDIO_WRITE_POS,
   CTRL_AUDIO_SAMPLE_RATE,
-} from './shared-frame-protocol'
+} from "./shared-frame-protocol";
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
-let native: NativeLibretroCore | null = null
-let isRunning = false
-let isPaused = false
-let loopTimer: ReturnType<typeof setTimeout> | null = null
+let native: NativeLibretroCore | null = null;
+let isRunning = false;
+let isPaused = false;
+let loopTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Paths received from main process during init
-let romPath = ''
-let sramDir = ''
-let saveStatesDir = ''
-let screenshotDir = ''
+let romPath = "";
+let sramDir = "";
+let saveStatesDir = "";
+let screenshotDir = "";
 
 // Timing
-let targetFps = 60
-let speedMultiplier = 1
-let sampleRate = 44100
-let fastForwardAudio = false
+let targetFps = 60;
+let speedMultiplier = 1;
+let sampleRate = 44_100;
+let fastForwardAudio = false;
 
 // Error tracking
-let consecutiveErrors = 0
-const MAX_CONSECUTIVE_ERRORS = 5
+let consecutiveErrors = 0;
+const MAX_CONSECUTIVE_ERRORS = 5;
 
 // SharedArrayBuffer state (null = fallback to copy-based IPC)
-let controlView: Int32Array | null = null
-let videoView: Uint8Array | null = null
-let audioView: Int16Array | null = null
-let videoBufferSize = 0
-let useSharedBuffers = false
-
-
+let controlView: Int32Array | null = null;
+let videoView: Uint8Array | null = null;
+let audioView: Int16Array | null = null;
+let videoBufferSize = 0;
+let useSharedBuffers = false;
 
 // Spin threshold: busy-wait the last N ms of each frame for precise timing
-const SPIN_THRESHOLD_MS = 2
+const SPIN_THRESHOLD_MS = 2;
 
 // ---------------------------------------------------------------------------
 // Messaging
 // ---------------------------------------------------------------------------
 
 function send(event: WorkerEvent): void {
-  process.parentPort.postMessage(event)
+  process.parentPort.postMessage(event);
 }
 
-function sendResponse(
-  requestId: string,
-  success: boolean,
-  error?: string,
-  data?: unknown,
-): void {
-  send({ type: 'response', requestId, success, error, data })
+function sendResponse(requestId: string, success: boolean, error?: string, data?: unknown): void {
+  send({ data, error, requestId, success, type: "response" });
 }
 
 // ---------------------------------------------------------------------------
@@ -84,19 +77,19 @@ function sendResponse(
 // ---------------------------------------------------------------------------
 
 function getRomName(): string {
-  return romPath ? path.basename(romPath, path.extname(romPath)) : 'unknown'
+  return romPath ? path.basename(romPath, path.extname(romPath)) : "unknown";
 }
 
 function getSramPath(): string {
-  return path.join(sramDir, `${getRomName()}.srm`)
+  return path.join(sramDir, `${getRomName()}.srm`);
 }
 
 function getStatePath(slot: number): string {
-  const romName = getRomName()
+  const romName = getRomName();
   if (slot === 99) {
-    return path.join(saveStatesDir, romName, 'autosave.sav')
+    return path.join(saveStatesDir, romName, "autosave.sav");
   }
-  return path.join(saveStatesDir, romName, `state-${slot}.sav`)
+  return path.join(saveStatesDir, romName, `state-${slot}.sav`);
 }
 
 // ---------------------------------------------------------------------------
@@ -104,28 +97,38 @@ function getStatePath(slot: number): string {
 // ---------------------------------------------------------------------------
 
 function saveSram(): void {
-  if (!native || !romPath) return
-  const sramData = native.getMemoryData()
-  if (!sramData || sramData.length === 0) return
+  if (!native || !romPath) {
+    return;
+  }
+  const sramData = native.getMemoryData();
+  if (!sramData || sramData.length === 0) {
+    return;
+  }
   // Skip if all zeros (no save data)
-  if (sramData.every((b) => b === 0)) return
+  if (sramData.every((b) => b === 0)) {
+    return;
+  }
 
-  const sramFilePath = getSramPath()
-  fs.mkdirSync(path.dirname(sramFilePath), { recursive: true })
+  const sramFilePath = getSramPath();
+  fs.mkdirSync(path.dirname(sramFilePath), { recursive: true });
   fs.writeFileSync(
     sramFilePath,
     Buffer.from(sramData.buffer, sramData.byteOffset, sramData.byteLength),
-  )
+  );
 }
 
 function loadSram(): void {
-  if (!native || !romPath) return
-  const sramFilePath = getSramPath()
-  if (!fs.existsSync(sramFilePath)) return
+  if (!native || !romPath) {
+    return;
+  }
+  const sramFilePath = getSramPath();
+  if (!fs.existsSync(sramFilePath)) {
+    return;
+  }
 
-  const data = fs.readFileSync(sramFilePath)
-  const sramData = new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
-  native.setMemoryData(sramData)
+  const data = fs.readFileSync(sramFilePath);
+  const sramData = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  native.setMemoryData(sramData);
 }
 
 // ---------------------------------------------------------------------------
@@ -133,29 +136,35 @@ function loadSram(): void {
 // ---------------------------------------------------------------------------
 
 function saveState(slot: number): void {
-  if (!native) throw new Error('No core loaded')
+  if (!native) {
+    throw new Error("No core loaded");
+  }
 
-  const stateData = native.serializeState()
-  if (!stateData) throw new Error('Failed to serialize state')
+  const stateData = native.serializeState();
+  if (!stateData) {
+    throw new Error("Failed to serialize state");
+  }
 
-  const statePath = getStatePath(slot)
-  fs.mkdirSync(path.dirname(statePath), { recursive: true })
-  fs.writeFileSync(statePath, Buffer.from(stateData.buffer))
+  const statePath = getStatePath(slot);
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
+  fs.writeFileSync(statePath, Buffer.from(stateData.buffer));
 }
 
 function loadState(slot: number): void {
-  if (!native) throw new Error('No core loaded')
-
-  const statePath = getStatePath(slot)
-  if (!fs.existsSync(statePath)) {
-    throw new Error(`No save state in slot ${slot}`)
+  if (!native) {
+    throw new Error("No core loaded");
   }
 
-  const data = fs.readFileSync(statePath)
-  const stateData = new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+  const statePath = getStatePath(slot);
+  if (!fs.existsSync(statePath)) {
+    throw new Error(`No save state in slot ${slot}`);
+  }
+
+  const data = fs.readFileSync(statePath);
+  const stateData = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 
   if (!native.unserializeState(stateData)) {
-    throw new Error('Failed to restore state')
+    throw new Error("Failed to restore state");
   }
 }
 
@@ -164,68 +173,72 @@ function loadState(slot: number): void {
 // ---------------------------------------------------------------------------
 
 function takeScreenshot(outputPath?: string): string {
-  if (!native) throw new Error('No core loaded')
+  if (!native) {
+    throw new Error("No core loaded");
+  }
 
-  const frame = native.getVideoFrame()
-  if (!frame) throw new Error('No frame available')
+  const frame = native.getVideoFrame();
+  if (!frame) {
+    throw new Error("No frame available");
+  }
 
-  const dir = screenshotDir
-  fs.mkdirSync(dir, { recursive: true })
-  const filePath = outputPath || path.join(dir, `screenshot-${Date.now()}.raw`)
-  fs.writeFileSync(filePath, Buffer.from(frame.data.buffer))
-  return filePath
+  const dir = screenshotDir;
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = outputPath || path.join(dir, `screenshot-${Date.now()}.raw`);
+  fs.writeFileSync(filePath, Buffer.from(frame.data.buffer));
+  return filePath;
 }
 
 // ---------------------------------------------------------------------------
 // Initialization
 // ---------------------------------------------------------------------------
 
-function initialize(command: Extract<WorkerCommand, { action: 'init' }>): void {
-  const { addonPath, corePath, systemDir, saveDir } = command
+function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
+  const { addonPath, corePath, saveDir, systemDir } = command;
 
   // Store paths for later use
-  romPath = command.romPath
-  sramDir = command.sramDir
-  saveStatesDir = command.saveStatesDir
+  romPath = command.romPath;
+  sramDir = command.sramDir;
+  saveStatesDir = command.saveStatesDir;
   // Derive screenshot dir from saveStatesDir parent (userData)
-  screenshotDir = path.join(path.dirname(saveStatesDir), 'screenshots')
+  screenshotDir = path.join(path.dirname(saveStatesDir), "screenshots");
 
   // Load the native addon
   // eslint-disable-next-line @typescript-eslint/no-var-requires -- native .node addons must be loaded via require() at runtime; see https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules
-  const addon = require(addonPath) as NativeAddon
-  native = new addon.LibretroCore()
+  const addon = require(addonPath) as NativeAddon;
+  native = new addon.LibretroCore();
 
   // Set directories
-  native.setSystemDirectory(systemDir)
-  native.setSaveDirectory(saveDir)
+  native.setSystemDirectory(systemDir);
+  native.setSaveDirectory(saveDir);
 
   // Load core
   if (!native.loadCore(corePath)) {
-    throw new Error(`Failed to load core: ${corePath}`)
+    throw new Error(`Failed to load core: ${corePath}`);
   }
 
   // Load game
   if (!native.loadGame(romPath)) {
-    throw new Error(`Failed to load game: ${romPath}`)
+    throw new Error(`Failed to load game: ${romPath}`);
   }
 
   // Load SRAM from disk
-  loadSram()
+  loadSram();
 
   // Cache AV info for timing
-  const avInfo = native.getAVInfo()
+  const avInfo = native.getAVInfo();
   if (avInfo) {
-    targetFps = avInfo.timing.fps || 60
-    sampleRate = avInfo.timing.sampleRate || 44100
+    targetFps = avInfo.timing.fps || 60;
+    sampleRate = avInfo.timing.sampleRate || 44_100;
   }
 
-  isRunning = true
-  isPaused = false
-  consecutiveErrors = 0
+  isRunning = true;
+  isPaused = false;
+  consecutiveErrors = 0;
 
-  send({ type: 'ready', avInfo: avInfo as AVInfo })
+  send({ avInfo: avInfo as AVInfo, type: "ready" });
 
-  startEmulationLoop()
+  startEmulationLoop();
 }
 
 // ---------------------------------------------------------------------------
@@ -233,69 +246,65 @@ function initialize(command: Extract<WorkerCommand, { action: 'init' }>): void {
 // ---------------------------------------------------------------------------
 
 /** Write a video frame into the inactive double-buffer and swap the active flag. */
-function writeVideoToSAB(frame: { data: Uint8Array; width: number; height: number }): void {
-  const ctrl = controlView!
-  const video = videoView!
+function writeVideoToSAB(frame: { data: Uint8Array; height: number; width: number }): void {
+  const ctrl = controlView!;
+  const video = videoView!;
 
   // Write to the opposite buffer from the one the renderer is reading
-  const currentActive = Atomics.load(ctrl, CTRL_ACTIVE_BUFFER)
-  const writeBuffer = currentActive === 0 ? 1 : 0
-  const offset = writeBuffer * videoBufferSize
+  const currentActive = Atomics.load(ctrl, CTRL_ACTIVE_BUFFER);
+  const writeBuffer = currentActive === 0 ? 1 : 0;
+  const offset = writeBuffer * videoBufferSize;
 
   video.set(
     new Uint8Array(frame.data.buffer, frame.data.byteOffset, frame.data.byteLength),
     offset,
-  )
+  );
 
   // Update dimensions, then swap active buffer, then bump sequence.
   // Order matters: the renderer reads sequence last, so dimensions
   // and buffer swap are visible before it notices the new frame.
-  Atomics.store(ctrl, CTRL_FRAME_WIDTH, frame.width)
-  Atomics.store(ctrl, CTRL_FRAME_HEIGHT, frame.height)
-  Atomics.store(ctrl, CTRL_ACTIVE_BUFFER, writeBuffer)
-  Atomics.add(ctrl, CTRL_FRAME_SEQUENCE, 1)
+  Atomics.store(ctrl, CTRL_FRAME_WIDTH, frame.width);
+  Atomics.store(ctrl, CTRL_FRAME_HEIGHT, frame.height);
+  Atomics.store(ctrl, CTRL_ACTIVE_BUFFER, writeBuffer);
+  Atomics.add(ctrl, CTRL_FRAME_SEQUENCE, 1);
 }
 
 /** Write audio samples into the SPSC ring buffer. */
 function writeAudioToSAB(samples: Int16Array): void {
-  const ctrl = controlView!
-  const ring = audioView!
-  const ringLen = ring.length
+  const ctrl = controlView!;
+  const ring = audioView!;
+  const ringLen = ring.length;
 
-  let writePos = Atomics.load(ctrl, CTRL_AUDIO_WRITE_POS)
+  let writePos = Atomics.load(ctrl, CTRL_AUDIO_WRITE_POS);
 
   for (let i = 0; i < samples.length; i++) {
-    ring[writePos % ringLen] = samples[i]
-    writePos++
+    ring[writePos % ringLen] = samples[i];
+    writePos++;
   }
 
   // Release: all ring writes are visible before the consumer sees the new writePos
-  Atomics.store(ctrl, CTRL_AUDIO_WRITE_POS, writePos)
+  Atomics.store(ctrl, CTRL_AUDIO_WRITE_POS, writePos);
 }
 
 /** Send a video frame via copy-based IPC (fallback path). */
-function sendVideoFrame(frame: { data: Uint8Array; width: number; height: number }): void {
+function sendVideoFrame(frame: { data: Uint8Array; height: number; width: number }): void {
   send({
-    type: 'videoFrame',
-    data: Buffer.from(frame.data.buffer.slice(
-      frame.data.byteOffset,
-      frame.data.byteOffset + frame.data.byteLength,
-    )),
-    width: frame.width,
+    data: Buffer.from(
+      frame.data.buffer.slice(frame.data.byteOffset, frame.data.byteOffset + frame.data.byteLength),
+    ),
     height: frame.height,
-  })
+    type: "videoFrame",
+    width: frame.width,
+  });
 }
 
 /** Send audio samples via copy-based IPC (fallback path). */
 function sendAudioSamples(audio: Int16Array): void {
   send({
-    type: 'audioSamples',
-    samples: Buffer.from(audio.buffer.slice(
-      audio.byteOffset,
-      audio.byteOffset + audio.byteLength,
-    )),
     sampleRate,
-  })
+    samples: Buffer.from(audio.buffer.slice(audio.byteOffset, audio.byteOffset + audio.byteLength)),
+    type: "audioSamples",
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -310,11 +319,13 @@ function startEmulationLoop(): void {
   // This is critical because the AudioContext consumes samples at a hardware-
   // locked rate — if we produce samples even slightly too slowly, the audio
   // buffer underruns periodically causing audible gaps.
-  const basePeriod = 1000 / targetFps
-  let nextFrameTime = performance.now() + basePeriod
+  const basePeriod = 1000 / targetFps;
+  let nextFrameTime = performance.now() + basePeriod;
 
   const scheduleNext = () => {
-    if (!isRunning) return
+    if (!isRunning) {
+      return;
+    }
 
     if (speedMultiplier > 1) {
       // Fast-forward mode: run multiple core frames per tick on a relaxed
@@ -324,31 +335,31 @@ function startEmulationLoop(): void {
       // synchronously (native.run() takes longer than the deadline),
       // blocking the message handler indefinitely.
       loopTimer = setTimeout(() => {
-        batchTick()
-      }, 0)
-      return
+        batchTick();
+      }, 0);
+      return;
     }
 
     // Normal (1x) mode: precise hybrid sleep+spin timing
-    const now = performance.now()
-    const remaining = nextFrameTime - now
+    const now = performance.now();
+    const remaining = nextFrameTime - now;
 
     if (remaining <= 0) {
       // We're already past the deadline — run immediately
-      singleTick()
+      singleTick();
     } else if (remaining <= SPIN_THRESHOLD_MS) {
       // Close enough to deadline — spin-wait for precision
-      spinUntil(nextFrameTime)
-      singleTick()
+      spinUntil(nextFrameTime);
+      singleTick();
     } else {
       // Sleep for most of the remaining time, then spin the rest
-      const sleepMs = Math.max(0, remaining - SPIN_THRESHOLD_MS)
+      const sleepMs = Math.max(0, remaining - SPIN_THRESHOLD_MS);
       loopTimer = setTimeout(() => {
-        spinUntil(nextFrameTime)
-        singleTick()
-      }, sleepMs)
+        spinUntil(nextFrameTime);
+        singleTick();
+      }, sleepMs);
     }
-  }
+  };
 
   /**
    * Fast-forward tick: runs `speedMultiplier` core frames in a batch,
@@ -357,139 +368,141 @@ function startEmulationLoop(): void {
    */
   const batchTick = () => {
     if (!isRunning || isPaused || !native) {
-      scheduleNext()
-      return
+      scheduleNext();
+      return;
     }
 
-    const framesToRun = Math.round(speedMultiplier)
+    const framesToRun = Math.round(speedMultiplier);
 
     for (let i = 0; i < framesToRun; i++) {
       try {
-        native.run()
-        consecutiveErrors = 0
+        native.run();
+        consecutiveErrors = 0;
       } catch (error) {
-        consecutiveErrors++
-        const message = error instanceof Error ? error.message : String(error)
+        consecutiveErrors++;
+        const message = error instanceof Error ? error.message : String(error);
         send({
-          type: 'log',
           level: 3,
           message: `Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${message}`,
-        })
+          type: "log",
+        });
 
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
           send({
-            type: 'error',
-            message: `Emulation crashed: ${message}`,
             fatal: true,
-          })
-          stopEmulationLoop()
-          return
+            message: `Emulation crashed: ${message}`,
+            type: "error",
+          });
+          stopEmulationLoop();
+          return;
         }
       }
     }
 
     // Send only the last frame from the batch
-    const frame = native.getVideoFrame()
+    const frame = native.getVideoFrame();
     if (frame) {
       if (useSharedBuffers) {
-        writeVideoToSAB(frame)
+        writeVideoToSAB(frame);
       } else {
-        sendVideoFrame(frame)
+        sendVideoFrame(frame);
       }
     }
 
     // Optionally send audio during fast-forward (plays at sped-up rate)
     if (fastForwardAudio) {
-      const audio = native.getAudioBuffer()
+      const audio = native.getAudioBuffer();
       if (audio && audio.length > 0) {
         if (useSharedBuffers) {
-          writeAudioToSAB(audio)
+          writeAudioToSAB(audio);
         } else {
-          sendAudioSamples(audio)
+          sendAudioSamples(audio);
         }
       }
     }
 
     // Drain buffered log messages from the native addon
-    const logs = native.getLogMessages()
+    const logs = native.getLogMessages();
     for (const entry of logs) {
-      send({ type: 'log', level: entry.level, message: entry.message })
+      send({ level: entry.level, message: entry.message, type: "log" });
     }
 
-    scheduleNext()
-  }
+    scheduleNext();
+  };
 
   /**
    * Normal (1x) tick: runs a single core frame with precise timing.
    */
   const singleTick = () => {
-    if (!isRunning) return
+    if (!isRunning) {
+      return;
+    }
 
     // Advance the ideal next-frame time by exactly one frame period.
     // If we fell behind (e.g. GC pause), clamp to `now` to avoid a
     // burst of catch-up frames that would flood the IPC channel.
-    const now = performance.now()
-    nextFrameTime += basePeriod
+    const now = performance.now();
+    nextFrameTime += basePeriod;
     if (nextFrameTime < now - basePeriod) {
       // More than one full frame behind — reset to avoid catch-up burst
-      nextFrameTime = now + basePeriod
+      nextFrameTime = now + basePeriod;
     }
 
     if (!isPaused && native) {
       try {
-        native.run()
-        consecutiveErrors = 0
+        native.run();
+        consecutiveErrors = 0;
       } catch (error) {
-        consecutiveErrors++
-        const message = error instanceof Error ? error.message : String(error)
+        consecutiveErrors++;
+        const message = error instanceof Error ? error.message : String(error);
         send({
-          type: 'log',
           level: 3,
           message: `Emulation frame error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${message}`,
-        })
+          type: "log",
+        });
 
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
           send({
-            type: 'error',
-            message: `Emulation crashed: ${message}`,
             fatal: true,
-          })
-          stopEmulationLoop()
-          return
+            message: `Emulation crashed: ${message}`,
+            type: "error",
+          });
+          stopEmulationLoop();
+          return;
         }
       }
 
       // Send video frame
-      const frame = native.getVideoFrame()
+      const frame = native.getVideoFrame();
       if (frame) {
         if (useSharedBuffers) {
-          writeVideoToSAB(frame)
+          writeVideoToSAB(frame);
         } else {
-          sendVideoFrame(frame)
+          sendVideoFrame(frame);
         }
       }
 
       // Send audio samples (only at 1x speed)
-      const audio = native.getAudioBuffer()
+      const audio = native.getAudioBuffer();
       if (audio && audio.length > 0) {
         if (useSharedBuffers) {
-          writeAudioToSAB(audio)
+          writeAudioToSAB(audio);
         } else {
-          sendAudioSamples(audio)
+          sendAudioSamples(audio);
         }
       }
 
       // Drain buffered log messages from the native addon
-      const logs = native.getLogMessages()
+      const logs = native.getLogMessages();
       for (const entry of logs) {
-        send({ type: 'log', level: entry.level, message: entry.message })
+        send({ level: entry.level, message: entry.message, type: "log" });
       }
     }
 
-    scheduleNext()
-  }
+    scheduleNext();
+  };
 
-  scheduleNext()
+  scheduleNext();
 }
 
 /**
@@ -503,10 +516,10 @@ function spinUntil(targetTime: number): void {
 }
 
 function stopEmulationLoop(): void {
-  isRunning = false
+  isRunning = false;
   if (loopTimer !== null) {
-    clearTimeout(loopTimer)
-    loopTimer = null
+    clearTimeout(loopTimer);
+    loopTimer = null;
   }
 }
 
@@ -516,140 +529,140 @@ function stopEmulationLoop(): void {
 
 function handleMessage(command: WorkerCommand): void {
   switch (command.action) {
-    case 'init':
+    case "init":
       try {
-        initialize(command)
+        initialize(command);
       } catch (error) {
         send({
-          type: 'error',
-          message: error instanceof Error ? error.message : String(error),
           fatal: true,
-        })
+          message: error instanceof Error ? error.message : String(error),
+          type: "error",
+        });
       }
-      break
+      break;
 
-    case 'pause':
-      isPaused = true
-      break
+    case "pause":
+      isPaused = true;
+      break;
 
-    case 'resume':
-      isPaused = false
-      break
+    case "resume":
+      isPaused = false;
+      break;
 
-    case 'reset':
-      native?.reset()
-      break
+    case "reset":
+      native?.reset();
+      break;
 
-    case 'input':
-      native?.setInputState(command.port, command.id, command.pressed ? 1 : 0)
-      break
+    case "input":
+      native?.setInputState(command.port, command.id, command.pressed ? 1 : 0);
+      break;
 
-    case 'setSpeed': {
-      const newMultiplier = Math.max(0.25, Math.min(command.multiplier, 16))
-      const wasRunning = isRunning
+    case "setSpeed": {
+      const newMultiplier = Math.max(0.25, Math.min(command.multiplier, 16));
+      const wasRunning = isRunning;
       // Stop the current loop and restart it so the loop picks up the
       // new speed mode (batch for fast-forward, precise for 1x).
       // stopEmulationLoop sets isRunning=false, so restore it after.
       if (wasRunning) {
         if (loopTimer !== null) {
-          clearTimeout(loopTimer)
-          loopTimer = null
+          clearTimeout(loopTimer);
+          loopTimer = null;
         }
       }
-      speedMultiplier = newMultiplier
-      send({ type: 'speedChanged', multiplier: speedMultiplier })
+      speedMultiplier = newMultiplier;
+      send({ multiplier: speedMultiplier, type: "speedChanged" });
       if (wasRunning) {
-        startEmulationLoop()
+        startEmulationLoop();
       }
-      break
+      break;
     }
 
-    case 'setFastForwardAudio':
-      fastForwardAudio = command.enabled
-      break
+    case "setFastForwardAudio":
+      fastForwardAudio = command.enabled;
+      break;
 
-    case 'saveState':
+    case "saveState":
       try {
-        saveState(command.slot)
-        sendResponse(command.requestId, true)
+        saveState(command.slot);
+        sendResponse(command.requestId, true);
       } catch (error) {
         sendResponse(
           command.requestId,
           false,
           error instanceof Error ? error.message : String(error),
-        )
+        );
       }
-      break
+      break;
 
-    case 'loadState':
+    case "loadState":
       try {
-        loadState(command.slot)
-        sendResponse(command.requestId, true)
+        loadState(command.slot);
+        sendResponse(command.requestId, true);
       } catch (error) {
         sendResponse(
           command.requestId,
           false,
           error instanceof Error ? error.message : String(error),
-        )
+        );
       }
-      break
+      break;
 
-    case 'saveSram':
+    case "saveSram":
       try {
-        saveSram()
-        sendResponse(command.requestId, true)
+        saveSram();
+        sendResponse(command.requestId, true);
       } catch (error) {
         sendResponse(
           command.requestId,
           false,
           error instanceof Error ? error.message : String(error),
-        )
+        );
       }
-      break
+      break;
 
-    case 'screenshot':
+    case "screenshot":
       try {
-        const screenshotPath = takeScreenshot(command.outputPath)
+        const screenshotPath = takeScreenshot(command.outputPath);
         sendResponse(command.requestId, true, undefined, {
           path: screenshotPath,
-        })
+        });
       } catch (error) {
         sendResponse(
           command.requestId,
           false,
           error instanceof Error ? error.message : String(error),
-        )
+        );
       }
-      break
+      break;
 
-    case 'setupSharedBuffers':
-      controlView = new Int32Array(command.controlSAB)
-      videoView = new Uint8Array(command.videoSAB)
-      audioView = new Int16Array(command.audioSAB)
-      videoBufferSize = command.videoBufferSize
-      useSharedBuffers = true
-      Atomics.store(controlView, CTRL_AUDIO_SAMPLE_RATE, sampleRate)
-      break
+    case "setupSharedBuffers":
+      controlView = new Int32Array(command.controlSAB);
+      videoView = new Uint8Array(command.videoSAB);
+      audioView = new Int16Array(command.audioSAB);
+      videoBufferSize = command.videoBufferSize;
+      useSharedBuffers = true;
+      Atomics.store(controlView, CTRL_AUDIO_SAMPLE_RATE, sampleRate);
+      break;
 
-    case 'shutdown':
+    case "shutdown":
       try {
-        stopEmulationLoop()
-        saveSram()
+        stopEmulationLoop();
+        saveSram();
         if (native) {
-          native.destroy()
-          native = null
+          native.destroy();
+          native = null;
         }
-        sendResponse(command.requestId, true)
+        sendResponse(command.requestId, true);
       } catch (error) {
         sendResponse(
           command.requestId,
           false,
           error instanceof Error ? error.message : String(error),
-        )
+        );
       }
       // Exit after sending response
-      setTimeout(() => process.exit(0), 50)
-      break
+      setTimeout(() => process.exit(0), 50);
+      break;
   }
 }
 
@@ -657,6 +670,6 @@ function handleMessage(command: WorkerCommand): void {
 // Entry point
 // ---------------------------------------------------------------------------
 
-process.parentPort.on('message', (event: { data: WorkerCommand }) => {
-  handleMessage(event.data)
-})
+process.parentPort.on("message", (event: { data: WorkerCommand }) => {
+  handleMessage(event.data);
+});

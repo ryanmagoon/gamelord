@@ -5,11 +5,7 @@ export interface UseScrollLetterIndicatorOptions {
   /** Index of the first visible game in the games array. -1 if unknown/empty. */
   firstVisibleIndex: number
   /** The sorted/filtered games array. */
-  games: Game[]
-  /** Current sort mode. Indicator only shows for 'title'. */
-  sortBy: string
-  /** Current scrollTop from useScrollContainer. Used to detect scroll activity. */
-  scrollTop: number
+  games: Array<Game>
   /** Delay in ms before hiding the letter after scrolling stops. @default 400 */
   hideDelay?: number
   /**
@@ -19,13 +15,17 @@ export interface UseScrollLetterIndicatorOptions {
    * @default 2.5
    */
   minSpeedPxPerMs?: number
+  /** Current scrollTop from useScrollContainer. Used to detect scroll activity. */
+  scrollTop: number
+  /** Current sort mode. Indicator only shows for 'title'. */
+  sortBy: string
 }
 
 export interface ScrollLetterIndicatorState {
-  /** The current letter to display, or null if nothing to show. */
-  letter: string | null
   /** Whether the indicator is currently visible (actively scrolling). */
   isVisible: boolean
+  /** The current letter to display, or null if nothing to show. */
+  letter: string | null
 }
 
 /**
@@ -52,10 +52,10 @@ export function useScrollLetterIndicator(
   const {
     firstVisibleIndex,
     games,
-    sortBy,
-    scrollTop,
     hideDelay = 400,
     minSpeedPxPerMs = 2.5,
+    scrollTop,
+    sortBy,
   } = options
   const [isVisible, setIsVisible] = useState(false)
   const isVisibleRef = useRef(false)
@@ -74,7 +74,7 @@ export function useScrollLetterIndicator(
 
   // Scroll activity detection — only show when fast-scrolling across letter boundaries
   useEffect(() => {
-    if (scrollTop === prevScrollTopRef.current) return
+    if (scrollTop === prevScrollTopRef.current) {return}
 
     const now = Date.now()
     const deltaTime = now - prevScrollTimeRef.current
@@ -89,7 +89,7 @@ export function useScrollLetterIndicator(
       return
     }
 
-    if (sortBy !== 'title' || letter === null) return
+    if (sortBy !== 'title' || letter === null) {return}
 
     // Compute scroll speed (px/ms). Guard against deltaTime === 0.
     const speed = deltaTime > 0 ? deltaScroll / deltaTime : 0
@@ -130,5 +130,5 @@ export function useScrollLetterIndicator(
     prevLetterRef.current = null
   }, [sortBy, games])
 
-  return { letter, isVisible }
+  return { isVisible, letter }
 }

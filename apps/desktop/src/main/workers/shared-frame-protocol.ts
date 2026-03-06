@@ -29,7 +29,7 @@ export const CTRL_SAB_BYTE_LENGTH = 8 * Int32Array.BYTES_PER_ELEMENT
  * Power-of-2 for efficient modular arithmetic.
  * 32768 samples ≈ 341ms of stereo audio at 48kHz.
  */
-export const AUDIO_RING_SAMPLES = 32768
+export const AUDIO_RING_SAMPLES = 32_768
 export const AUDIO_RING_BYTE_LENGTH = AUDIO_RING_SAMPLES * Int16Array.BYTES_PER_ELEMENT
 
 /**

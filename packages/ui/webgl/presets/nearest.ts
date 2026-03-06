@@ -4,6 +4,7 @@ import { defaultFragmentShader } from '../shaders';
 export const nearestPreset: ShaderPresetDefinition = {
   id: 'nearest',
   label: 'Nearest Neighbor',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const nearestPreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

@@ -10,15 +10,15 @@ import {
 import { Button } from './button'
 
 const meta = {
-  title: 'UI/Card',
+  argTypes: {
+    className: { control: 'text' },
+  },
   component: Card,
   parameters: {
     layout: 'padded',
   },
   tags: ['autodocs'],
-  argTypes: {
-    className: { control: 'text' },
-  },
+  title: 'UI/Card',
 } satisfies Meta<typeof Card>
 
 export default meta

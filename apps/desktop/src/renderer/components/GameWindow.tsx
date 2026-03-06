@@ -36,18 +36,18 @@ import { useSfx } from '../hooks/useSfx'
 
 // Keyboard → libretro joypad button mapping
 const KEY_MAP: Record<string, number> = {
-  'x':          0,  // B
-  's':          1,  // Y
-  'Shift':      2,  // Select
-  'Enter':      3,  // Start
-  'ArrowUp':    4,  // Up
+  'a':          9,  // X
   'ArrowDown':  5,  // Down
   'ArrowLeft':  6,  // Left
   'ArrowRight': 7,  // Right
-  'z':          8,  // A
-  'a':          9,  // X
+  'ArrowUp':    4,  // Up
+  'Enter':      3,  // Start
   'q':          10, // L
+  's':          1,  // Y
+  'Shift':      2,  // Select
   'w':          11, // R
+  'x':          0,  // B
+  'z':          8,  // A
 }
 
 export const GameWindow: React.FC = () => {
@@ -59,7 +59,7 @@ export const GameWindow: React.FC = () => {
   const [mode, setMode] = useState<'overlay' | 'native'>('native')
   const [volume, setVolume] = useState(() => {
     const saved = localStorage.getItem('gamelord:volume')
-    return saved !== null ? parseFloat(saved) : 0.5
+    return saved !== null ? Number.parseFloat(saved) : 0.5
   })
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('gamelord:muted') === 'true'
@@ -87,7 +87,7 @@ export const GameWindow: React.FC = () => {
   // Tab toggle switches between 1x and this value.
   const [preferredFastForwardSpeed, setPreferredFastForwardSpeed] = useState(() => {
     const saved = localStorage.getItem('gamelord:fastForwardSpeed')
-    return saved !== null ? parseFloat(saved) : 2
+    return saved !== null ? Number.parseFloat(saved) : 2
   })
 
   // Memoize power animation callbacks so they have stable references.
@@ -128,8 +128,8 @@ export const GameWindow: React.FC = () => {
 
   // Gamepad polling — uses same api.gameInput() pipeline as keyboard
   const { connectedCount: connectedGamepads } = useGamepad({
-    gameInput: api.gameInput,
     enabled: mode === 'native' && !isPaused,
+    gameInput: api.gameInput,
   })
 
   // Ref to the latest updateCanvasSize — allows the IPC effect to call
@@ -141,7 +141,7 @@ export const GameWindow: React.FC = () => {
   const updateCanvasSize = useCallback(() => {
     const canvas = canvasRef.current
     const container = containerRef.current
-    if (!canvas || !container) return
+    if (!canvas || !container) {return}
 
     // Get container dimensions
     const containerRect = container.getBoundingClientRect()
@@ -149,7 +149,7 @@ export const GameWindow: React.FC = () => {
     const containerH = containerRect.height
 
     // Skip if container has no dimensions yet
-    if (containerW === 0 || containerH === 0) return
+    if (containerW === 0 || containerH === 0) {return}
 
     // Use game aspect ratio if available, otherwise default to NES aspect ratio
     const aspectRatio = gameAspectRatio || (256 / 240)
@@ -201,15 +201,15 @@ export const GameWindow: React.FC = () => {
 
     const ctx = audioContextRef.current
     const frames = samples.length / 2
-    if (frames <= 0) return
+    if (frames <= 0) {return}
 
     const buffer = ctx.createBuffer(2, frames, sampleRate)
     const leftChannel = buffer.getChannelData(0)
     const rightChannel = buffer.getChannelData(1)
 
     for (let i = 0; i < frames; i++) {
-      leftChannel[i] = samples[i * 2] / 32768
-      rightChannel[i] = samples[i * 2 + 1] / 32768
+      leftChannel[i] = samples[i * 2] / 32_768
+      rightChannel[i] = samples[i * 2 + 1] / 32_768
     }
 
     const source = ctx.createBufferSource()
@@ -235,7 +235,7 @@ export const GameWindow: React.FC = () => {
   const drainAudioRing = useCallback(() => {
     const ctrl = controlViewRef.current
     const ring = audioViewRef.current
-    if (!ctrl || !ring) return
+    if (!ctrl || !ring) {return}
 
     const ringLen = ring.length
     const writePos = Atomics.load(ctrl, CTRL_AUDIO_WRITE_POS)
@@ -243,7 +243,7 @@ export const GameWindow: React.FC = () => {
     const sampleRate = Atomics.load(ctrl, CTRL_AUDIO_SAMPLE_RATE)
 
     const available = writePos - readPos
-    if (available <= 0) return
+    if (available <= 0) {return}
 
     // Clamp to ring capacity to skip any overwritten samples
     const toRead = Math.min(available, ringLen)
@@ -282,7 +282,7 @@ export const GameWindow: React.FC = () => {
     // The main process sends SABs through a MessagePort because contextBridge
     // cannot transfer SharedArrayBuffer directly.
     api.framePort.onMessage((data: unknown) => {
-      const msg = data as { type: string; control: SharedArrayBuffer; video: SharedArrayBuffer; audio: SharedArrayBuffer }
+      const msg = data as { audio: SharedArrayBuffer; control: SharedArrayBuffer; type: string; video: SharedArrayBuffer; }
       if (msg.type === 'sharedBuffers') {
         controlViewRef.current = new Int32Array(msg.control)
         videoViewRef.current = new Uint8Array(msg.video)
@@ -366,7 +366,7 @@ export const GameWindow: React.FC = () => {
       pendingFrameRef.current = frameData
 
       const canvas = canvasRef.current
-      if (!canvas || !bootReadyRef.current) return
+      if (!canvas || !bootReadyRef.current) {return}
 
       // Initialize WebGL renderer on first frame after boot is ready
       if (!rendererRef.current) {
@@ -423,7 +423,7 @@ export const GameWindow: React.FC = () => {
                   width * height * 4,
                 )
 
-                rendererRef.current.renderFrame({ data: frameData, width, height })
+                rendererRef.current.renderFrame({ data: frameData, height, width })
               }
 
               // Drain audio from the ring buffer
@@ -451,7 +451,7 @@ export const GameWindow: React.FC = () => {
     // When SAB mode is active, audio is drained from the ring buffer in the
     // rAF loop instead (see drainAudioRing).
     api.on('game:audio-samples', (audioData: any) => {
-      if (useSharedBuffersRef.current) return
+      if (useSharedBuffersRef.current) {return}
 
       // audioData.samples arrives as Uint8Array after Electron IPC.
       // Interpret the raw bytes as interleaved stereo Int16 samples.
@@ -549,7 +549,7 @@ export const GameWindow: React.FC = () => {
 
   // Keyboard input for native mode
   useEffect(() => {
-    if (mode !== 'native') return
+    if (mode !== 'native') {return}
 
     /** True when the event target is a text input (annotation fields, etc.). */
     const isTypingInInput = (e: KeyboardEvent) => {
@@ -558,7 +558,7 @@ export const GameWindow: React.FC = () => {
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isTypingInInput(e)) return
+      if (isTypingInInput(e)) {return}
       const buttonId = KEY_MAP[e.key]
       if (buttonId !== undefined) {
         e.preventDefault()
@@ -567,7 +567,7 @@ export const GameWindow: React.FC = () => {
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (isTypingInInput(e)) return
+      if (isTypingInInput(e)) {return}
       const buttonId = KEY_MAP[e.key]
       if (buttonId !== undefined) {
         e.preventDefault()
@@ -592,8 +592,8 @@ export const GameWindow: React.FC = () => {
       } else {
         await api.emulation.pause()
       }
-    } catch (err) {
-      console.error('Pause/resume failed:', err)
+    } catch (error) {
+      console.error('Pause/resume failed:', error)
     }
   }
 
@@ -615,8 +615,8 @@ export const GameWindow: React.FC = () => {
   const handleReset = async () => {
     try {
       await api.emulation.reset()
-    } catch (err) {
-      console.error('Reset failed:', err)
+    } catch (error) {
+      console.error('Reset failed:', error)
     }
   }
 
@@ -634,8 +634,8 @@ export const GameWindow: React.FC = () => {
         localStorage.setItem('gamelord:fastForwardSpeed', String(multiplier))
       }
       await api.emulation.setSpeed(multiplier)
-    } catch (err) {
-      console.error('Set speed failed:', err)
+    } catch (error) {
+      console.error('Set speed failed:', error)
     }
   }
 
@@ -650,7 +650,7 @@ export const GameWindow: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName
       const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable
-      if (isTyping) return
+      if (isTyping) {return}
 
       if (e.key === 'F5') {
         e.preventDefault()
@@ -690,14 +690,14 @@ export const GameWindow: React.FC = () => {
   // Clean up the hide timeout on unmount to prevent ghost setState calls.
   useEffect(() => {
     return () => {
-      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+      if (hideTimeoutRef.current) {clearTimeout(hideTimeoutRef.current)}
     }
   }, [])
 
   /** Check whether a point is inside an element's bounding box. */
   const isPointInElement = useCallback((x: number, y: number, ref: React.RefObject<HTMLDivElement | null>) => {
     const el = ref.current
-    if (!el) return false
+    if (!el) {return false}
     const rect = el.getBoundingClientRect()
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
   }, [])
@@ -705,7 +705,7 @@ export const GameWindow: React.FC = () => {
   /** Re-check whether the last known cursor position is over a bar. */
   const isCursorOverControls = useCallback(() => {
     const pos = lastMousePositionRef.current
-    if (!pos) return false
+    if (!pos) {return false}
     return (
       isPointInElement(pos.x, pos.y, topBarRef) ||
       isPointInElement(pos.x, pos.y, bottomBarRef)
@@ -720,7 +720,7 @@ export const GameWindow: React.FC = () => {
   }, [])
 
   const scheduleHide = useCallback(() => {
-    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+    if (hideTimeoutRef.current) {clearTimeout(hideTimeoutRef.current)}
     hideTimeoutRef.current = setTimeout(function tick() {
       // Don't hide while a dropdown menu is open — the user is interacting.
       if (hasOpenMenuRef.current) {
@@ -746,7 +746,7 @@ export const GameWindow: React.FC = () => {
   // (since Electron drag regions swallow onMouseEnter/Leave events).
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
-      if (mode !== 'native' || isPoweringOn || isPoweringOff) return
+      if (mode !== 'native' || isPoweringOn || isPoweringOff) {return}
 
       const { clientX, clientY } = event
       const last = lastMousePositionRef.current
@@ -757,7 +757,7 @@ export const GameWindow: React.FC = () => {
         return
       }
 
-      if (last.x === clientX && last.y === clientY) return
+      if (last.x === clientX && last.y === clientY) {return}
 
       lastMousePositionRef.current = { x: clientX, y: clientY }
 
@@ -775,18 +775,18 @@ export const GameWindow: React.FC = () => {
   )
 
   const handleMouseLeave = useCallback((event: React.MouseEvent) => {
-    if (mode !== 'native') return
+    if (mode !== 'native') {return}
     // Only hide when the cursor truly left the window. In Electron's
     // frameless window the root div spans the full viewport, so check
     // whether the leave coordinates are outside the visible area.
     // Use <= 0 / >= dimension to catch the exact window edge (the
     // original > 0 / < dimension missed cursors resting on the border).
     const { clientX, clientY } = event
-    const { innerWidth, innerHeight } = window
+    const { innerHeight, innerWidth } = window
     if (clientX > 0 && clientX < innerWidth && clientY > 0 && clientY < innerHeight) {
       return
     }
-    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+    if (hideTimeoutRef.current) {clearTimeout(hideTimeoutRef.current)}
     isOverControlsRef.current = false
     setShowControls(false)
     setShowSpeedMenu(false)
@@ -805,15 +805,15 @@ export const GameWindow: React.FC = () => {
   return (
     <div
       className={`relative h-screen overflow-hidden ${isNative ? 'bg-black' : 'bg-transparent'}`}
-      style={{ cursor: isNative && !showControls ? 'none' : undefined }}
-      onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      onMouseMove={handleMouseMove}
+      style={{ cursor: isNative && !showControls ? 'none' : undefined }}
     >
       {/* Power-on animation (system-specific) */}
       {isNative && isPoweringOn && (
         <PowerAnimation
-          displayType={displayType}
           direction="on"
+          displayType={displayType}
           onComplete={handlePowerOnComplete}
         />
       )}
@@ -821,8 +821,8 @@ export const GameWindow: React.FC = () => {
       {/* Power-off / shutdown animation (system-specific) */}
       {isNative && isPoweringOff && (
         <PowerAnimation
-          displayType={displayType}
           direction="off"
+          displayType={displayType}
           onComplete={handlePowerOffComplete}
         />
       )}
@@ -830,16 +830,16 @@ export const GameWindow: React.FC = () => {
       {/* Canvas container for native mode rendering */}
       {isNative && (
         <div
-          ref={containerRef}
           className="absolute inset-0 flex items-center justify-center"
+          ref={containerRef}
         >
           <canvas
+            height={240}
             ref={canvasRef}
             style={{
               imageRendering: shader === 'default' ? 'pixelated' : 'auto',
             }}
             width={256}
-            height={240}
           />
         </div>
       )}
@@ -858,7 +858,7 @@ export const GameWindow: React.FC = () => {
       {isNative && !isPoweringOff && (
         <div
           className="absolute top-0 left-0 right-0 h-8 z-40"
-          style={{ WebkitAppRegion: 'drag', cursor: 'default' } as React.CSSProperties}
+          style={{ cursor: 'default', WebkitAppRegion: 'drag' } as React.CSSProperties}
         />
       )}
 
@@ -868,12 +868,12 @@ export const GameWindow: React.FC = () => {
           since Electron drag regions swallow DOM mouse events. The badge
           opts out with no-drag so its buttons stay clickable. */}
       <div
-        ref={topBarRef}
         className={`absolute top-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
           showControls && !isPoweringOff
             ? 'opacity-100 translate-y-0'
             : 'opacity-0 -translate-y-full pointer-events-none'
         }`}
+        ref={topBarRef}
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div className="flex items-center justify-center px-4 py-2 bg-black/80 shadow-lg select-none">
@@ -889,22 +889,22 @@ export const GameWindow: React.FC = () => {
 
       {/* Bottom control bar — slides down on close */}
       <div
-        ref={bottomBarRef}
         className={`absolute bottom-0 left-0 right-0 z-50 transition-all duration-200 ease-out ${
           showControls && !isPoweringOff
             ? 'opacity-100 translate-y-0'
             : 'opacity-0 translate-y-full pointer-events-none'
         }`}
+        ref={bottomBarRef}
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <div className="flex items-center justify-between px-6 py-4 bg-black/80 shadow-lg">
           {/* Playback controls */}
           <div className="flex items-center gap-2">
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={handlePauseResume}
               className="text-white hover:bg-white/20 hover:text-white"
+              onClick={handlePauseResume}
+              size="sm"
+              variant="ghost"
             >
               {isPaused ? (
                 <Play className="h-5 w-5" />
@@ -913,29 +913,29 @@ export const GameWindow: React.FC = () => {
               )}
             </Button>
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleReset}
               className="text-white hover:bg-white/20 hover:text-white"
+              onClick={handleReset}
+              size="sm"
               title="Reset"
+              variant="ghost"
             >
               <RotateCcw className="h-5 w-5" />
             </Button>
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleScreenshot}
               className="text-white hover:bg-white/20 hover:text-white"
+              onClick={handleScreenshot}
+              size="sm"
+              variant="ghost"
             >
               <Camera className="h-5 w-5" />
             </Button>
             <div className="relative flex items-center">
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleToggleFastForward}
                 className={`text-white hover:bg-white/20 hover:text-white ${speedMultiplier > 1 ? 'text-yellow-400 hover:text-yellow-300' : ''}`}
+                onClick={handleToggleFastForward}
+                size="sm"
                 title={`Fast Forward (Tab) — ${speedMultiplier}x`}
+                variant="ghost"
               >
                 <FastForward className="h-5 w-5" />
                 {speedMultiplier > 1 && (
@@ -943,8 +943,8 @@ export const GameWindow: React.FC = () => {
                 )}
               </Button>
               <button
-                onClick={() => { setShowSpeedMenu((v) => !v); setShowShaderMenu(false); setShowSettingsMenu(false) }}
                 className="text-white/60 hover:text-white hover:bg-white/10 rounded p-0.5 -ml-1 transition-colors"
+                onClick={() => { setShowSpeedMenu((v) => !v); setShowShaderMenu(false); setShowSettingsMenu(false) }}
                 title="Speed options"
               >
                 <ChevronDown className="h-3.5 w-3.5" />
@@ -953,13 +953,13 @@ export const GameWindow: React.FC = () => {
                 <div className="absolute bottom-full left-0 mb-2 bg-black/95 rounded-lg shadow-lg py-1 min-w-[100px]">
                   {SPEED_OPTIONS.map((speed) => (
                     <button
-                      key={speed}
-                      onClick={() => { playSfx('click'); void handleSetSpeed(speed, true); setShowSpeedMenu(false) }}
                       className={`w-full text-left px-4 py-2 text-sm transition-colors ${
                         speedMultiplier === speed
                           ? 'text-yellow-400 bg-white/10'
                           : 'text-white/80 hover:bg-white/10'
                       }`}
+                      key={speed}
+                      onClick={() => { playSfx('click'); void handleSetSpeed(speed, true); setShowSpeedMenu(false) }}
                     >
                       {speed}x{speed === 1 ? ' (Normal)' : ''}
                     </button>
@@ -976,13 +976,13 @@ export const GameWindow: React.FC = () => {
               <div className="flex gap-1">
                 {[0, 1, 2, 3, 4].map((slot) => (
                   <button
-                    key={slot}
-                    onClick={() => { playSfx('click'); setSelectedSlot(slot) }}
                     className={`w-8 h-8 rounded flex items-center justify-center text-sm font-medium transition-colors ${
                       selectedSlot === slot
                         ? 'bg-blue-500 text-white'
                         : 'bg-white/10 text-white/60 hover:bg-white/20'
                     }`}
+                    key={slot}
+                    onClick={() => { playSfx('click'); setSelectedSlot(slot) }}
                   >
                     {slot}
                   </button>
@@ -990,19 +990,19 @@ export const GameWindow: React.FC = () => {
               </div>
             </div>
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSaveState}
               className="text-white hover:bg-white/20 hover:text-white"
+              onClick={handleSaveState}
+              size="sm"
+              variant="ghost"
             >
               <Save className="h-4 w-4 mr-2" />
               Save (F5)
             </Button>
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLoadState}
               className="text-white hover:bg-white/20 hover:text-white"
+              onClick={handleLoadState}
+              size="sm"
+              variant="ghost"
             >
               <FolderOpen className="h-4 w-4 mr-2" />
               Load (F9)
@@ -1012,10 +1012,10 @@ export const GameWindow: React.FC = () => {
           {/* Volume & additional controls */}
           <div className="flex items-center gap-2">
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => { playSfx(isMuted ? 'toggleOn' : 'toggleOff'); setIsMuted((m) => !m) }}
               className="text-white hover:bg-white/20 hover:text-white"
+              onClick={() => { playSfx(isMuted ? 'toggleOn' : 'toggleOff'); setIsMuted((m) => !m) }}
+              size="sm"
+              variant="ghost"
             >
               {isMuted || volume === 0 ? (
                 <VolumeX className="h-5 w-5" />
@@ -1026,25 +1026,25 @@ export const GameWindow: React.FC = () => {
               )}
             </Button>
             <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={isMuted ? 0 : volume}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value)
-                setVolume(v)
-                if (v > 0 && isMuted) setIsMuted(false)
-              }}
               className="w-20 h-1 accent-white cursor-pointer"
+              max={1}
+              min={0}
+              onChange={(e) => {
+                const v = Number.parseFloat(e.target.value)
+                setVolume(v)
+                if (v > 0 && isMuted) {setIsMuted(false)}
+              }}
+              step={0.01}
+              type="range"
+              value={isMuted ? 0 : volume}
             />
             <div className="relative">
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setShowShaderMenu((v) => !v); setShowSettingsMenu(false); setShowSpeedMenu(false) }}
                 className="text-white hover:bg-white/20 hover:text-white"
+                onClick={() => { setShowShaderMenu((v) => !v); setShowSettingsMenu(false); setShowSpeedMenu(false) }}
+                size="sm"
                 title="Shader"
+                variant="ghost"
               >
                 <Monitor className="h-5 w-5" />
               </Button>
@@ -1052,13 +1052,13 @@ export const GameWindow: React.FC = () => {
                 <div className="absolute bottom-full right-0 mb-2 bg-black/95 rounded-lg shadow-lg py-1 min-w-[160px]">
                   {SHADER_PRESETS.map((preset) => (
                     <button
-                      key={preset}
-                      onClick={() => { playSfx('click'); setShader(preset); setShowShaderMenu(false) }}
                       className={`w-full text-left px-4 py-2 text-sm transition-colors ${
                         shader === preset
                           ? 'text-blue-400 bg-white/10'
                           : 'text-white/80 hover:bg-white/10'
                       }`}
+                      key={preset}
+                      onClick={() => { playSfx('click'); setShader(preset); setShowShaderMenu(false) }}
                     >
                       {SHADER_LABELS[preset]}
                     </button>
@@ -1076,19 +1076,19 @@ export const GameWindow: React.FC = () => {
             )}
             <div className="relative">
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setShowSettingsMenu((v) => !v); setShowShaderMenu(false); setShowSpeedMenu(false) }}
                 className="text-white hover:bg-white/20 hover:text-white"
+                onClick={() => { setShowSettingsMenu((v) => !v); setShowShaderMenu(false); setShowSpeedMenu(false) }}
+                size="sm"
                 title="Settings"
+                variant="ghost"
               >
                 <Settings className="h-5 w-5" />
               </Button>
               {showSettingsMenu && (
                 <div className="absolute bottom-full right-0 mb-2 bg-black/95 rounded-lg shadow-lg py-1 min-w-[160px]">
                   <button
-                    onClick={() => { playSfx(showFps ? 'toggleOff' : 'toggleOn'); setShowFps((v) => !v) }}
                     className="w-full flex items-center justify-between px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                    onClick={() => { playSfx(showFps ? 'toggleOff' : 'toggleOn'); setShowFps((v) => !v) }}
                   >
                     <span>Show FPS</span>
                     <span className={`ml-3 text-xs font-medium ${showFps ? 'text-green-400' : 'text-white/40'}`}>
@@ -1096,8 +1096,8 @@ export const GameWindow: React.FC = () => {
                     </span>
                   </button>
                   <button
-                    onClick={() => { playSfx(sfxPreferences.enabled ? 'toggleOff' : 'toggleOn'); setSfxEnabled(!sfxPreferences.enabled) }}
                     className="w-full flex items-center justify-between px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                    onClick={() => { playSfx(sfxPreferences.enabled ? 'toggleOff' : 'toggleOn'); setSfxEnabled(!sfxPreferences.enabled) }}
                   >
                     <span>UI Sounds</span>
                     <span className={`ml-3 text-xs font-medium ${sfxPreferences.enabled ? 'text-green-400' : 'text-white/40'}`}>
@@ -1108,20 +1108,20 @@ export const GameWindow: React.FC = () => {
                     <div className="px-4 py-2 flex items-center gap-2">
                       <span className="text-xs text-white/50">SFX Vol</span>
                       <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={sfxPreferences.volume}
-                        onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
                         className="flex-1 h-1 accent-white/80"
+                        max="1"
+                        min="0"
+                        onChange={(e) => setSfxVolume(Number.parseFloat(e.target.value))}
+                        step="0.05"
+                        type="range"
+                        value={sfxPreferences.volume}
                       />
                     </div>
                   )}
                   {process.env.NODE_ENV === 'development' && (
                     <button
-                      onClick={() => setShowAgentation((v) => !v)}
                       className="w-full flex items-center justify-between px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                      onClick={() => setShowAgentation((v) => !v)}
                     >
                       <span>Annotate</span>
                       <span className={`ml-3 text-xs font-medium ${showAgentation ? 'text-green-400' : 'text-white/40'}`}>
@@ -1138,12 +1138,12 @@ export const GameWindow: React.FC = () => {
 
       {/* Fatal emulation error dialog */}
       <EmulationErrorDialog
-        open={emulationError !== null}
         message={emulationError ?? ''}
         onClose={() => {
           setEmulationError(null)
           api.gameWindow.readyToClose()
         }}
+        open={emulationError !== null}
       />
     </div>
   )

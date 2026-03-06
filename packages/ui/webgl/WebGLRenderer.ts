@@ -7,7 +7,7 @@ import { PRESET_LIST, PRESET_MAP } from './presets';
 import type { ShaderPresetDefinition, ShaderPassDefinition, FilterMode } from './types';
 
 /** Preset ids for the shader menu. */
-export const SHADER_PRESETS: string[] = PRESET_LIST.map((p) => p.id);
+export const SHADER_PRESETS: Array<string> = PRESET_LIST.map((p) => p.id);
 
 /** Human-readable labels keyed by preset id. */
 export const SHADER_LABELS: Record<string, string> = Object.fromEntries(
@@ -29,7 +29,7 @@ export class WebGLRenderer {
   private vertexBuffer: WebGLBuffer | null = null;
   private currentPresetId = 'default';
   private currentPreset: ShaderPresetDefinition | null = null;
-  private compiledPasses: CompiledPass[] = [];
+  private compiledPasses: Array<CompiledPass> = [];
   private frameWidth = 256;
   private frameHeight = 240;
   private frameCount = 0;
@@ -93,7 +93,7 @@ export class WebGLRenderer {
   }
 
   renderFrame(frame: VideoFrame): void {
-    if (!this.gl || !this.originalTexture || !this.shaderManager || !this.framebufferManager) return;
+    if (!this.gl || !this.originalTexture || !this.shaderManager || !this.framebufferManager) {return;}
 
     const gl = this.gl;
 
@@ -127,7 +127,7 @@ export class WebGLRenderer {
         // passes the previous output size would be more accurate, but at
         // pre-allocation time we don't have the chain yet. Source-scaled
         // passes (the common case) always match the frame dimensions.
-        const { width: w, height: h } = this.computePassSize(def, this.frameWidth, this.frameHeight);
+        const { height: h, width: w } = this.computePassSize(def, this.frameWidth, this.frameHeight);
         this.framebufferManager.getFeedbackPair(`feedback_${i}`, w, h, def.format);
       }
     }
@@ -142,7 +142,7 @@ export class WebGLRenderer {
       const isLastPass = i === passCount - 1;
 
       // Compute output dimensions based on scale config
-      const { width: outputWidth, height: outputHeight } = this.computePassSize(
+      const { height: outputHeight, width: outputWidth } = this.computePassSize(
         definition,
         previousWidth,
         previousHeight,
@@ -182,7 +182,7 @@ export class WebGLRenderer {
       // Use this pass's shader program
       this.shaderManager.useShader(programKey);
       const program = this.shaderManager.getCurrentShader();
-      if (!program) continue;
+      if (!program) {continue;}
 
       gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
 
@@ -322,14 +322,14 @@ export class WebGLRenderer {
   }
 
   resize(width: number, height: number): void {
-    if (!this.gl) return;
+    if (!this.gl) {return;}
     this.canvas.width = width;
     this.canvas.height = height;
     this.gl.viewport(0, 0, width, height);
   }
 
   setShader(presetId: string): void {
-    if (this.currentPresetId === presetId) return;
+    if (this.currentPresetId === presetId) {return;}
     this.applyPreset(presetId);
   }
 
@@ -339,10 +339,10 @@ export class WebGLRenderer {
 
   destroy(): void {
     const gl = this.gl;
-    if (!gl) return;
+    if (!gl) {return;}
 
-    if (this.originalTexture) gl.deleteTexture(this.originalTexture);
-    if (this.vertexBuffer) gl.deleteBuffer(this.vertexBuffer);
+    if (this.originalTexture) {gl.deleteTexture(this.originalTexture);}
+    if (this.vertexBuffer) {gl.deleteBuffer(this.vertexBuffer);}
 
     this.framebufferManager?.destroy();
     this.lutLoader?.destroy();
@@ -375,8 +375,8 @@ export class WebGLRenderer {
 
     // Load LUTs asynchronously (non-blocking — they'll be available next frame)
     if (preset.luts.length > 0 && this.lutLoader) {
-      this.lutLoader.loadAll(preset.luts).catch((err) => {
-        console.error('Failed to load LUT textures:', err);
+      this.lutLoader.loadAll(preset.luts).catch((error) => {
+        console.error('Failed to load LUT textures:', error);
       });
     }
 
@@ -387,23 +387,23 @@ export class WebGLRenderer {
     pass: ShaderPassDefinition,
     previousWidth: number,
     previousHeight: number,
-  ): { width: number; height: number } {
+  ): { height: number; width: number; } {
     switch (pass.scale.type) {
       case 'source':
         return {
-          width: Math.round(previousWidth * pass.scale.x),
           height: Math.round(previousHeight * pass.scale.y),
+          width: Math.round(previousWidth * pass.scale.x),
         };
       case 'absolute':
         return {
-          width: Math.round(pass.scale.x),
           height: Math.round(pass.scale.y),
+          width: Math.round(pass.scale.x),
         };
       case 'viewport':
       default:
         return {
-          width: Math.round(this.canvas.width * pass.scale.x),
           height: Math.round(this.canvas.height * pass.scale.y),
+          width: Math.round(this.canvas.width * pass.scale.x),
         };
     }
   }

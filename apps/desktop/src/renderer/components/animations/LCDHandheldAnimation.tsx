@@ -3,10 +3,10 @@ import React, { useEffect, useState } from 'react'
 interface LCDHandheldAnimationProps {
   /** Whether this is a power-on or power-off animation. */
   direction: 'on' | 'off'
-  /** Called when the animation completes. */
-  onComplete: () => void
   /** Total duration of the animation in ms. */
   duration?: number
+  /** Called when the animation completes. */
+  onComplete: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -35,13 +35,13 @@ const LCD_GREEN_DARK = 'rgb(56, 72, 56)'
  */
 export const LCDHandheldAnimation: React.FC<LCDHandheldAnimationProps> = ({
   direction,
-  onComplete,
   duration = direction === 'on' ? 700 : 450,
+  onComplete,
 }) => {
   if (direction === 'on') {
-    return <LCDPowerOn onComplete={onComplete} duration={duration} />
+    return <LCDPowerOn duration={duration} onComplete={onComplete} />
   }
-  return <LCDPowerOff onComplete={onComplete} duration={duration} />
+  return <LCDPowerOff duration={duration} onComplete={onComplete} />
 }
 
 // ---------------------------------------------------------------------------
@@ -52,11 +52,11 @@ const PixelGrid: React.FC<{ opacity: number }> = ({ opacity }) => (
   <div
     className="absolute inset-0"
     style={{
-      opacity,
       backgroundImage:
         'repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px),' +
         'repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px)',
       backgroundSize: '3px 3px',
+      opacity,
     }}
   />
 )
@@ -65,17 +65,17 @@ const PixelGrid: React.FC<{ opacity: number }> = ({ opacity }) => (
 // Power-on
 // ---------------------------------------------------------------------------
 
-const LCDPowerOn: React.FC<{ onComplete: () => void; duration: number }> = ({
-  onComplete,
+const LCDPowerOn: React.FC<{ duration: number; onComplete: () => void; }> = ({
   duration,
+  onComplete,
 }) => {
   const [phase, setPhase] = useState<PowerOnPhase>('grid')
 
   useEffect(() => {
     const timings = {
-      grid: duration * 0.20,
       backlight: duration * 0.35,
       fadeIn: duration * 0.45,
+      grid: duration * 0.20,
     }
 
     const backlightTimer = setTimeout(() => setPhase('backlight'), timings.grid)
@@ -92,7 +92,7 @@ const LCDPowerOn: React.FC<{ onComplete: () => void; duration: number }> = ({
     }
   }, [duration, onComplete])
 
-  if (phase === 'done') return null
+  if (phase === 'done') {return null}
 
   const isBacklit = phase === 'backlight' || phase === 'fade-in'
 
@@ -131,16 +131,16 @@ const LCDPowerOn: React.FC<{ onComplete: () => void; duration: number }> = ({
 // Power-off
 // ---------------------------------------------------------------------------
 
-const LCDPowerOff: React.FC<{ onComplete: () => void; duration: number }> = ({
-  onComplete,
+const LCDPowerOff: React.FC<{ duration: number; onComplete: () => void; }> = ({
   duration,
+  onComplete,
 }) => {
   const [phase, setPhase] = useState<PowerOffPhase>('fade-out')
 
   useEffect(() => {
     const timings = {
-      fadeOut: duration * 0.30,
       afterimage: duration * 0.35,
+      fadeOut: duration * 0.30,
       off: duration * 0.35,
     }
 

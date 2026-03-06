@@ -11,7 +11,7 @@ let framePortCallback: ((data: unknown) => void) | null = null;
 
 ipcRenderer.on('game:shared-frame-port', (event) => {
   const [port] = event.ports;
-  if (!port) return;
+  if (!port) {return;}
 
   port.onmessage = (ev: MessageEvent) => {
     framePortCallback?.(ev.data);
@@ -58,7 +58,7 @@ contextBridge.exposeInMainWorld('gamelord', {
     ipcRenderer.send('game:input', port, id, pressed),
 
   // Event listeners
-  on: (channel: string, callback: (...args: any[]) => void) => {
+  on: (channel: string, callback: (...args: Array<any>) => void) => {
     const validChannels = [
       'emulator:launched',
       'emulator:exited',
@@ -144,7 +144,7 @@ contextBridge.exposeInMainWorld('gamelord', {
   artwork: {
     syncGame: (gameId: string) => ipcRenderer.invoke('artwork:syncGame', gameId),
     syncAll: () => ipcRenderer.invoke('artwork:syncAll'),
-    syncGames: (gameIds: string[]) => ipcRenderer.invoke('artwork:syncGames', gameIds),
+    syncGames: (gameIds: Array<string>) => ipcRenderer.invoke('artwork:syncGames', gameIds),
     cancelSync: () => ipcRenderer.invoke('artwork:cancelSync'),
     getSyncStatus: () => ipcRenderer.invoke('artwork:getSyncStatus'),
     getCredentials: () => ipcRenderer.invoke('artwork:getCredentials'),

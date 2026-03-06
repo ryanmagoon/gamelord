@@ -13,36 +13,36 @@ interface TestItem {
  * grid container so we can inspect the FlipItem results.
  */
 function TestComponent({
-  items,
-  onResult,
   duration = 300,
   exitDuration = 200,
+  items,
+  onResult,
 }: {
-  items: TestItem[]
-  onResult: (results: FlipItem<TestItem>[]) => void
   duration?: number
   exitDuration?: number
+  items: Array<TestItem>
+  onResult: (results: Array<FlipItem<TestItem>>) => void
 }) {
   const gridRef = useRef<HTMLDivElement>(null)
   const getKey = (item: TestItem) => item.id
 
   const flipItems = useFlipAnimation(items, getKey, {
-    gridRef,
     duration,
     exitDuration,
+    gridRef,
   })
 
   // Report results so tests can inspect them synchronously
   onResult(flipItems)
 
   return (
-    <div ref={gridRef} data-testid="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 100px)' }}>
+    <div data-testid="grid" ref={gridRef} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 100px)' }}>
       {flipItems.map((flipItem) => (
         <div
+          data-state={flipItem.animationState}
+          data-testid={`item-${flipItem.key}`}
           key={flipItem.key}
           ref={flipItem.ref}
-          data-testid={`item-${flipItem.key}`}
-          data-state={flipItem.animationState}
           style={flipItem.style}
         >
           {flipItem.item.label}
@@ -62,13 +62,13 @@ describe('useFlipAnimation', () => {
   })
 
   it('marks all items as entering on first render', () => {
-    const items: TestItem[] = [
+    const items: Array<TestItem> = [
       { id: '1', label: 'A' },
       { id: '2', label: 'B' },
       { id: '3', label: 'C' },
     ]
 
-    let result: FlipItem<TestItem>[] = []
+    let result: Array<FlipItem<TestItem>> = []
     render(<TestComponent items={items} onResult={(r) => { result = r }} />)
 
     expect(result).toHaveLength(3)
@@ -76,13 +76,13 @@ describe('useFlipAnimation', () => {
   })
 
   it('assigns staggered enter delays on first render', () => {
-    const items: TestItem[] = [
+    const items: Array<TestItem> = [
       { id: '1', label: 'A' },
       { id: '2', label: 'B' },
       { id: '3', label: 'C' },
     ]
 
-    let result: FlipItem<TestItem>[] = []
+    let result: Array<FlipItem<TestItem>> = []
     render(<TestComponent items={items} onResult={(r) => { result = r }} />)
 
     expect(result[0].enterDelay).toBe(0)
@@ -91,12 +91,12 @@ describe('useFlipAnimation', () => {
   })
 
   it('marks unchanged items as stable on re-render', () => {
-    const items: TestItem[] = [
+    const items: Array<TestItem> = [
       { id: '1', label: 'A' },
       { id: '2', label: 'B' },
     ]
 
-    let result: FlipItem<TestItem>[] = []
+    let result: Array<FlipItem<TestItem>> = []
     const { rerender } = render(
       <TestComponent items={items} onResult={(r) => { result = r }} />,
     )
@@ -115,16 +115,16 @@ describe('useFlipAnimation', () => {
   })
 
   it('marks new items as entering when added', () => {
-    const initialItems: TestItem[] = [
+    const initialItems: Array<TestItem> = [
       { id: '1', label: 'A' },
     ]
-    const updatedItems: TestItem[] = [
+    const updatedItems: Array<TestItem> = [
       { id: '1', label: 'A' },
       { id: '2', label: 'B' },
       { id: '3', label: 'C' },
     ]
 
-    let result: FlipItem<TestItem>[] = []
+    let result: Array<FlipItem<TestItem>> = []
     const { rerender } = render(
       <TestComponent items={initialItems} onResult={(r) => { result = r }} />,
     )
@@ -147,16 +147,16 @@ describe('useFlipAnimation', () => {
   })
 
   it('marks removed items as exiting', () => {
-    const initialItems: TestItem[] = [
+    const initialItems: Array<TestItem> = [
       { id: '1', label: 'A' },
       { id: '2', label: 'B' },
       { id: '3', label: 'C' },
     ]
-    const updatedItems: TestItem[] = [
+    const updatedItems: Array<TestItem> = [
       { id: '1', label: 'A' },
     ]
 
-    let result: FlipItem<TestItem>[] = []
+    let result: Array<FlipItem<TestItem>> = []
     const { rerender } = render(
       <TestComponent items={initialItems} onResult={(r) => { result = r }} />,
     )
@@ -178,20 +178,20 @@ describe('useFlipAnimation', () => {
   })
 
   it('removes exiting items after exitDuration elapses', () => {
-    const initialItems: TestItem[] = [
+    const initialItems: Array<TestItem> = [
       { id: '1', label: 'A' },
       { id: '2', label: 'B' },
     ]
-    const updatedItems: TestItem[] = [
+    const updatedItems: Array<TestItem> = [
       { id: '1', label: 'A' },
     ]
     const exitDuration = 200
 
-    let result: FlipItem<TestItem>[] = []
+    let result: Array<FlipItem<TestItem>> = []
     const { rerender } = render(
       <TestComponent
-        items={initialItems}
         exitDuration={exitDuration}
+        items={initialItems}
         onResult={(r) => { result = r }}
       />,
     )
@@ -202,8 +202,8 @@ describe('useFlipAnimation', () => {
 
     rerender(
       <TestComponent
-        items={updatedItems}
         exitDuration={exitDuration}
+        items={updatedItems}
         onResult={(r) => { result = r }}
       />,
     )
@@ -223,15 +223,15 @@ describe('useFlipAnimation', () => {
   })
 
   it('assigns absolute positioning to exiting items', () => {
-    const initialItems: TestItem[] = [
+    const initialItems: Array<TestItem> = [
       { id: '1', label: 'A' },
       { id: '2', label: 'B' },
     ]
-    const updatedItems: TestItem[] = [
+    const updatedItems: Array<TestItem> = [
       { id: '1', label: 'A' },
     ]
 
-    let result: FlipItem<TestItem>[] = []
+    let result: Array<FlipItem<TestItem>> = []
     const { rerender } = render(
       <TestComponent items={initialItems} onResult={(r) => { result = r }} />,
     )
@@ -249,12 +249,12 @@ describe('useFlipAnimation', () => {
   })
 
   it('stable items omit zIndex so CSS hover classes can control stacking', () => {
-    const items: TestItem[] = [
+    const items: Array<TestItem> = [
       { id: '1', label: 'A' },
       { id: '2', label: 'B' },
     ]
 
-    let result: FlipItem<TestItem>[] = []
+    let result: Array<FlipItem<TestItem>> = []
     const { rerender } = render(
       <TestComponent items={items} onResult={(r) => { result = r }} />,
     )
@@ -279,19 +279,19 @@ describe('useFlipAnimation', () => {
   })
 
   it('returns empty list for empty input', () => {
-    let result: FlipItem<TestItem>[] = []
+    let result: Array<FlipItem<TestItem>> = []
     render(<TestComponent items={[]} onResult={(r) => { result = r }} />)
 
     expect(result).toHaveLength(0)
   })
 
   it('handles all items being removed (full exit)', () => {
-    const initialItems: TestItem[] = [
+    const initialItems: Array<TestItem> = [
       { id: '1', label: 'A' },
       { id: '2', label: 'B' },
     ]
 
-    let result: FlipItem<TestItem>[] = []
+    let result: Array<FlipItem<TestItem>> = []
     const { rerender } = render(
       <TestComponent items={initialItems} onResult={(r) => { result = r }} />,
     )
@@ -308,12 +308,12 @@ describe('useFlipAnimation', () => {
   })
 
   it('provides stable ref callbacks across renders', () => {
-    const items: TestItem[] = [
+    const items: Array<TestItem> = [
       { id: '1', label: 'A' },
     ]
 
-    let firstResult: FlipItem<TestItem>[] = []
-    let secondResult: FlipItem<TestItem>[] = []
+    let firstResult: Array<FlipItem<TestItem>> = []
+    let secondResult: Array<FlipItem<TestItem>> = []
 
     const { rerender } = render(
       <TestComponent items={items} onResult={(r) => { firstResult = r }} />,

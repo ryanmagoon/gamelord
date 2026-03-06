@@ -2,22 +2,22 @@
  * Libretro joypad button IDs matching RETRO_DEVICE_ID_JOYPAD_* from libretro.h.
  */
 export const LIBRETRO_BUTTON = {
+  A: 8,
   B: 0,
-  Y: 1,
+  DOWN: 5,
+  L: 10,
+  L2: 12,
+  L3: 14,
+  LEFT: 6,
+  R: 11,
+  R2: 13,
+  R3: 15,
+  RIGHT: 7,
   SELECT: 2,
   START: 3,
   UP: 4,
-  DOWN: 5,
-  LEFT: 6,
-  RIGHT: 7,
-  A: 8,
   X: 9,
-  L: 10,
-  R: 11,
-  L2: 12,
-  R2: 13,
-  L3: 14,
-  R3: 15,
+  Y: 1,
 } as const
 
 /**
@@ -33,7 +33,7 @@ export const LIBRETRO_BUTTON = {
  * This works correctly with 8BitDo SN30 Pro in XInput mode and any
  * controller reporting mapping: "standard".
  */
-export const STANDARD_GAMEPAD_MAPPING: (number | null)[] = [
+export const STANDARD_GAMEPAD_MAPPING: Array<number | null> = [
   LIBRETRO_BUTTON.A,      // buttons[0]  - A / Cross (bottom face)
   LIBRETRO_BUTTON.B,      // buttons[1]  - B / Circle (right face)
   LIBRETRO_BUTTON.X,      // buttons[2]  - X / Square (left face)

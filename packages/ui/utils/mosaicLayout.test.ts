@@ -123,7 +123,7 @@ describe('computeRowLayout', () => {
     const result = computeRowLayout(aspectRatios, 800)
 
     // Find the last row y
-    const lastY = result.items[result.items.length - 1].y
+    const lastY = result.items.at(-1).y
 
     for (const item of result.items) {
       if (item.y < lastY) {

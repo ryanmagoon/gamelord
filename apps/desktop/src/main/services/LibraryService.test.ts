@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import crypto from 'crypto'
-import zlib from 'zlib'
-import { execFileSync } from 'child_process'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
+import crypto from 'node:crypto'
+import zlib from 'node:zlib'
+import { execFileSync } from 'node:child_process'
 
 // Mock electron before importing LibraryService
 const TEST_DIR = path.join(os.tmpdir(), 'gamelord-library-service-test-' + Date.now())
@@ -15,8 +15,8 @@ const ROMS_DIR = path.join(TEST_DIR, 'roms')
 vi.mock('electron', () => ({
   app: {
     getPath: vi.fn((name: string) => {
-      if (name === 'userData') return USER_DATA_DIR
-      if (name === 'home') return HOME_DIR
+      if (name === 'userData') {return USER_DATA_DIR}
+      if (name === 'home') {return HOME_DIR}
       return TEST_DIR
     }),
   },
@@ -24,10 +24,10 @@ vi.mock('electron', () => ({
 
 vi.mock('../logger', () => ({
   libraryLog: {
+    debug: vi.fn(),
+    error: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
   },
 }))
 
@@ -53,7 +53,7 @@ async function createService(): Promise<LibraryService> {
         throw new Error('Config not yet loaded')
       }
     },
-    { timeout: 2000, interval: 10 },
+    { interval: 10, timeout: 2000 },
   )
   // Extra tick to ensure saveConfig completes on first-run path
   await new Promise(resolve => setTimeout(resolve, 50))
@@ -72,34 +72,34 @@ function sha256String(value: string): string {
 }
 
 /** Compute all ROM hashes for a buffer (mirrors computeRomHashes). */
-function computeExpectedHashes(content: Buffer | string): { crc32: string; sha1: string; md5: string } {
+function computeExpectedHashes(content: Buffer | string): { crc32: string; md5: string; sha1: string; } {
   const buf = Buffer.isBuffer(content) ? content : Buffer.from(content)
   return {
     crc32: zlib.crc32(buf).toString(16).padStart(8, '0'),
-    sha1: crypto.createHash('sha1').update(buf).digest('hex'),
     md5: crypto.createHash('md5').update(buf).digest('hex'),
+    sha1: crypto.createHash('sha1').update(buf).digest('hex'),
   }
 }
 
 const TEST_NES_SYSTEM: GameSystem = {
+  extensions: ['.nes', '.fds', '.unf', '.unif'],
   id: 'nes',
   name: 'Nintendo Entertainment System',
   shortName: 'NES',
-  extensions: ['.nes', '.fds', '.unf', '.unif'],
 }
 
 const TEST_SNES_SYSTEM: GameSystem = {
+  extensions: ['.sfc', '.smc', '.swc', '.fig'],
   id: 'snes',
   name: 'Super Nintendo Entertainment System',
   shortName: 'SNES',
-  extensions: ['.sfc', '.smc', '.swc', '.fig'],
 }
 
 const TEST_GB_SYSTEM: GameSystem = {
+  extensions: ['.gb', '.gbc', '.sgb'],
   id: 'gb',
   name: 'Game Boy',
   shortName: 'GB',
-  extensions: ['.gb', '.gbc', '.sgb'],
 }
 
 beforeAll(() => {
@@ -109,7 +109,7 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  fs.rmSync(TEST_DIR, { recursive: true, force: true })
+  fs.rmSync(TEST_DIR, { force: true, recursive: true })
 })
 
 beforeEach(() => {
@@ -138,16 +138,16 @@ describe('LibraryService', () => {
       expect(config.romsBasePath).toBe(path.join(HOME_DIR, 'ROMs'))
 
       // Verify default config was persisted
-      const saved = JSON.parse(fs.readFileSync(path.join(USER_DATA_DIR, 'library-config.json'), 'utf-8'))
+      const saved = JSON.parse(fs.readFileSync(path.join(USER_DATA_DIR, 'library-config.json'), 'utf8'))
       expect(saved.systems.length).toBeGreaterThan(0)
     })
 
     it('loads existing config from disk on construction', async () => {
       const customConfig = {
-        systems: [TEST_NES_SYSTEM],
+        autoScan: true,
         romsBasePath: '/custom/roms',
         scanRecursive: false,
-        autoScan: true,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -190,10 +190,10 @@ describe('LibraryService', () => {
     it('does not scaffold all folders when config already exists', async () => {
       // Create a config with ALL default systems so backfill has nothing to add
       const customConfig = {
-        systems: DEFAULT_SYSTEMS,
+        autoScan: false,
         romsBasePath: path.join(TEST_DIR, 'existing-roms'),
         scanRecursive: true,
-        autoScan: false,
+        systems: DEFAULT_SYSTEMS,
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -209,10 +209,10 @@ describe('LibraryService', () => {
     it('backfills new systems missing from a saved config', async () => {
       // Simulate an old config that only has NES — missing all other DEFAULT_SYSTEMS
       const oldConfig = {
-        systems: [TEST_NES_SYSTEM],
+        autoScan: false,
         romsBasePath: path.join(TEST_DIR, 'backfill-roms'),
         scanRecursive: true,
-        autoScan: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -235,7 +235,7 @@ describe('LibraryService', () => {
       expect(saturn.romsPath).toBe(saturnDir)
 
       // Clean up
-      fs.rmSync(path.join(TEST_DIR, 'backfill-roms'), { recursive: true, force: true })
+      fs.rmSync(path.join(TEST_DIR, 'backfill-roms'), { force: true, recursive: true })
     })
   })
 
@@ -247,10 +247,10 @@ describe('LibraryService', () => {
     it('adds a new system to config', async () => {
       const service = await createService()
       const customSystem: GameSystem = {
+        extensions: ['.cst'],
         id: 'custom',
         name: 'Custom System',
         shortName: 'CUST',
-        extensions: ['.cst'],
       }
 
       await service.addSystem(customSystem)
@@ -275,9 +275,9 @@ describe('LibraryService', () => {
     it('removes system and cascades to delete games from that system', async () => {
       // Seed config with just NES and SNES so we have a known set
       const config = {
-        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
-        scanRecursive: true,
         autoScan: false,
+        scanRecursive: true,
+        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -318,7 +318,7 @@ describe('LibraryService', () => {
 
       // Verify it was persisted
       const savedConfig = JSON.parse(
-        fs.readFileSync(path.join(USER_DATA_DIR, 'library-config.json'), 'utf-8'),
+        fs.readFileSync(path.join(USER_DATA_DIR, 'library-config.json'), 'utf8'),
       )
       const savedNes = savedConfig.systems.find((s: GameSystem) => s.id === 'nes')
       expect(savedNes.romsPath).toBe('/new/nes/roms')
@@ -359,9 +359,9 @@ describe('LibraryService', () => {
       fs.writeFileSync(snesRom, 'snes-content-1')
 
       const config = {
-        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
-        scanRecursive: true,
         autoScan: false,
+        scanRecursive: true,
+        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -386,9 +386,9 @@ describe('LibraryService', () => {
       fs.writeFileSync(snesRom, 'snes-content-2')
 
       const config = {
-        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
-        scanRecursive: true,
         autoScan: false,
+        scanRecursive: true,
+        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -464,7 +464,7 @@ describe('LibraryService', () => {
       await service.addGame(romPath, 'nes')
 
       const libraryFile = path.join(USER_DATA_DIR, 'library.json')
-      const savedGames: Game[] = JSON.parse(fs.readFileSync(libraryFile, 'utf-8'))
+      const savedGames: Array<Game> = JSON.parse(fs.readFileSync(libraryFile, 'utf8'))
       expect(savedGames).toHaveLength(1)
       expect(savedGames[0].romPath).toBe(romPath)
 
@@ -485,8 +485,8 @@ describe('LibraryService', () => {
       expect(service.getGames()).toHaveLength(0)
 
       // Verify persistence
-      const savedGames: Game[] = JSON.parse(
-        fs.readFileSync(path.join(USER_DATA_DIR, 'library.json'), 'utf-8'),
+      const savedGames: Array<Game> = JSON.parse(
+        fs.readFileSync(path.join(USER_DATA_DIR, 'library.json'), 'utf8'),
       )
       expect(savedGames).toHaveLength(0)
 
@@ -503,9 +503,9 @@ describe('LibraryService', () => {
       const game = await service.addGame(romPath, 'nes')
 
       await service.updateGame(game!.id, {
-        title: 'Updated Title',
         favorite: true,
         playTime: 3600,
+        title: 'Updated Title',
       })
 
       const updated = service.getGames().find(g => g.id === game!.id)
@@ -552,14 +552,14 @@ describe('LibraryService', () => {
     })
 
     afterAll(() => {
-      fs.rmSync(scanDir, { recursive: true, force: true })
+      fs.rmSync(scanDir, { force: true, recursive: true })
     })
 
     it('finds ROMs by extension and creates Game objects with correct titles', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -580,9 +580,9 @@ describe('LibraryService', () => {
 
     it('recursively scans subdirectories when scanRecursive is true', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
-        scanRecursive: true,
         autoScan: false,
+        scanRecursive: true,
+        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -601,9 +601,9 @@ describe('LibraryService', () => {
 
     it('detects system by folder name (shortName match)', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
-        scanRecursive: true,
         autoScan: false,
+        scanRecursive: true,
+        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -621,9 +621,9 @@ describe('LibraryService', () => {
 
     it('scans with a specific systemId filter', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
-        scanRecursive: true,
         autoScan: false,
+        scanRecursive: true,
+        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -643,9 +643,9 @@ describe('LibraryService', () => {
 
     it('skips non-ROM files', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -673,7 +673,7 @@ describe('LibraryService', () => {
       const games = await service.scanDirectory(emptyDir)
       expect(games).toEqual([])
 
-      fs.rmSync(emptyDir, { recursive: true, force: true })
+      fs.rmSync(emptyDir, { force: true, recursive: true })
     })
   })
 
@@ -684,9 +684,9 @@ describe('LibraryService', () => {
       fs.writeFileSync(path.join(rescanDir, 'zelda.nes'), 'zelda-rom-data')
 
       const config = {
-        systems: [TEST_NES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -704,8 +704,8 @@ describe('LibraryService', () => {
       await service.updateGame(gameId, {
         coverArt: 'artwork://zelda.png',
         coverArtAspectRatio: 0.714,
-        metadata: { developer: 'Nintendo', genre: 'Action-Adventure' },
         favorite: true,
+        metadata: { developer: 'Nintendo', genre: 'Action-Adventure' },
       })
 
       // Verify metadata was set
@@ -724,7 +724,7 @@ describe('LibraryService', () => {
       expect(afterRescan?.metadata?.genre).toBe('Action-Adventure')
       expect(afterRescan?.favorite).toBe(true)
 
-      fs.rmSync(rescanDir, { recursive: true, force: true })
+      fs.rmSync(rescanDir, { force: true, recursive: true })
     })
   })
 
@@ -742,9 +742,9 @@ describe('LibraryService', () => {
       fs.writeFileSync(path.join(gbFolder, 'Tetris.gb'), 'gb-native-content')
 
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: true,
         autoScan: false,
+        scanRecursive: true,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -762,16 +762,16 @@ describe('LibraryService', () => {
       expect(zipGame?.systemId).toBe('gb')
       expect(zipGame?.romPath).toContain('roms-cache')
 
-      fs.rmSync(zipScanDir, { recursive: true, force: true })
-      fs.rmSync(zipSrcDir, { recursive: true, force: true })
+      fs.rmSync(zipScanDir, { force: true, recursive: true })
+      fs.rmSync(zipSrcDir, { force: true, recursive: true })
     })
 
     it('skips .zip for arcade system (treats as native ROM)', async () => {
       const ARCADE_SYSTEM: GameSystem = {
+        extensions: ['.zip', '.7z'],
         id: 'arcade',
         name: 'Arcade',
         shortName: 'Arcade',
-        extensions: ['.zip', '.7z'],
       }
 
       const arcadeDir = path.join(TEST_DIR, 'arcade-zip')
@@ -780,9 +780,9 @@ describe('LibraryService', () => {
       fs.writeFileSync(path.join(arcadeDir, 'pacman.zip'), 'arcade-rom-set')
 
       const config = {
-        systems: [ARCADE_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [ARCADE_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -797,7 +797,7 @@ describe('LibraryService', () => {
       // Arcade ROM path should point to the original zip, not roms-cache
       expect(games[0].romPath).toBe(path.join(arcadeDir, 'pacman.zip'))
 
-      fs.rmSync(arcadeDir, { recursive: true, force: true })
+      fs.rmSync(arcadeDir, { force: true, recursive: true })
     })
 
     it('extracts .zip with explicit systemId', async () => {
@@ -811,9 +811,9 @@ describe('LibraryService', () => {
         path.join(explicitSrcDir, 'Links Awakening.gb')])
 
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -828,8 +828,8 @@ describe('LibraryService', () => {
       expect(games[0].title).toBe('Links Awakening')
       expect(games[0].romPath).toContain('roms-cache')
 
-      fs.rmSync(explicitDir, { recursive: true, force: true })
-      fs.rmSync(explicitSrcDir, { recursive: true, force: true })
+      fs.rmSync(explicitDir, { force: true, recursive: true })
+      fs.rmSync(explicitSrcDir, { force: true, recursive: true })
     })
   })
 
@@ -844,12 +844,12 @@ describe('LibraryService', () => {
       fs.writeFileSync(path.join(nesFolderDir, 'sf_game.nes'), 'sf-nes-data')
 
       const config = {
+        autoScan: false,
+        scanRecursive: true,
         systems: [
           { ...TEST_NES_SYSTEM, romsPath: nesFolderDir },
           TEST_SNES_SYSTEM, // no romsPath — should be skipped
         ],
-        scanRecursive: true,
-        autoScan: false,
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -862,7 +862,7 @@ describe('LibraryService', () => {
       expect(games.length).toBeGreaterThanOrEqual(1)
       expect(games[0].systemId).toBe('nes')
 
-      fs.rmSync(path.join(TEST_DIR, 'system-folders'), { recursive: true, force: true })
+      fs.rmSync(path.join(TEST_DIR, 'system-folders'), { force: true, recursive: true })
     })
   })
 
@@ -951,9 +951,9 @@ describe('LibraryService', () => {
       fs.writeFileSync(path.join(hashDir, 'game.nes'), content)
 
       const config = {
-        systems: [TEST_NES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -967,7 +967,7 @@ describe('LibraryService', () => {
       const expected = computeExpectedHashes(content)
       expect(games[0].romHashes).toEqual(expected)
 
-      fs.rmSync(hashDir, { recursive: true, force: true })
+      fs.rmSync(hashDir, { force: true, recursive: true })
     })
 
     it('populates romHashes on addGame', async () => {
@@ -991,9 +991,9 @@ describe('LibraryService', () => {
       fs.writeFileSync(path.join(rescanDir, 'game.nes'), 'hash-rescan-data')
 
       const config = {
-        systems: [TEST_NES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1010,7 +1010,7 @@ describe('LibraryService', () => {
       expect(secondScan).toHaveLength(1)
       expect(secondScan[0].romHashes).toEqual(originalHashes)
 
-      fs.rmSync(rescanDir, { recursive: true, force: true })
+      fs.rmSync(rescanDir, { force: true, recursive: true })
     })
 
     it('skips unreadable ROM files during scan with a warning', async () => {
@@ -1020,9 +1020,9 @@ describe('LibraryService', () => {
       fs.writeFileSync(romPath, 'data')
 
       const config = {
-        systems: [TEST_NES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1042,7 +1042,7 @@ describe('LibraryService', () => {
       // Game should be skipped, not added
       expect(games).toHaveLength(0)
 
-      fs.rmSync(unreadableDir, { recursive: true, force: true })
+      fs.rmSync(unreadableDir, { force: true, recursive: true })
     })
   })
 
@@ -1061,10 +1061,10 @@ describe('LibraryService', () => {
       const games = [
         {
           id: gameId,
-          title: 'Backfill Game',
+          romPath,
           system: 'Nintendo Entertainment System',
           systemId: 'nes',
-          romPath,
+          title: 'Backfill Game',
         },
       ]
       fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
@@ -1092,11 +1092,11 @@ describe('LibraryService', () => {
       const games = [
         {
           id: gameId,
-          title: 'Partial Hash Game',
+          romHashes: { md5: expected.md5 },
+          romPath,
           system: 'Nintendo Entertainment System',
           systemId: 'nes',
-          romPath,
-          romHashes: { md5: expected.md5 },
+          title: 'Partial Hash Game',
         },
       ]
       fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
@@ -1116,10 +1116,10 @@ describe('LibraryService', () => {
       const games = [
         {
           id: gameId,
-          title: 'Ghost Game',
+          romPath: '/nonexistent/path/ghost.nes',
           system: 'Nintendo Entertainment System',
           systemId: 'nes',
-          romPath: '/nonexistent/path/ghost.nes',
+          title: 'Ghost Game',
         },
       ]
       fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
@@ -1140,11 +1140,11 @@ describe('LibraryService', () => {
       const games = [
         {
           id: gameId,
-          title: 'Complete Game',
+          romHashes: hashes,
+          romPath,
           system: 'Nintendo Entertainment System',
           systemId: 'nes',
-          romPath,
-          romHashes: hashes,
+          title: 'Complete Game',
         },
       ]
       fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
@@ -1242,7 +1242,7 @@ describe('LibraryService', () => {
 
       // Verify persistence
       const savedConfig = JSON.parse(
-        fs.readFileSync(path.join(USER_DATA_DIR, 'library-config.json'), 'utf-8'),
+        fs.readFileSync(path.join(USER_DATA_DIR, 'library-config.json'), 'utf8'),
       )
       expect(savedConfig.romsBasePath).toBe('/my/roms')
     })
@@ -1263,11 +1263,11 @@ describe('LibraryService', () => {
       const games = [
         {
           id: gameId,
-          title: 'Persisted Game',
+          romHashes: hashes,
+          romPath,
           system: 'Nintendo Entertainment System',
           systemId: 'nes',
-          romPath,
-          romHashes: hashes,
+          title: 'Persisted Game',
         },
       ]
       fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
@@ -1301,10 +1301,10 @@ describe('LibraryService', () => {
       const games = [
         {
           id: oldMd5Id,
-          title: 'Legacy Game',
+          romPath,
           system: 'Nintendo Entertainment System',
           systemId: 'nes',
-          romPath,
+          title: 'Legacy Game',
         },
       ]
       fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), JSON.stringify(games, null, 2))
@@ -1358,20 +1358,20 @@ describe('LibraryService', () => {
     })
 
     afterAll(() => {
-      fs.rmSync(zipScanDir, { recursive: true, force: true })
-      fs.rmSync(zipRomsDir, { recursive: true, force: true })
+      fs.rmSync(zipScanDir, { force: true, recursive: true })
+      fs.rmSync(zipRomsDir, { force: true, recursive: true })
       // Clean up roms-cache
       const cacheDir = path.join(USER_DATA_DIR, 'roms-cache')
       if (fs.existsSync(cacheDir)) {
-        fs.rmSync(cacheDir, { recursive: true, force: true })
+        fs.rmSync(cacheDir, { force: true, recursive: true })
       }
     })
 
     it('extracts ROM from zip and creates Game with romPath in roms-cache', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM, TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM, TEST_SNES_SYSTEM, TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1390,9 +1390,9 @@ describe('LibraryService', () => {
 
     it('sets sourceArchivePath on games extracted from zips', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM, TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM, TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1412,9 +1412,9 @@ describe('LibraryService', () => {
 
     it('computes game ID from extracted ROM content, not zip content', async () => {
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1434,9 +1434,9 @@ describe('LibraryService', () => {
 
     it('derives title from ROM filename inside zip, not zip filename', async () => {
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1454,9 +1454,9 @@ describe('LibraryService', () => {
 
     it('skips zip files with no matching ROM extensions', async () => {
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1473,9 +1473,9 @@ describe('LibraryService', () => {
 
     it('also scans regular unzipped ROMs alongside zips', async () => {
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1493,9 +1493,9 @@ describe('LibraryService', () => {
 
     it('does not re-extract on subsequent scan (deduplication)', async () => {
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1511,7 +1511,7 @@ describe('LibraryService', () => {
 
       // Second scan: zip games returned as cached (not re-extracted),
       // tracked via progress events as isNew: false
-      const progressEvents: ScanProgressEvent[] = []
+      const progressEvents: Array<ScanProgressEvent> = []
       service.on('scanProgress', (event: ScanProgressEvent) => {
         progressEvents.push(event)
       })
@@ -1543,18 +1543,18 @@ describe('LibraryService', () => {
     })
 
     afterAll(() => {
-      fs.rmSync(addGameZipDir, { recursive: true, force: true })
+      fs.rmSync(addGameZipDir, { force: true, recursive: true })
       const cacheDir = path.join(USER_DATA_DIR, 'roms-cache')
       if (fs.existsSync(cacheDir)) {
-        fs.rmSync(cacheDir, { recursive: true, force: true })
+        fs.rmSync(cacheDir, { force: true, recursive: true })
       }
     })
 
     it('extracts ROM from zip and returns Game', async () => {
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1572,9 +1572,9 @@ describe('LibraryService', () => {
 
     it('returns null for zip with no matching ROM for the given system', async () => {
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1599,18 +1599,18 @@ describe('LibraryService', () => {
     })
 
     afterAll(() => {
-      fs.rmSync(removeCacheDir, { recursive: true, force: true })
+      fs.rmSync(removeCacheDir, { force: true, recursive: true })
       const cacheDir = path.join(USER_DATA_DIR, 'roms-cache')
       if (fs.existsSync(cacheDir)) {
-        fs.rmSync(cacheDir, { recursive: true, force: true })
+        fs.rmSync(cacheDir, { force: true, recursive: true })
       }
     })
 
     it('deletes the cached ROM file when a zip-extracted game is removed', async () => {
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1644,14 +1644,14 @@ describe('LibraryService', () => {
     })
 
     afterAll(() => {
-      fs.rmSync(mtimeDir, { recursive: true, force: true })
+      fs.rmSync(mtimeDir, { force: true, recursive: true })
     })
 
     it('stores romMtime on games during initial scan', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1671,9 +1671,9 @@ describe('LibraryService', () => {
 
     it('skips hashing on rescan when file mtime is unchanged', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1703,9 +1703,9 @@ describe('LibraryService', () => {
       fs.writeFileSync(path.join(rehashDir, 'mutable.nes'), 'original-content')
 
       const config = {
-        systems: [TEST_NES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1730,7 +1730,7 @@ describe('LibraryService', () => {
       expect(secondScan[0].id).not.toBe(originalId)
 
       hashSpy.mockRestore()
-      fs.rmSync(rehashDir, { recursive: true, force: true })
+      fs.rmSync(rehashDir, { force: true, recursive: true })
     })
 
     it('skips zip extraction and hashing on rescan when zip mtime is unchanged', async () => {
@@ -1744,9 +1744,9 @@ describe('LibraryService', () => {
       fs.unlinkSync(tmpRomPath) // Remove bare ROM so only the zip is scanned
 
       const config = {
-        systems: [TEST_GB_SYSTEM],
-        scanRecursive: true,
         autoScan: false,
+        scanRecursive: true,
+        systems: [TEST_GB_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1772,10 +1772,10 @@ describe('LibraryService', () => {
       expect(service.getGames().length).toBe(firstScan.length)
 
       hashSpy.mockRestore()
-      fs.rmSync(zipMtimeDir, { recursive: true, force: true })
+      fs.rmSync(zipMtimeDir, { force: true, recursive: true })
       const cacheDir = path.join(USER_DATA_DIR, 'roms-cache')
       if (fs.existsSync(cacheDir)) {
-        fs.rmSync(cacheDir, { recursive: true, force: true })
+        fs.rmSync(cacheDir, { force: true, recursive: true })
       }
     })
   })
@@ -1791,14 +1791,14 @@ describe('LibraryService', () => {
     })
 
     afterAll(() => {
-      fs.rmSync(progressDir, { recursive: true, force: true })
+      fs.rmSync(progressDir, { force: true, recursive: true })
     })
 
     it('emits scanProgress for each discovered game', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1806,7 +1806,7 @@ describe('LibraryService', () => {
       )
 
       const service = await createService()
-      const progressEvents: ScanProgressEvent[] = []
+      const progressEvents: Array<ScanProgressEvent> = []
       service.on('scanProgress', (event: ScanProgressEvent) => {
         progressEvents.push(event)
       })
@@ -1829,9 +1829,9 @@ describe('LibraryService', () => {
 
     it('marks known games as not new on rescan', async () => {
       const config = {
-        systems: [TEST_NES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1844,7 +1844,7 @@ describe('LibraryService', () => {
       await service.scanDirectory(progressDir)
 
       // Rescan — listen for progress
-      const progressEvents: ScanProgressEvent[] = []
+      const progressEvents: Array<ScanProgressEvent> = []
       service.on('scanProgress', (event: ScanProgressEvent) => {
         progressEvents.push(event)
       })
@@ -1855,7 +1855,7 @@ describe('LibraryService', () => {
       // All should be marked as NOT new on rescan
       expect(progressEvents.every(e => !e.isNew)).toBe(true)
       // All should be skipped via mtime cache
-      expect(progressEvents[progressEvents.length - 1].skipped).toBe(3)
+      expect(progressEvents.at(-1).skipped).toBe(3)
     })
   })
 
@@ -1866,9 +1866,9 @@ describe('LibraryService', () => {
       fs.writeFileSync(path.join(orderDir, 'existing.nes'), 'existing-data')
 
       const config = {
-        systems: [TEST_NES_SYSTEM],
-        scanRecursive: false,
         autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_NES_SYSTEM],
       }
       fs.writeFileSync(
         path.join(USER_DATA_DIR, 'library-config.json'),
@@ -1884,7 +1884,7 @@ describe('LibraryService', () => {
       fs.writeFileSync(path.join(orderDir, 'brand_new.nes'), 'brand-new-data')
 
       // Rescan — track order of progress events
-      const progressEvents: ScanProgressEvent[] = []
+      const progressEvents: Array<ScanProgressEvent> = []
       service.on('scanProgress', (event: ScanProgressEvent) => {
         progressEvents.push(event)
       })
@@ -1900,7 +1900,7 @@ describe('LibraryService', () => {
       // Second event should be the KNOWN game (mtime-cached)
       expect(progressEvents[1].isNew).toBe(false)
 
-      fs.rmSync(orderDir, { recursive: true, force: true })
+      fs.rmSync(orderDir, { force: true, recursive: true })
     })
   })
 

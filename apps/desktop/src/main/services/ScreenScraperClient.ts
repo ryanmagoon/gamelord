@@ -1,4 +1,4 @@
-import https from 'https';
+import https from 'node:https';
 import {
   ScreenScraperCredentials,
   ScreenScraperGameInfo,
@@ -12,7 +12,7 @@ const REGION_PRIORITY = ['us', 'wor', 'eu', 'ss', 'jp'];
 const LANGUAGE_PRIORITY = ['en', 'fr', 'es', 'de', 'pt', 'it'];
 
 /** Timeout for API requests in milliseconds (15 seconds). */
-const API_TIMEOUT_MS = 15000;
+const API_TIMEOUT_MS = 15_000;
 
 export type ScreenScraperErrorCode =
   | 'timeout'
@@ -43,10 +43,10 @@ export class ScreenScraperClient {
     const params = new URLSearchParams({
       devid: this.credentials.devId,
       devpassword: this.credentials.devPassword,
+      output: 'json',
+      softname: 'GameLord',
       ssid: this.credentials.userId,
       sspassword: this.credentials.userPassword,
-      softname: 'GameLord',
-      output: 'json',
     });
 
     const url = `${this.baseUrl}/ssuserInfos.php?${params.toString()}`;
@@ -77,11 +77,11 @@ export class ScreenScraperClient {
     const params = new URLSearchParams({
       devid: this.credentials.devId,
       devpassword: this.credentials.devPassword,
+      md5: md5.toLowerCase(),
+      output: 'json',
+      softname: 'GameLord',
       ssid: this.credentials.userId,
       sspassword: this.credentials.userPassword,
-      softname: 'GameLord',
-      output: 'json',
-      md5: md5.toLowerCase(),
       systemeid: String(screenScraperSystemId),
     });
 
@@ -111,11 +111,11 @@ export class ScreenScraperClient {
     const params = new URLSearchParams({
       devid: this.credentials.devId,
       devpassword: this.credentials.devPassword,
-      ssid: this.credentials.userId,
-      sspassword: this.credentials.userPassword,
-      softname: 'GameLord',
       output: 'json',
       recherche: name,
+      softname: 'GameLord',
+      ssid: this.credentials.userId,
+      sspassword: this.credentials.userPassword,
       systemeid: String(screenScraperSystemId),
     });
 
@@ -176,20 +176,20 @@ export class ScreenScraperClient {
     const publisher = (jeu.editeur as TextEntry | undefined)?.text;
     const genre = this.extractGenre(jeu.genres as GenreEntry[] | undefined);
     const playersText = (jeu.joueurs as TextEntry | undefined)?.text;
-    const players = playersText ? parseInt(playersText, 10) || undefined : undefined;
+    const players = playersText ? Number.parseInt(playersText, 10) || undefined : undefined;
     const ratingText = (jeu.note as TextEntry | undefined)?.text;
-    const rating = ratingText ? parseFloat(ratingText) / 20 : undefined;
+    const rating = ratingText ? Number.parseFloat(ratingText) / 20 : undefined;
     const releaseDate = this.selectRegionText(jeu.dates as LocalizedEntry[] | undefined)?.text;
 
     const medias = jeu.medias as MediaEntry[] | undefined;
     const media = {
       boxArt2d: this.selectMedia(medias, 'box-2D'),
       boxArt3d: this.selectMedia(medias, 'box-3D'),
-      screenshot: this.selectMedia(medias, 'ss'),
       fanart: this.selectMedia(medias, 'fanart'),
+      screenshot: this.selectMedia(medias, 'ss'),
     };
 
-    return { title, region, synopsis, developer, publisher, genre, players, rating, releaseDate, media };
+    return { developer, genre, media, players, publisher, rating, region, releaseDate, synopsis, title };
   }
 
   /**
@@ -198,17 +198,17 @@ export class ScreenScraperClient {
    */
   private selectRegionText(
     entries: LocalizedEntry[] | undefined,
-  ): { text: string; region: string } | undefined {
-    if (!entries || entries.length === 0) return undefined;
+  ): { region: string; text: string; } | undefined {
+    if (!entries || entries.length === 0) {return undefined;}
 
     for (const region of REGION_PRIORITY) {
       const match = entries.find(entry => entry.region === region);
-      if (match?.text) return { text: match.text, region };
+      if (match?.text) {return { text: match.text, region };}
     }
 
     // Fallback to first available entry with text
     const fallback = entries.find(entry => entry.text);
-    if (fallback?.text) return { text: fallback.text, region: fallback.region ?? 'us' };
+    if (fallback?.text) {return { text: fallback.text, region: fallback.region ?? 'us' };}
 
     return undefined;
   }
@@ -217,11 +217,11 @@ export class ScreenScraperClient {
    * Select the best text entry from a language-tagged array.
    */
   private selectLanguageText(entries: LocalizedEntry[] | undefined): string | undefined {
-    if (!entries || entries.length === 0) return undefined;
+    if (!entries || entries.length === 0) {return undefined;}
 
     for (const language of LANGUAGE_PRIORITY) {
       const match = entries.find(entry => entry.langue === language);
-      if (match?.text) return match.text;
+      if (match?.text) {return match.text;}
     }
 
     return entries.find(entry => entry.text)?.text;
@@ -231,16 +231,16 @@ export class ScreenScraperClient {
    * Extract the primary genre name from the genres array.
    */
   private extractGenre(genres: GenreEntry[] | undefined): string | undefined {
-    if (!genres || genres.length === 0) return undefined;
+    if (!genres || genres.length === 0) {return undefined;}
 
     const firstGenre = genres[0];
     const noms = firstGenre?.noms as LocalizedEntry[] | undefined;
-    if (!noms) return undefined;
+    if (!noms) {return undefined;}
 
     // Prefer English genre name
     for (const language of LANGUAGE_PRIORITY) {
       const match = noms.find(entry => entry.langue === language);
-      if (match?.text) return match.text;
+      if (match?.text) {return match.text;}
     }
 
     return noms.find(entry => entry.text)?.text;
@@ -250,14 +250,14 @@ export class ScreenScraperClient {
    * Select the best media URL for a given type, preferring US region.
    */
   private selectMedia(medias: MediaEntry[] | undefined, type: string): string | undefined {
-    if (!medias) return undefined;
+    if (!medias) {return undefined;}
 
     const candidates = medias.filter(media => media.type === type);
-    if (candidates.length === 0) return undefined;
+    if (candidates.length === 0) {return undefined;}
 
     for (const region of REGION_PRIORITY) {
       const match = candidates.find(media => media.region === region);
-      if (match?.url) return match.url;
+      if (match?.url) {return match.url;}
     }
 
     // Fallback: any media of this type with a URL
@@ -303,11 +303,11 @@ export class ScreenScraperClient {
             return;
           }
 
-          const chunks: Buffer[] = [];
+          const chunks: Array<Buffer> = [];
           response.on('data', (chunk: Buffer) => chunks.push(chunk));
           response.on('end', () => {
             try {
-              const body = Buffer.concat(chunks).toString('utf-8');
+              const body = Buffer.concat(chunks).toString('utf8');
               resolve(JSON.parse(body));
             } catch {
               reject(new ScreenScraperError('Invalid JSON response from ScreenScraper.', 0, 'parse-error'));
@@ -352,8 +352,8 @@ export class ScreenScraperError extends Error {
 
 /** A text entry with a region tag (used for titles, dates). */
 interface LocalizedEntry {
-  region?: string;
   langue?: string;
+  region?: string;
   text?: string;
 }
 
@@ -364,13 +364,13 @@ interface TextEntry {
 
 /** A genre entry containing localized names. */
 interface GenreEntry {
-  noms?: LocalizedEntry[];
+  noms?: Array<LocalizedEntry>;
 }
 
 /** A media entry from the ScreenScraper medias array. */
 interface MediaEntry {
+  format?: string;
+  region?: string;
   type: string;
   url?: string;
-  region?: string;
-  format?: string;
 }

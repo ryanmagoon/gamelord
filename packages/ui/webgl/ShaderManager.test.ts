@@ -8,13 +8,11 @@ function createMockGL() {
   const mockShader = {} as WebGLShader;
 
   return {
-    mockProgram,
-    mockShader,
     gl: {
-      VERTEX_SHADER: 35633,
-      FRAGMENT_SHADER: 35632,
-      COMPILE_STATUS: 35713,
-      LINK_STATUS: 35714,
+      VERTEX_SHADER: 35_633,
+      FRAGMENT_SHADER: 35_632,
+      COMPILE_STATUS: 35_713,
+      LINK_STATUS: 35_714,
       createShader: vi.fn(() => mockShader),
       shaderSource: vi.fn(),
       compileShader: vi.fn(),
@@ -29,6 +27,8 @@ function createMockGL() {
       deleteProgram: vi.fn(),
       useProgram: vi.fn(),
     } as unknown as WebGL2RenderingContext,
+    mockProgram,
+    mockShader,
   };
 }
 

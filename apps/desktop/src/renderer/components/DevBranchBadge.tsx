@@ -9,17 +9,17 @@ interface DevBranchBadgeProps {
 }
 
 const STYLES = {
-  titlebar: {
-    container: 'no-drag inline-flex items-center rounded-full border border-border/50 bg-muted/50 text-[10px] font-medium text-muted-foreground/70',
-    branchButton: 'inline-flex items-center gap-1.5 rounded-l-full py-0.5 pl-2.5 pr-2 transition-colors hover:bg-muted hover:text-muted-foreground',
-    worktreeButton: 'inline-flex items-center gap-1 border-l border-border/50 rounded-r-full py-0.5 pl-1.5 pr-2.5 transition-colors hover:bg-muted hover:text-muted-foreground',
-    divider: 'border-border/50',
-  },
   overlay: {
     container: 'inline-flex items-center rounded-full bg-black/60 text-[10px] font-medium text-white/70 pointer-events-auto',
     branchButton: 'inline-flex items-center gap-1.5 rounded-l-full py-0.5 pl-2.5 pr-2 transition-colors hover:bg-white/20 hover:text-white',
     worktreeButton: 'inline-flex items-center gap-1 border-l border-white/20 rounded-r-full py-0.5 pl-1.5 pr-2.5 transition-colors hover:bg-white/20 hover:text-white',
     divider: 'border-white/20',
+  },
+  titlebar: {
+    container: 'no-drag inline-flex items-center rounded-full border border-border/50 bg-muted/50 text-[10px] font-medium text-muted-foreground/70',
+    branchButton: 'inline-flex items-center gap-1.5 rounded-l-full py-0.5 pl-2.5 pr-2 transition-colors hover:bg-muted hover:text-muted-foreground',
+    worktreeButton: 'inline-flex items-center gap-1 border-l border-border/50 rounded-r-full py-0.5 pl-1.5 pr-2.5 transition-colors hover:bg-muted hover:text-muted-foreground',
+    divider: 'border-border/50',
   },
 } as const
 
@@ -40,7 +40,7 @@ export function DevBranchBadge({ variant = 'titlebar' }: DevBranchBadgeProps) {
     setTimeout(() => setCopied(null), 1500)
   }, [])
 
-  if (!branch) return null
+  if (!branch) {return null}
 
   const s = STYLES[variant]
   const soloRounding = worktree ? 'rounded-l-full' : 'rounded-full'
@@ -49,10 +49,10 @@ export function DevBranchBadge({ variant = 'titlebar' }: DevBranchBadgeProps) {
     <div className={s.container}>
       {/* Branch segment */}
       <button
-        type="button"
+        className={`${s.branchButton.replace('rounded-l-full', soloRounding)}`}
         onClick={() => copyValue(branch, 'branch')}
         title={copied === 'branch' ? 'Copied!' : 'Click to copy branch name'}
-        className={`${s.branchButton.replace('rounded-l-full', soloRounding)}`}
+        type="button"
       >
         {copied === 'branch' ? (
           <Check className="h-3 w-3 text-green-500" />
@@ -65,10 +65,10 @@ export function DevBranchBadge({ variant = 'titlebar' }: DevBranchBadgeProps) {
       {/* Worktree segment */}
       {worktree && (
         <button
-          type="button"
+          className={s.worktreeButton}
           onClick={() => copyValue(worktreePath ?? worktree, 'worktree')}
           title={copied === 'worktree' ? 'Copied!' : 'Click to copy worktree path'}
-          className={s.worktreeButton}
+          type="button"
         >
           {copied === 'worktree' ? (
             <Check className="h-3 w-3 text-green-500" />

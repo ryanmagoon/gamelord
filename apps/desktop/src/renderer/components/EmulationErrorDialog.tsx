@@ -11,9 +11,9 @@ import {
 import { AlertTriangle } from 'lucide-react'
 
 export interface EmulationErrorDialogProps {
-  open: boolean
   message: string
   onClose: () => void
+  open: boolean
 }
 
 /**
@@ -22,9 +22,9 @@ export interface EmulationErrorDialogProps {
  * a clear message and a single action to return to the library.
  */
 export const EmulationErrorDialog: React.FC<EmulationErrorDialogProps> = ({
-  open,
   message,
   onClose,
+  open,
 }) => {
   return (
     <AlertDialog open={open}>

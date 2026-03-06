@@ -34,15 +34,15 @@ export interface GamelordAPI {
   // UI package is built/typed within the monorepo. Keep them broad to avoid
   // cross-package type imports.
   library?: {
-    getSystems: () => Promise<any[]>
+    getSystems: () => Promise<Array<any>>
     addSystem: (system: any) => Promise<any>
     removeSystem: (systemId: string) => Promise<any>
     updateSystemPath: (systemId: string, romsPath: string) => Promise<any>
-    getGames: (systemId?: string) => Promise<any[]>
+    getGames: (systemId?: string) => Promise<Array<any>>
     addGame: (romPath: string, systemId: string) => Promise<any>
     removeGame: (gameId: string) => Promise<any>
     updateGame: (gameId: string, updates: any) => Promise<any>
-    scanDirectory: (directoryPath: string, systemId?: string) => Promise<any[]>
+    scanDirectory: (directoryPath: string, systemId?: string) => Promise<Array<any>>
     scanSystemFolders: () => Promise<any>
     getConfig: () => Promise<any>
     setRomsBasePath: (basePath: string) => Promise<any>
@@ -58,7 +58,7 @@ export interface GamelordAPI {
     toggleFullscreen: () => void
     setClickThrough: (value: boolean) => void
   }
-  on: (channel: string, callback: (...args: any[]) => void) => void
+  on: (channel: string, callback: (...args: Array<any>) => void) => void
   removeAllListeners: (channel: string) => void
 }
 

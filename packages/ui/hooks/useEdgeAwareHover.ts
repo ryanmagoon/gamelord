@@ -1,21 +1,21 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 
 export interface UseEdgeAwareHoverOptions {
-  /** Scale factor applied on hover. @default 1.25 */
-  scaleFactor?: number
-  /** Extra padding in px to keep clear of container edges (border + glow). @default 18 */
-  glowPadding?: number
   /** Disable the effect (e.g. during launch or when card is disabled). */
   disabled?: boolean
+  /** Extra padding in px to keep clear of container edges (border + glow). @default 18 */
+  glowPadding?: number
   /** Lock the current translate in place (e.g. while launching). Prevents onPointerLeave from clearing the offset. */
   locked?: boolean
+  /** Scale factor applied on hover. @default 1.25 */
+  scaleFactor?: number
 }
 
 export interface UseEdgeAwareHoverResult {
-  onPointerEnter: (e: React.PointerEvent) => void
-  onPointerLeave: () => void
   /** Pixel offset to shift the card inward. `null` when no shift is needed. */
   edgeTranslate: { x: number; y: number } | null
+  onPointerEnter: (e: React.PointerEvent) => void
+  onPointerLeave: () => void
 }
 
 /**
@@ -74,7 +74,7 @@ export function computeEdgeTranslate(
     shiftY = containerRect.bottom - (scaledBottom + glowPadding)
   }
 
-  if (shiftX === 0 && shiftY === 0) return null
+  if (shiftX === 0 && shiftY === 0) {return null}
   return { x: Math.round(shiftX), y: Math.round(shiftY) }
 }
 
@@ -84,16 +84,16 @@ export function computeEdgeTranslate(
  * where edge cards shift inward to remain fully visible.
  */
 export function useEdgeAwareHover({
-  scaleFactor = 1.25,
-  glowPadding = 18,
   disabled = false,
+  glowPadding = 18,
   locked = false,
+  scaleFactor = 1.25,
 }: UseEdgeAwareHoverOptions = {}): UseEdgeAwareHoverResult {
   const [edgeTranslate, setEdgeTranslate] = useState<{ x: number; y: number } | null>(null)
   const containerRef = useRef<HTMLElement | null>(null)
 
   const onPointerEnter = useCallback((e: React.PointerEvent) => {
-    if (disabled) return
+    if (disabled) {return}
 
     const el = e.currentTarget as HTMLElement
     // Cache the scroll container — it doesn't change between hovers
@@ -107,7 +107,7 @@ export function useEdgeAwareHover({
   }, [disabled, scaleFactor, glowPadding])
 
   const onPointerLeave = useCallback(() => {
-    if (locked) return
+    if (locked) {return}
     setEdgeTranslate(null)
   }, [locked])
 
@@ -120,5 +120,5 @@ export function useEdgeAwareHover({
     prevLockedRef.current = locked
   }, [locked])
 
-  return { onPointerEnter, onPointerLeave, edgeTranslate }
+  return { edgeTranslate, onPointerEnter, onPointerLeave }
 }

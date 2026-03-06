@@ -43,7 +43,7 @@ export class ShaderManager {
     const gl = this.gl;
     const shader = gl.createShader(type);
     
-    if (!shader) return null;
+    if (!shader) {return null;}
 
     gl.shaderSource(shader, source);
     gl.compileShader(shader);

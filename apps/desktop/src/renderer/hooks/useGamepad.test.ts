@@ -19,11 +19,11 @@ function createGamepadEvent(type: string, gamepad: Gamepad): GamepadEvent {
 function createMockGamepad(
   index: number,
   overrides: {
-    buttons?: (Partial<GamepadButton> | null)[]
-    axes?: number[]
+    axes?: Array<number>
+    buttons?: Array<Partial<GamepadButton> | null>
   } = {},
 ): Gamepad {
-  const defaultButtons: GamepadButton[] = Array.from({ length: 16 }, () => ({
+  const defaultButtons: Array<GamepadButton> = Array.from({ length: 16 }, () => ({
     pressed: false,
     touched: false,
     value: 0,
@@ -39,21 +39,21 @@ function createMockGamepad(
   }
 
   return {
+    axes: overrides.axes ?? [0, 0, 0, 0],
+    buttons: defaultButtons,
+    connected: true,
     id: `Mock Gamepad ${index}`,
     index,
-    connected: true,
     mapping: 'standard',
-    buttons: defaultButtons,
-    axes: overrides.axes ?? [0, 0, 0, 0],
     timestamp: performance.now(),
     vibrationActuator: null as unknown as GamepadHapticActuator,
   } as Gamepad
 }
 
 describe('useGamepad', () => {
-  let mockGamepads: (Gamepad | null)[]
+  let mockGamepads: Array<Gamepad | null>
   let gameInput: ReturnType<typeof vi.fn<GameInputFn>>
-  let rafCallbacks: FrameRequestCallback[]
+  let rafCallbacks: Array<FrameRequestCallback>
   let rafIdCounter: number
 
   beforeEach(() => {
@@ -65,9 +65,9 @@ describe('useGamepad', () => {
     // happy-dom doesn't implement navigator.getGamepads, so define it first
     if (!navigator.getGamepads) {
       Object.defineProperty(navigator, 'getGamepads', {
+        configurable: true,
         value: () => mockGamepads,
         writable: true,
-        configurable: true,
       })
     }
 
@@ -100,7 +100,7 @@ describe('useGamepad', () => {
 
   it('returns 0 connected gamepads initially when none are connected', () => {
     const { result } = renderHook(() =>
-      useGamepad({ gameInput, enabled: true }),
+      useGamepad({ enabled: true, gameInput }),
     )
     expect(result.current.connectedCount).toBe(0)
   })
@@ -108,14 +108,14 @@ describe('useGamepad', () => {
   it('detects already-connected gamepads on mount', () => {
     mockGamepads[0] = createMockGamepad(0)
     const { result } = renderHook(() =>
-      useGamepad({ gameInput, enabled: true }),
+      useGamepad({ enabled: true, gameInput }),
     )
     expect(result.current.connectedCount).toBe(1)
   })
 
   it('increments connected count on gamepadconnected event', () => {
     const { result } = renderHook(() =>
-      useGamepad({ gameInput, enabled: true }),
+      useGamepad({ enabled: true, gameInput }),
     )
 
     act(() => {
@@ -130,7 +130,7 @@ describe('useGamepad', () => {
   it('decrements connected count on gamepaddisconnected event', () => {
     mockGamepads[0] = createMockGamepad(0)
     const { result } = renderHook(() =>
-      useGamepad({ gameInput, enabled: true }),
+      useGamepad({ enabled: true, gameInput }),
     )
 
     act(() => {
@@ -144,7 +144,7 @@ describe('useGamepad', () => {
 
   it('sends gameInput on button press transition', () => {
     mockGamepads[0] = createMockGamepad(0)
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     // First tick — no buttons pressed, establishes baseline
     act(() => tickPolling())
@@ -164,7 +164,7 @@ describe('useGamepad', () => {
     mockGamepads[0] = createMockGamepad(0, {
       buttons: [{ pressed: true, value: 1 }],
     })
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     act(() => tickPolling())
     gameInput.mockClear()
@@ -179,7 +179,7 @@ describe('useGamepad', () => {
     mockGamepads[0] = createMockGamepad(0, {
       buttons: [{ pressed: true, value: 1 }],
     })
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     act(() => tickPolling())
     expect(gameInput).toHaveBeenCalledTimes(1)
@@ -195,7 +195,7 @@ describe('useGamepad', () => {
     mockGamepads[0] = createMockGamepad(0, {
       axes: [-0.8, 0, 0, 0],
     })
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     act(() => tickPolling())
     expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.LEFT, true)
@@ -205,7 +205,7 @@ describe('useGamepad', () => {
     mockGamepads[0] = createMockGamepad(0, {
       axes: [-0.3, 0.2, 0, 0], // within deadzone
     })
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     act(() => tickPolling())
     expect(gameInput).not.toHaveBeenCalled()
@@ -215,7 +215,7 @@ describe('useGamepad', () => {
     mockGamepads[0] = createMockGamepad(0, {
       axes: [0, -0.9, 0, 0],
     })
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     act(() => tickPolling())
     expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.UP, true)
@@ -225,7 +225,7 @@ describe('useGamepad', () => {
     mockGamepads[0] = createMockGamepad(0, {
       buttons: [{ pressed: true, value: 1 }],
     })
-    renderHook(() => useGamepad({ gameInput, enabled: false }))
+    renderHook(() => useGamepad({ enabled: false, gameInput }))
 
     act(() => tickPolling())
     expect(gameInput).not.toHaveBeenCalled()
@@ -233,11 +233,11 @@ describe('useGamepad', () => {
 
   it('releases all buttons on gamepad disconnect', () => {
     // Start with multiple buttons pressed
-    const buttons: (Partial<GamepadButton> | null)[] = new Array(16).fill(null)
+    const buttons: Array<Partial<GamepadButton> | null> = new Array(16).fill(null)
     buttons[0] = { pressed: true, value: 1 } // A
     buttons[9] = { pressed: true, value: 1 } // Start
     mockGamepads[0] = createMockGamepad(0, { buttons })
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     act(() => tickPolling())
     gameInput.mockClear()
@@ -262,7 +262,7 @@ describe('useGamepad', () => {
       mapping: '' as GamepadMappingType, // non-standard
     }
     mockGamepads[0] = nonStandardGamepad
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     act(() => tickPolling())
     expect(gameInput).not.toHaveBeenCalled()
@@ -275,7 +275,7 @@ describe('useGamepad', () => {
     mockGamepads[1] = createMockGamepad(1, {
       buttons: [null, { pressed: true, value: 1 }], // B on port 1
     })
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     act(() => tickPolling())
     expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.A, true)
@@ -292,7 +292,7 @@ describe('useGamepad', () => {
         { pressed: true, value: 1 }, // L bumper
       ],
     })
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     act(() => tickPolling())
     expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.A, true)
@@ -302,12 +302,12 @@ describe('useGamepad', () => {
 
   it('maps all 16 standard buttons to unique libretro IDs', () => {
     // Press every button at once
-    const allPressed: Partial<GamepadButton>[] = Array.from(
+    const allPressed: Array<Partial<GamepadButton>> = Array.from(
       { length: 16 },
       () => ({ pressed: true, value: 1 }),
     )
     mockGamepads[0] = createMockGamepad(0, { buttons: allPressed })
-    renderHook(() => useGamepad({ gameInput, enabled: true }))
+    renderHook(() => useGamepad({ enabled: true, gameInput }))
 
     act(() => tickPolling())
 

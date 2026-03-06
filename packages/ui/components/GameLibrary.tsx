@@ -25,20 +25,20 @@ import { computeRowLayout } from '../utils/mosaicLayout';
 const VIRTUALIZATION_THRESHOLD = 100;
 
 export interface GameLibraryProps {
-  games: Game[];
-  onPlayGame: (game: Game, cardRect?: DOMRect) => void;
-  onGameOptions?: (game: Game) => void;
-  /** Returns menu items for a specific game's dropdown. */
-  getMenuItems?: (game: Game) => GameCardMenuItem[];
-  /** Called when the user toggles the favorite heart on a card. */
-  onToggleFavorite?: (game: Game) => void;
   /** External store for per-game artwork sync phases. Each card subscribes to its own phase. */
   artworkSyncStore?: ArtworkSyncStore;
+  className?: string;
+  games: Array<Game>;
+  /** Returns menu items for a specific game's dropdown. */
+  getMenuItems?: (game: Game) => Array<GameCardMenuItem>;
   /** ID of a game currently being launched. Shows shimmer on that card and disables others. */
   launchingGameId?: string | null;
+  onGameOptions?: (game: Game) => void;
+  onPlayGame: (game: Game, cardRect?: DOMRect) => void;
+  /** Called when the user toggles the favorite heart on a card. */
+  onToggleFavorite?: (game: Game) => void;
   /** Ref to the scrollable container (for virtualization). */
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
-  className?: string;
 }
 
 type ViewMode = 'grid' | 'list';
@@ -52,7 +52,7 @@ function useContainerWidth(
 
   useEffect(() => {
     const grid = gridRef.current;
-    if (!grid) return;
+    if (!grid) {return;}
 
     const observer = new ResizeObserver(() => {
       setContainerWidth(grid.clientWidth);
@@ -66,15 +66,15 @@ function useContainerWidth(
 }
 
 export const GameLibrary: React.FC<GameLibraryProps> = ({
-  games,
-  onPlayGame,
-  onGameOptions,
-  getMenuItems,
-  onToggleFavorite,
   artworkSyncStore,
+  className,
+  games,
+  getMenuItems,
   launchingGameId,
-  scrollContainerRef,
-  className
+  onGameOptions,
+  onPlayGame,
+  onToggleFavorite,
+  scrollContainerRef
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
@@ -122,8 +122,8 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
         break;
       case 'lastPlayed':
         filtered = [...filtered].sort((a, b) => {
-          if (!a.lastPlayed) return 1;
-          if (!b.lastPlayed) return -1;
+          if (!a.lastPlayed) {return 1;}
+          if (!b.lastPlayed) {return -1;}
           return b.lastPlayed.getTime() - a.lastPlayed.getTime();
         });
         break;
@@ -138,7 +138,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   // Median aspect ratio per platform — used as fallback for games without cover art
   // so fallback cards match the width of their platform neighbors.
   const platformMedianAR = useMemo(() => {
-    const byPlatform = new Map<string, number[]>();
+    const byPlatform = new Map<string, Array<number>>();
     for (const game of games) {
       if (game.coverArtAspectRatio != null) {
         let list = byPlatform.get(game.platform);
@@ -188,7 +188,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   const gridOffsetTop = gridRef.current?.offsetTop ?? 0;
   const gridRelativeScrollTop = Math.max(0, scrollTop - gridOffsetTop);
 
-  const { visibleIndices, totalHeight } = useMosaicVirtualizer({
+  const { totalHeight, visibleIndices } = useMosaicVirtualizer({
     layout,
     scrollTop: gridRelativeScrollTop,
     viewportHeight,
@@ -215,7 +215,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   // Clear entrance animation flag after stagger completes
   const [showEntrance, setShowEntrance] = useState(false);
   useEffect(() => {
-    if (enterGeneration === 0) return;
+    if (enterGeneration === 0) {return;}
     setShowEntrance(true);
     const timer = setTimeout(() => setShowEntrance(false), 600);
     return () => clearTimeout(timer);
@@ -242,11 +242,11 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     }
   }
 
-  const { letter, isVisible: isLetterVisible } = useScrollLetterIndicator({
+  const { isVisible: isLetterVisible, letter } = useScrollLetterIndicator({
     firstVisibleIndex,
     games: filteredGames,
-    sortBy,
     scrollTop,
+    sortBy,
   });
 
   return (
@@ -257,16 +257,16 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            className="pl-10"
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search games..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
           />
         </div>
 
         {/* Filters */}
         <div className="flex gap-2">
-          <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
+          <Select onValueChange={setSelectedPlatform} value={selectedPlatform}>
             <SelectTrigger className="w-[140px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Platform" />
@@ -281,7 +281,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
             </SelectContent>
           </Select>
 
-          <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortBy)}>
+          <Select onValueChange={(value) => setSortBy(value as SortBy)} value={sortBy}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
@@ -295,11 +295,11 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
 
           {/* Favorites filter toggle */}
           <Button
-            variant={showFavoritesOnly ? 'default' : 'ghost'}
-            size="icon"
-            onClick={() => setShowFavoritesOnly(prev => !prev)}
             aria-label={showFavoritesOnly ? 'Show all games' : 'Show favorites only'}
+            onClick={() => setShowFavoritesOnly(prev => !prev)}
+            size="icon"
             title={showFavoritesOnly ? 'Show all games' : 'Show favorites only'}
+            variant={showFavoritesOnly ? 'default' : 'ghost'}
           >
             <Heart className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')} />
           </Button>
@@ -307,18 +307,18 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
           {/* View mode toggle */}
           <div className="flex border rounded-md">
             <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="icon"
-              onClick={() => setViewMode('grid')}
               className="rounded-r-none"
+              onClick={() => setViewMode('grid')}
+              size="icon"
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
             >
               <Grid className="h-4 w-4" />
             </Button>
             <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="icon"
-              onClick={() => setViewMode('list')}
               className="rounded-l-none"
+              onClick={() => setViewMode('list')}
+              size="icon"
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
             >
               <List className="h-4 w-4" />
             </Button>
@@ -333,12 +333,12 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
         </p>
         <div className="flex items-center gap-2">
           {selectedPlatform !== 'all' && (
-            <Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedPlatform('all')}>
+            <Badge className="cursor-pointer" onClick={() => setSelectedPlatform('all')} variant="secondary">
               {selectedPlatform} ✕
             </Badge>
           )}
           {showFavoritesOnly && (
-            <Badge variant="secondary" className="cursor-pointer" onClick={() => setShowFavoritesOnly(false)}>
+            <Badge className="cursor-pointer" onClick={() => setShowFavoritesOnly(false)} variant="secondary">
               Favorites ✕
             </Badge>
           )}
@@ -350,34 +350,34 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
         isLargeList ? (
           /* ---- Virtualized path (>100 items) ---- */
           <div
-            ref={gridRef}
             className="relative"
+            ref={gridRef}
             style={{ height: totalHeight > 0 ? totalHeight : undefined }}
           >
             {visibleIndices.map((index, visibleIndex) => {
               const game = filteredGames[index];
               const pos = layout.items[index];
-              if (!pos) return null;
+              if (!pos) {return null;}
               const isEntering = showEntrance && visibleIndex < 30;
 
               return (
                 <GameCard
-                  key={game.id}
-                  game={game}
-                  onPlay={onPlayGame}
-                  onOptions={onGameOptions}
-                  onToggleFavorite={onToggleFavorite}
-                  getMenuItems={getMenuItems}
                   artworkSyncStore={artworkSyncStore}
-                  isLaunching={launchingGameId === game.id}
-                  disabled={launchingGameId != null && launchingGameId !== game.id}
                   className={cn(isEntering && 'animate-card-enter')}
+                  disabled={launchingGameId != null && launchingGameId !== game.id}
+                  game={game}
+                  getMenuItems={getMenuItems}
+                  isLaunching={launchingGameId === game.id}
+                  key={game.id}
+                  onOptions={onGameOptions}
+                  onPlay={onPlayGame}
+                  onToggleFavorite={onToggleFavorite}
                   style={{
-                    position: 'absolute',
+                    height: pos.height,
                     left: pos.x,
+                    position: 'absolute',
                     top: pos.y,
                     width: pos.width,
-                    height: pos.height,
                     ...(isEntering ? { animationDelay: `${Math.min(visibleIndex * 30, 400)}ms` } : undefined),
                   }}
                 />
@@ -387,8 +387,8 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
         ) : (
           /* ---- Small-list path (<=100 items, with FLIP animations) ---- */
           <div
-            ref={gridRef}
             className="relative flex flex-wrap"
+            ref={gridRef}
             style={{ gap: `${MOSAIC_GAP}px` }}
           >
             {flipItems.map((flipItem) => {
@@ -398,24 +398,24 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
 
               return (
                 <GameCard
-                  key={flipItem.key}
-                  ref={flipItem.ref}
-                  game={flipItem.item}
-                  onPlay={onPlayGame}
-                  onOptions={onGameOptions}
-                  onToggleFavorite={onToggleFavorite}
-                  getMenuItems={getMenuItems}
                   artworkSyncStore={artworkSyncStore}
-                  isLaunching={launchingGameId === flipItem.item.id}
-                  disabled={launchingGameId != null && launchingGameId !== flipItem.item.id}
                   className={cn(
                     flipItem.animationState === 'entering' && 'animate-card-enter',
                     flipItem.animationState === 'exiting' && 'animate-card-exit',
                   )}
+                  disabled={launchingGameId != null && launchingGameId !== flipItem.item.id}
+                  game={flipItem.item}
+                  getMenuItems={getMenuItems}
+                  isLaunching={launchingGameId === flipItem.item.id}
+                  key={flipItem.key}
+                  onOptions={onGameOptions}
+                  onPlay={onPlayGame}
+                  onToggleFavorite={onToggleFavorite}
+                  ref={flipItem.ref}
                   style={{
                     ...flipItem.style,
-                    width: pos?.width ?? computeCardWidth(aspectRatio),
                     height: pos?.height ?? ROW_HEIGHT,
+                    width: pos?.width ?? computeCardWidth(aspectRatio),
                   }}
                 />
               );
@@ -430,14 +430,14 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
       )}
 
       {/* Scroll letter indicator (Steam-style) */}
-      <ScrollLetterIndicator letter={letter} isVisible={isLetterVisible} />
+      <ScrollLetterIndicator isVisible={isLetterVisible} letter={letter} />
 
       {/* Empty state */}
       {filteredGames.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-2">No games found</p>
           {searchQuery && (
-            <Button variant="ghost" onClick={() => setSearchQuery('')}>
+            <Button onClick={() => setSearchQuery('')} variant="ghost">
               Clear search
             </Button>
           )}

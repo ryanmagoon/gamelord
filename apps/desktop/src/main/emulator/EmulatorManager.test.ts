@@ -3,29 +3,29 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // --- Module mocks (hoisted before imports) ---
 
 vi.mock('electron', () => ({
+  app: {
+    getPath: vi.fn(() => '/tmp/test'),
+    getAppPath: vi.fn(() => '/tmp/test-app'),
+  },
   powerSaveBlocker: {
     start: vi.fn(() => 42),
     stop: vi.fn(),
     isStarted: vi.fn(() => true),
   },
-  app: {
-    getPath: vi.fn(() => '/tmp/test'),
-    getAppPath: vi.fn(() => '/tmp/test-app'),
-  },
 }))
 
-vi.mock('fs', () => ({
+vi.mock('node:fs', () => ({
   existsSync: vi.fn(() => false),
-  readdirSync: vi.fn(() => []),
   mkdirSync: vi.fn(),
+  readdirSync: vi.fn(() => []),
 }))
 
-vi.mock('os', () => ({
+vi.mock('node:os', () => ({
   homedir: vi.fn(() => '/home/test'),
 }))
 
 vi.mock('./CoreDownloader', async () => {
-  const { EventEmitter } = await import('events')
+  const { EventEmitter } = await import('node:events')
   class FakeCoreDownloader extends EventEmitter {
     getCoresDirectory() { return '/tmp/cores' }
     getCoresForSystem() { return [] }
@@ -38,7 +38,7 @@ vi.mock('./CoreDownloader', async () => {
 
 vi.mock('./RetroArchCore')
 vi.mock('./LibretroNativeCore', async () => {
-  const { EventEmitter } = await import('events')
+  const { EventEmitter } = await import('node:events')
   class FakeLibretroNativeCore extends EventEmitter {
     isActive() { return false }
     async launch() { /* no-op */ }
@@ -50,7 +50,7 @@ vi.mock('./LibretroNativeCore', async () => {
 vi.mock('./EmulationWorkerClient')
 
 import { powerSaveBlocker } from 'electron'
-import * as fs from 'fs'
+import * as fs from 'node:fs'
 import { EmulatorManager } from './EmulatorManager'
 
 // ---------------------------------------------------------------------------

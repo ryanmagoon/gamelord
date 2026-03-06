@@ -4,6 +4,7 @@ import { ditherFragmentShader } from '../shaders';
 export const ditherPreset: ShaderPresetDefinition = {
   id: 'dither',
   label: 'Dither',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const ditherPreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

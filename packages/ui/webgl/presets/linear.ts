@@ -4,6 +4,7 @@ import { defaultFragmentShader } from '../shaders';
 export const linearPreset: ShaderPresetDefinition = {
   id: 'linear',
   label: 'Linear',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const linearPreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

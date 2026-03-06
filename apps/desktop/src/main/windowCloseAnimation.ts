@@ -56,7 +56,7 @@ export function animateWindowClose(window: BrowserWindow): Promise<void> {
         const newHeight = Math.round(initialBounds.height * scale)
         const newX = Math.round(centerX - newWidth / 2)
         const newY = Math.round(centerY - newHeight / 2)
-        window.setBounds({ x: newX, y: newY, width: newWidth, height: newHeight })
+        window.setBounds({ height: newHeight, width: newWidth, x: newX, y: newY })
       }
 
       if (currentStep >= totalSteps) {

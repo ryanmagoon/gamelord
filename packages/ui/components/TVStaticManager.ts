@@ -28,10 +28,10 @@ const NOISE_WIDTH = 64
 function mulberry32(seed: number): () => number {
   let s = seed | 0
   return () => {
-    s = (s + 0x6d2b79f5) | 0
+    s = (s + 0x6d_2b_79_f5) | 0
     let t = Math.imul(s ^ (s >>> 15), 1 | s)
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296
   }
 }
 
@@ -71,7 +71,7 @@ class TVStaticManager {
    */
   register(canvas: HTMLCanvasElement, noiseHeight: number): () => void {
     const ctx = canvas.getContext('2d')
-    if (!ctx) return () => { /* intentional no-op */ }
+    if (!ctx) {return () => { /* intentional no-op */ }}
 
     canvas.width = NOISE_WIDTH
     canvas.height = noiseHeight
@@ -129,7 +129,7 @@ class TVStaticManager {
   private recalcMaxHeight() {
     let max = 0
     for (const entry of this.canvases.values()) {
-      if (entry.noiseHeight > max) max = entry.noiseHeight
+      if (entry.noiseHeight > max) {max = entry.noiseHeight}
     }
     if (max < this.maxNoiseHeight) {
       this.maxNoiseHeight = max

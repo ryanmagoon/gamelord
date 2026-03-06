@@ -12,17 +12,17 @@ import {
 import { Play, RotateCcw } from 'lucide-react'
 
 export interface ResumeGameDialogProps {
-  open: boolean
   gameTitle: string
   onResume: () => void
   onStartFresh: () => void
+  open: boolean
 }
 
 export const ResumeGameDialog: React.FC<ResumeGameDialogProps> = ({
-  open,
   gameTitle,
   onResume,
   onStartFresh,
+  open,
 }) => {
   return (
     <AlertDialog open={open}>
@@ -35,11 +35,11 @@ export const ResumeGameDialog: React.FC<ResumeGameDialogProps> = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-          <AlertDialogCancel onClick={onStartFresh} className="sm:flex-1">
+          <AlertDialogCancel className="sm:flex-1" onClick={onStartFresh}>
             <RotateCcw className="h-4 w-4 mr-2" />
             Start Fresh
           </AlertDialogCancel>
-          <AlertDialogAction onClick={onResume} className="sm:flex-1">
+          <AlertDialogAction className="sm:flex-1" onClick={onResume}>
             <Play className="h-4 w-4 mr-2" />
             Resume
           </AlertDialogAction>

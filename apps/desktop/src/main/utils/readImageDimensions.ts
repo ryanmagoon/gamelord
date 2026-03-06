@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 
 interface ImageDimensions {
-  width: number
   height: number
+  width: number
 }
 
 /**
@@ -16,7 +16,7 @@ export async function readImageDimensions(filePath: string): Promise<ImageDimens
       // Read the first 1KB — enough for PNG IHDR and most JPEG SOF markers
       const headerBuffer = Buffer.alloc(1024)
       const bytesRead = fs.readSync(fd, headerBuffer, 0, 1024, 0)
-      if (bytesRead < 8) return null // Need at least 8 bytes for PNG signature detection
+      if (bytesRead < 8) {return null} // Need at least 8 bytes for PNG signature detection
 
       const header = headerBuffer.subarray(0, bytesRead)
 
@@ -62,11 +62,11 @@ function isJpeg(header: Buffer): boolean {
  * PNG IHDR chunk: width is big-endian uint32 at byte 16, height at byte 20.
  */
 function parsePngDimensions(header: Buffer): ImageDimensions | null {
-  if (header.length < 24) return null
+  if (header.length < 24) {return null}
   const width = header.readUInt32BE(16)
   const height = header.readUInt32BE(20)
-  if (width === 0 || height === 0) return null
-  return { width, height }
+  if (width === 0 || height === 0) {return null}
+  return { height, width }
 }
 
 /**
@@ -98,15 +98,15 @@ function parseJpegDimensions(filePath: string): ImageDimensions | null {
     // SOF markers: 0xC0–0xCF, excluding 0xC4 (DHT) and 0xC8 (JPG extension)
     if (marker >= 0xC0 && marker <= 0xCF && marker !== 0xC4 && marker !== 0xC8) {
       // SOF segment: marker(2) + length(2) + precision(1) + height(2) + width(2)
-      if (offset + 9 >= data.length) return null
+      if (offset + 9 >= data.length) {return null}
       const height = data.readUInt16BE(offset + 5)
       const width = data.readUInt16BE(offset + 7)
-      if (width === 0 || height === 0) return null
-      return { width, height }
+      if (width === 0 || height === 0) {return null}
+      return { height, width }
     }
 
     // Skip to next marker using segment length
-    if (offset + 3 >= data.length) return null
+    if (offset + 3 >= data.length) {return null}
     const segmentLength = data.readUInt16BE(offset + 2)
     offset += 2 + segmentLength
   }

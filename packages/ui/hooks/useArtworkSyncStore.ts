@@ -59,7 +59,7 @@ export function useArtworkSyncPhase(
 ): ArtworkSyncPhase | undefined {
   const subscribe = useCallback(
     (onStoreChange: () => void) => {
-      if (!store) return () => { /* intentional no-op */ }
+      if (!store) {return () => { /* intentional no-op */ }}
       return store.subscribe(onStoreChange)
     },
     [store],
@@ -74,7 +74,7 @@ export function useArtworkSyncPhase(
     const current = store?.getPhase(gameId)
     // Return the same reference if the value hasn't changed, so
     // useSyncExternalStore's Object.is comparison skips the re-render.
-    if (current === prevRef.current) return prevRef.current
+    if (current === prevRef.current) {return prevRef.current}
     prevRef.current = current
     return current
   }, [store, gameId])

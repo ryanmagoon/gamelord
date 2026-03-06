@@ -4,6 +4,7 @@ import { lcdGridV2FragmentShader, gbaColorFragmentShader } from '../lcd-grid-v2-
 export const lcdGridV2GbaColorPreset: ShaderPresetDefinition = {
   id: 'lcd-grid-v2-gba-color',
   label: 'LCD GBA',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -20,5 +21,4 @@ export const lcdGridV2GbaColorPreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

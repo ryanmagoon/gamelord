@@ -3,7 +3,7 @@ import { tvStaticManager } from './TVStaticManager'
 
 // happy-dom doesn't provide ImageData — polyfill it for these tests.
 beforeAll(() => {
-  if (typeof globalThis.ImageData === 'undefined') {
+  if (globalThis.ImageData === undefined) {
     globalThis.ImageData = class ImageData {
       readonly width: number
       readonly height: number
@@ -22,16 +22,16 @@ beforeAll(() => {
  * captures putImageData calls for assertion.
  */
 function createStubCanvas() {
-  const putCalls: ImageData[] = []
+  const putCalls: Array<ImageData> = []
   const ctx = {
     putImageData(imageData: ImageData) {
       putCalls.push(imageData)
     },
   }
   const canvas = {
-    width: 0,
-    height: 0,
     getContext: vi.fn().mockReturnValue(ctx),
+    height: 0,
+    width: 0,
   } as unknown as HTMLCanvasElement
 
   return { canvas, putCalls }

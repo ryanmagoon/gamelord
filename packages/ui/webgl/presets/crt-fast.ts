@@ -4,6 +4,7 @@ import { crtFastFragmentShader } from '../shaders';
 export const crtFastPreset: ShaderPresetDefinition = {
   id: 'crt-fast',
   label: 'CRT Fast',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const crtFastPreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

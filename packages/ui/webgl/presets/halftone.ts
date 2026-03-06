@@ -4,6 +4,7 @@ import { halftoneFragmentShader } from '../shaders';
 export const halftonePreset: ShaderPresetDefinition = {
   id: 'halftone',
   label: 'Halftone',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const halftonePreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

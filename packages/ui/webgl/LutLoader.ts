@@ -1,8 +1,8 @@
 import type { LutDefinition, FilterMode, WrapMode } from './types';
 
 interface LutEntry {
-  texture: WebGLTexture;
   definition: LutDefinition;
+  texture: WebGLTexture;
 }
 
 /**
@@ -34,11 +34,11 @@ export class LutLoader {
 
     gl.bindTexture(gl.TEXTURE_2D, null);
 
-    this.luts.set(definition.name, { texture, definition });
+    this.luts.set(definition.name, { definition, texture });
   }
 
   /** Batch-loads all LUT definitions. */
-  async loadAll(luts: LutDefinition[]): Promise<void> {
+  async loadAll(luts: Array<LutDefinition>): Promise<void> {
     await Promise.all(luts.map((lut) => this.load(lut)));
   }
 

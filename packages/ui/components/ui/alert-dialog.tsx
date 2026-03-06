@@ -19,7 +19,7 @@ import { buttonVariants } from './button'
  */
 const AlertDialog: React.FC<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Root>
-> = ({ open, children, ...props }) => {
+> = ({ children, open, ...props }) => {
   // `mounted` controls whether the portal stays in the DOM.
   // `open` is forwarded to Radix for data-state/aria attributes.
   const [mounted, setMounted] = React.useState(open ?? false)
@@ -54,7 +54,7 @@ const AlertDialog: React.FC<
   // sees `open=false` → sets data-state="closed" → triggers exit
   // animations. After 220ms, `mounted` flips to false → Radix unmounts.
   // When neither `open` nor `mounted`, nothing renders.
-  if (!open && !mounted) return null
+  if (!open && !mounted) {return null}
 
   return (
     <AlertDialogPrimitive.Root open={open} {...props}>
@@ -93,11 +93,11 @@ const AlertDialogContent = React.forwardRef<
   <AlertDialogPortal forceMount>
     <AlertDialogOverlay className={overlayClassName} />
     <AlertDialogPrimitive.Content
-      ref={ref}
       className={cn(
         'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg data-[state=open]:animate-dialog-scan-in data-[state=closed]:animate-dialog-scan-out data-[state=closed]:pointer-events-none sm:rounded-lg',
         className
       )}
+      ref={ref}
       {...props}
     />
   </AlertDialogPortal>
@@ -137,8 +137,8 @@ const AlertDialogTitle = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Title
-    ref={ref}
     className={cn('text-lg font-semibold', className)}
+    ref={ref}
     {...props}
   />
 ))
@@ -149,8 +149,8 @@ const AlertDialogDescription = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Description
-    ref={ref}
     className={cn('text-sm text-muted-foreground', className)}
+    ref={ref}
     {...props}
   />
 ))
@@ -162,8 +162,8 @@ const AlertDialogAction = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Action
-    ref={ref}
     className={cn(buttonVariants(), className)}
+    ref={ref}
     {...props}
   />
 ))
@@ -174,12 +174,12 @@ const AlertDialogCancel = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Cancel>
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Cancel
-    ref={ref}
     className={cn(
       buttonVariants({ variant: 'outline' }),
       'mt-2 sm:mt-0',
       className
     )}
+    ref={ref}
     {...props}
   />
 ))

@@ -5,10 +5,10 @@ const Agentation = lazy(() =>
 )
 
 export function DevAgentation() {
-  if (process.env.NODE_ENV !== 'development') return null
+  if (process.env.NODE_ENV !== 'development') {return null}
   return (
     <Suspense fallback={null}>
-      <Agentation endpoint="http://localhost:4747" copyToClipboard={true} />
+      <Agentation copyToClipboard={true} endpoint="http://localhost:4747" />
     </Suspense>
   )
 }

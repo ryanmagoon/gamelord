@@ -4,6 +4,7 @@ import { sabrFragmentShader } from '../shaders';
 export const sabrPreset: ShaderPresetDefinition = {
   id: 'sabr',
   label: 'SABR',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const sabrPreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

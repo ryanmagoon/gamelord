@@ -1,5 +1,5 @@
-import path from 'path'
-import fs from 'fs'
+import path from 'node:path'
+import fs from 'node:fs'
 
 const CORE_EXTENSIONS = ['.dylib', '.dll', '.so']
 
@@ -8,7 +8,7 @@ const CORE_EXTENSIONS = ['.dylib', '.dll', '.so']
  * within one of the allowed base directories. Prevents path traversal attacks
  * where a crafted path like "/allowed/../etc/passwd" escapes the sandbox.
  */
-function validatePathWithinDirs(filePath: string, allowedDirs: string[]): string {
+function validatePathWithinDirs(filePath: string, allowedDirs: Array<string>): string {
   if (!path.isAbsolute(filePath)) {
     throw new Error(`Path must be absolute: ${filePath}`)
   }
@@ -36,7 +36,7 @@ function validatePathWithinDirs(filePath: string, allowedDirs: string[]): string
  * - Has a valid shared library extension (.dylib, .dll, .so)
  * - Exists on disk
  */
-export function validateCorePath(corePath: string, allowedCoreDirs: string[]): string {
+export function validateCorePath(corePath: string, allowedCoreDirs: Array<string>): string {
   const resolved = validatePathWithinDirs(corePath, allowedCoreDirs)
 
   const ext = path.extname(resolved).toLowerCase()

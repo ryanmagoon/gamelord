@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@gamelord/ui';
-import { FolderOpen, Search, Plus, HardDrive, Gamepad2, RefreshCw } from 'lucide-react';
-import { GameSystem } from '../../types/library';
+import React, { useState } from "react";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@gamelord/ui";
+import { FolderOpen, Search, Plus, HardDrive, Gamepad2 } from "lucide-react";
+import { GameSystem } from "../../types/library";
 
 interface EmptyLibraryProps {
   onAddSystem: (system: GameSystem) => void;
   onScanDirectory: () => void;
   onQuickScan: () => void;
-  availableSystems: GameSystem[];
+  availableSystems: Array<GameSystem>;
   /** True when homebrew import is still in progress. */
   isImportingHomebrew?: boolean;
 }
@@ -27,9 +27,7 @@ export const EmptyLibrary: React.FC<EmptyLibraryProps> = ({
         <div className="text-center">
           <Gamepad2 className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
           <h2 className="text-2xl font-bold mb-2">Setting up your library</h2>
-          <p className="text-muted-foreground">
-            Importing bundled homebrew games...
-          </p>
+          <p className="text-muted-foreground">Importing bundled homebrew games...</p>
         </div>
       </div>
     );
@@ -41,34 +39,40 @@ export const EmptyLibrary: React.FC<EmptyLibraryProps> = ({
         <Gamepad2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
         <h2 className="text-3xl font-bold mb-2">Your library is empty</h2>
         <p className="text-muted-foreground max-w-md mx-auto">
-          Add your ROMs to get started. GameLord supports NES, SNES, Genesis,
-          Game Boy, GBA, N64, PS1, PSP, DS, Saturn, and Arcade.
+          Add your ROMs to get started. GameLord supports NES, SNES, Genesis, Game Boy, GBA, N64,
+          PS1, PSP, DS, Saturn, and Arcade.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl w-full">
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow group" onClick={onQuickScan}>
+        <Card
+          className="cursor-pointer hover:shadow-lg transition-shadow group"
+          onClick={onQuickScan}
+        >
           <CardHeader>
             <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
               <Search className="h-6 w-6 text-primary" />
             </div>
             <CardTitle>Quick Scan</CardTitle>
             <CardDescription>
-              Scan your ~/ROMs folder. Create subfolders by system name
-              (NES, SNES, Genesis, etc.) and drop your ROMs inside.
+              Scan your ~/ROMs folder. Create subfolders by system name (NES, SNES, Genesis, etc.)
+              and drop your ROMs inside.
             </CardDescription>
           </CardHeader>
         </Card>
 
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow group" onClick={onScanDirectory}>
+        <Card
+          className="cursor-pointer hover:shadow-lg transition-shadow group"
+          onClick={onScanDirectory}
+        >
           <CardHeader>
             <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
               <FolderOpen className="h-6 w-6 text-primary" />
             </div>
             <CardTitle>Choose Folder</CardTitle>
             <CardDescription>
-              Point to any folder containing ROMs. Files are matched by
-              extension — no need to rename anything.
+              Point to any folder containing ROMs. Files are matched by extension — no need to
+              rename anything.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -93,9 +97,7 @@ export const EmptyLibrary: React.FC<EmptyLibraryProps> = ({
         <Card className="mt-8 max-w-4xl w-full">
           <CardHeader>
             <CardTitle>Choose a System</CardTitle>
-            <CardDescription>
-              Select a system to add to your library
-            </CardDescription>
+            <CardDescription>Select a system to add to your library</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">

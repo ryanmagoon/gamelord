@@ -36,7 +36,7 @@ describe('useAspectRatioTransition', () => {
   })
 
   it('containerRef is stable across re-renders', () => {
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       (props) => useAspectRatioTransition(props),
       { initialProps: { aspectRatio: 0.75, enabled: false } },
     )

@@ -9,11 +9,11 @@ import type { BrowserWindow } from 'electron'
 /** Create a mock BrowserWindow with sensible defaults. */
 function createMockWindow(overrides: Partial<Record<keyof BrowserWindow, unknown>> = {}) {
   return {
+    getBounds: vi.fn(() => ({ x: 100, y: 100, width: 800, height: 600 })),
     isDestroyed: vi.fn(() => false),
     isFullScreen: vi.fn(() => false),
-    getBounds: vi.fn(() => ({ x: 100, y: 100, width: 800, height: 600 })),
-    setOpacity: vi.fn(),
     setBounds: vi.fn(),
+    setOpacity: vi.fn(),
     ...overrides,
   } as unknown as BrowserWindow
 }
@@ -43,7 +43,7 @@ describe('animateWindowClose', () => {
     expect(firstOpacity).toBeGreaterThan(0.5)
 
     // Last call should be at or near 0
-    const lastOpacity = setOpacity.mock.calls[setOpacity.mock.calls.length - 1][0] as number
+    const lastOpacity = setOpacity.mock.calls.at(-1)[0] as number
     expect(lastOpacity).toBe(0)
   })
 
@@ -60,8 +60,8 @@ describe('animateWindowClose', () => {
     // The initial bounds are 800×600 at (100, 100).
     // Center is (500, 400). Final scale is 0.92 → 736×552.
     // Final position: x = 500 - 368 = 132, y = 400 - 276 = 124
-    const lastCall = setBounds.mock.calls[setBounds.mock.calls.length - 1][0] as {
-      x: number; y: number; width: number; height: number
+    const lastCall = setBounds.mock.calls.at(-1)[0] as {
+      height: number; width: number; x: number; y: number;
     }
     expect(lastCall.width).toBeLessThan(800)
     expect(lastCall.height).toBeLessThan(600)
@@ -142,7 +142,7 @@ describe('animateWindowClose', () => {
     await promise
 
     const setOpacity = window.setOpacity as ReturnType<typeof vi.fn>
-    const opacities = setOpacity.mock.calls.map((call: unknown[]) => call[0] as number)
+    const opacities = setOpacity.mock.calls.map((call: Array<unknown>) => call[0] as number)
 
     for (let i = 1; i < opacities.length; i++) {
       expect(opacities[i]).toBeLessThanOrEqual(opacities[i - 1])

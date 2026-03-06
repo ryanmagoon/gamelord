@@ -1,15 +1,15 @@
 import { ROW_HEIGHT, MOSAIC_GAP } from './mosaicGrid'
 
 export interface MosaicLayoutItem {
+  height: number
   index: number
+  width: number
   x: number
   y: number
-  width: number
-  height: number
 }
 
 export interface MosaicLayoutResult {
-  items: MosaicLayoutItem[]
+  items: Array<MosaicLayoutItem>
   totalHeight: number
 }
 
@@ -32,7 +32,7 @@ const MAX_ROW_HEIGHT_FACTOR = 1.4
  * or two remain.
  */
 export function computeRowLayout(
-  aspectRatios: number[],
+  aspectRatios: Array<number>,
   containerWidth: number,
   gap: number = MOSAIC_GAP,
   baseRowHeight: number = ROW_HEIGHT,
@@ -43,14 +43,14 @@ export function computeRowLayout(
 
   const maxRowHeight = baseRowHeight * MAX_ROW_HEIGHT_FACTOR
 
-  const items: MosaicLayoutItem[] = []
+  const items: Array<MosaicLayoutItem> = []
   let y = 0
 
   let rowStart = 0
 
   for (let i = 0; i < aspectRatios.length; i++) {
     // Placeholder — justified rows overwrite these values
-    items.push({ index: i, x: 0, y, width: 0, height: baseRowHeight })
+    items.push({ height: baseRowHeight, index: i, width: 0, x: 0, y })
 
     // Compute what the justified height would be if we finalized at item i
     const rowHeight = justifiedRowHeight(aspectRatios, rowStart, i + 1, containerWidth, gap)
@@ -93,7 +93,7 @@ export function computeRowLayout(
  * Justified height = (containerWidth - totalGap) / totalAR
  */
 function justifiedRowHeight(
-  aspectRatios: number[],
+  aspectRatios: Array<number>,
   rowStart: number,
   rowEnd: number,
   containerWidth: number,
@@ -113,8 +113,8 @@ function justifiedRowHeight(
  * container width, then laying out each card. Returns the y for the next row.
  */
 function justifyRow(
-  items: MosaicLayoutItem[],
-  aspectRatios: number[],
+  items: Array<MosaicLayoutItem>,
+  aspectRatios: Array<number>,
   rowStart: number,
   rowEnd: number,
   containerWidth: number,
@@ -133,8 +133,8 @@ function justifyRow(
  * for the next row.
  */
 function layoutRowAtHeight(
-  items: MosaicLayoutItem[],
-  aspectRatios: number[],
+  items: Array<MosaicLayoutItem>,
+  aspectRatios: Array<number>,
   rowStart: number,
   rowEnd: number,
   rowHeight: number,

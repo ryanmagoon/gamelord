@@ -4,6 +4,7 @@ import { motionBlurFragmentShader } from '../shaders';
 export const motionBlurPreset: ShaderPresetDefinition = {
   id: 'motion-blur',
   label: 'Motion Blur',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -14,5 +15,4 @@ export const motionBlurPreset: ShaderPresetDefinition = {
       feedback: true,
     },
   ],
-  luts: [],
 };

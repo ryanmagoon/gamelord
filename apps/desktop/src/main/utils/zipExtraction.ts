@@ -1,6 +1,6 @@
-import { execFile } from 'child_process'
-import { promisify } from 'util'
-import path from 'path'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import path from 'node:path'
 
 const execFileAsync = promisify(execFile)
 
@@ -9,7 +9,7 @@ const execFileAsync = promisify(execFile)
  * Uses `unzip -Z1` (zipinfo mode, filenames only).
  * Filters out directory entries and macOS resource fork junk (`__MACOSX/`).
  */
-export async function listZipContents(zipPath: string): Promise<string[]> {
+export async function listZipContents(zipPath: string): Promise<Array<string>> {
   const { stdout } = await execFileAsync('unzip', ['-Z1', zipPath])
   return stdout
     .split('\n')
@@ -24,7 +24,7 @@ export async function listZipContents(zipPath: string): Promise<string[]> {
  */
 export async function findRomInZip(
   zipPath: string,
-  nativeExtensions: string[],
+  nativeExtensions: Array<string>,
 ): Promise<{ entryName: string; extension: string } | null> {
   const entries = await listZipContents(zipPath)
   const extensionSet = new Set(nativeExtensions.map(ext => ext.toLowerCase()))

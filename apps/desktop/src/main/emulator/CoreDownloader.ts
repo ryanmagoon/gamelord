@@ -1,11 +1,11 @@
-import { EventEmitter } from 'events';
-import * as fs from 'fs';
-import * as path from 'path';
+import { EventEmitter } from 'node:events';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 import { app } from 'electron';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import https from 'https';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import https from 'node:https';
 
 const execFileAsync = promisify(execFile);
 
@@ -14,87 +14,87 @@ const execFileAsync = promisify(execFile);
  * Used as the default when no specific core is requested.
  */
 const PREFERRED_CORES: Record<string, string> = {
-  'nes': 'fceumm_libretro',
-  'snes': 'snes9x_libretro',
-  'genesis': 'genesis_plus_gx_libretro',
+  'arcade': 'mame_libretro',
   'gb': 'gambatte_libretro',
-  'gbc': 'gambatte_libretro',
   'gba': 'mgba_libretro',
+  'gbc': 'gambatte_libretro',
+  'genesis': 'genesis_plus_gx_libretro',
   'n64': 'mupen64plus_next_libretro',
+  'nds': 'desmume_libretro',
+  'nes': 'fceumm_libretro',
+  'psp': 'ppsspp_libretro',
   'psx': 'pcsx_rearmed_libretro',
   'saturn': 'mednafen_saturn_libretro',
-  'psp': 'ppsspp_libretro',
-  'nds': 'desmume_libretro',
-  'arcade': 'mame_libretro',
+  'snes': 'snes9x_libretro',
 };
 
 /** All known cores per system, in preference order. */
-const SYSTEM_CORES: Record<string, string[]> = {
-  'nes': ['fceumm_libretro', 'nestopia_libretro', 'mesen_libretro'],
-  'snes': ['snes9x_libretro', 'bsnes_libretro'],
-  'genesis': ['genesis_plus_gx_libretro', 'picodrive_libretro'],
+const SYSTEM_CORES: Record<string, Array<string>> = {
+  'arcade': ['mame_libretro'],
   'gb': ['gambatte_libretro', 'mgba_libretro'],
-  'gbc': ['gambatte_libretro', 'mgba_libretro'],
   'gba': ['mgba_libretro', 'vba_next_libretro'],
+  'gbc': ['gambatte_libretro', 'mgba_libretro'],
+  'genesis': ['genesis_plus_gx_libretro', 'picodrive_libretro'],
   'n64': ['mupen64plus_next_libretro', 'parallel_n64_libretro'],
+  'nds': ['desmume_libretro'],
+  'nes': ['fceumm_libretro', 'nestopia_libretro', 'mesen_libretro'],
+  'psp': ['ppsspp_libretro'],
   'psx': ['pcsx_rearmed_libretro', 'beetle_psx_libretro'],
   'saturn': ['mednafen_saturn_libretro', 'yabause_libretro'],
-  'psp': ['ppsspp_libretro'],
-  'nds': ['desmume_libretro'],
-  'arcade': ['mame_libretro'],
+  'snes': ['snes9x_libretro', 'bsnes_libretro'],
 };
 
 /** Human-readable display names for cores. */
 const CORE_DISPLAY_NAMES: Record<string, string> = {
-  'fceumm_libretro': 'FCEUmm',
-  'nestopia_libretro': 'Nestopia',
-  'mesen_libretro': 'Mesen',
-  'snes9x_libretro': 'Snes9x',
+  'beetle_psx_libretro': 'Beetle PSX',
   'bsnes_libretro': 'bsnes',
-  'genesis_plus_gx_libretro': 'Genesis Plus GX',
-  'picodrive_libretro': 'PicoDrive',
+  'desmume_libretro': 'DeSmuME',
+  'fceumm_libretro': 'FCEUmm',
   'gambatte_libretro': 'Gambatte',
+  'genesis_plus_gx_libretro': 'Genesis Plus GX',
+  'mame_libretro': 'MAME',
+  'mednafen_saturn_libretro': 'Beetle Saturn',
+  'mesen_libretro': 'Mesen',
   'mgba_libretro': 'mGBA',
-  'vba_next_libretro': 'VBA-M',
   'mupen64plus_next_libretro': 'Mupen64Plus',
+  'nestopia_libretro': 'Nestopia',
   'parallel_n64_libretro': 'ParaLLEl N64',
   'pcsx_rearmed_libretro': 'PCSX ReARMed',
-  'beetle_psx_libretro': 'Beetle PSX',
-  'mednafen_saturn_libretro': 'Beetle Saturn',
-  'yabause_libretro': 'Yabause',
+  'picodrive_libretro': 'PicoDrive',
   'ppsspp_libretro': 'PPSSPP',
-  'desmume_libretro': 'DeSmuME',
-  'mame_libretro': 'MAME',
+  'snes9x_libretro': 'Snes9x',
+  'vba_next_libretro': 'VBA-M',
+  'yabause_libretro': 'Yabause',
 };
 
 /** Short descriptions for cores. */
 const CORE_DESCRIPTIONS: Record<string, string> = {
-  'snes9x_libretro': 'Fast, highly compatible. Best for most games.',
   'bsnes_libretro': 'Cycle-accurate. Perfect accuracy, higher CPU usage.',
   'fceumm_libretro': 'Accurate and fast NES emulation.',
-  'nestopia_libretro': 'High-accuracy NES emulation.',
-  'mesen_libretro': 'Cycle-accurate NES emulation.',
-  'genesis_plus_gx_libretro': 'Accurate Genesis/Mega Drive emulation.',
-  'picodrive_libretro': 'Fast Genesis emulation, Sega CD/32X support.',
   'gambatte_libretro': 'Accurate Game Boy/Color emulation.',
-  'mgba_libretro': 'Fast and accurate GBA emulation.',
+  'genesis_plus_gx_libretro': 'Accurate Genesis/Mega Drive emulation.',
   'mednafen_saturn_libretro': 'Accurate Saturn emulation. Requires BIOS files (sega_101.bin, mpr-17933.bin).',
+  'mesen_libretro': 'Cycle-accurate NES emulation.',
+  'mgba_libretro': 'Fast and accurate GBA emulation.',
+  'nestopia_libretro': 'High-accuracy NES emulation.',
+  'picodrive_libretro': 'Fast Genesis emulation, Sega CD/32X support.',
+  'snes9x_libretro': 'Fast, highly compatible. Best for most games.',
   'yabause_libretro': 'Saturn emulation with lower accuracy but lighter hardware requirements.',
 };
 
 export interface CoreInfo {
-  name: string
-  displayName: string
   description: string
+  displayName: string
   installed: boolean
+  name: string
 }
 
 export interface CoreDownloadProgress {
   coreName: string;
-  systemId: string;
-  phase: 'downloading' | 'extracting' | 'done' | 'error';
-  percent: number;
   error?: string;
+  percent: number;
+  phase: 'downloading' | 'extracting' | 'done' | 'error';
+  systemId: string;
 }
 
 /**
@@ -123,8 +123,8 @@ export class CoreDownloader extends EventEmitter {
 
   /** Returns the platform-specific dynamic library extension. */
   private getLibExtension(): string {
-    if (process.platform === 'darwin') return '.dylib';
-    if (process.platform === 'win32') return '.dll';
+    if (process.platform === 'darwin') {return '.dylib';}
+    if (process.platform === 'win32') {return '.dll';}
     return '.so';
   }
 
@@ -143,7 +143,7 @@ export class CoreDownloader extends EventEmitter {
   /** Check if a core is already present in the app-managed directory. */
   hasCoreForSystem(systemId: string): string | null {
     const coreName = PREFERRED_CORES[systemId];
-    if (!coreName) return null;
+    if (!coreName) {return null;}
 
     const corePath = path.join(
       this.getCoresDirectory(),
@@ -174,15 +174,15 @@ export class CoreDownloader extends EventEmitter {
    * Returns info about all known cores for a system, including
    * display name, description, and installation status.
    */
-  getCoresForSystem(systemId: string): CoreInfo[] {
+  getCoresForSystem(systemId: string): Array<CoreInfo> {
     const coreNames = SYSTEM_CORES[systemId];
-    if (!coreNames) return [];
+    if (!coreNames) {return [];}
 
     return coreNames.map((name) => ({
-      name,
-      displayName: CORE_DISPLAY_NAMES[name] ?? name,
       description: CORE_DESCRIPTIONS[name] ?? '',
+      displayName: CORE_DISPLAY_NAMES[name] ?? name,
       installed: this.isCoreInstalled(name),
+      name,
     }));
   }
 
@@ -208,13 +208,13 @@ export class CoreDownloader extends EventEmitter {
   async downloadCore(coreName: string, systemId: string): Promise<string> {
     // Check if already present
     const existingPath = this.getCorePath(coreName);
-    if (existingPath) return existingPath;
+    if (existingPath) {return existingPath;}
 
     // Prevent duplicate concurrent downloads
     if (this.downloading.has(coreName)) {
       return new Promise((resolve, reject) => {
         const handler = (progress: CoreDownloadProgress) => {
-          if (progress.coreName !== coreName) return;
+          if (progress.coreName !== coreName) {return;}
           if (progress.phase === 'done') {
             this.off('progress', handler);
             resolve(path.join(this.getCoresDirectory(), coreName + this.getLibExtension()));
@@ -255,7 +255,7 @@ export class CoreDownloader extends EventEmitter {
       return corePath;
     } catch (error) {
       // Clean up partial files
-      if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+      if (fs.existsSync(zipPath)) {fs.unlinkSync(zipPath);}
 
       const message = error instanceof Error ? error.message : String(error);
       this.emitProgress(coreName, systemId, 'error', 0, message);
@@ -272,7 +272,7 @@ export class CoreDownloader extends EventEmitter {
     percent: number,
     error?: string
   ): void {
-    const progress: CoreDownloadProgress = { coreName, systemId, phase, percent, error };
+    const progress: CoreDownloadProgress = { coreName, error, percent, phase, systemId };
     this.emit('progress', progress);
   }
 
@@ -303,7 +303,7 @@ export class CoreDownloader extends EventEmitter {
             return;
           }
 
-          const totalBytes = parseInt(response.headers['content-length'] ?? '0', 10);
+          const totalBytes = Number.parseInt(response.headers['content-length'] ?? '0', 10);
           let downloadedBytes = 0;
           const file = fs.createWriteStream(dest);
 

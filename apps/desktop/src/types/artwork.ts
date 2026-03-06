@@ -1,16 +1,16 @@
 /** ScreenScraper system IDs mapped from GameLord system IDs. */
 export const SYSTEM_ID_MAP: Record<string, number> = {
-  nes: 3,
-  snes: 4,
-  genesis: 1,
+  arcade: 75,
   gb: 9,
   gba: 12,
+  genesis: 1,
   n64: 14,
-  psx: 57,
-  psp: 61,
   nds: 15,
+  nes: 3,
+  psp: 61,
+  psx: 57,
   saturn: 22,
-  arcade: 75,
+  snes: 4,
 };
 
 export interface ScreenScraperCredentials {
@@ -30,55 +30,55 @@ export type ArtworkErrorCode =
   | 'not-found';
 
 export interface ArtworkProgress {
-  gameId: string;
-  gameTitle: string;
-  phase: 'hashing' | 'querying' | 'downloading' | 'done' | 'not-found' | 'error';
-  current: number;
-  total: number;
-  error?: string;
-  errorCode?: ArtworkErrorCode;
   /** The artwork:// URL for the downloaded cover art. Present when phase is 'done'. */
   coverArt?: string;
   /** Width/height ratio of the downloaded artwork. Present when phase is 'done'. */
   coverArtAspectRatio?: number;
+  current: number;
+  error?: string;
+  errorCode?: ArtworkErrorCode;
+  gameId: string;
+  gameTitle: string;
+  phase: 'hashing' | 'querying' | 'downloading' | 'done' | 'not-found' | 'error';
+  total: number;
 }
 
 export interface ArtworkSyncStatus {
+  errors: number;
+  found: number;
   inProgress: boolean;
+  notFound: number;
   processed: number;
   total: number;
-  found: number;
-  notFound: number;
-  errors: number;
 }
 
 export interface ScreenScraperGameInfo {
-  title: string;
-  /** ScreenScraper region code for the matched title (e.g., 'us', 'jp', 'eu'). */
-  region?: string;
-  synopsis?: string;
   developer?: string;
-  publisher?: string;
   genre?: string;
-  players?: number;
-  rating?: number;
-  releaseDate?: string;
   media: {
     boxArt2d?: string;
     boxArt3d?: string;
     screenshot?: string;
     fanart?: string;
   };
+  players?: number;
+  publisher?: string;
+  rating?: number;
+  /** ScreenScraper region code for the matched title (e.g., 'us', 'jp', 'eu'). */
+  region?: string;
+  releaseDate?: string;
+  synopsis?: string;
+  title: string;
 }
 
 export interface ArtworkConfig {
-  screenscraper?: {
-    userId: string;
-    userPassword: string;
-  };
   preferences?: {
     autoSyncOnScan: boolean;
     preferredRegion: string;
     preferredMediaType: string;
+  };
+  screenscraper?: {
+    userId: string;
+    userPassword: string;
   };
 }

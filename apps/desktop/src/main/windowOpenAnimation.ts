@@ -7,10 +7,10 @@ export const WINDOW_OPEN_ANIMATION_DURATION = 300
 export const WINDOW_OPEN_ANIMATION_STEPS = 18
 
 interface Bounds {
+  height: number
+  width: number
   x: number
   y: number
-  width: number
-  height: number
 }
 
 /**
@@ -67,7 +67,7 @@ export function animateWindowOpen(
       const newY = Math.round(startBounds.y + (endBounds.y - startBounds.y) * easedProgress)
       const newWidth = Math.round(startBounds.width + (endBounds.width - startBounds.width) * easedProgress)
       const newHeight = Math.round(startBounds.height + (endBounds.height - startBounds.height) * easedProgress)
-      window.setBounds({ x: newX, y: newY, width: newWidth, height: newHeight })
+      window.setBounds({ height: newHeight, width: newWidth, x: newX, y: newY })
 
       if (currentStep >= totalSteps) {
         clearInterval(interval)

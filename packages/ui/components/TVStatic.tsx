@@ -15,13 +15,13 @@ export type ArtworkSyncPhase =
 interface TVStaticProps {
   /** Whether the static animation is actively playing. */
   active: boolean
-  /** Optional status text shown at the bottom of the static (e.g. "Searching..."). */
-  statusText?: string
-  /** Current sync phase — controls tint color for error/not-found states. */
-  phase?: ArtworkSyncPhase
   /** Width/height ratio of the container, used to set canvas proportions. @default 0.75 */
   aspectRatio?: number
   className?: string
+  /** Current sync phase — controls tint color for error/not-found states. */
+  phase?: ArtworkSyncPhase
+  /** Optional status text shown at the bottom of the static (e.g. "Searching..."). */
+  statusText?: string
 }
 
 /**
@@ -37,25 +37,25 @@ interface TVStaticProps {
  */
 export const TVStatic: React.FC<TVStaticProps> = ({
   active,
-  statusText,
-  phase,
   aspectRatio = 0.75,
   className,
+  phase,
+  statusText,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
-    if (!active) return
+    if (!active) {return}
 
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) {return}
 
     // Low-res noise — renders at this size, CSS scales it up for chunky pixels
     const noiseHeight = Math.round(64 / aspectRatio)
     return tvStaticManager.register(canvas, noiseHeight)
   }, [active, aspectRatio])
 
-  if (!active) return null
+  if (!active) {return null}
 
   const isError = phase === 'error'
   const isNotFound = phase === 'not-found'
@@ -87,16 +87,16 @@ export const TVStatic: React.FC<TVStaticProps> = ({
 
   return (
     <div
-      className={cn('absolute inset-0 overflow-hidden', className)}
       aria-label={statusText ?? 'Loading artwork'}
+      className={cn('absolute inset-0 overflow-hidden', className)}
     >
       {/* Dark background so static is visible in both light and dark mode */}
       <div className="absolute inset-0 bg-neutral-900" />
 
       {/* Canvas noise layer — low-res, scaled up with pixelated rendering */}
       <canvas
-        ref={canvasRef}
         className="absolute inset-0 w-full h-full"
+        ref={canvasRef}
         style={{
           imageRendering: 'pixelated',
           opacity: 0.6,

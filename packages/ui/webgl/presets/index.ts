@@ -19,7 +19,7 @@ import { lcdGridV2GbaColorPreset } from './lcd-grid-v2-gba-color';
 import { lcdGridV2GbaColorMotionblurPreset } from './lcd-grid-v2-gba-color-motionblur';
 
 /** All available shader presets, ordered for UI display. */
-export const PRESET_LIST: ShaderPresetDefinition[] = [
+export const PRESET_LIST: Array<ShaderPresetDefinition> = [
   defaultPreset,
   nearestPreset,
   linearPreset,

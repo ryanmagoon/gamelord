@@ -4,6 +4,7 @@ import { crtCaligariFragmentShader } from '../shaders';
 export const crtCaligariPreset: ShaderPresetDefinition = {
   id: 'crt-caligari',
   label: 'CRT Caligari',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -13,5 +14,4 @@ export const crtCaligariPreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

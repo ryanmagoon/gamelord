@@ -1,32 +1,32 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
-import * as path from 'path'
+import * as path from 'node:path'
 
 // --- Module mocks (must be hoisted before any imports that use them) ---
 
 vi.mock('electron', () => ({
   app: {
+    getAppPath: vi.fn(() => '/tmp/test-app'),
     getPath: vi.fn((type: string) => {
-      if (type === 'userData') return '/tmp/test-userdata'
+      if (type === 'userData') {return '/tmp/test-userdata'}
       return '/tmp/test'
     }),
-    getAppPath: vi.fn(() => '/tmp/test-app'),
   },
 }))
 
 vi.mock('../utils/pathValidation', () => ({
-  validateRomPath: vi.fn((p: string) => p),
   validateCorePath: vi.fn((p: string) => p),
+  validateRomPath: vi.fn((p: string) => p),
 }))
 
-vi.mock('fs', () => ({
+vi.mock('node:fs', () => ({
   existsSync: vi.fn(() => false),
-  writeFileSync: vi.fn(),
-  readFileSync: vi.fn(),
   mkdirSync: vi.fn(),
+  readFileSync: vi.fn(),
   unlinkSync: vi.fn(),
+  writeFileSync: vi.fn(),
 }))
 
-import * as fs from 'fs'
+import * as fs from 'node:fs'
 import { LibretroNativeCore } from './LibretroNativeCore'
 import { validateRomPath, validateCorePath } from '../utils/pathValidation'
 
@@ -121,8 +121,8 @@ describe('LibretroNativeCore', () => {
       await core.launch('/roms/TestGame.nes', { corePath: '/cores/snes9x.dylib' })
 
       expect(launchedSpy).toHaveBeenCalledWith({
-        romPath: '/roms/TestGame.nes',
         corePath: '/cores/snes9x.dylib',
+        romPath: '/roms/TestGame.nes',
       })
     })
 

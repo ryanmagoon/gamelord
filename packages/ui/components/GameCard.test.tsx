@@ -6,17 +6,17 @@ import { ArtworkSyncStore } from '../hooks/useArtworkSyncStore'
 import type { ArtworkSyncPhase } from './TVStatic'
 
 const mockGame: Game = {
-  id: '1',
-  title: 'Super Mario Bros.',
-  platform: 'NES',
   genre: 'Platform',
+  id: '1',
+  platform: 'NES',
   romPath: '/roms/smb.nes',
+  title: 'Super Mario Bros.',
 }
 
 /** Creates a store with a preset phase for the mock game. */
 function storeWithPhase(phase: ArtworkSyncPhase): ArtworkSyncStore {
   const store = new ArtworkSyncStore()
-  if (phase !== null) store.setPhase(mockGame.id, phase)
+  if (phase !== null) {store.setPhase(mockGame.id, phase)}
   return store
 }
 
@@ -41,7 +41,7 @@ describe('GameCard', () => {
     it('renders Options button with aria-label containing game title when onOptions is provided', () => {
       const onPlay = vi.fn()
       const onOptions = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} onOptions={onOptions} />)
+      render(<GameCard game={mockGame} onOptions={onOptions} onPlay={onPlay} />)
 
       const optionsButton = screen.getByRole('button', { name: /options for super mario bros/i })
       expect(optionsButton).toBeInTheDocument()
@@ -58,7 +58,7 @@ describe('GameCard', () => {
     it('Options button container uses focus-within to reveal on keyboard focus', () => {
       const onPlay = vi.fn()
       const onOptions = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} onOptions={onOptions} />)
+      render(<GameCard game={mockGame} onOptions={onOptions} onPlay={onPlay} />)
 
       const optionsButton = screen.getByRole('button', { name: /options for super mario bros/i })
       const container = optionsButton.parentElement!
@@ -69,7 +69,7 @@ describe('GameCard', () => {
       const user = userEvent.setup()
       const onPlay = vi.fn()
       const onOptions = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} onOptions={onOptions} />)
+      render(<GameCard game={mockGame} onOptions={onOptions} onPlay={onPlay} />)
 
       // Tab to card
       await user.tab()
@@ -115,7 +115,7 @@ describe('GameCard', () => {
       const user = userEvent.setup()
       const onPlay = vi.fn()
       const onOptions = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} onOptions={onOptions} />)
+      render(<GameCard game={mockGame} onOptions={onOptions} onPlay={onPlay} />)
 
       await user.click(screen.getByRole('button', { name: /options for super mario bros/i }))
       expect(onOptions).toHaveBeenCalledWith(mockGame)
@@ -126,7 +126,7 @@ describe('GameCard', () => {
   describe('artworkSyncPhase', () => {
     it('shows TV static with sync pulse during hashing phase', () => {
       const onPlay = vi.fn()
-      const { container } = render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('hashing')} />)
+      const { container } = render(<GameCard artworkSyncStore={storeWithPhase('hashing')} game={mockGame} onPlay={onPlay} />)
 
       const staticWrapper = container.querySelector('.absolute.inset-0.transition-opacity')
       expect(staticWrapper).not.toBeNull()
@@ -136,7 +136,7 @@ describe('GameCard', () => {
 
     it('shows TV static with sync pulse during querying phase', () => {
       const onPlay = vi.fn()
-      const { container } = render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('querying')} />)
+      const { container } = render(<GameCard artworkSyncStore={storeWithPhase('querying')} game={mockGame} onPlay={onPlay} />)
 
       const staticWrapper = container.querySelector('.absolute.inset-0.transition-opacity')
       expect(staticWrapper!.className).toContain('animate-card-sync-pulse')
@@ -144,7 +144,7 @@ describe('GameCard', () => {
 
     it('shows TV static with sync pulse during downloading phase', () => {
       const onPlay = vi.fn()
-      const { container } = render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('downloading')} />)
+      const { container } = render(<GameCard artworkSyncStore={storeWithPhase('downloading')} game={mockGame} onPlay={onPlay} />)
 
       const staticWrapper = container.querySelector('.absolute.inset-0.transition-opacity')
       expect(staticWrapper!.className).toContain('animate-card-sync-pulse')
@@ -160,7 +160,7 @@ describe('GameCard', () => {
 
     it('shows "Artwork not found" label and game title during not-found phase', () => {
       const onPlay = vi.fn()
-      render(<GameCard game={mockGame} onPlay={onPlay} artworkSyncStore={storeWithPhase('not-found')} />)
+      render(<GameCard artworkSyncStore={storeWithPhase('not-found')} game={mockGame} onPlay={onPlay} />)
 
       expect(screen.getByText('Artwork not found')).toBeInTheDocument()
       expect(screen.getByText('Super Mario Bros.')).toBeInTheDocument()
@@ -196,7 +196,7 @@ describe('GameCard', () => {
       const onPlay = vi.fn()
       const gameWithArt = { ...mockGame, coverArt: 'artwork://test.png' }
       const { container } = render(
-        <GameCard game={gameWithArt} onPlay={onPlay} artworkSyncStore={storeWithPhase('done')} />
+        <GameCard artworkSyncStore={storeWithPhase('done')} game={gameWithArt} onPlay={onPlay} />
       )
 
       const img = container.querySelector('img')

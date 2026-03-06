@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain, MessageChannelMain, screen } from 'electron'
-import path from 'path'
-import { execFile } from 'child_process'
-import { promisify } from 'util'
+import path from 'node:path'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import type { Game } from '../types/library'
 import type { EmulationWorkerClient } from './emulator/EmulationWorkerClient'
 import type { AVInfo } from './workers/core-worker-protocol'
@@ -166,7 +166,7 @@ export class GameWindowManager {
     if (sharedBuffers) {
       const { port1, port2 } = new MessageChannelMain()
       gameWindow.webContents.on('did-finish-load', () => {
-        if (gameWindow.isDestroyed()) return
+        if (gameWindow.isDestroyed()) {return}
         gameWindow.webContents.postMessage('game:shared-frame-port', null, [port2])
 
         // Send SABs through the port after a microtask delay to ensure
@@ -264,8 +264,8 @@ export class GameWindowManager {
       // Without this, the worker stays alive and its eventual exit
       // triggers an unhandled 'error' event (ERR_UNHANDLED_ERROR)
       // because the listener on the destroyed window is already gone.
-      workerClient.shutdown().catch((err) => {
-        gameWindowLog.warn('Worker shutdown after window close failed:', err)
+      workerClient.shutdown().catch((error) => {
+        gameWindowLog.warn('Worker shutdown after window close failed:', error)
       })
     })
 
@@ -365,7 +365,7 @@ export class GameWindowManager {
     const MAX_MISSES = 5 // consecutive failures before assuming window is gone
 
     const poll = async () => {
-      if (polling) return
+      if (polling) {return}
       polling = true
       try {
         if (gameWindow.isDestroyed()) {

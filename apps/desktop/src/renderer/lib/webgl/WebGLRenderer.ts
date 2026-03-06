@@ -33,7 +33,7 @@ export class WebGLRenderer {
   }
 
   render(_videoFrame: ImageData): void {
-    if (!this.isReady) return;
+    if (!this.isReady) {return;}
     
     // TODO: Render the video frame using WebGL
   }

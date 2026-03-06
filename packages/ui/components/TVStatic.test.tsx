@@ -36,20 +36,20 @@ describe('TVStatic', () => {
 
   it('applies red tint for error phase', () => {
     const { container } = render(<TVStatic active={true} phase="error" />)
-    const redOverlay = container.querySelector('.bg-red-500\\/15')
+    const redOverlay = container.querySelector(String.raw`.bg-red-500\/15`)
     expect(redOverlay).not.toBeNull()
   })
 
   it('applies amber tint for not-found phase', () => {
     const { container } = render(<TVStatic active={true} phase="not-found" />)
-    const amberOverlay = container.querySelector('.bg-amber-500\\/15')
+    const amberOverlay = container.querySelector(String.raw`.bg-amber-500\/15`)
     expect(amberOverlay).not.toBeNull()
   })
 
   it('does not apply color tint for normal sync phases', () => {
     const { container } = render(<TVStatic active={true} phase="querying" />)
-    expect(container.querySelector('.bg-red-500\\/15')).toBeNull()
-    expect(container.querySelector('.bg-amber-500\\/15')).toBeNull()
+    expect(container.querySelector(String.raw`.bg-red-500\/15`)).toBeNull()
+    expect(container.querySelector(String.raw`.bg-amber-500\/15`)).toBeNull()
   })
 
   it('renders a solid placeholder instead of canvas in deterministic mode', () => {

@@ -19,7 +19,7 @@ export function useScrollContainer(
 
   useEffect(() => {
     const element = scrollRef?.current
-    if (!element) return
+    if (!element) {return}
 
     // Measure initial viewport height
     setState(prev => ({ ...prev, viewportHeight: element.clientHeight }))
@@ -33,7 +33,7 @@ export function useScrollContainer(
     // Track scroll position, throttled to one update per animation frame
     let rafId = 0
     const onScroll = () => {
-      if (rafId) return
+      if (rafId) {return}
       rafId = requestAnimationFrame(() => {
         setState(prev => ({ ...prev, scrollTop: element.scrollTop }))
         rafId = 0
@@ -44,7 +44,7 @@ export function useScrollContainer(
     return () => {
       ro.disconnect()
       element.removeEventListener('scroll', onScroll)
-      if (rafId) cancelAnimationFrame(rafId)
+      if (rafId) {cancelAnimationFrame(rafId)}
     }
   }, [scrollRef])
 

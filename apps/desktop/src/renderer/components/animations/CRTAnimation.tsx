@@ -3,10 +3,10 @@ import React, { useEffect, useState } from 'react'
 interface CRTAnimationProps {
   /** Whether this is a power-on or power-off animation. */
   direction: 'on' | 'off'
-  /** Called when the animation completes. */
-  onComplete: () => void
   /** Total duration of the animation in ms. */
   duration?: number
+  /** Called when the animation completes. */
+  onComplete: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -32,31 +32,31 @@ type PowerOffPhase = 'shrink' | 'line' | 'dot' | 'black' | 'done'
  */
 export const CRTAnimation: React.FC<CRTAnimationProps> = ({
   direction,
-  onComplete,
   duration = direction === 'on' ? 800 : 500,
+  onComplete,
 }) => {
   if (direction === 'on') {
-    return <CRTPowerOn onComplete={onComplete} duration={duration} />
+    return <CRTPowerOn duration={duration} onComplete={onComplete} />
   }
-  return <CRTPowerOff onComplete={onComplete} duration={duration} />
+  return <CRTPowerOff duration={duration} onComplete={onComplete} />
 }
 
 // ---------------------------------------------------------------------------
 // Power-on (ported from CRTPowerOn.tsx)
 // ---------------------------------------------------------------------------
 
-const CRTPowerOn: React.FC<{ onComplete: () => void; duration: number }> = ({
-  onComplete,
+const CRTPowerOn: React.FC<{ duration: number; onComplete: () => void; }> = ({
   duration,
+  onComplete,
 }) => {
   const [phase, setPhase] = useState<PowerOnPhase>('line')
 
   useEffect(() => {
     const timings = {
-      line: duration * 0.15,
       expand: duration * 0.35,
-      static: duration * 0.25,
       fade: duration * 0.25,
+      line: duration * 0.15,
+      static: duration * 0.25,
     }
 
     const lineTimer = setTimeout(() => setPhase('expand'), timings.line)
@@ -75,7 +75,7 @@ const CRTPowerOn: React.FC<{ onComplete: () => void; duration: number }> = ({
     }
   }, [duration, onComplete])
 
-  if (phase === 'done') return null
+  if (phase === 'done') {return null}
 
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
@@ -93,8 +93,8 @@ const CRTPowerOn: React.FC<{ onComplete: () => void; duration: number }> = ({
           <div
             className="h-[2px] bg-white"
             style={{
-              boxShadow: '0 0 20px 5px rgba(255, 255, 255, 0.8), 0 0 40px 10px rgba(100, 200, 255, 0.5)',
               animation: `crt-line-expand ${duration * 0.15}ms ease-out forwards`,
+              boxShadow: '0 0 20px 5px rgba(255, 255, 255, 0.8), 0 0 40px 10px rgba(100, 200, 255, 0.5)',
             }}
           />
         </div>
@@ -109,8 +109,8 @@ const CRTPowerOn: React.FC<{ onComplete: () => void; duration: number }> = ({
               animation: phase === 'expand'
                 ? `crt-screen-expand ${duration * 0.35}ms ease-out forwards`
                 : undefined,
-              width: phase === 'static' ? '100%' : undefined,
               height: phase === 'static' ? '100%' : undefined,
+              width: phase === 'static' ? '100%' : undefined,
             }}
           >
             {/* Phosphor glow */}
@@ -176,18 +176,18 @@ const CRTPowerOn: React.FC<{ onComplete: () => void; duration: number }> = ({
 // Power-off (new — reverse CRT tube collapse)
 // ---------------------------------------------------------------------------
 
-const CRTPowerOff: React.FC<{ onComplete: () => void; duration: number }> = ({
-  onComplete,
+const CRTPowerOff: React.FC<{ duration: number; onComplete: () => void; }> = ({
   duration,
+  onComplete,
 }) => {
   const [phase, setPhase] = useState<PowerOffPhase>('shrink')
 
   useEffect(() => {
     const timings = {
-      shrink: duration * 0.35,
-      line: duration * 0.25,
-      dot: duration * 0.20,
       black: duration * 0.20,
+      dot: duration * 0.20,
+      line: duration * 0.25,
+      shrink: duration * 0.35,
     }
 
     const lineTimer = setTimeout(() => setPhase('line'), timings.shrink)
@@ -252,8 +252,8 @@ const CRTPowerOff: React.FC<{ onComplete: () => void; duration: number }> = ({
           <div
             className="h-[2px] bg-white"
             style={{
-              boxShadow: '0 0 15px 4px rgba(255, 255, 255, 0.7), 0 0 30px 8px rgba(100, 200, 255, 0.4)',
               animation: `crt-line-collapse ${duration * 0.25}ms ease-in forwards`,
+              boxShadow: '0 0 15px 4px rgba(255, 255, 255, 0.7), 0 0 30px 8px rgba(100, 200, 255, 0.4)',
             }}
           />
         </div>
@@ -265,10 +265,10 @@ const CRTPowerOff: React.FC<{ onComplete: () => void; duration: number }> = ({
           <div
             className="rounded-full bg-white"
             style={{
-              width: 6,
-              height: 6,
-              boxShadow: '0 0 20px 10px rgba(255, 255, 255, 0.6), 0 0 40px 20px rgba(100, 200, 255, 0.3)',
               animation: `crt-dot-fade ${duration * 0.20}ms ease-out forwards`,
+              boxShadow: '0 0 20px 10px rgba(255, 255, 255, 0.6), 0 0 40px 20px rgba(100, 200, 255, 0.3)',
+              height: 6,
+              width: 6,
             }}
           />
         </div>

@@ -1,8 +1,8 @@
-import { EventEmitter } from 'events';
-import { promises as fs } from 'fs';
-import * as fsSync from 'fs';
-import path from 'path';
-import https from 'https';
+import { EventEmitter } from 'node:events';
+import { promises as fs } from 'node:fs';
+import * as fsSync from 'node:fs';
+import path from 'node:path';
+import https from 'node:https';
 import { app } from 'electron';
 import { artworkLog } from '../logger';
 import { LibraryService } from './LibraryService';
@@ -22,10 +22,10 @@ import { getRegionalSystemName } from '../../types/library';
 const RATE_LIMIT_DELAY_MS = 1100;
 
 /** Backoff delay after a rate limit (429) response. */
-const RATE_LIMIT_BACKOFF_MS = 10000;
+const RATE_LIMIT_BACKOFF_MS = 10_000;
 
 /** Timeout for image downloads in milliseconds (30 seconds). */
-const DOWNLOAD_TIMEOUT_MS = 30000;
+const DOWNLOAD_TIMEOUT_MS = 30_000;
 
 /**
  * Orchestrates the artwork and metadata pipeline:
@@ -72,7 +72,7 @@ export class ArtworkService extends EventEmitter {
       ),
     );
 
-    if (needsBackfill.length === 0) return;
+    if (needsBackfill.length === 0) {return;}
 
     artworkLog.info(`Backfilling aspect ratios for ${needsBackfill.length} game(s)`);
 
@@ -161,9 +161,9 @@ export class ArtworkService extends EventEmitter {
    */
   async syncGame(gameId: string, force = false): Promise<boolean> {
     const game = this.libraryService.getGame(gameId);
-    if (!game) return false;
+    if (!game) {return false;}
 
-    if (game.coverArt && !force) return true;
+    if (game.coverArt && !force) {return true;}
 
     const client = this.createClient();
 
@@ -202,7 +202,7 @@ export class ArtworkService extends EventEmitter {
       }
     }
 
-    if (!gameInfo) return false;
+    if (!gameInfo) {return false;}
 
     // Step 4: Download artwork
     const artworkUrl = gameInfo.media.boxArt2d ?? gameInfo.media.boxArt3d ?? gameInfo.media.screenshot;
@@ -268,7 +268,7 @@ export class ArtworkService extends EventEmitter {
    * Sync artwork for a specific list of game IDs.
    * Used for auto-sync after ROM import to avoid re-syncing the entire library.
    */
-  async syncGames(gameIds: string[]): Promise<ArtworkSyncStatus> {
+  async syncGames(gameIds: Array<string>): Promise<ArtworkSyncStatus> {
     if (this.syncing) {
       return { inProgress: true, processed: 0, total: 0, found: 0, notFound: 0, errors: 0 };
     }
@@ -388,7 +388,7 @@ export class ArtworkService extends EventEmitter {
    * Internal batch sync implementation shared by syncAllGames() and syncGames().
    * Processes game IDs serially with rate limiting, progress emission, and cancellation.
    */
-  private async runSyncBatch(gameIds: string[]): Promise<ArtworkSyncStatus> {
+  private async runSyncBatch(gameIds: Array<string>): Promise<ArtworkSyncStatus> {
     const total = gameIds.length;
     let processed = 0;
     let found = 0;
@@ -396,7 +396,7 @@ export class ArtworkService extends EventEmitter {
     let errors = 0;
 
     for (const gameId of gameIds) {
-      if (this.cancelled) break;
+      if (this.cancelled) {break;}
 
       const game = this.libraryService.getGame(gameId);
       if (!game) {
@@ -505,7 +505,7 @@ export class ArtworkService extends EventEmitter {
 
   private async loadConfig(): Promise<void> {
     try {
-      const data = await fs.readFile(this.configPath, 'utf-8');
+      const data = await fs.readFile(this.configPath, 'utf8');
       this.config = JSON.parse(data);
     } catch {
       this.config = {};

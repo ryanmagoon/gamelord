@@ -8,6 +8,7 @@ import {
 export const lcdGridV2GbaColorMotionblurPreset: ShaderPresetDefinition = {
   id: 'lcd-grid-v2-gba-color-motionblur',
   label: 'LCD GBA + Motion Blur',
+  luts: [],
   passes: [
     {
       index: 0,
@@ -32,5 +33,4 @@ export const lcdGridV2GbaColorMotionblurPreset: ShaderPresetDefinition = {
       format: 'rgba8',
     },
   ],
-  luts: [],
 };

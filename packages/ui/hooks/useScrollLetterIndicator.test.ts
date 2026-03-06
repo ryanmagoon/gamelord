@@ -6,19 +6,19 @@ import {
   type UseScrollLetterIndicatorOptions,
 } from './useScrollLetterIndicator'
 
-const makeGames = (titles: string[]) =>
+const makeGames = (titles: Array<string>) =>
   titles.map((title, i) => ({
     id: String(i),
-    title,
     platform: 'NES',
     romPath: `/roms/${i}.nes`,
+    title,
   }))
 
 const defaultOptions: UseScrollLetterIndicatorOptions = {
   firstVisibleIndex: 0,
   games: makeGames(['Alpha', 'Beta', 'Charlie', 'Delta']),
-  sortBy: 'title',
   scrollTop: 0,
+  sortBy: 'title',
 }
 
 describe('getLetterFromTitle', () => {
@@ -81,7 +81,7 @@ describe('useScrollLetterIndicator', () => {
 
   it('returns null letter when games array is empty', () => {
     const { result } = renderHook(() =>
-      useScrollLetterIndicator({ ...defaultOptions, games: [], firstVisibleIndex: 0 }),
+      useScrollLetterIndicator({ ...defaultOptions, firstVisibleIndex: 0, games: [] }),
     )
     expect(result.current.letter).toBeNull()
   })
@@ -89,7 +89,7 @@ describe('useScrollLetterIndicator', () => {
   it('returns # for games starting with numbers', () => {
     const games = makeGames(['1942', 'Alpha'])
     const { result } = renderHook(() =>
-      useScrollLetterIndicator({ ...defaultOptions, games, firstVisibleIndex: 0 }),
+      useScrollLetterIndicator({ ...defaultOptions, firstVisibleIndex: 0, games }),
     )
     expect(result.current.letter).toBe('#')
   })
@@ -100,7 +100,7 @@ describe('useScrollLetterIndicator', () => {
   })
 
   it('stays hidden when scrolling without crossing a letter boundary', () => {
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
       { initialProps: defaultOptions },
     )
@@ -115,7 +115,7 @@ describe('useScrollLetterIndicator', () => {
   })
 
   it('becomes visible when fast-scrolling across a letter boundary', () => {
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
       { initialProps: { ...defaultOptions, minSpeedPxPerMs: 0 } },
     )
@@ -127,9 +127,9 @@ describe('useScrollLetterIndicator', () => {
     // Second scroll crosses letter boundary (A -> B)
     rerender({
       ...defaultOptions,
+      firstVisibleIndex: 1,
       minSpeedPxPerMs: 0,
       scrollTop: 500,
-      firstVisibleIndex: 1,
     })
     expect(result.current.isVisible).toBe(true)
   })
@@ -138,7 +138,7 @@ describe('useScrollLetterIndicator', () => {
     const now = Date.now()
     vi.setSystemTime(now)
 
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
       { initialProps: { ...defaultOptions, minSpeedPxPerMs: 5 } },
     )
@@ -151,9 +151,9 @@ describe('useScrollLetterIndicator', () => {
     vi.setSystemTime(now + 200)
     rerender({
       ...defaultOptions,
+      firstVisibleIndex: 1,
       minSpeedPxPerMs: 5,
       scrollTop: 30,
-      firstVisibleIndex: 1,
     })
     expect(result.current.isVisible).toBe(false)
   })
@@ -162,7 +162,7 @@ describe('useScrollLetterIndicator', () => {
     const now = Date.now()
     vi.setSystemTime(now)
 
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
       { initialProps: { ...defaultOptions, minSpeedPxPerMs: 2 } },
     )
@@ -175,9 +175,9 @@ describe('useScrollLetterIndicator', () => {
     vi.setSystemTime(now + 20)
     rerender({
       ...defaultOptions,
+      firstVisibleIndex: 1,
       minSpeedPxPerMs: 2,
       scrollTop: 600,
-      firstVisibleIndex: 1,
     })
     expect(result.current.isVisible).toBe(true)
   })
@@ -186,7 +186,7 @@ describe('useScrollLetterIndicator', () => {
     const now = Date.now()
     vi.setSystemTime(now)
 
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
       { initialProps: { ...defaultOptions, hideDelay: 300, minSpeedPxPerMs: 1 } },
     )
@@ -199,10 +199,10 @@ describe('useScrollLetterIndicator', () => {
     vi.setSystemTime(now + 20)
     rerender({
       ...defaultOptions,
+      firstVisibleIndex: 1,
       hideDelay: 300,
       minSpeedPxPerMs: 1,
       scrollTop: 600,
-      firstVisibleIndex: 1,
     })
     expect(result.current.isVisible).toBe(true)
 
@@ -210,10 +210,10 @@ describe('useScrollLetterIndicator', () => {
     vi.setSystemTime(now + 220)
     rerender({
       ...defaultOptions,
+      firstVisibleIndex: 1,
       hideDelay: 300,
       minSpeedPxPerMs: 1,
       scrollTop: 1200,
-      firstVisibleIndex: 1,
     })
     // Should still be visible — timer was reset
     expect(result.current.isVisible).toBe(true)
@@ -222,10 +222,10 @@ describe('useScrollLetterIndicator', () => {
     vi.setSystemTime(now + 420)
     rerender({
       ...defaultOptions,
+      firstVisibleIndex: 1,
       hideDelay: 300,
       minSpeedPxPerMs: 1,
       scrollTop: 1800,
-      firstVisibleIndex: 1,
     })
     expect(result.current.isVisible).toBe(true)
 
@@ -237,7 +237,7 @@ describe('useScrollLetterIndicator', () => {
   })
 
   it('hides after hideDelay expires', () => {
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
       { initialProps: { ...defaultOptions, hideDelay: 500, minSpeedPxPerMs: 0 } },
     )
@@ -246,10 +246,10 @@ describe('useScrollLetterIndicator', () => {
     rerender({ ...defaultOptions, hideDelay: 500, minSpeedPxPerMs: 0, scrollTop: 100 })
     rerender({
       ...defaultOptions,
+      firstVisibleIndex: 1,
       hideDelay: 500,
       minSpeedPxPerMs: 0,
       scrollTop: 500,
-      firstVisibleIndex: 1,
     })
     expect(result.current.isVisible).toBe(true)
 
@@ -260,7 +260,7 @@ describe('useScrollLetterIndicator', () => {
   })
 
   it('resets visibility when sortBy changes', () => {
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
       { initialProps: { ...defaultOptions, minSpeedPxPerMs: 0 } },
     )
@@ -269,25 +269,25 @@ describe('useScrollLetterIndicator', () => {
     rerender({ ...defaultOptions, minSpeedPxPerMs: 0, scrollTop: 100 })
     rerender({
       ...defaultOptions,
+      firstVisibleIndex: 1,
       minSpeedPxPerMs: 0,
       scrollTop: 500,
-      firstVisibleIndex: 1,
     })
     expect(result.current.isVisible).toBe(true)
 
     // Change sort mode
     rerender({
       ...defaultOptions,
+      firstVisibleIndex: 1,
       minSpeedPxPerMs: 0,
       scrollTop: 500,
-      firstVisibleIndex: 1,
       sortBy: 'platform',
     })
     expect(result.current.isVisible).toBe(false)
   })
 
   it('updates letter when firstVisibleIndex changes', () => {
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       (props: UseScrollLetterIndicatorOptions) => useScrollLetterIndicator(props),
       { initialProps: defaultOptions },
     )

@@ -14,64 +14,64 @@ import { useArtworkSyncPhase, type ArtworkSyncStore } from '../hooks/useArtworkS
 import { useEdgeAwareHover } from '../hooks/useEdgeAwareHover'
 
 export interface Game {
-  id: string
-  title: string
-  platform: string
-  /** Machine-readable system identifier (e.g. "snes", "nes"). Used for launch. */
-  systemId?: string
-  genre?: string
   coverArt?: string
   /** Width/height ratio of cover art (e.g. 0.714). Used for dynamic card sizing. */
   coverArtAspectRatio?: number
-  romPath: string
-  lastPlayed?: Date
-  playTime?: number
   favorite?: boolean
+  genre?: string
+  id: string
+  lastPlayed?: Date
+  platform: string
+  playTime?: number
+  romPath: string
+  /** Machine-readable system identifier (e.g. "snes", "nes"). Used for launch. */
+  systemId?: string
+  title: string
 }
 
 export interface GameCardMenuItem {
-  label: string
   icon?: React.ReactNode
+  label: string
   onClick: () => void
 }
 
 export interface GameCardProps {
-  game: Game
-  onPlay: (game: Game, cardRect?: DOMRect) => void
-  /** @deprecated Use menuItems instead for dropdown menu support. */
-  onOptions?: (game: Game) => void
-  /** Menu items shown in the options dropdown on hover. */
-  menuItems?: GameCardMenuItem[]
-  /** Factory function that returns menu items. Called lazily when dropdown opens. Preferred over menuItems for memoization. */
-  getMenuItems?: (game: Game) => GameCardMenuItem[]
-  /** Called when the user toggles the favorite heart on this card. */
-  onToggleFavorite?: (game: Game) => void
   /** External store for artwork sync phases. The card subscribes to its own game's phase. */
   artworkSyncStore?: ArtworkSyncStore
-  /** Whether this game is currently being launched. Shows a shimmer overlay and wait cursor. */
-  isLaunching?: boolean
+  className?: string
   /** Whether this card is disabled (e.g. another game is launching). Dims the card and prevents interaction. */
   disabled?: boolean
-  className?: string
-  /** Inline styles forwarded to the root card element (useful for animation delays). */
-  style?: React.CSSProperties
+  game: Game
+  /** Factory function that returns menu items. Called lazily when dropdown opens. Preferred over menuItems for memoization. */
+  getMenuItems?: (game: Game) => Array<GameCardMenuItem>
+  /** Whether this game is currently being launched. Shows a shimmer overlay and wait cursor. */
+  isLaunching?: boolean
+  /** Menu items shown in the options dropdown on hover. */
+  menuItems?: Array<GameCardMenuItem>
+  /** @deprecated Use menuItems instead for dropdown menu support. */
+  onOptions?: (game: Game) => void
+  onPlay: (game: Game, cardRect?: DOMRect) => void
+  /** Called when the user toggles the favorite heart on this card. */
+  onToggleFavorite?: (game: Game) => void
   /** Ref forwarded to the root Card element (used for FLIP measurements). */
   ref?: React.Ref<HTMLDivElement>
+  /** Inline styles forwarded to the root card element (useful for animation delays). */
+  style?: React.CSSProperties
 }
 
 export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
-  game,
-  onPlay,
-  onOptions,
-  onToggleFavorite,
-  menuItems: menuItemsProp,
-  getMenuItems,
   artworkSyncStore,
-  isLaunching,
-  disabled,
   className,
-  style,
+  disabled,
+  game,
+  getMenuItems,
+  isLaunching,
+  menuItems: menuItemsProp,
+  onOptions,
+  onPlay,
+  onToggleFavorite,
   ref,
+  style,
 }) {
   // Subscribe to this game's sync phase — only re-renders when THIS game's phase changes
   const artworkSyncPhase = useArtworkSyncPhase(artworkSyncStore, game.id)
@@ -135,7 +135,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
 
   // Edge-aware hover: shift card inward when scaled-up version would clip.
   // Lock the translate during launch so the card holds position when the modal opens.
-  const { onPointerEnter, onPointerLeave, edgeTranslate } = useEdgeAwareHover({
+  const { edgeTranslate, onPointerEnter, onPointerLeave } = useEdgeAwareHover({
     disabled,
     locked: isLaunching,
     scaleFactor: 1.15,
@@ -143,7 +143,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
 
   // Merge edge-aware translate into existing style prop
   const mergedStyle = useMemo(() => {
-    if (!edgeTranslate) return style
+    if (!edgeTranslate) {return style}
     return {
       ...style,
       translate: `${edgeTranslate.x}px ${edgeTranslate.y}px`,
@@ -153,13 +153,13 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
   // Merge forwarded ref and internal cardRef
   const mergedCardRef = useCallback((el: HTMLDivElement | null) => {
     cardRef.current = el
-    if (typeof ref === 'function') ref(el)
-    else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el
+    if (typeof ref === 'function') {ref(el)}
+    else if (ref) {(ref as React.MutableRefObject<HTMLDivElement | null>).current = el}
   }, [ref])
 
   return (
     <Card
-      ref={mergedCardRef}
+      aria-label={`Play ${game.title}`}
       className={cn(
         'game-card-border group relative rounded-none border-0 w-full h-full',
         disabled
@@ -168,14 +168,14 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
         isLaunching && 'game-card-active cursor-wait z-10 scale-[1.15]',
         className
       )}
-      style={mergedStyle}
-      onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
       onClick={handlePlay}
       onKeyDown={handleKeyDown}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      ref={mergedCardRef}
       role="button"
+      style={mergedStyle}
       tabIndex={0}
-      aria-label={`Play ${game.title}`}
       title={game.title}
     >
       <CardContent className="p-0 game-card-inner">
@@ -186,8 +186,6 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
            * cross-fade starts imperatively.
            */}
           <img
-            ref={imgRef}
-            src={game.coverArt ?? undefined}
             alt={game.title}
             className={cn(
               'w-full h-full object-cover transition-opacity duration-500 ease-out',
@@ -195,6 +193,8 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
               // Steady state: visible when coverArt exists.
               game.coverArt && (isDone ? crossFadeReady : true) ? 'opacity-100' : 'opacity-0',
             )}
+            ref={imgRef}
+            src={game.coverArt ?? undefined}
           />
 
           {/*
@@ -203,20 +203,20 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
            * canvas rebuild. The wrapper ref lets us fade it out imperatively.
            */}
           <div
-            ref={staticWrapperRef}
             className={cn(
               'absolute inset-0 transition-opacity duration-500 ease-out',
               // Keep pulsing during done phase until the image covers it
               (isActivelySyncing || (isDone && !crossFadeReady)) && 'animate-card-sync-pulse',
               crossFadeReady && 'opacity-0',
             )}
+            ref={staticWrapperRef}
           >
             <TVStatic
               active={showStatic}
+              aspectRatio={0.75}
               // During done phase, keep the static looking like it's still
               // downloading so it doesn't freeze — the image fades over it.
               phase={isDone ? 'downloading' : artworkSyncPhase}
-              aspectRatio={0.75}
             />
           </div>
 
@@ -256,17 +256,17 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
               game.favorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100',
             )}>
               <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
                 aria-label={game.favorite ? `Unfavorite ${game.title}` : `Favorite ${game.title}`}
+                className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
+                onAnimationEnd={() => setFavoritePop(false)}
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
                   setFavoritePop(true)
                   onToggleFavorite(game)
                 }}
-                onAnimationEnd={() => setFavoritePop(false)}
+                size="icon"
+                variant="ghost"
               >
                 <Heart
                   className={cn(
@@ -286,11 +286,11 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
                       aria-label={`Options for ${game.title}`}
+                      className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
                       onClick={(e) => e.stopPropagation()}
+                      size="icon"
+                      variant="ghost"
                     >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
@@ -309,15 +309,15 @@ export const GameCard: React.FC<GameCardProps> = React.memo(function GameCard({
                 </DropdownMenu>
               ) : (
                 <Button
-                  variant="ghost"
-                  size="icon"
+                  aria-label={`Options for ${game.title}`}
                   className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
                     onOptions?.(game)
                   }}
-                  aria-label={`Options for ${game.title}`}
+                  size="icon"
+                  variant="ghost"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>

@@ -14,12 +14,6 @@ export type FlipAnimationState = 'stable' | 'entering' | 'exiting'
 
 /** A single item returned by `useFlipAnimation`. */
 export interface FlipItem<T> {
-  item: T
-  key: string
-  /** Ref callback — attach to the DOM element for position measurement. */
-  ref: (element: HTMLElement | null) => void
-  /** Inline styles to apply (transforms, transitions, absolute positioning for exiters). */
-  style: CSSProperties
   /** Current animation phase. */
   animationState: FlipAnimationState
   /**
@@ -27,31 +21,37 @@ export interface FlipItem<T> {
    * `entering`). Apply as `animationDelay` on the entrance CSS animation.
    */
   enterDelay: number
+  item: T
+  key: string
+  /** Ref callback — attach to the DOM element for position measurement. */
+  ref: (element: HTMLElement | null) => void
+  /** Inline styles to apply (transforms, transitions, absolute positioning for exiters). */
+  style: CSSProperties
 }
 
 export interface UseFlipAnimationOptions {
-  /** Ref to the grid container element. Used to compute relative positions. */
-  gridRef: React.RefObject<HTMLElement | null>
   /** Duration of the FLIP slide animation in ms. @default 300 */
   duration?: number
   /** CSS easing for the FLIP slide. @default 'cubic-bezier(0.25, 1, 0.5, 1)' */
   easing?: string
-  /** Stagger interval between entering cards in ms. @default 40 */
-  staggerEnter?: number
-  /** Maximum stagger delay cap in ms. @default 600 */
-  maxStaggerDelay?: number
   /** Duration of the exit animation in ms. @default 200 */
   exitDuration?: number
+  /** Ref to the grid container element. Used to compute relative positions. */
+  gridRef: React.RefObject<HTMLElement | null>
+  /** Maximum stagger delay cap in ms. @default 600 */
+  maxStaggerDelay?: number
+  /** Stagger interval between entering cards in ms. @default 40 */
+  staggerEnter?: number
 }
 
 /** Shared style for stable (persisting) items — never changes, so React.memo sees the same reference. */
 const STABLE_STYLE: CSSProperties = { position: 'relative' } as const
 
 interface PositionRecord {
+  height: number
   left: number
   top: number
   width: number
-  height: number
 }
 
 /**
@@ -62,17 +62,17 @@ interface PositionRecord {
  * their last position, and entering items play a staggered entrance animation.
  */
 export function useFlipAnimation<T>(
-  items: T[],
+  items: Array<T>,
   getKey: (item: T) => string,
   options: UseFlipAnimationOptions,
-): FlipItem<T>[] {
+): Array<FlipItem<T>> {
   const {
-    gridRef,
     duration = 300,
     easing = 'cubic-bezier(0.25, 1, 0.5, 1)',
-    staggerEnter = 40,
-    maxStaggerDelay = 600,
     exitDuration = 200,
+    gridRef,
+    maxStaggerDelay = 600,
+    staggerEnter = 40,
   } = options
 
   // ---- Refs (mutable across renders) ----
@@ -84,7 +84,7 @@ export function useFlipAnimation<T>(
   /** Item snapshots from the previous render (needed to render exiters). */
   const previousItemsRef = useRef<Map<string, T>>(new Map())
   /** Ordered key list from the previous render — used to detect reordering vs property-only changes. */
-  const previousKeyOrderRef = useRef<string[]>([])
+  const previousKeyOrderRef = useRef<Array<string>>([])
   /** Whether any render has committed yet. */
   const isFirstRenderRef = useRef(true)
   /** Active cleanup timeouts. */
@@ -99,14 +99,14 @@ export function useFlipAnimation<T>(
   const measurePosition = useCallback(
     (element: HTMLElement): PositionRecord | null => {
       const grid = gridRef.current
-      if (!grid) return null
+      if (!grid) {return null}
       const gridRect = grid.getBoundingClientRect()
       const elementRect = element.getBoundingClientRect()
       return {
+        height: elementRect.height,
         left: elementRect.left - gridRect.left,
         top: elementRect.top - gridRect.top,
         width: elementRect.width,
-        height: elementRect.height,
       }
     },
     [gridRef],
@@ -202,7 +202,7 @@ export function useFlipAnimation<T>(
     }
 
     // Collect persisting items
-    const persistingKeys: string[] = []
+    const persistingKeys: Array<string> = []
     for (const item of items) {
       const key = getKey(item)
       if (previousItems.has(key)) {
@@ -236,31 +236,31 @@ export function useFlipAnimation<T>(
 
     // ---- FLIP persisting items ----
     const elementsToAnimate: Array<{
-      element: HTMLElement
       deltaX: number
       deltaY: number
+      element: HTMLElement
     }> = []
 
     for (const key of persistingKeys) {
       const element = elementMapRef.current.get(key)
       const oldPosition = previousPositions.get(key)
-      if (!element || !oldPosition) continue
+      if (!element || !oldPosition) {continue}
 
       const newPosition = measurePosition(element)
-      if (!newPosition) continue
+      if (!newPosition) {continue}
 
       const deltaX = oldPosition.left - newPosition.left
       const deltaY = oldPosition.top - newPosition.top
 
       // Skip if the delta is sub-pixel (no visible movement)
-      if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) continue
+      if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) {continue}
 
-      elementsToAnimate.push({ element, deltaX, deltaY })
+      elementsToAnimate.push({ deltaX, deltaY, element })
     }
 
     if (elementsToAnimate.length > 0) {
       // Invert: snap to old position with no transition
-      for (const { element, deltaX, deltaY } of elementsToAnimate) {
+      for (const { deltaX, deltaY, element } of elementsToAnimate) {
         element.style.transform = `translate(${deltaX}px, ${deltaY}px)`
         element.style.transition = 'none'
       }
@@ -320,7 +320,7 @@ export function useFlipAnimation<T>(
   const enteringStyleCache = useRef<Map<number, CSSProperties>>(new Map())
 
   let enterIndex = 0
-  const result: FlipItem<T>[] = []
+  const result: Array<FlipItem<T>> = []
 
   // Current items
   for (const item of items) {
@@ -334,7 +334,7 @@ export function useFlipAnimation<T>(
       // the same object reference across renders.
       let cached = enteringStyleCache.current.get(delay)
       if (!cached) {
-        cached = { position: 'relative', animationDelay: `${delay}ms` }
+        cached = { animationDelay: `${delay}ms`, position: 'relative' }
         enteringStyleCache.current.set(delay, cached)
       }
       style = cached
@@ -343,23 +343,25 @@ export function useFlipAnimation<T>(
     }
 
     result.push({
+      animationState: isEntering ? 'entering' : 'stable',
+      enterDelay: delay,
       item,
       key,
       ref: getRefCallback(key),
       style,
-      animationState: isEntering ? 'entering' : 'stable',
-      enterDelay: delay,
     })
 
-    if (isEntering) enterIndex++
+    if (isEntering) {enterIndex++}
   }
 
   // Exiting items (absolute-positioned at their last known location)
   const currentKeySet = new Set(items.map(getKey))
   for (const [key, { item, position }] of exiters) {
-    if (currentKeySet.has(key)) continue
+    if (currentKeySet.has(key)) {continue}
 
     result.push({
+      animationState: 'exiting',
+      enterDelay: 0,
       item,
       key,
       ref: getRefCallback(key),
@@ -371,8 +373,6 @@ export function useFlipAnimation<T>(
         height: position.height,
         zIndex: 0,
       },
-      animationState: 'exiting',
-      enterDelay: 0,
     })
   }
 

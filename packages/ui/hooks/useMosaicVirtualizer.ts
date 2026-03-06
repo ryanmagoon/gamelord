@@ -4,19 +4,19 @@ import type { MosaicLayoutResult } from '../utils/mosaicLayout'
 export interface UseMosaicVirtualizerOptions {
   /** Pre-computed layout from computeMosaicLayout. */
   layout: MosaicLayoutResult
+  /** Extra pixels above and below viewport to render. @default 1500 */
+  overscan?: number
   /** Current scroll offset of the scroll container, relative to the grid top. */
   scrollTop: number
   /** Height of the visible viewport. */
   viewportHeight: number
-  /** Extra pixels above and below viewport to render. @default 1500 */
-  overscan?: number
 }
 
 export interface UseMosaicVirtualizerResult {
-  /** Indices of items to render (into the original items array). */
-  visibleIndices: number[]
   /** Total height of the grid container. */
   totalHeight: number
+  /** Indices of items to render (into the original items array). */
+  visibleIndices: Array<number>
 }
 
 /**
@@ -26,12 +26,12 @@ export interface UseMosaicVirtualizerResult {
 export function useMosaicVirtualizer(
   options: UseMosaicVirtualizerOptions,
 ): UseMosaicVirtualizerResult {
-  const { layout, scrollTop, viewportHeight, overscan = 1500 } = options
+  const { layout, overscan = 1500, scrollTop, viewportHeight } = options
 
   return useMemo(() => {
     const top = scrollTop - overscan
     const bottom = scrollTop + viewportHeight + overscan
-    const visibleIndices: number[] = []
+    const visibleIndices: Array<number> = []
 
     for (const item of layout.items) {
       const itemBottom = item.y + item.height
@@ -40,6 +40,6 @@ export function useMosaicVirtualizer(
       }
     }
 
-    return { visibleIndices, totalHeight: layout.totalHeight }
+    return { totalHeight: layout.totalHeight, visibleIndices }
   }, [layout, scrollTop, viewportHeight, overscan])
 }
