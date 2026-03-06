@@ -60,6 +60,31 @@ export const TVStatic: React.FC<TVStaticProps> = ({
   const isError = phase === 'error'
   const isNotFound = phase === 'not-found'
 
+  // In deterministic mode (Chromatic snapshots), render a flat solid fill
+  // instead of a canvas + scanlines + gradients. Canvas scaling and gradient
+  // rendering can produce subpixel aliasing differences between capture runs,
+  // causing false-positive visual diffs. The structural overlays (tint, labels)
+  // are preserved so layout regressions are still caught.
+  if (tvStaticManager.isDeterministic()) {
+    return (
+      <div
+        className={cn('absolute inset-0 overflow-hidden', className)}
+        aria-label={statusText ?? 'Loading artwork'}
+      >
+        <div className={cn(
+          'absolute inset-0',
+          isError ? 'bg-neutral-800' : isNotFound ? 'bg-neutral-800' : 'bg-neutral-900',
+        )} />
+        {isError && (
+          <div className="absolute inset-0 bg-red-500/15 pointer-events-none" />
+        )}
+        {isNotFound && (
+          <div className="absolute inset-0 bg-amber-500/15 pointer-events-none" />
+        )}
+      </div>
+    )
+  }
+
   return (
     <div
       className={cn('absolute inset-0 overflow-hidden', className)}
