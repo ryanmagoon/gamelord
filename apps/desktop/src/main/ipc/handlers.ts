@@ -5,6 +5,7 @@ import { EmulationWorkerClient } from '../emulator/EmulationWorkerClient';
 import { resolveAddonPath } from '../emulator/resolveAddonPath';
 import { LibraryService } from '../services/LibraryService';
 import { ArtworkService } from '../services/ArtworkService';
+import { HomebrewService } from '../services/HomebrewService';
 import { ScreenScraperError } from '../services/ScreenScraperClient';
 import { GameWindowManager } from '../GameWindowManager';
 import { GameSystem } from '../../types/library';
@@ -14,6 +15,7 @@ export class IPCHandlers {
   private emulatorManager: EmulatorManager;
   private libraryService: LibraryService;
   private artworkService: ArtworkService;
+  private homebrewService: HomebrewService;
   private gameWindowManager: GameWindowManager;
   private pendingResumeDialogs = new Map<string, (shouldResume: boolean) => void>();
 
@@ -21,12 +23,26 @@ export class IPCHandlers {
     this.emulatorManager = new EmulatorManager();
     this.libraryService = new LibraryService();
     this.artworkService = new ArtworkService(this.libraryService);
+    this.homebrewService = new HomebrewService(this.libraryService);
     this.gameWindowManager = new GameWindowManager(preloadPath);
     this.setupHandlers();
     this.setupEmulatorEventForwarding();
     this.setupLibraryHandlers();
     this.setupArtworkHandlers();
     this.setupDialogHandlers();
+
+    // Import bundled homebrew ROMs on first launch (async, non-blocking).
+    // Notifies the renderer when done so it can reload the library.
+    this.homebrewService.importIfNeeded().then((imported) => {
+      if (imported) {
+        const windows = BrowserWindow.getAllWindows();
+        for (const window of windows) {
+          window.webContents.send('library:homebrewImported');
+        }
+      }
+    }).catch((error) => {
+      ipcLog.error('Homebrew import failed:', error);
+    });
   }
 
   private setupHandlers(): void {
