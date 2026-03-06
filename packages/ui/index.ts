@@ -7,6 +7,7 @@ export * from './components/ui/input';
 export * from './components/ui/select';
 export * from './components/ui/dropdown-menu';
 
+export * from './components/CoreDownloadBanner';
 export * from './components/GameCard';
 export * from './components/GameLibrary';
 export * from './components/ScrollLetterIndicator';
