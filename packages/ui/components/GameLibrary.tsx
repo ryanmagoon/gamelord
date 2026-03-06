@@ -39,6 +39,12 @@ export interface GameLibraryProps {
    * reveal transitions until cards are actually in the DOM.
    */
   onReady?: () => void;
+  /**
+   * When true, the grid is in "initial reveal" mode: overscan is minimised
+   * and card hover transitions are suppressed to reduce GPU work during
+   * the #root opacity fade. Set to false after the fade completes.
+   */
+  isRevealing?: boolean;
 }
 
 type ViewMode = "grid" | "list";
@@ -76,6 +82,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   onToggleFavorite,
   scrollContainerRef,
   onReady,
+  isRevealing,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
@@ -190,10 +197,15 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   const gridOffsetTop = gridRef.current?.offsetTop ?? 0;
   const gridRelativeScrollTop = Math.max(0, scrollTop - gridOffsetTop);
 
+  // During the initial reveal fade, minimise overscan so the browser
+  // only paints the cards actually visible in the viewport. This reduces
+  // GPU compositing work (fewer cards = fewer layers + transitions).
+  // After the fade completes, bump to the normal 1500px for smooth scrolling.
   const { totalHeight, visibleIndices } = useMosaicVirtualizer({
     layout,
     scrollTop: gridRelativeScrollTop,
     viewportHeight,
+    overscan: isRevealing ? 200 : 1500,
   });
 
   // Signal the host that the grid has cards ready to paint. For large
@@ -390,7 +402,10 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
               return (
                 <GameCard
                   artworkSyncStore={artworkSyncStore}
-                  className={cn(isEntering && "animate-card-enter")}
+                  className={cn(
+                    isEntering && "animate-card-enter",
+                    isRevealing && "game-card-revealing",
+                  )}
                   disabled={launchingGameId != null && launchingGameId !== game.id}
                   game={game}
                   getMenuItems={getMenuItems}

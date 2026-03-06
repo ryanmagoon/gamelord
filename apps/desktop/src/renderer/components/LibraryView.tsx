@@ -609,8 +609,12 @@ export const LibraryView: React.FC<{
   //
   // For empty libraries (no games), condition 2 is skipped because there
   // is no grid to wait for — the EmptyLibrary component renders instead.
+  //
+  // `isRevealing` stays true during the fade so GameLibrary can minimise
+  // overscan and suppress card transitions, reducing GPU compositing work.
   const hasRevealedRef = useRef(false)
   const [gridReady, setGridReady] = useState(false)
+  const [isRevealing, setIsRevealing] = useState(true)
   const handleGridReady = useCallback(() => setGridReady(true), [])
 
   const shouldReveal = !loading && (gridReady || games.length === 0)
@@ -623,6 +627,9 @@ export const LibraryView: React.FC<{
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           document.getElementById('root')?.classList.add('mounted')
+          // End reveal mode after the CSS transition completes (300ms) + buffer.
+          // This re-enables full overscan and card hover transitions.
+          setTimeout(() => setIsRevealing(false), 400)
         })
       })
     }
@@ -818,6 +825,7 @@ export const LibraryView: React.FC<{
             launchingGameId={launchingGameId}
             scrollContainerRef={scrollContainerRef}
             onReady={handleGridReady}
+            isRevealing={isRevealing}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">

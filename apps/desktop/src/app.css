@@ -316,6 +316,15 @@ body {
     box-shadow 400ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* During the initial reveal fade, suppress all card transitions and hover
+   effects to avoid GPU layer thrashing. The browser tracks transition-
+   eligible properties on every element, and 100+ cards × 4 transitions =
+   significant compositing overhead even when nothing is animating. */
+.game-card-revealing.game-card-border {
+  transition: none;
+  pointer-events: none;
+}
+
 .game-card-border::before {
   content: "";
   position: absolute;
