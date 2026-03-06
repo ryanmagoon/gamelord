@@ -105,7 +105,8 @@ export const LibraryView: React.FC<{
   useEffect(() => {
     loadLibrary()
 
-    api.on('library:scanProgress', (progress: { game: AppGame; isNew: boolean; processed: number; total: number; skipped: number }) => {
+    api.on('library:scanProgress', (raw: unknown) => {
+      const progress = raw as { game: AppGame; isNew: boolean; processed: number; total: number; skipped: number }
       setScanProgress({ processed: progress.processed, total: progress.total, skipped: progress.skipped })
 
       if (progress.isNew) {
@@ -118,7 +119,8 @@ export const LibraryView: React.FC<{
       }
     })
 
-    api.on('core:downloadProgress', (progress: CoreDownloadProgress) => {
+    api.on('core:downloadProgress', (raw: unknown) => {
+      const progress = raw as CoreDownloadProgress
       if (progress.phase === 'done') {
         setDownloadProgress(progress)
         setTimeout(() => setDownloadProgress(null), 2000)
@@ -127,7 +129,8 @@ export const LibraryView: React.FC<{
       }
     })
 
-    api.on('artwork:progress', (progress: ArtworkProgress) => {
+    api.on('artwork:progress', (raw: unknown) => {
+      const progress = raw as ArtworkProgress
       // Update per-card sync phase
       setCardPhase(progress.gameId, progress.phase as ArtworkSyncPhase)
 
@@ -208,7 +211,8 @@ export const LibraryView: React.FC<{
       syncResults.current = { found: 0, notFound: 0, errors: 0 }
     })
 
-    api.on('artwork:syncError', (data: { error: string; errorCode?: string }) => {
+    api.on('artwork:syncError', (raw: unknown) => {
+      const data = raw as { error: string; errorCode?: string }
       setSyncCounter(null)
       artworkSyncStore.clear()
       syncResults.current = { found: 0, notFound: 0, errors: 0 }

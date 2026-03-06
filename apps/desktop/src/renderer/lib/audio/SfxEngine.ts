@@ -63,18 +63,18 @@ class SfxEngine {
   play(id: SfxId): void {
     if (!this.preferences.enabled) return
     this.ensureInitialized()
-    const ctx = this.ctx!
+    if (!this.ctx || !this.gainNode) return
 
-    if (ctx.state === 'suspended') {
-      void ctx.resume()
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume()
     }
 
     const buffer = this.buffers.get(id)
     if (!buffer) return
 
-    const source = ctx.createBufferSource()
+    const source = this.ctx.createBufferSource()
     source.buffer = buffer
-    source.connect(this.gainNode!)
+    source.connect(this.gainNode)
     source.start(0)
   }
 
