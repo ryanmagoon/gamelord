@@ -1,13 +1,14 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuItem } from '@gamelord/ui'
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, WebGLRendererComponent, Game as UiGame, cn, type GameCardMenuItem } from '@gamelord/ui'
 import { useWebGLRenderer } from './hooks/useWebGLRenderer'
 import { useSfx } from './hooks/useSfx'
-import { AlertTriangle, Check, Monitor, Tv, Sun, Moon, Cpu, Heart, SunMoon } from 'lucide-react'
+import { AlertTriangle, Monitor, Tv, Cpu, Heart, Settings } from 'lucide-react'
 import { DevAgentation } from './components/DevAgentation'
 import { DevBranchBadge } from './components/DevBranchBadge'
 import { LibraryView } from './components/LibraryView'
 import { ResumeGameDialog } from './components/ResumeGameDialog'
 import { CoreSelectDialog } from './components/CoreSelectDialog'
+import { SettingsDialog } from './components/Settings/SettingsDialog'
 import type { GamelordAPI, CoreInfo } from './types/global'
 
 interface ResumeDialogState {
@@ -80,6 +81,20 @@ function App() {
   const [launchingGameId, setLaunchingGameId] = useState<string | null>(null)
   /** Error dialog state for launch/IPC failures. */
   const [launchError, setLaunchError] = useState<string | null>(null)
+  /** Settings dialog state. */
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // Cmd+, keyboard shortcut for settings
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key === ',') {
+        e.preventDefault()
+        setSettingsOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // Listen for resume game dialog requests from main process
   useEffect(() => {
@@ -357,30 +372,15 @@ function App() {
         >
           <div className="drag-region titlebar-inset h-10 border-b flex items-center justify-end gap-2 px-4">
             <DevBranchBadge />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="no-drag h-7 w-7">
-                  {themeMode === 'system' ? <SunMoon className="h-4 w-4" /> : themeMode === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme('system')}>
-                  <SunMoon className="h-4 w-4" />
-                  System
-                  {themeMode === 'system' && <Check className="ml-auto h-4 w-4" />}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('light')}>
-                  <Sun className="h-4 w-4" />
-                  Light
-                  {themeMode === 'light' && <Check className="ml-auto h-4 w-4" />}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('dark')}>
-                  <Moon className="h-4 w-4" />
-                  Dark
-                  {themeMode === 'dark' && <Check className="ml-auto h-4 w-4" />}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="no-drag h-7 w-7"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
           </div>
           <div className="flex-1 overflow-hidden">
             <LibraryView onPlayGame={handlePlayGame} getMenuItems={getMenuItems} launchingGameId={launchingGameId} />
@@ -468,6 +468,14 @@ function App() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Settings dialog */}
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        themeMode={themeMode}
+        onThemeChange={setTheme}
+      />
 
       <DevAgentation />
     </div>
