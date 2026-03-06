@@ -50,6 +50,7 @@ vi.mock('./LibretroNativeCore', async () => {
 vi.mock('./EmulationWorkerClient')
 
 import { powerSaveBlocker } from 'electron'
+import * as fs from 'fs'
 import { EmulatorManager } from './EmulatorManager'
 
 // ---------------------------------------------------------------------------
@@ -132,5 +133,45 @@ describe('EmulatorManager — power save blocker', () => {
     // stop() should not be called since isStarted returned false
     expect(powerSaveBlocker.stop).not.toHaveBeenCalled()
     expect(internals(manager).powerSaveBlockerId).toBeNull()
+  })
+})
+
+describe('EmulatorManager — BIOS validation', () => {
+  let manager: EmulatorManager
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    manager = new EmulatorManager()
+  })
+
+  it('returns valid for systems without BIOS requirements', () => {
+    const result = manager.validateBios('nes')
+    expect(result.valid).toBe(true)
+    expect(result.missingFiles).toEqual([])
+  })
+
+  it('returns valid when all BIOS files exist', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true)
+    const result = manager.validateBios('saturn')
+    expect(result.valid).toBe(true)
+    expect(result.missingFiles).toEqual([])
+  })
+
+  it('returns missing files when BIOS files are absent', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false)
+    const result = manager.validateBios('saturn')
+    expect(result.valid).toBe(false)
+    expect(result.missingFiles).toEqual(['sega_101.bin', 'mpr-17933.bin'])
+    expect(result.systemName).toBe('Sega Saturn')
+    expect(result.biosDir).toContain('BIOS')
+  })
+
+  it('detects partial BIOS files', () => {
+    vi.mocked(fs.existsSync).mockImplementation((p: any) =>
+      String(p).endsWith('sega_101.bin')
+    )
+    const result = manager.validateBios('saturn')
+    expect(result.valid).toBe(false)
+    expect(result.missingFiles).toEqual(['mpr-17933.bin'])
   })
 })
