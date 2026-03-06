@@ -5,11 +5,11 @@
   "main": "./index.ts",
   "types": "./index.ts",
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsgo --noEmit",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "storybook": "storybook dev -p 6006",

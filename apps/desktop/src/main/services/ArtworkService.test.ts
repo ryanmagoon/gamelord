@@ -604,7 +604,7 @@ describe("ArtworkService", () => {
       await service.syncAllGames();
 
       // Game should show as not-found since both lookups failed non-fatally
-      const lastEvent = progressEvents.at(-1);
+      const lastEvent = progressEvents.at(-1)!;
       expect(lastEvent.phase).toBe("not-found");
     });
   });

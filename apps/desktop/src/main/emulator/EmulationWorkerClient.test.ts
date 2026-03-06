@@ -181,7 +181,7 @@ describe("EmulationWorkerClient", () => {
       const savePromise = client.saveState(1);
 
       // Extract the requestId from the postMessage call
-      const lastCall = mockPostMessage.mock.calls.at(-1)[0];
+      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
       expect(lastCall.action).toBe("saveState");
       expect(lastCall.slot).toBe(1);
 
@@ -197,7 +197,7 @@ describe("EmulationWorkerClient", () => {
     it("loadState rejects on error response", async () => {
       const loadPromise = client.loadState(3);
 
-      const lastCall = mockPostMessage.mock.calls.at(-1)[0];
+      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
       emitWorkerMessage({
         error: "No save state in slot 3",
         requestId: lastCall.requestId,
@@ -211,7 +211,7 @@ describe("EmulationWorkerClient", () => {
     it("saveSram resolves on success", async () => {
       const sramPromise = client.saveSram();
 
-      const lastCall = mockPostMessage.mock.calls.at(-1)[0];
+      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
       emitWorkerMessage({
         requestId: lastCall.requestId,
         success: true,
@@ -224,7 +224,7 @@ describe("EmulationWorkerClient", () => {
     it("screenshot returns the file path", async () => {
       const screenshotPromise = client.screenshot("/tmp/shot.raw");
 
-      const lastCall = mockPostMessage.mock.calls.at(-1)[0];
+      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
       expect(lastCall.action).toBe("screenshot");
       expect(lastCall.outputPath).toBe("/tmp/shot.raw");
 
@@ -323,7 +323,7 @@ describe("EmulationWorkerClient", () => {
     it("sends shutdown command and resolves on response", async () => {
       const shutdownPromise = client.shutdown();
 
-      const lastCall = mockPostMessage.mock.calls.at(-1)[0];
+      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
       expect(lastCall.action).toBe("shutdown");
 
       emitWorkerMessage({
@@ -353,7 +353,7 @@ describe("EmulationWorkerClient", () => {
       // Shutdown before save completes
       const shutdownPromise = client.shutdown();
 
-      const shutdownCall = mockPostMessage.mock.calls.at(-1)[0];
+      const shutdownCall = mockPostMessage.mock.calls.at(-1)![0];
       emitWorkerMessage({
         requestId: shutdownCall.requestId,
         success: true,
@@ -397,7 +397,7 @@ describe("EmulationWorkerClient", () => {
 
       // Graceful shutdown first
       const shutdownPromise = client.shutdown();
-      const lastCall = mockPostMessage.mock.calls.at(-1)[0];
+      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
       emitWorkerMessage({
         requestId: lastCall.requestId,
         success: true,
@@ -474,7 +474,7 @@ describe("EmulationWorkerClient", () => {
       expect(client.getSharedBuffers()).not.toBeNull();
 
       const shutdownPromise = client.shutdown();
-      const lastCall = mockPostMessage.mock.calls.at(-1)[0];
+      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
       emitWorkerMessage({
         requestId: lastCall.requestId,
         success: true,
@@ -509,7 +509,7 @@ describe("EmulationWorkerClient", () => {
       await initPromise;
 
       const shutdownPromise = client.shutdown();
-      const lastCall = mockPostMessage.mock.calls.at(-1)[0];
+      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
       emitWorkerMessage({
         requestId: lastCall.requestId,
         success: true,

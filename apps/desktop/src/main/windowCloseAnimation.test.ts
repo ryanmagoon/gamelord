@@ -43,7 +43,7 @@ describe("animateWindowClose", () => {
     expect(firstOpacity).toBeGreaterThan(0.5);
 
     // Last call should be at or near 0
-    const lastOpacity = setOpacity.mock.calls.at(-1)[0] as number;
+    const lastOpacity = setOpacity.mock.calls.at(-1)![0] as number;
     expect(lastOpacity).toBe(0);
   });
 
@@ -60,7 +60,7 @@ describe("animateWindowClose", () => {
     // The initial bounds are 800×600 at (100, 100).
     // Center is (500, 400). Final scale is 0.92 → 736×552.
     // Final position: x = 500 - 368 = 132, y = 400 - 276 = 124
-    const lastCall = setBounds.mock.calls.at(-1)[0] as {
+    const lastCall = setBounds.mock.calls.at(-1)![0] as {
       height: number;
       width: number;
       x: number;

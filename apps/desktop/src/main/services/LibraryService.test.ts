@@ -1890,7 +1890,7 @@ describe("LibraryService", () => {
       // All should be marked as NOT new on rescan
       expect(progressEvents.every((e) => !e.isNew)).toBe(true);
       // All should be skipped via mtime cache
-      expect(progressEvents.at(-1).skipped).toBe(3);
+      expect(progressEvents.at(-1)!.skipped).toBe(3);
     });
   });
 
