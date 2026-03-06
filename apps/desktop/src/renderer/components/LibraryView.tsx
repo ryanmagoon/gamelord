@@ -11,6 +11,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogCancel,
+  CoreDownloadBanner,
   cn,
   ArtworkSyncStore,
   type Game,
@@ -18,7 +19,7 @@ import {
   type GameCardMenuItem,
   type ArtworkSyncPhase,
 } from '@gamelord/ui'
-import { Plus, FolderOpen, RefreshCw, Download, ImageDown, X } from 'lucide-react'
+import { Plus, FolderOpen, RefreshCw, ImageDown, X } from 'lucide-react'
 import type { Game as AppGame, GameSystem } from '../../types/library'
 import type { ArtworkProgress } from '../../types/artwork'
 import type { GamelordAPI } from '../types/global'
@@ -117,7 +118,7 @@ export const LibraryView: React.FC<{
     })
 
     api.on('core:downloadProgress', (progress: CoreDownloadProgress) => {
-      if (progress.phase === 'done' || progress.phase === 'error') {
+      if (progress.phase === 'done') {
         setDownloadProgress(progress)
         setTimeout(() => setDownloadProgress(null), 2000)
       } else {
@@ -614,27 +615,16 @@ export const LibraryView: React.FC<{
 
       {/* Core download progress */}
       {downloadProgress && downloadProgress.phase !== 'done' && (
-        <div className="flex items-center gap-3 px-4 py-3 border-b bg-blue-500/10">
-          <Download className="h-4 w-4 text-blue-500 animate-pulse" />
-          <div className="flex-1">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-blue-300">
-                {downloadProgress.phase === 'error'
-                  ? `Failed to download ${downloadProgress.coreName}`
-                  : downloadProgress.phase === 'extracting'
-                    ? `Extracting ${downloadProgress.coreName}...`
-                    : `Downloading ${downloadProgress.coreName}...`}
-              </span>
-              <span className="text-blue-400">{downloadProgress.percent}%</span>
-            </div>
-            <div className="mt-1 h-1 rounded-full bg-blue-900/50 overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                style={{ width: `${downloadProgress.percent}%` }}
-              />
-            </div>
-          </div>
-        </div>
+        <CoreDownloadBanner
+          coreName={downloadProgress.coreName}
+          phase={downloadProgress.phase}
+          percent={downloadProgress.percent}
+          onRetry={() => {
+            setDownloadProgress(null)
+            api.emulator.downloadCore(downloadProgress.coreName, downloadProgress.systemId)
+          }}
+          onDismiss={() => setDownloadProgress(null)}
+        />
       )}
 
       {/* System filter tabs */}
