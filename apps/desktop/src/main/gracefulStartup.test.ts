@@ -33,18 +33,18 @@ describe('graceful startup — index.html', () => {
 })
 
 /**
- * Verifies that the renderer entry point adds the .mounted class to #root.
+ * Verifies that App.tsx adds the .mounted class to #root after React mounts.
  */
-describe('graceful startup — renderer entry', () => {
-  const entryPath = path.resolve(__dirname, '../renderer/main.tsx')
-  const entrySource = fs.readFileSync(entryPath, 'utf-8')
+describe('graceful startup — App component', () => {
+  const appPath = path.resolve(__dirname, '../renderer/App.tsx')
+  const appSource = fs.readFileSync(appPath, 'utf-8')
 
-  it('adds the mounted class to #root after React renders', () => {
-    expect(entrySource).toContain("classList.add('mounted')")
+  it('adds the mounted class to #root after React mounts', () => {
+    expect(appSource).toContain("classList.add('mounted')")
   })
 
-  it('uses requestAnimationFrame to defer the class addition', () => {
-    expect(entrySource).toContain('requestAnimationFrame')
+  it('uses requestAnimationFrame inside useEffect to defer the class addition', () => {
+    expect(appSource).toContain('requestAnimationFrame')
   })
 })
 

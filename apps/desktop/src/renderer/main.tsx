@@ -13,19 +13,10 @@ const shouldBeDark = savedTheme === "dark" || (savedTheme !== "light" && prefers
 
 document.documentElement.classList.toggle("dark", shouldBeDark);
 
-const rootElement = document.getElementById('root')!;
-
-ReactDOM.createRoot(rootElement).render(
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
   </React.StrictMode>,
 );
-
-// Signal that React has mounted so the inline CSS transition fades #root in.
-// Uses requestAnimationFrame to ensure the first paint has the initial opacity: 0,
-// then the class toggle triggers the CSS transition to opacity: 1.
-requestAnimationFrame(() => {
-  rootElement.classList.add('mounted');
-});

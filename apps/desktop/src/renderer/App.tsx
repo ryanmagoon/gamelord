@@ -61,6 +61,18 @@ type ViewState = "library" | "to-game" | "game" | "to-library";
 const VIEW_TRANSITION_MS = 300;
 
 function App() {
+  // Fade #root in after React's first paint. The inline CSS in index.html
+  // starts #root at opacity: 0; adding .mounted triggers a CSS transition
+  // to opacity: 1. useEffect fires after the DOM commit, and the nested
+  // requestAnimationFrame ensures the browser has painted the initial frame
+  // before we trigger the transition (avoids batching opacity 0 → 1 into
+  // a single frame, which would skip the animation).
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      document.getElementById('root')?.classList.add('mounted');
+    });
+  }, []);
+
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord;
   const [viewState, setViewState] = useState<ViewState>("library");
   const viewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
