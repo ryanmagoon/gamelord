@@ -11,6 +11,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogCancel,
+  CoreDownloadBanner,
   cn,
   ArtworkSyncStore,
   type Game,
@@ -18,7 +19,7 @@ import {
   type GameCardMenuItem,
   type ArtworkSyncPhase,
 } from '@gamelord/ui'
-import { Plus, FolderOpen, RefreshCw, Download, ImageDown, X } from 'lucide-react'
+import { Plus, FolderOpen, RefreshCw, ImageDown, X } from 'lucide-react'
 import type { Game as AppGame, GameSystem } from '../../types/library'
 import type { ArtworkProgress } from '../../types/artwork'
 import type { GamelordAPI } from '../types/global'
@@ -614,59 +615,16 @@ export const LibraryView: React.FC<{
 
       {/* Core download progress */}
       {downloadProgress && downloadProgress.phase !== 'done' && (
-        <div className={cn(
-          "flex items-center gap-3 px-4 py-3 border-b",
-          downloadProgress.phase === 'error' ? 'bg-destructive/10' : 'bg-blue-500/10',
-        )}>
-          <Download className={cn(
-            "h-4 w-4",
-            downloadProgress.phase === 'error' ? 'text-destructive' : 'text-blue-500 animate-pulse',
-          )} />
-          <div className="flex-1">
-            <div className="flex items-center justify-between text-sm">
-              <span className={downloadProgress.phase === 'error' ? 'text-destructive' : 'text-blue-300'}>
-                {downloadProgress.phase === 'error'
-                  ? `Failed to download ${downloadProgress.coreName}`
-                  : downloadProgress.phase === 'extracting'
-                    ? `Extracting ${downloadProgress.coreName}...`
-                    : `Downloading ${downloadProgress.coreName}...`}
-              </span>
-              {downloadProgress.phase !== 'error' && (
-                <span className="text-blue-400">{downloadProgress.percent}%</span>
-              )}
-            </div>
-            {downloadProgress.phase !== 'error' && (
-              <div className="mt-1 h-1 rounded-full bg-blue-900/50 overflow-hidden">
-                <div
-                  className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                  style={{ width: `${downloadProgress.percent}%` }}
-                />
-              </div>
-            )}
-          </div>
-          {downloadProgress.phase === 'error' && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setDownloadProgress(null)
-                  api.emulator.downloadCore(downloadProgress.coreName, downloadProgress.systemId)
-                }}
-              >
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Retry
-              </Button>
-              <button
-                onClick={() => setDownloadProgress(null)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Dismiss error"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </>
-          )}
-        </div>
+        <CoreDownloadBanner
+          coreName={downloadProgress.coreName}
+          phase={downloadProgress.phase}
+          percent={downloadProgress.percent}
+          onRetry={() => {
+            setDownloadProgress(null)
+            api.emulator.downloadCore(downloadProgress.coreName, downloadProgress.systemId)
+          }}
+          onDismiss={() => setDownloadProgress(null)}
+        />
       )}
 
       {/* System filter tabs */}
