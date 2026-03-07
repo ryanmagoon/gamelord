@@ -288,7 +288,7 @@ describe("LibraryService", () => {
   });
 
   describe("removeSystem", () => {
-    it("removes system and cascades to delete games from that system", async () => {
+    it("removes system config but preserves games for that system", async () => {
       // Seed config with just NES and SNES so we have a known set
       const config = {
         autoScan: false,
@@ -307,15 +307,19 @@ describe("LibraryService", () => {
       fs.writeFileSync(snesRomPath, "snes-game-data");
 
       const service = await createService();
-      await service.addGame(nesRomPath, "nes");
+      const nesGame = await service.addGame(nesRomPath, "nes");
       await service.addGame(snesRomPath, "snes");
 
       expect(service.getGames().length).toBe(2);
 
       await service.removeSystem("nes");
 
+      // System config should be gone
       expect(service.getSystems().find((s) => s.id === "nes")).toBeUndefined();
-      expect(service.getGames("nes")).toHaveLength(0);
+      // But game data should be preserved (coverArt, metadata, etc. intact)
+      expect(service.getGames("nes")).toHaveLength(1);
+      expect(nesGame).toBeDefined();
+      expect(service.getGames("nes")[0].id).toBe(nesGame?.id);
       expect(service.getGames("snes")).toHaveLength(1);
 
       // Clean up rom files

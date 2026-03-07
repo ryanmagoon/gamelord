@@ -339,22 +339,12 @@ export class LibraryService extends EventEmitter {
 
   public async removeSystem(systemId: string): Promise<void> {
     this.config.systems = this.config.systems.filter((s) => s.id !== systemId);
-    // Also remove all games from this system (and clean up cached ROMs)
-    for (const [id, game] of this.games.entries()) {
-      if (game.systemId === systemId) {
-        if (game.romPath.startsWith(this.romsCacheDir)) {
-          try {
-            await fs.unlink(game.romPath);
-          } catch {
-            // File may already be gone
-          }
-        }
-        this.games.delete(id);
-      }
-    }
-    this.rebuildRomPathIndex();
     await this.saveConfig();
-    await this.saveLibrary();
+    // Games for this system are intentionally kept in the library.
+    // Their coverArt, metadata, favorites, playTime, and save states
+    // are preserved. If the user re-adds the system or rescans, the
+    // games reappear with all enriched data intact. Games can still
+    // be removed individually via removeGame().
   }
 
   public async updateSystemPath(systemId: string, romsPath: string): Promise<void> {
