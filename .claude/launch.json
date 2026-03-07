@@ -11,8 +11,8 @@
     {
       "name": "storybook",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@gamelord/ui", "storybook"],
-      "port": 6006
+      "runtimeArgs": ["--filter", "@gamelord/ui", "exec", "storybook", "dev", "-p", "6009", "--ci"],
+      "port": 6009
     }
   ]
 }

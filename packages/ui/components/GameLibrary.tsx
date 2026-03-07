@@ -33,6 +33,11 @@ export interface GameLibraryProps {
   onToggleFavorite?: (game: Game) => void;
   /** Ref to the scrollable container (for virtualization). */
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
+  /**
+   * When provided, replaces the inline search input with a clickable
+   * Cmd+K trigger button that calls this callback on click.
+   */
+  onSearchClick?: () => void;
 }
 
 type ViewMode = "grid" | "list";
@@ -69,6 +74,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   onPlayGame,
   onToggleFavorite,
   scrollContainerRef,
+  onSearchClick,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
@@ -250,16 +256,30 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     <div className={cn("space-y-6", className)}>
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row gap-4">
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-10"
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search games..."
-            value={searchQuery}
-          />
-        </div>
+        {/* Search — either inline input or Cmd+K trigger */}
+        {onSearchClick ? (
+          <button
+            type="button"
+            onClick={onSearchClick}
+            className="relative flex-1 flex items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+          >
+            <Search className="h-4 w-4 shrink-0" />
+            <span>Search games...</span>
+            <kbd className="ml-auto hidden shrink-0 select-none rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium sm:inline-block">
+              ⌘K
+            </kbd>
+          </button>
+        ) : (
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-10"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search games..."
+              value={searchQuery}
+            />
+          </div>
+        )}
 
         {/* Filters */}
         <div className="flex gap-2">
