@@ -380,32 +380,35 @@ function App() {
   };
 
   // Theme actions for the command palette
-  const themeActions = useMemo<Array<CommandAction>>(() => [
-    {
-      id: "theme-system",
-      label: "Theme: System",
-      group: "Settings",
-      icon: <SunMoon className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
-      onSelect: () => setTheme("system"),
-      keywords: ["theme", "auto", "system", "os"],
-    },
-    {
-      id: "theme-dark",
-      label: "Theme: Dark",
-      group: "Settings",
-      icon: <Moon className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
-      onSelect: () => setTheme("dark"),
-      keywords: ["theme", "dark", "night"],
-    },
-    {
-      id: "theme-light",
-      label: "Theme: Light",
-      group: "Settings",
-      icon: <Sun className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
-      onSelect: () => setTheme("light"),
-      keywords: ["theme", "light", "bright"],
-    },
-  ], [setTheme]);
+  const themeActions = useMemo<Array<CommandAction>>(
+    () => [
+      {
+        id: "theme-system",
+        label: "Theme: System",
+        group: "Settings",
+        icon: <SunMoon className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
+        onSelect: () => setTheme("system"),
+        keywords: ["theme", "auto", "system", "os"],
+      },
+      {
+        id: "theme-dark",
+        label: "Theme: Dark",
+        group: "Settings",
+        icon: <Moon className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
+        onSelect: () => setTheme("dark"),
+        keywords: ["theme", "dark", "night"],
+      },
+      {
+        id: "theme-light",
+        label: "Theme: Light",
+        group: "Settings",
+        icon: <Sun className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
+        onSelect: () => setTheme("light"),
+        keywords: ["theme", "light", "bright"],
+      },
+    ],
+    [setTheme],
+  );
 
   const showLibrary =
     viewState === "library" || viewState === "to-game" || viewState === "to-library";

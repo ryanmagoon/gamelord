@@ -94,25 +94,25 @@ export const LibraryView: React.FC<{
   const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
 
   // Command palette state
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   // Global Cmd+K / Ctrl+K listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        playSfxRef.current(commandPaletteOpen ? 'dialogClose' : 'dialogOpen')
-        setCommandPaletteOpen((prev) => !prev)
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        playSfxRef.current(commandPaletteOpen ? "dialogClose" : "dialogOpen");
+        setCommandPaletteOpen((prev) => !prev);
       }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [commandPaletteOpen])
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [commandPaletteOpen]);
 
   const handleCommandPaletteOpenChange = useCallback((open: boolean) => {
-    playSfxRef.current(open ? 'dialogOpen' : 'dialogClose')
-    setCommandPaletteOpen(open)
-  }, [])
+    playSfxRef.current(open ? "dialogOpen" : "dialogClose");
+    setCommandPaletteOpen(open);
+  }, []);
 
   /**
    * Set a sync phase for a game card and optionally schedule its cleanup.
@@ -658,32 +658,32 @@ export const LibraryView: React.FC<{
   const allPaletteActions = useMemo<Array<CommandAction>>(() => {
     const libraryActions: Array<CommandAction> = [
       {
-        id: 'scan-library',
-        label: 'Scan Library',
-        group: 'Actions',
+        id: "scan-library",
+        label: "Scan Library",
+        group: "Actions",
         icon: <RefreshCw className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
         onSelect: () => void handleScanSystemFolders(),
-        keywords: ['rescan', 'refresh', 'import'],
+        keywords: ["rescan", "refresh", "import"],
       },
       {
-        id: 'add-folder',
-        label: 'Add Folder',
-        group: 'Actions',
+        id: "add-folder",
+        label: "Add Folder",
+        group: "Actions",
         icon: <FolderOpen className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
         onSelect: () => void handleSelectDirectory(),
-        keywords: ['browse', 'directory', 'import'],
+        keywords: ["browse", "directory", "import"],
       },
       {
-        id: 'download-artwork',
-        label: 'Download Artwork',
-        group: 'Actions',
+        id: "download-artwork",
+        label: "Download Artwork",
+        group: "Actions",
         icon: <ImageDown className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
         onSelect: () => void handleDownloadArtwork(),
-        keywords: ['art', 'cover', 'metadata', 'sync'],
+        keywords: ["art", "cover", "metadata", "sync"],
       },
-    ]
-    return [...libraryActions, ...commandPaletteActions]
-  }, [commandPaletteActions])
+    ];
+    return [...libraryActions, ...commandPaletteActions];
+  }, [commandPaletteActions]);
 
   if (loading) {
     return (

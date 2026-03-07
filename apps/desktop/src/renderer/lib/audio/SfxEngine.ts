@@ -69,7 +69,7 @@ class SfxEngine {
    * the first dialog/modal open.
    */
   warmup(): void {
-    this.ensureInitialized()
+    this.ensureInitialized();
   }
 
   /** Fire-and-forget sound playback. No-op when disabled. */
