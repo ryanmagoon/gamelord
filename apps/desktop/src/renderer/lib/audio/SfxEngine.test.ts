@@ -57,6 +57,12 @@ function setupGlobalMocks() {
       },
     });
   }) as unknown as typeof AudioContext;
+
+  // OfflineAudioContext is used for buffer pre-rendering at construction time
+  globalThis.OfflineAudioContext = vi.fn(function (this: Record<string, unknown>) {
+    this.sampleRate = 44_100;
+    this.createBuffer = () => createMockAudioBuffer();
+  }) as unknown as typeof OfflineAudioContext;
 }
 
 describe("SfxEngine", () => {
@@ -89,7 +95,12 @@ describe("SfxEngine", () => {
     expect(prefs.volume).toBe(0.8);
   });
 
-  it("does not create AudioContext until first play()", async () => {
+  it("pre-renders buffers via OfflineAudioContext at construction", async () => {
+    await importFreshEngine();
+    expect(OfflineAudioContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not create real AudioContext until first play()", async () => {
     const engine = await importFreshEngine();
     expect(AudioContext).not.toHaveBeenCalled();
     engine.play("click");
@@ -165,7 +176,7 @@ describe("SfxEngine", () => {
     expect(AudioContext).toHaveBeenCalledTimes(1);
   });
 
-  it("warmup() pre-initializes AudioContext and buffers", async () => {
+  it("warmup() pre-initializes AudioContext", async () => {
     const engine = await importFreshEngine();
     expect(AudioContext).not.toHaveBeenCalled();
     engine.warmup();
@@ -186,5 +197,12 @@ describe("SfxEngine", () => {
     engine.play("click");
     expect(AudioContext).toHaveBeenCalledTimes(1);
     expect(mockSourceNode.start).toHaveBeenCalledWith(0);
+  });
+
+  it("does not create real AudioContext during buffer pre-rendering", async () => {
+    await importFreshEngine();
+    // OfflineAudioContext used for pre-rendering, real AudioContext not yet created
+    expect(OfflineAudioContext).toHaveBeenCalledTimes(1);
+    expect(AudioContext).not.toHaveBeenCalled();
   });
 });
