@@ -15,6 +15,8 @@ interface HomebrewManifestEntry {
   players: number;
   license: string;
   attribution: string | null;
+  coverArt?: string;
+  coverArtAspectRatio?: number;
 }
 
 /**
@@ -26,10 +28,14 @@ export class HomebrewService {
   private libraryService: LibraryService;
   /** Tracks whether homebrew has already been imported in this app installation. */
   private markerPath: string;
+  /** Directory where artwork files are stored. */
+  private artworkDirectory: string;
 
   constructor(libraryService: LibraryService) {
     this.libraryService = libraryService;
-    this.markerPath = path.join(app.getPath('userData'), '.homebrew-imported');
+    const userData = app.getPath('userData');
+    this.markerPath = path.join(userData, '.homebrew-imported');
+    this.artworkDirectory = path.join(userData, 'artwork');
   }
 
   /**
@@ -102,6 +108,13 @@ export class HomebrewService {
       return false;
     }
 
+    // Ensure artwork directory exists for cover art
+    try {
+      await fs.mkdir(this.artworkDirectory, { recursive: true });
+    } catch (error) {
+      libraryLog.warn('Failed to create artwork directory:', error);
+    }
+
     let importedCount = 0;
 
     for (const entry of manifest) {
@@ -121,8 +134,25 @@ export class HomebrewService {
         // Add to library via the normal pipeline (hashes, system detection, etc.)
         const game = await this.libraryService.addGame(destPath, entry.systemId);
         if (game) {
-          // Enrich with manifest metadata
+          // Copy bundled cover art to the artwork directory
+          let coverArt: string | undefined;
+          let coverArtAspectRatio: number | undefined;
+          if (entry.coverArt) {
+            try {
+              const artSrc = path.join(resourcePath, entry.coverArt);
+              const artDest = path.join(this.artworkDirectory, `${game.id}.png`);
+              await fs.copyFile(artSrc, artDest);
+              coverArt = `artwork://${game.id}.png`;
+              coverArtAspectRatio = entry.coverArtAspectRatio;
+              libraryLog.info(`Copied cover art for: ${entry.title}`);
+            } catch (artError) {
+              libraryLog.warn(`Failed to copy cover art for ${entry.title}:`, artError);
+            }
+          }
+
+          // Enrich with manifest metadata and artwork
           await this.libraryService.updateGame(game.id, {
+            ...(coverArt && { coverArt, coverArtAspectRatio }),
             metadata: {
               developer: entry.developer,
               description: entry.description,

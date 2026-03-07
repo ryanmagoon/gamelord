@@ -8,7 +8,9 @@
     "genre": "Arcade",
     "players": 1,
     "license": "CC0-1.0",
-    "attribution": null
+    "attribution": null,
+    "coverArt": "lawn-mower.png",
+    "coverArtAspectRatio": 1.143
   },
   {
     "filename": "nesert-golfing.nes",
@@ -19,7 +21,9 @@
     "genre": "Sports",
     "players": 4,
     "license": "CC-BY-4.0",
-    "attribution": "NESert Golfing by Brad Smith, licensed under CC BY 4.0"
+    "attribution": "NESert Golfing by Brad Smith, cover art by Penelope Fedorko, licensed under CC BY 4.0",
+    "coverArt": "nesert-golfing.png",
+    "coverArtAspectRatio": 1.0
   },
   {
     "filename": "8bit-table-tennis.nes",
@@ -30,6 +34,8 @@
     "genre": "Sports",
     "players": 2,
     "license": "MIT",
-    "attribution": "8-Bit Table Tennis by Mike, licensed under MIT"
+    "attribution": "8-Bit Table Tennis by Mike, licensed under MIT",
+    "coverArt": "8bit-table-tennis.png",
+    "coverArtAspectRatio": 1.143
   }
 ]

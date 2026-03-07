@@ -76,6 +76,8 @@ const MANIFEST = [
     players: 1,
     license: 'CC0-1.0',
     attribution: null,
+    coverArt: 'test-game.png',
+    coverArtAspectRatio: 1.0,
   },
   {
     filename: 'test-golf.nes',
@@ -87,6 +89,8 @@ const MANIFEST = [
     players: 2,
     license: 'CC-BY-4.0',
     attribution: 'Test Golf by Golf Dev, CC BY 4.0',
+    coverArt: 'test-golf.png',
+    coverArtAspectRatio: 0.714,
   },
 ];
 
@@ -141,13 +145,14 @@ describe('HomebrewService', () => {
       const result = await service.importIfNeeded();
 
       expect(result).toBe(true);
-      expect(mockCopyFile).toHaveBeenCalledTimes(2);
+      // 2 ROMs + 2 artwork files
+      expect(mockCopyFile).toHaveBeenCalledTimes(4);
       expect(mockAddGame).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('importHomebrewRoms', () => {
-    it('reads manifest, copies ROMs, and adds games to library', async () => {
+    it('reads manifest, copies ROMs and artwork, and adds games to library', async () => {
       mockReadFile.mockResolvedValueOnce(JSON.stringify(MANIFEST));
       mockAddGame.mockResolvedValueOnce({ id: 'game1', title: 'Test Game' });
       mockAddGame.mockResolvedValueOnce({ id: 'game2', title: 'Test Golf' });
@@ -156,14 +161,19 @@ describe('HomebrewService', () => {
 
       expect(result).toBe(true);
 
-      // Should create the NES ROMs directory
+      // Should create the NES ROMs directory and artwork directory
       expect(mockMkdir).toHaveBeenCalledWith('/tmp/home/ROMs/NES', { recursive: true });
+      expect(mockMkdir).toHaveBeenCalledWith('/tmp/gamelord-test/artwork', { recursive: true });
 
-      // Should copy both ROMs
-      expect(mockCopyFile).toHaveBeenCalledTimes(2);
+      // Should copy 2 ROMs + 2 artwork files
+      expect(mockCopyFile).toHaveBeenCalledTimes(4);
       expect(mockCopyFile).toHaveBeenCalledWith(
         expect.stringContaining('test-game.nes'),
         '/tmp/home/ROMs/NES/test-game.nes',
+      );
+      expect(mockCopyFile).toHaveBeenCalledWith(
+        expect.stringContaining('test-game.png'),
+        '/tmp/gamelord-test/artwork/game1.png',
       );
 
       // Should add both games to library
@@ -171,9 +181,11 @@ describe('HomebrewService', () => {
       expect(mockAddGame).toHaveBeenCalledWith('/tmp/home/ROMs/NES/test-game.nes', 'nes');
       expect(mockAddGame).toHaveBeenCalledWith('/tmp/home/ROMs/NES/test-golf.nes', 'nes');
 
-      // Should update games with metadata
+      // Should update games with metadata and artwork
       expect(mockUpdateGame).toHaveBeenCalledTimes(2);
       expect(mockUpdateGame).toHaveBeenCalledWith('game1', {
+        coverArt: 'artwork://game1.png',
+        coverArtAspectRatio: 1.0,
         metadata: {
           developer: 'Test Dev',
           description: 'A test game',
@@ -192,7 +204,7 @@ describe('HomebrewService', () => {
       expect(mockCopyFile).not.toHaveBeenCalled();
     });
 
-    it('skips copy when ROM already exists at destination', async () => {
+    it('skips ROM copy when file already exists but still copies artwork', async () => {
       mockReadFile.mockResolvedValueOnce(JSON.stringify([MANIFEST[0]]));
 
       // ROM file already exists at destination — access resolves
@@ -202,8 +214,12 @@ describe('HomebrewService', () => {
 
       await service.importHomebrewRoms();
 
-      // Should NOT copy the file since it already exists
-      expect(mockCopyFile).not.toHaveBeenCalled();
+      // Should copy artwork but not the ROM
+      expect(mockCopyFile).toHaveBeenCalledTimes(1);
+      expect(mockCopyFile).toHaveBeenCalledWith(
+        expect.stringContaining('test-game.png'),
+        '/tmp/gamelord-test/artwork/game1.png',
+      );
       // Should still add to library
       expect(mockAddGame).toHaveBeenCalledTimes(1);
     });
@@ -240,6 +256,27 @@ describe('HomebrewService', () => {
       await service.importHomebrewRoms();
 
       expect(mockUpdateGame).not.toHaveBeenCalled();
+    });
+
+    it('still imports game when artwork copy fails', async () => {
+      mockReadFile.mockResolvedValueOnce(JSON.stringify([MANIFEST[0]]));
+      mockAddGame.mockResolvedValueOnce({ id: 'game1', title: 'Test Game' });
+      // ROM copy succeeds, artwork copy fails
+      mockCopyFile
+        .mockResolvedValueOnce(undefined)   // ROM
+        .mockRejectedValueOnce(new Error('artwork missing'));  // artwork
+
+      await service.importHomebrewRoms();
+
+      // Should still update with metadata (no coverArt fields)
+      expect(mockUpdateGame).toHaveBeenCalledWith('game1', {
+        metadata: {
+          developer: 'Test Dev',
+          description: 'A test game',
+          genre: 'Action',
+          players: 1,
+        },
+      });
     });
 
     it('writes marker file after import', async () => {
