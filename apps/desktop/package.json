@@ -19,21 +19,17 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@gamelord/ui": "workspace:*",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
     "dotenv": "^17.2.4",
-    "electron-log": "^5.4.3",
-    "lucide-react": "^0.525.0",
-    "node-addon-api": "^8.3.1",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "electron-log": "^5.4.3"
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",
+    "@gamelord/ui": "workspace:*",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/vite": "^4.1.18",
     "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.7.0",
     "agentation": "^2.2.1",
     "autoprefixer": "^10.4.21",
@@ -41,8 +37,12 @@
     "electron-builder": "^25.1.8",
     "electron-vite": "^5.0.0",
     "happy-dom": "^20.5.0",
+    "lucide-react": "^0.525.0",
+    "node-addon-api": "^8.3.1",
     "node-gyp": "^10.3.1",
     "postcss": "^8.5.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "tailwindcss": "^4.1.11",
     "ts-node": "^10.9.2",
     "typescript": "~5.8.3",
