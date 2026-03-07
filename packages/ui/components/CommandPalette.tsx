@@ -63,10 +63,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const inputRef = useRef<HTMLInputElement>(null)
   const prevOpenRef = useRef(false)
 
-  // Reset search when palette opens (not on every render)
+  // Reset search and focus input when palette opens
   useEffect(() => {
     if (open && !prevOpenRef.current) {
       setSearch('')
+      // Focus after React commits the visible DOM
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+      })
     }
     prevOpenRef.current = open
   }, [open])
