@@ -57,7 +57,25 @@ const createWindow = () => {
   });
 
   // Persist window position, size, and maximize state across sessions.
-  manageWindowState(mainWindow);
+  // manualCloseSave prevents the auto-close listener from saving bounds
+  // after the close animation shrinks the window.
+  manageWindowState(mainWindow, { ...MAIN_WINDOW_CONFIG, manualCloseSave: true });
+
+  // Animate the main window on close (fade + shrink toward center).
+  // Skip the animation during Cmd+Q / app.quit() — the quit flow handles
+  // cleanup and the user expects an instant exit.
+  let readyToClose = false;
+  mainWindow.on('close', (event) => {
+    if (readyToClose || isCleaningUp) return;
+
+    event.preventDefault();
+    saveWindowStateNow(mainWindow, MAIN_WINDOW_CONFIG);
+
+    animateWindowClose(mainWindow).then(() => {
+      readyToClose = true;
+      mainWindow.close();
+    });
+  });
 
   // and load the index.html of the app.
   if (process.env.ELECTRON_RENDERER_URL) {
