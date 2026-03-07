@@ -41,7 +41,7 @@ describe("graceful startup — LibraryView", () => {
   const source = fs.readFileSync(libraryViewPath, "utf8");
 
   it("adds the mounted class to #root after library loads", () => {
-    expect(source).toContain("classList.add('mounted')");
+    expect(source).toContain('classList.add("mounted")');
   });
 
   it("uses triple-rAF to let the compositor settle before fading in", () => {
@@ -74,14 +74,14 @@ describe("graceful startup — main process", () => {
   });
 
   it("listens for ready-to-show with a fallback timeout", () => {
-    expect(mainSource).toContain("'ready-to-show'");
+    expect(mainSource).toContain('"ready-to-show"');
     expect(mainSource).toContain("mainWindow.show()");
     // Fallback timeout so the window shows even if renderer never signals
     expect(mainSource).toContain("setTimeout(showOnce");
   });
 
   it("listens for app:contentReady via ipcMain to show the window", () => {
-    expect(mainSource).toContain("ipcMain.once('app:contentReady'");
+    expect(mainSource).toContain('ipcMain.once("app:contentReady"');
   });
 });
 
@@ -94,7 +94,7 @@ describe("graceful startup — preload", () => {
 
   it("exposes contentReady that sends the app:contentReady IPC signal", () => {
     expect(preloadSource).toContain("contentReady");
-    expect(preloadSource).toContain("'app:contentReady'");
+    expect(preloadSource).toContain('"app:contentReady"');
   });
 });
 
