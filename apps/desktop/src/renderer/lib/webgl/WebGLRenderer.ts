@@ -1,19 +1,19 @@
-export type ShaderType = 'default' | 'crt';
+export type ShaderType = "default" | "crt";
 
 export class WebGLRenderer {
   private canvas: HTMLCanvasElement;
   private gl: WebGLRenderingContext;
-  private currentShader: ShaderType = 'default';
+  private currentShader: ShaderType = "default";
   private isReady = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    const gl = canvas.getContext('webgl');
-    
+    const gl = canvas.getContext("webgl");
+
     if (!gl) {
-      throw new Error('WebGL not supported');
+      throw new Error("WebGL not supported");
     }
-    
+
     this.gl = gl;
     this.initialize();
   }
@@ -22,7 +22,7 @@ export class WebGLRenderer {
     // Set up basic WebGL state
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-    
+
     // TODO: Initialize shaders, buffers, etc.
     this.isReady = true;
   }
@@ -33,8 +33,10 @@ export class WebGLRenderer {
   }
 
   render(_videoFrame: ImageData): void {
-    if (!this.isReady) return;
-    
+    if (!this.isReady) {
+      return;
+    }
+
     // TODO: Render the video frame using WebGL
   }
 

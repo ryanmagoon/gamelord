@@ -1,8 +1,8 @@
-import { useState, useEffect, type RefObject } from 'react'
+import { useState, useEffect, type RefObject } from "react";
 
 export interface ScrollContainerState {
-  scrollTop: number
-  viewportHeight: number
+  scrollTop: number;
+  viewportHeight: number;
 }
 
 /**
@@ -15,38 +15,44 @@ export function useScrollContainer(
   const [state, setState] = useState<ScrollContainerState>({
     scrollTop: 0,
     viewportHeight: 0,
-  })
+  });
 
   useEffect(() => {
-    const element = scrollRef?.current
-    if (!element) return
+    const element = scrollRef?.current;
+    if (!element) {
+      return;
+    }
 
     // Measure initial viewport height
-    setState(prev => ({ ...prev, viewportHeight: element.clientHeight }))
+    setState((prev) => ({ ...prev, viewportHeight: element.clientHeight }));
 
     // Track viewport height changes
     const ro = new ResizeObserver(() => {
-      setState(prev => ({ ...prev, viewportHeight: element.clientHeight }))
-    })
-    ro.observe(element)
+      setState((prev) => ({ ...prev, viewportHeight: element.clientHeight }));
+    });
+    ro.observe(element);
 
     // Track scroll position, throttled to one update per animation frame
-    let rafId = 0
+    let rafId = 0;
     const onScroll = () => {
-      if (rafId) return
+      if (rafId) {
+        return;
+      }
       rafId = requestAnimationFrame(() => {
-        setState(prev => ({ ...prev, scrollTop: element.scrollTop }))
-        rafId = 0
-      })
-    }
-    element.addEventListener('scroll', onScroll, { passive: true })
+        setState((prev) => ({ ...prev, scrollTop: element.scrollTop }));
+        rafId = 0;
+      });
+    };
+    element.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
-      ro.disconnect()
-      element.removeEventListener('scroll', onScroll)
-      if (rafId) cancelAnimationFrame(rafId)
-    }
-  }, [scrollRef])
+      ro.disconnect();
+      element.removeEventListener("scroll", onScroll);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+    };
+  }, [scrollRef]);
 
-  return state
+  return state;
 }

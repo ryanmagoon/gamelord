@@ -1,5 +1,5 @@
-import { EventEmitter } from 'events';
-import { ChildProcess } from 'child_process';
+import { EventEmitter } from "node:events";
+import { ChildProcess } from "node:child_process";
 
 /**
  * Abstract base class for all emulator implementations.
@@ -12,7 +12,7 @@ export abstract class EmulatorCore extends EventEmitter {
 
   constructor(
     public readonly name: string,
-    public readonly emulatorPath: string
+    public readonly emulatorPath: string,
   ) {
     super();
   }
@@ -64,18 +64,18 @@ export abstract class EmulatorCore extends EventEmitter {
         }
 
         const timeout = setTimeout(() => {
-          this.process?.kill('SIGKILL');
+          this.process?.kill("SIGKILL");
           this.cleanup();
           resolve();
         }, 5000);
 
-        this.process.once('exit', () => {
+        this.process.once("exit", () => {
           clearTimeout(timeout);
           this.cleanup();
           resolve();
         });
 
-        this.process.kill('SIGTERM');
+        this.process.kill("SIGTERM");
       });
     }
   }
@@ -100,7 +100,7 @@ export abstract class EmulatorCore extends EventEmitter {
   protected cleanup(): void {
     this.process = null;
     this.isRunning = false;
-    this.emit('terminated');
+    this.emit("terminated");
   }
 }
 
@@ -111,6 +111,12 @@ export interface EmulatorLaunchOptions {
   /** Path to the core/plugin to use (for multi-core emulators like RetroArch) */
   corePath?: string;
 
+  /** Working directory for the emulator process */
+  cwd?: string;
+
+  /** Additional command-line arguments */
+  extraArgs?: Array<string>;
+
   /** Whether to launch in fullscreen mode */
   fullscreen?: boolean;
 
@@ -119,47 +125,41 @@ export interface EmulatorLaunchOptions {
     width: number;
     height: number;
   };
-
-  /** Additional command-line arguments */
-  extraArgs?: string[];
-
-  /** Working directory for the emulator process */
-  cwd?: string;
 }
 
 /**
  * Emulator capabilities and metadata
  */
 export interface EmulatorInfo {
+  /** Features this emulator supports */
+  features: EmulatorFeatures;
+
   /** Unique identifier for this emulator */
   id: string;
 
   /** Display name */
   name: string;
 
-  /** Emulator type (retroarch, mesen, dolphin, etc.) */
-  type: string;
-
   /** Path to the emulator executable */
   path: string;
 
   /** Systems this emulator supports */
-  supportedSystems: string[];
+  supportedSystems: Array<string>;
 
-  /** Features this emulator supports */
-  features: EmulatorFeatures;
+  /** Emulator type (retroarch, mesen, dolphin, etc.) */
+  type: string;
 }
 
 /**
  * Feature flags for emulator capabilities
  */
 export interface EmulatorFeatures {
-  saveStates: boolean;
-  screenshots: boolean;
+  cheats: boolean;
+  fastForward: boolean;
   pauseResume: boolean;
   reset: boolean;
-  fastForward: boolean;
   rewind: boolean;
+  saveStates: boolean;
+  screenshots: boolean;
   shaders: boolean;
-  cheats: boolean;
 }

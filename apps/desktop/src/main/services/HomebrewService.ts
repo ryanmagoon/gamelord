@@ -1,8 +1,8 @@
-import { promises as fs } from 'fs';
-import path from 'path';
-import { app } from 'electron';
-import { LibraryService } from './LibraryService';
-import { libraryLog } from '../logger';
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { app } from "electron";
+import { LibraryService } from "./LibraryService";
+import { libraryLog } from "../logger";
 
 /** Shape of each entry in the bundled homebrew manifest.json. */
 interface HomebrewManifestEntry {
@@ -33,9 +33,9 @@ export class HomebrewService {
 
   constructor(libraryService: LibraryService) {
     this.libraryService = libraryService;
-    const userData = app.getPath('userData');
-    this.markerPath = path.join(userData, '.homebrew-imported');
-    this.artworkDirectory = path.join(userData, 'artwork');
+    const userData = app.getPath("userData");
+    this.markerPath = path.join(userData, ".homebrew-imported");
+    this.artworkDirectory = path.join(userData, "artwork");
   }
 
   /**
@@ -45,10 +45,10 @@ export class HomebrewService {
    */
   private getHomebrewResourcePath(): string {
     if (app.isPackaged) {
-      return path.join(process.resourcesPath, 'homebrew');
+      return path.join(process.resourcesPath, "homebrew");
     }
     // Development: __dirname is apps/desktop/out/main/
-    return path.join(__dirname, '../../resources/homebrew');
+    return path.join(__dirname, "../../resources/homebrew");
   }
 
   /**
@@ -84,27 +84,26 @@ export class HomebrewService {
   async importHomebrewRoms(): Promise<boolean> {
     const resourcePath = this.getHomebrewResourcePath();
 
-    let manifest: HomebrewManifestEntry[];
+    let manifest: Array<HomebrewManifestEntry>;
     try {
-      const raw = await fs.readFile(path.join(resourcePath, 'manifest.json'), 'utf-8');
+      const raw = await fs.readFile(path.join(resourcePath, "manifest.json"), "utf8");
       manifest = JSON.parse(raw);
     } catch (error) {
-      libraryLog.warn('Homebrew manifest not found, skipping import:', error);
+      libraryLog.warn("Homebrew manifest not found, skipping import:", error);
       return false;
     }
 
     // Ensure the NES ROM folder exists
     const config = this.libraryService.getConfig();
-    const nesSystem = config.systems.find(s => s.id === 'nes');
-    const nesRomsPath = nesSystem?.romsPath ?? path.join(
-      config.romsBasePath ?? path.join(app.getPath('home'), 'ROMs'),
-      'NES',
-    );
+    const nesSystem = config.systems.find((s) => s.id === "nes");
+    const nesRomsPath =
+      nesSystem?.romsPath ??
+      path.join(config.romsBasePath ?? path.join(app.getPath("home"), "ROMs"), "NES");
 
     try {
       await fs.mkdir(nesRomsPath, { recursive: true });
     } catch (error) {
-      libraryLog.error('Failed to create NES ROM directory:', error);
+      libraryLog.error("Failed to create NES ROM directory:", error);
       return false;
     }
 
@@ -112,7 +111,7 @@ export class HomebrewService {
     try {
       await fs.mkdir(this.artworkDirectory, { recursive: true });
     } catch (error) {
-      libraryLog.warn('Failed to create artwork directory:', error);
+      libraryLog.warn("Failed to create artwork directory:", error);
     }
 
     let importedCount = 0;
@@ -189,7 +188,7 @@ export class HomebrewService {
     try {
       await fs.writeFile(this.markerPath, new Date().toISOString());
     } catch (error) {
-      libraryLog.warn('Failed to write homebrew import marker:', error);
+      libraryLog.warn("Failed to write homebrew import marker:", error);
     }
   }
 }

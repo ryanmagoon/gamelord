@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,20 +9,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from './alert-dialog'
-import { Button } from './button'
+} from "./alert-dialog";
+import { Button } from "./button";
 
 const meta: Meta<typeof AlertDialog> = {
-  title: 'UI/AlertDialog',
   component: AlertDialog,
   parameters: {
-    layout: 'centered',
+    layout: "centered",
   },
-  tags: ['autodocs'],
-}
+  tags: ["autodocs"],
+  title: "UI/AlertDialog",
+};
 
-export default meta
-type Story = StoryObj<typeof AlertDialog>
+export default meta;
+type Story = StoryObj<typeof AlertDialog>;
 
 export const Default: Story = {
   render: () => (
@@ -34,8 +34,7 @@ export const Default: Story = {
         <AlertDialogHeader>
           <AlertDialogTitle>Are you sure?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the game
-            from your library.
+            This action cannot be undone. This will permanently delete the game from your library.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -45,7 +44,7 @@ export const Default: Story = {
       </AlertDialogContent>
     </AlertDialog>
   ),
-}
+};
 
 export const Destructive: Story = {
   render: () => (
@@ -57,8 +56,8 @@ export const Destructive: Story = {
         <AlertDialogHeader>
           <AlertDialogTitle>Reset All Data?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will delete all your saved games, settings, and preferences.
-            This action is irreversible.
+            This will delete all your saved games, settings, and preferences. This action is
+            irreversible.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -70,7 +69,7 @@ export const Destructive: Story = {
       </AlertDialogContent>
     </AlertDialog>
   ),
-}
+};
 
 export const ConfirmAction: Story = {
   render: () => (
@@ -82,8 +81,8 @@ export const ConfirmAction: Story = {
         <AlertDialogHeader>
           <AlertDialogTitle>Launch Super Mario Bros?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will start the game in a new window. Any unsaved progress in
-            your current game will be lost.
+            This will start the game in a new window. Any unsaved progress in your current game will
+            be lost.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -93,4 +92,4 @@ export const ConfirmAction: Story = {
       </AlertDialogContent>
     </AlertDialog>
   ),
-}
+};

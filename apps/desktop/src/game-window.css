@@ -3,15 +3,15 @@
 
 /* Geist Pixel Square for game window UI text */
 @font-face {
-  font-family: 'Geist Pixel Square';
-  src: url('./assets/fonts/geist-pixel/GeistPixel-Square.woff2') format('woff2');
+  font-family: "Geist Pixel Square";
+  src: url("./assets/fonts/geist-pixel/GeistPixel-Square.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 body {
-  font-family: 'Geist Pixel Square', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-family: "Geist Pixel Square", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 }
 
 /* Scan local game-window components */
@@ -35,7 +35,9 @@ body {
   border-color: transparent;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   background: transparent !important;
   background-color: transparent !important;
 }

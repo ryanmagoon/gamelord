@@ -1,10 +1,10 @@
-import type { GameSystem, Game, LibraryConfig } from '../../types/library'
+import type { GameSystem, Game, LibraryConfig } from "../../types/library";
 
 export interface CoreInfo {
-  name: string
-  displayName: string
-  description: string
-  installed: boolean
+  name: string;
+  displayName: string;
+  description: string;
+  installed: boolean;
 }
 
 export interface GamelordAPI {
@@ -16,110 +16,113 @@ export interface GamelordAPI {
       emulatorId?: string,
       coreName?: string,
       cardBounds?: { x: number; y: number; width: number; height: number },
-    ) => Promise<{ success: boolean; error?: string }>
-    stop: () => Promise<{ success: boolean; error?: string }>
-    getAvailable: () => Promise<any>
-    isRunning: () => Promise<boolean>
-    getCoresForSystem: (systemId: string) => Promise<CoreInfo[]>
+    ) => Promise<{ success: boolean; error?: string }>;
+    stop: () => Promise<{ success: boolean; error?: string }>;
+    getAvailable: () => Promise<any>;
+    isRunning: () => Promise<boolean>;
+    getCoresForSystem: (systemId: string) => Promise<Array<CoreInfo>>;
     downloadCore: (
       coreName: string,
       systemId: string,
-    ) => Promise<{ success: boolean; corePath?: string; error?: string }>
-  }
+    ) => Promise<{ success: boolean; corePath?: string; error?: string }>;
+  };
   emulation: {
-    pause: () => Promise<{ success: boolean }>
-    resume: () => Promise<{ success: boolean }>
-    reset: () => Promise<{ success: boolean; error?: string }>
+    pause: () => Promise<{ success: boolean }>;
+    resume: () => Promise<{ success: boolean }>;
+    reset: () => Promise<{ success: boolean; error?: string }>;
     screenshot: (
       outputPath?: string,
-    ) => Promise<{ success: boolean; path?: string; error?: string }>
-    setSpeed: (multiplier: number) => Promise<{ success: boolean; error?: string }>
-    setFastForwardAudio: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
-  }
+    ) => Promise<{ success: boolean; path?: string; error?: string }>;
+    setSpeed: (multiplier: number) => Promise<{ success: boolean; error?: string }>;
+    setFastForwardAudio: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+  };
   saveState: {
-    save: (slot: number) => Promise<{ success: boolean }>
-    load: (slot: number) => Promise<{ success: boolean }>
-  }
+    save: (slot: number) => Promise<{ success: boolean }>;
+    load: (slot: number) => Promise<{ success: boolean }>;
+  };
   // Library management (matches preload API)
   library: {
-    getSystems: () => Promise<GameSystem[]>
-    addSystem: (system: GameSystem) => Promise<any>
-    removeSystem: (systemId: string) => Promise<any>
-    updateSystemPath: (systemId: string, romsPath: string) => Promise<any>
+    getSystems: () => Promise<Array<GameSystem>>;
+    addSystem: (system: GameSystem) => Promise<any>;
+    removeSystem: (systemId: string) => Promise<any>;
+    updateSystemPath: (systemId: string, romsPath: string) => Promise<any>;
 
-    getGames: (systemId?: string) => Promise<Game[]>
-    addGame: (romPath: string, systemId: string) => Promise<Game | null>
-    removeGame: (gameId: string) => Promise<any>
-    updateGame: (gameId: string, updates: Partial<Game>) => Promise<any>
+    getGames: (systemId?: string) => Promise<Array<Game>>;
+    addGame: (romPath: string, systemId: string) => Promise<Game | null>;
+    removeGame: (gameId: string) => Promise<any>;
+    updateGame: (gameId: string, updates: Partial<Game>) => Promise<any>;
 
-    scanDirectory: (directoryPath: string, systemId?: string) => Promise<Game[]>
-    scanSystemFolders: () => Promise<any>
+    scanDirectory: (directoryPath: string, systemId?: string) => Promise<Array<Game>>;
+    scanSystemFolders: () => Promise<any>;
 
-    getConfig: () => Promise<LibraryConfig>
-    setRomsBasePath: (basePath: string) => Promise<any>
-  }
+    getConfig: () => Promise<LibraryConfig>;
+    setRomsBasePath: (basePath: string) => Promise<any>;
+  };
 
   // Artwork & metadata
   artwork: {
-    syncGame: (gameId: string) => Promise<{ success: boolean; error?: string }>
-    syncAll: () => Promise<{ success: boolean; error?: string }>
-    syncGames: (gameIds: string[]) => Promise<{ success: boolean; error?: string }>
-    cancelSync: () => Promise<{ success: boolean }>
-    getSyncStatus: () => Promise<{ inProgress: boolean }>
-    getCredentials: () => Promise<{ hasCredentials: boolean }>
-    setCredentials: (userId: string, userPassword: string) => Promise<{ success: boolean; error?: string; errorCode?: string }>
-    clearCredentials: () => Promise<{ success: boolean; error?: string }>
-  }
+    syncGame: (gameId: string) => Promise<{ success: boolean; error?: string }>;
+    syncAll: () => Promise<{ success: boolean; error?: string }>;
+    syncGames: (gameIds: Array<string>) => Promise<{ success: boolean; error?: string }>;
+    cancelSync: () => Promise<{ success: boolean }>;
+    getSyncStatus: () => Promise<{ inProgress: boolean }>;
+    getCredentials: () => Promise<{ hasCredentials: boolean }>;
+    setCredentials: (
+      userId: string,
+      userPassword: string,
+    ) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
+    clearCredentials: () => Promise<{ success: boolean; error?: string }>;
+  };
 
   // Dialog helpers (matches preload API)
   dialog: {
-    selectDirectory: () => Promise<string | null>
-    selectRomFile: (systemId: string) => Promise<string | null>
-    respondResumeGame: (requestId: string, shouldResume: boolean) => void
-  }
+    selectDirectory: () => Promise<string | null>;
+    selectRomFile: (systemId: string) => Promise<string | null>;
+    respondResumeGame: (requestId: string, shouldResume: boolean) => void;
+  };
 
   // Game window controls
   gameWindow: {
-    minimize: () => void
-    maximize: () => void
-    close: () => void
-    toggleFullscreen: () => void
-    setClickThrough: (value: boolean) => void
-    setTrafficLightVisible: (visible: boolean) => void
-    readyToClose: () => void
-  }
+    minimize: () => void;
+    maximize: () => void;
+    close: () => void;
+    toggleFullscreen: () => void;
+    setClickThrough: (value: boolean) => void;
+    setTrafficLightVisible: (visible: boolean) => void;
+    readyToClose: () => void;
+  };
 
   // Game input (native mode)
-  gameInput: (port: number, id: number, pressed: boolean) => void
+  gameInput: (port: number, id: number, pressed: boolean) => void;
 
   // SharedArrayBuffer delivery via MessagePort bridge
   framePort: {
-    onMessage: (callback: (data: unknown) => void) => void
-  }
+    onMessage: (callback: (data: unknown) => void) => void;
+  };
 
-  on: (channel: string, callback: (...args: any[]) => void) => void
-  removeAllListeners: (channel: string) => void
+  on: (channel: string, callback: (...args: Array<any>) => void) => void;
+  removeAllListeners: (channel: string) => void;
 }
 
 export interface VideoFrame {
-  data: ArrayBuffer | Uint8Array
-  width: number
-  height: number
-  timestamp?: number
+  data: ArrayBuffer | Uint8Array;
+  width: number;
+  height: number;
+  timestamp?: number;
 }
 
 export interface AudioSamples {
-  samples: Float32Array
-  sampleRate: number
-  timestamp: number
+  samples: Float32Array;
+  sampleRate: number;
+  timestamp: number;
 }
 
 declare global {
-  const __DEV_GIT_BRANCH__: string | null
-  const __DEV_WORKTREE_NAME__: string | null
-  const __DEV_WORKTREE_PATH__: string | null
+  const __DEV_GIT_BRANCH__: string | null;
+  const __DEV_WORKTREE_NAME__: string | null;
+  const __DEV_WORKTREE_PATH__: string | null;
 
   interface Window {
-    gamelord: GamelordAPI
+    gamelord: GamelordAPI;
   }
 }

@@ -1,8 +1,8 @@
-import type { LutDefinition, FilterMode, WrapMode } from './types';
+import type { LutDefinition, FilterMode, WrapMode } from "./types";
 
 interface LutEntry {
-  texture: WebGLTexture;
   definition: LutDefinition;
+  texture: WebGLTexture;
 }
 
 /**
@@ -34,11 +34,11 @@ export class LutLoader {
 
     gl.bindTexture(gl.TEXTURE_2D, null);
 
-    this.luts.set(definition.name, { texture, definition });
+    this.luts.set(definition.name, { definition, texture });
   }
 
   /** Batch-loads all LUT definitions. */
-  async loadAll(luts: LutDefinition[]): Promise<void> {
+  async loadAll(luts: Array<LutDefinition>): Promise<void> {
     await Promise.all(luts.map((lut) => this.load(lut)));
   }
 
@@ -57,7 +57,7 @@ export class LutLoader {
   private loadImage(url: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      img.crossOrigin = "anonymous";
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error(`Failed to load LUT image: ${url}`));
       img.src = url;
@@ -65,16 +65,19 @@ export class LutLoader {
   }
 
   private getFilter(filter: FilterMode): number {
-    return filter === 'linear' ? this.gl.LINEAR : this.gl.NEAREST;
+    return filter === "linear" ? this.gl.LINEAR : this.gl.NEAREST;
   }
 
   private getWrap(wrap: WrapMode): number {
     const gl = this.gl;
     switch (wrap) {
-      case 'repeat': return gl.REPEAT;
-      case 'mirror': return gl.MIRRORED_REPEAT;
-      case 'clamp':
-      default: return gl.CLAMP_TO_EDGE;
+      case "repeat":
+        return gl.REPEAT;
+      case "mirror":
+        return gl.MIRRORED_REPEAT;
+      case "clamp":
+      default:
+        return gl.CLAMP_TO_EDGE;
     }
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState } from "react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -6,22 +6,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
-} from '@gamelord/ui'
-import { Download, Check, Cpu, Loader2 } from 'lucide-react'
-import type { CoreInfo } from '../types/global'
+} from "@gamelord/ui";
+import { Download, Check, Cpu, Loader2 } from "lucide-react";
+import type { CoreInfo } from "../types/global";
 
 export interface CoreSelectDialogProps {
-  open: boolean
-  systemName: string
-  cores: CoreInfo[]
-  onSelect: (coreName: string, remember: boolean) => void
-  onCancel: () => void
+  cores: Array<CoreInfo>;
+  onCancel: () => void;
+  onSelect: (coreName: string, remember: boolean) => void;
+  open: boolean;
   /**
    * When true, the backdrop overlay appears instantly (no fade-in animation).
    * Use this when transitioning from another overlay (e.g. a dropdown menu)
    * to prevent a flash of the underlying UI between the two overlays.
    */
-  suppressOverlayAnimation?: boolean
+  suppressOverlayAnimation?: boolean;
+  systemName: string;
 }
 
 /**
@@ -34,24 +34,22 @@ export interface CoreSelectDialogProps {
  * cores asynchronously, preventing a flash of the underlying UI.
  */
 export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
-  open,
-  systemName,
   cores,
-  onSelect,
   onCancel,
+  onSelect,
+  open,
   suppressOverlayAnimation = false,
+  systemName,
 }) => {
-  const [remember, setRemember] = useState(false)
-  const isLoading = cores.length === 0
+  const [remember, setRemember] = useState(false);
+  const isLoading = cores.length === 0;
 
   return (
     <AlertDialog open={open}>
       <AlertDialogContent
         className="sm:max-w-md"
-        style={suppressOverlayAnimation ? { animationDelay: '0ms' } : undefined}
-        overlayClassName={
-          suppressOverlayAnimation ? '[animation-duration:0ms]' : undefined
-        }
+        overlayClassName={suppressOverlayAnimation ? "[animation-duration:0ms]" : undefined}
+        style={suppressOverlayAnimation ? { animationDelay: "0ms" } : undefined}
       >
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
@@ -60,12 +58,12 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
           </AlertDialogTitle>
           <AlertDialogDescription>
             {isLoading ? (
-              'Loading available cores\u2026'
+              "Loading available cores\u2026"
             ) : (
               <>
-                Multiple cores are available for{' '}
-                <span className="font-semibold text-foreground">{systemName}</span>.
-                Pick the one you'd like to use.
+                Multiple cores are available for{" "}
+                <span className="font-semibold text-foreground">{systemName}</span>. Pick the one
+                you&apos;d like to use.
               </>
             )}
           </AlertDialogDescription>
@@ -76,8 +74,8 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
             <div className="flex flex-col gap-2">
               {[0, 1].map((index) => (
                 <div
-                  key={index}
                   className="flex items-center gap-3 rounded-lg border p-3 animate-pulse"
+                  key={index}
                 >
                   <div className="flex-1 space-y-2">
                     <div className="h-4 w-32 rounded bg-muted" />
@@ -93,16 +91,14 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
           ) : (
             cores.map((core) => (
               <button
+                className="flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent hover:text-accent-foreground"
                 key={core.name}
                 onClick={() => onSelect(core.name, remember)}
-                className="flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <div className="flex-1 min-w-0">
                   <div className="font-medium">{core.displayName}</div>
                   {core.description && (
-                    <div className="text-sm text-muted-foreground">
-                      {core.description}
-                    </div>
+                    <div className="text-sm text-muted-foreground">{core.description}</div>
                   )}
                 </div>
                 {core.installed ? (
@@ -118,19 +114,19 @@ export const CoreSelectDialog: React.FC<CoreSelectDialogProps> = ({
         <div className="flex items-center justify-between pt-2 border-t">
           <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
             <input
-              type="checkbox"
               checked={remember}
-              onChange={(event) => setRemember(event.target.checked)}
               className="rounded border-input"
               disabled={isLoading}
+              onChange={(event) => setRemember(event.target.checked)}
+              type="checkbox"
             />
             Remember my choice
           </label>
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+          <Button onClick={onCancel} size="sm" variant="ghost">
             Cancel
           </Button>
         </div>
       </AlertDialogContent>
     </AlertDialog>
-  )
-}
+  );
+};

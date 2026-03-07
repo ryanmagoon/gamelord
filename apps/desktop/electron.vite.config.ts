@@ -1,26 +1,28 @@
-import { resolve } from 'path'
-import { execSync } from 'child_process'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
-import react from '@vitejs/plugin-react'
-import type { Plugin } from 'vite'
+import { resolve } from "node:path";
+import { execSync } from "node:child_process";
+import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import react from "@vitejs/plugin-react";
+import type { Plugin } from "vite";
 
 function getGitBranch(): string | null {
   try {
-    return execSync('git branch --show-current', { encoding: 'utf-8' }).trim() || null
+    return execSync("git branch --show-current", { encoding: "utf8" }).trim() || null;
   } catch {
-    return null
+    return null;
   }
 }
 
 function getWorktreeInfo(): { name: string; path: string } | null {
-  const match = process.cwd().match(/^(.*\/\.claude\/worktrees\/([^/]+))/)
-  if (!match) return null
-  return { name: match[2], path: match[1] }
+  const match = process.cwd().match(/^(.*\/\.claude\/worktrees\/([^/]+))/);
+  if (!match) {
+    return null;
+  }
+  return { name: match[2], path: match[1] };
 }
 
-const isDev = process.env.NODE_ENV !== 'production'
-const gitBranch = isDev ? getGitBranch() : null
-const worktreeInfo = isDev ? getWorktreeInfo() : null
+const isDev = process.env.NODE_ENV !== "production";
+const gitBranch = isDev ? getGitBranch() : null;
+const worktreeInfo = isDev ? getWorktreeInfo() : null;
 
 /** Vite plugin that injects dev-time git info as compile-time constants. */
 function devGitInfoPlugin(): Plugin {
@@ -28,59 +30,59 @@ function devGitInfoPlugin(): Plugin {
     __DEV_GIT_BRANCH__: JSON.stringify(gitBranch),
     __DEV_WORKTREE_NAME__: JSON.stringify(worktreeInfo?.name ?? null),
     __DEV_WORKTREE_PATH__: JSON.stringify(worktreeInfo?.path ?? null),
-  }
+  };
 
   return {
-    name: 'dev-git-info',
+    name: "dev-git-info",
     transform(code, id) {
-      if (!id.endsWith('.tsx') && !id.endsWith('.ts')) return
-      let result = code
-      for (const [key, value] of Object.entries(replacements)) {
-        result = result.replaceAll(key, value)
+      if (!id.endsWith(".tsx") && !id.endsWith(".ts")) {
+        return;
       }
-      if (result !== code) return { code: result, map: null }
+      let result = code;
+      for (const [key, value] of Object.entries(replacements)) {
+        result = result.replaceAll(key, value);
+      }
+      if (result !== code) {
+        return { code: result, map: null };
+      }
     },
-  }
+  };
 }
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/main.ts'),
-          'workers/core-worker': resolve(__dirname, 'src/main/workers/core-worker.ts'),
+          index: resolve(__dirname, "src/main.ts"),
+          "workers/core-worker": resolve(__dirname, "src/main/workers/core-worker.ts"),
         },
         external: [/\.node$/],
       },
     },
+    plugins: [externalizeDepsPlugin()],
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/preload.ts'),
+          index: resolve(__dirname, "src/preload.ts"),
         },
       },
     },
+    plugins: [externalizeDepsPlugin()],
   },
   renderer: {
-    root: '.',
-    server: {
-      headers: {
-        'Cross-Origin-Opener-Policy': 'same-origin',
-        'Cross-Origin-Embedder-Policy': 'require-corp',
-      },
-    },
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'index.html'),
-          'game-window': resolve(__dirname, 'game-window.html'),
+          index: resolve(__dirname, "index.html"),
+          "game-window": resolve(__dirname, "game-window.html"),
         },
       },
+    },
+    optimizeDeps: {
+      exclude: ["@gamelord/ui"],
     },
     plugins: [react(), devGitInfoPlugin()],
     resolve: {
@@ -90,8 +92,12 @@ export default defineConfig({
       // installs transitive dependencies.
       preserveSymlinks: false,
     },
-    optimizeDeps: {
-      exclude: ['@gamelord/ui'],
+    root: ".",
+    server: {
+      headers: {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "require-corp",
+      },
     },
   },
-})
+});

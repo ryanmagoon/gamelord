@@ -10,12 +10,17 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
-    "declarationMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./*"]
-    }
+    "declarationMap": true
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "storybook-static", "**/*.stories.tsx", "**/*.stories.ts", "**/*.test.tsx", "**/*.test.ts", "vitest.config.ts", "vitest.setup.ts"]
+  "exclude": [
+    "node_modules",
+    "storybook-static",
+    "**/*.stories.tsx",
+    "**/*.stories.ts",
+    "**/*.test.tsx",
+    "**/*.test.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts"
+  ]
 }
