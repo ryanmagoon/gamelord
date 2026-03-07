@@ -200,7 +200,7 @@ export class LibraryService extends EventEmitter {
     const bakPath = `${filePath}.bak`;
     const content = JSON.stringify(data, null, 2);
 
-    await fs.writeFile(tmpPath, content, 'utf8');
+    await fs.writeFile(tmpPath, content, "utf8");
 
     try {
       await fs.rename(filePath, bakPath);
@@ -337,8 +337,8 @@ export class LibraryService extends EventEmitter {
    * though the game entry was deleted.
    */
   private async findExistingArtwork(gameId: string): Promise<string | undefined> {
-    const artworkDir = path.join(app.getPath('userData'), 'artwork');
-    const extensions = ['.png', '.jpg', '.jpeg', '.webp'];
+    const artworkDir = path.join(app.getPath("userData"), "artwork");
+    const extensions = [".png", ".jpg", ".jpeg", ".webp"];
 
     for (const ext of extensions) {
       const filePath = path.join(artworkDir, `${gameId}${ext}`);

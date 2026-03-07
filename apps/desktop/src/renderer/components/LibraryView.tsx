@@ -637,43 +637,45 @@ export const LibraryView: React.FC<{
   //
   // `isRevealing` stays true during the fade so GameLibrary can minimise
   // overscan and suppress card transitions, reducing GPU compositing work.
-  const hasRevealedRef = useRef(false)
-  const [gridReady, setGridReady] = useState(false)
-  const [isRevealing, setIsRevealing] = useState(true)
-  const handleGridReady = useCallback(() => setGridReady(true), [])
+  const hasRevealedRef = useRef(false);
+  const [gridReady, setGridReady] = useState(false);
+  const [isRevealing, setIsRevealing] = useState(true);
+  const handleGridReady = useCallback(() => setGridReady(true), []);
 
-  const shouldReveal = !loading && (gridReady || games.length === 0)
+  const shouldReveal = !loading && (gridReady || games.length === 0);
 
   useEffect(() => {
     if (shouldReveal && !hasRevealedRef.current) {
-      hasRevealedRef.current = true
+      hasRevealedRef.current = true;
       // Tell the main process to show the window. This triggers
       // mainWindow.show() which rasterizes the full window surface
       // for the first time — an expensive compositing pass. We give
       // the compositor 2 full frames to settle before starting the
       // opacity fade, otherwise the fade animation drops frames while
       // the GPU is still rasterizing layers.
-      api.contentReady()
+      api.contentReady();
       // Frame 1: browser composites the newly-shown window surface.
       requestAnimationFrame(() => {
         // Frame 2: first fully-rasterized frame is on screen (at opacity 0).
         requestAnimationFrame(() => {
           // Frame 3: now safe to start the opacity transition.
           requestAnimationFrame(() => {
-            document.getElementById('root')?.classList.add('mounted')
+            document.getElementById("root")?.classList.add("mounted");
             // End reveal mode after the CSS transition completes (400ms) + buffer.
             // This re-enables full overscan and card hover transitions.
             // Also remove will-change to free the dedicated GPU layer.
             setTimeout(() => {
-              setIsRevealing(false)
-              const root = document.getElementById('root')
-              if (root) { root.style.willChange = 'auto'; }
-            }, 500)
-          })
-        })
-      })
+              setIsRevealing(false);
+              const root = document.getElementById("root");
+              if (root) {
+                root.style.willChange = "auto";
+              }
+            }, 500);
+          });
+        });
+      });
     }
-  }, [shouldReveal])
+  }, [shouldReveal]);
 
   // Per-game UI object cache — only recreates a UiGame when its source
   // AppGame object reference changes. This prevents ALL cards from
@@ -755,7 +757,7 @@ export const LibraryView: React.FC<{
         className="h-full"
         style={{
           opacity: shouldReveal ? 1 : 0,
-          transition: 'opacity 250ms ease',
+          transition: "opacity 250ms ease",
         }}
       >
         <EmptyLibrary

@@ -171,7 +171,7 @@ contextBridge.exposeInMainWorld("gamelord", {
   // Signal that the renderer has loaded content and is ready to be shown.
   // The main process keeps the window hidden until this fires, so the CSS
   // opacity transition (0 → 1) plays visibly on cold launch.
-  contentReady: () => ipcRenderer.send('app:contentReady'),
+  contentReady: () => ipcRenderer.send("app:contentReady"),
 
   // Dialog
   dialog: {

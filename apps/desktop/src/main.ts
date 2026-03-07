@@ -4,7 +4,12 @@ import path from "node:path";
 import { setupAppMenu } from "./main/appMenu";
 import { IPCHandlers } from "./main/ipc/handlers";
 import { mainLog } from "./main/logger";
-import { getSavedWindowBounds, MAIN_WINDOW_CONFIG, manageWindowState, saveWindowStateNow } from "./main/utils/windowState";
+import {
+  getSavedWindowBounds,
+  MAIN_WINDOW_CONFIG,
+  manageWindowState,
+  saveWindowStateNow,
+} from "./main/utils/windowState";
 import { animateWindowClose } from "./main/windowCloseAnimation";
 
 // Load .env from the desktop app root (apps/desktop/.env) before anything
@@ -47,12 +52,14 @@ const createWindow = () => {
   // anyway so the user isn't stuck with an invisible window.
   let shown = false;
   const showOnce = () => {
-    if (shown) { return; }
+    if (shown) {
+      return;
+    }
     shown = true;
     mainWindow.show();
   };
-  ipcMain.once('app:contentReady', showOnce);
-  mainWindow.on('ready-to-show', () => {
+  ipcMain.once("app:contentReady", showOnce);
+  mainWindow.on("ready-to-show", () => {
     setTimeout(showOnce, 3000);
   });
 
@@ -65,8 +72,10 @@ const createWindow = () => {
   // Skip the animation during Cmd+Q / app.quit() — the quit flow handles
   // cleanup and the user expects an instant exit.
   let readyToClose = false;
-  mainWindow.on('close', (event) => {
-    if (readyToClose || isCleaningUp) { return; }
+  mainWindow.on("close", (event) => {
+    if (readyToClose || isCleaningUp) {
+      return;
+    }
 
     event.preventDefault();
     saveWindowStateNow(mainWindow, MAIN_WINDOW_CONFIG);
