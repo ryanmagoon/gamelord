@@ -1,8 +1,11 @@
 import React, { useMemo, useCallback, useEffect, useState, useRef } from 'react'
-import { Command } from 'cmdk'
+import { Command, defaultFilter } from 'cmdk'
 import { Search, Gamepad2, Monitor, Play } from 'lucide-react'
 import { cn } from '../utils'
 import type { Game } from './GameCard'
+
+/** Maximum number of game results to render at once. */
+const MAX_VISIBLE_GAMES = 10
 
 /** An action the user can trigger from the command palette. */
 export interface CommandAction {
@@ -39,6 +42,15 @@ function extractPlatforms(games: Game[]): string[] {
   return Array.from(set).sort()
 }
 
+/** Platform game counts keyed by platform name. */
+function countByPlatform(games: Game[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const game of games) {
+    counts.set(game.platform, (counts.get(game.platform) ?? 0) + 1)
+  }
+  return counts
+}
+
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
   open,
   onOpenChange,
@@ -49,15 +61,68 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 }) => {
   const [search, setSearch] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const prevOpenRef = useRef(false)
 
-  // Reset search when palette opens
+  // Reset search when palette opens (not on every render)
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpenRef.current) {
       setSearch('')
     }
+    prevOpenRef.current = open
   }, [open])
 
   const platforms = useMemo(() => extractPlatforms(games), [games])
+  const platformCounts = useMemo(() => countByPlatform(games), [games])
+
+  // External filtering: score + cap games to MAX_VISIBLE_GAMES
+  const filteredGames = useMemo(() => {
+    if (!search) {
+      return games.slice(0, MAX_VISIBLE_GAMES)
+    }
+    const scored: Array<{ game: Game; score: number }> = []
+    for (const game of games) {
+      const score = defaultFilter(`${game.title} ${game.platform}`, search)
+      if (score > 0) {
+        scored.push({ game, score })
+      }
+    }
+    scored.sort((a, b) => b.score - a.score)
+    return scored.slice(0, MAX_VISIBLE_GAMES).map((s) => s.game)
+  }, [games, search])
+
+  const remainingGames = search ? 0 : Math.max(0, games.length - MAX_VISIBLE_GAMES)
+
+  // External filtering: platforms (small set, no cap needed)
+  const filteredPlatforms = useMemo(() => {
+    if (!search) return platforms
+    return platforms.filter((p) => defaultFilter(p, search) > 0)
+  }, [platforms, search])
+
+  // External filtering: actions (small set, no cap needed)
+  const filteredGroupedActions = useMemo(() => {
+    const groups = new Map<string, CommandAction[]>()
+    for (const action of actions) {
+      if (search) {
+        const text = action.keywords
+          ? `${action.label} ${action.keywords.join(' ')}`
+          : action.label
+        if (defaultFilter(text, search) <= 0) continue
+      }
+      const group = action.group ?? 'Actions'
+      const list = groups.get(group)
+      if (list) {
+        list.push(action)
+      } else {
+        groups.set(group, [action])
+      }
+    }
+    return groups
+  }, [actions, search])
+
+  const hasResults =
+    filteredGames.length > 0 ||
+    filteredPlatforms.length > 0 ||
+    Array.from(filteredGroupedActions.values()).some((g) => g.length > 0)
 
   const handleSelectGame = useCallback(
     (gameId: string) => {
@@ -78,56 +143,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     [onOpenChange],
   )
 
-  // Group actions by their group property
-  const groupedActions = useMemo(() => {
-    const groups = new Map<string, CommandAction[]>()
-    for (const action of actions) {
-      const group = action.group ?? 'Actions'
-      const list = groups.get(group)
-      if (list) {
-        list.push(action)
-      } else {
-        groups.set(group, [action])
-      }
-    }
-    return groups
-  }, [actions])
-
-  // Delayed unmount so close animation plays
-  const [mounted, setMounted] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    if (open) {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-      setMounted(true)
-    } else if (mounted) {
-      timerRef.current = setTimeout(() => {
-        setMounted(false)
-        timerRef.current = null
-      }, 220) // matches dialog-scan-out duration
-    }
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-    }
-  }, [open, mounted])
-
-  if (!open && !mounted) return null
+  // Keep the palette mounted (hidden) to avoid re-mount cost on every open.
+  // Visibility is controlled via CSS, not by unmounting.
+  if (!open) {
+    return <div className="hidden" aria-hidden />
+  }
 
   return (
-    <div className="fixed inset-0 z-50" data-state={open ? 'open' : 'closed'}>
+    <div className="fixed inset-0 z-50" data-state="open">
       {/* Backdrop */}
       <div
-        className={cn(
-          'fixed inset-0 bg-black/50',
-          open ? 'animate-overlay-fade-in' : 'animate-overlay-fade-out',
-        )}
+        className="fixed inset-0 bg-black/50 animate-overlay-fade-in"
         onClick={() => onOpenChange(false)}
         aria-hidden
       />
@@ -136,11 +162,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       <div className="fixed inset-0 flex items-start justify-center pt-[20vh]">
         <Command
           className={cn(
-            'w-full max-w-lg rounded-lg border bg-popover text-popover-foreground shadow-2xl',
-            open ? 'animate-dialog-scan-in' : 'animate-dialog-scan-out',
+            'w-full max-w-lg rounded-lg border bg-popover text-popover-foreground shadow-2xl animate-dialog-scan-in',
             className,
           )}
-          shouldFilter
+          shouldFilter={false}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.preventDefault()
@@ -166,50 +191,57 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
           {/* Results */}
           <Command.List className="max-h-[300px] overflow-y-auto overscroll-contain p-1">
-            <Command.Empty className="py-6 text-center text-sm text-muted-foreground">
-              No results found.
-            </Command.Empty>
+            {!hasResults && (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                No results found.
+              </div>
+            )}
 
             {/* Games */}
-            <Command.Group heading="Games" className="command-palette-group">
-              {games.map((game) => (
-                <Command.Item
-                  key={game.id}
-                  value={`${game.title} ${game.platform}`}
-                  onSelect={() => handleSelectGame(game.id)}
-                  className="command-palette-item"
-                >
-                  {game.coverArt ? (
-                    <img
-                      src={game.coverArt}
-                      alt=""
-                      className="h-8 w-6 rounded-sm object-cover mr-3 shrink-0"
-                    />
-                  ) : (
-                    <Gamepad2 className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />
-                  )}
-                  <div className="flex flex-col min-w-0">
-                    <span className="truncate text-sm">{game.title}</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {game.platform}
-                    </span>
+            {filteredGames.length > 0 && (
+              <Command.Group heading="Games" className="command-palette-group">
+                {filteredGames.map((game) => (
+                  <Command.Item
+                    key={game.id}
+                    value={game.id}
+                    onSelect={() => handleSelectGame(game.id)}
+                    className="command-palette-item"
+                  >
+                    {game.coverArt ? (
+                      <img
+                        src={game.coverArt}
+                        alt=""
+                        className="h-8 w-6 rounded-sm object-cover mr-3 shrink-0"
+                      />
+                    ) : (
+                      <Gamepad2 className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />
+                    )}
+                    <div className="flex flex-col min-w-0">
+                      <span className="truncate text-sm">{game.title}</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {game.platform}
+                      </span>
+                    </div>
+                  </Command.Item>
+                ))}
+                {remainingGames > 0 && (
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground/60">
+                    Type to search {remainingGames} more game{remainingGames === 1 ? '' : 's'}…
                   </div>
-                </Command.Item>
-              ))}
-            </Command.Group>
+                )}
+              </Command.Group>
+            )}
 
             {/* Platforms */}
-            {platforms.length > 0 && (
+            {filteredPlatforms.length > 0 && (
               <Command.Group heading="Platforms" className="command-palette-group">
-                {platforms.map((platform) => {
-                  const count = games.filter((g) => g.platform === platform).length
+                {filteredPlatforms.map((platform) => {
+                  const count = platformCounts.get(platform) ?? 0
                   return (
                     <Command.Item
                       key={platform}
-                      value={`platform: ${platform}`}
-                      keywords={[platform]}
+                      value={`platform-${platform}`}
                       onSelect={() => {
-                        // Select the first game of this platform as a navigation shortcut
                         const first = games.find((g) => g.platform === platform)
                         if (first) onSelectGame(first)
                         onOpenChange(false)
@@ -228,13 +260,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             )}
 
             {/* Actions (grouped) */}
-            {Array.from(groupedActions.entries()).map(([group, groupActions]) => (
+            {Array.from(filteredGroupedActions.entries()).map(([group, groupActions]) => (
               <Command.Group key={group} heading={group} className="command-palette-group">
                 {groupActions.map((action) => (
                   <Command.Item
                     key={action.id}
-                    value={action.label}
-                    keywords={action.keywords}
+                    value={action.id}
                     onSelect={() => handleSelectAction(action)}
                     className="command-palette-item"
                   >

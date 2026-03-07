@@ -30,9 +30,11 @@ function renderPalette(props: Partial<Parameters<typeof CommandPalette>[0]> = {}
 
 describe('CommandPalette', () => {
   describe('rendering', () => {
-    it('renders nothing when closed and never opened', () => {
+    it('renders a hidden element when closed', () => {
       const { container } = renderPalette({ open: false })
-      expect(container.innerHTML).toBe('')
+      const hidden = container.querySelector('[aria-hidden]')
+      expect(hidden).toBeTruthy()
+      expect(hidden?.classList.contains('hidden')).toBe(true)
     })
 
     it('renders the search input when open', () => {
@@ -220,6 +222,53 @@ describe('CommandPalette', () => {
       // Just verify no <img> tags are rendered
       const imgs = document.querySelectorAll('img')
       expect(imgs.length).toBe(0)
+    })
+  })
+
+  describe('result capping', () => {
+    it('caps visible games at 10 and shows overflow hint', () => {
+      const manyGames: Game[] = Array.from({ length: 25 }, (_, i) => ({
+        id: String(i),
+        title: `Game ${i + 1}`,
+        platform: 'NES',
+        romPath: `/roms/game${i}.nes`,
+      }))
+      renderPalette({ games: manyGames })
+
+      // Only the first 10 games should be rendered
+      expect(screen.getByText('Game 1')).toBeInTheDocument()
+      expect(screen.getByText('Game 10')).toBeInTheDocument()
+      expect(screen.queryByText('Game 11')).not.toBeInTheDocument()
+
+      // Overflow hint should show remaining count
+      expect(screen.getByText(/Type to search 15 more games/)).toBeInTheDocument()
+    })
+
+    it('does not show overflow hint when games fit within cap', () => {
+      renderPalette() // 4 games, well under the 10 cap
+      expect(screen.queryByText(/Type to search/)).not.toBeInTheDocument()
+    })
+
+    it('searching returns matches beyond the initial cap', async () => {
+      const user = userEvent.setup()
+      const manyGames: Game[] = Array.from({ length: 25 }, (_, i) => ({
+        id: String(i),
+        title: `Game ${i + 1}`,
+        platform: 'NES',
+        romPath: `/roms/game${i}.nes`,
+      }))
+      // Add a uniquely-named game at position 20 (beyond the initial 10)
+      manyGames[19] = { id: '19', title: 'Zelda Adventure', platform: 'NES', romPath: '/roms/zelda.nes' }
+      renderPalette({ games: manyGames })
+
+      // Initially "Zelda Adventure" is not visible (it's at index 19, past the cap)
+      expect(screen.queryByText('Zelda Adventure')).not.toBeInTheDocument()
+
+      // Searching for it should surface it
+      const input = screen.getByPlaceholderText(/search games/i)
+      await user.type(input, 'zelda')
+
+      expect(screen.getByText('Zelda Adventure')).toBeInTheDocument()
     })
   })
 })
