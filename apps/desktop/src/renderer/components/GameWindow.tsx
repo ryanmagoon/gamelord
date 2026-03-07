@@ -302,9 +302,11 @@ export const GameWindow: React.FC = () => {
         setShader(systemShader)
       }
 
-      // Send initial fast-forward audio preference to the worker
+      // Send initial fast-forward audio preference to the worker.
+      // Fire-and-forget — the worker may not be ready yet, in which case
+      // EmulatorManager silently ignores the call.
       const ffAudio = localStorage.getItem('gamelord:fastForwardAudio') === 'true'
-      api.emulation.setFastForwardAudio(ffAudio)
+      api.emulation.setFastForwardAudio(ffAudio).catch(() => {})
     })
 
     // Sent by the main process after the hero transition animation completes
