@@ -10,6 +10,7 @@ export * from "./components/ui/dropdown-menu";
 
 export * from "./components/CoreDownloadBanner";
 export * from "./components/GameCard";
+export * from "./components/CommandPalette";
 export * from "./components/GameLibrary";
 export * from "./components/ScrollLetterIndicator";
 export * from "./components/GameDetails";
