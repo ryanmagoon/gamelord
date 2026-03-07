@@ -1,11 +1,11 @@
-import { useState, useCallback, useRef } from 'react';
-import { WebGLRenderer } from '../lib/webgl/WebGLRenderer';
+import { useState, useCallback, useRef } from "react";
+import { WebGLRenderer } from "../lib/webgl/WebGLRenderer";
 
-export type ShaderType = 'default' | 'crt';
+export type ShaderType = "default" | "crt";
 
 export function useWebGLRenderer() {
   const [isReady, setIsReady] = useState(false);
-  const [currentShader, setCurrentShader] = useState<ShaderType>('default');
+  const [currentShader, setCurrentShader] = useState<ShaderType>("default");
   const rendererRef = useRef<WebGLRenderer | null>(null);
 
   const handleRendererReady = useCallback(() => {
@@ -25,8 +25,8 @@ export function useWebGLRenderer() {
 
   const toggleFullscreen = useCallback((canvas: HTMLCanvasElement) => {
     if (!document.fullscreenElement) {
-      canvas.requestFullscreen().catch(err => {
-        console.error('Failed to enter fullscreen:', err);
+      canvas.requestFullscreen().catch((error) => {
+        console.error("Failed to enter fullscreen:", error);
       });
     } else {
       document.exitFullscreen();
@@ -34,11 +34,11 @@ export function useWebGLRenderer() {
   }, []);
 
   return {
-    isReady,
+    changeShader,
     currentShader,
     handleRendererReady,
+    isReady,
     setRenderer,
-    changeShader,
-    toggleFullscreen
+    toggleFullscreen,
   };
 }

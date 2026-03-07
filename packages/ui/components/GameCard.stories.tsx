@@ -1,18 +1,18 @@
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, within, userEvent, fn } from 'storybook/test';
-import { GameCard } from './GameCard';
-import superMarioBrosBox from '../assets/super-mario-bros-box.png';
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, within, userEvent, fn } from "storybook/test";
+import { GameCard } from "./GameCard";
+import superMarioBrosBox from "../assets/super-mario-bros-box.png";
 
 const meta = {
-  title: 'Components/GameCard',
+  title: "Components/GameCard",
   component: GameCard,
   parameters: {
-    layout: 'centered',
+    layout: "centered",
   },
-  tags: ['autodocs'],
+  tags: ["autodocs"],
   argTypes: {
-    onPlay: { action: 'play' },
-    onOptions: { action: 'options' },
+    onPlay: { action: "play" },
+    onOptions: { action: "options" },
   },
   decorators: [
     (Story) => (
@@ -29,69 +29,77 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   args: {
     game: {
-      id: '1',
-      title: 'Super Mario Bros.',
-      platform: 'NES',
-      genre: 'Platform',
+      id: "1",
+      title: "Super Mario Bros.",
+      platform: "NES",
+      genre: "Platform",
       coverArt: superMarioBrosBox,
-      romPath: '/roms/smb.nes',
+      romPath: "/roms/smb.nes",
     },
-    onPlay() { /* storybook action placeholder */ },
+    onPlay() {
+      /* storybook action placeholder */
+    },
   },
 };
 
 export const WithCoverArt: Story = {
   args: {
     game: {
-      id: '2',
-      title: 'The Legend of Zelda',
-      platform: 'NES',
-      genre: 'Adventure',
+      id: "2",
+      title: "The Legend of Zelda",
+      platform: "NES",
+      genre: "Adventure",
       coverArt: superMarioBrosBox,
-      romPath: '/roms/zelda.nes',
+      romPath: "/roms/zelda.nes",
     },
-    onPlay() { /* storybook action placeholder */ },
+    onPlay() {
+      /* storybook action placeholder */
+    },
   },
 };
 
 export const LongTitle: Story = {
   args: {
     game: {
-      id: '3',
-      title: 'Super Mario World 2: Yoshi\'s Island - Special Edition',
-      platform: 'SNES',
-      genre: 'Platform',
-      romPath: '/roms/yoshi.smc',
+      id: "3",
+      title: "Super Mario World 2: Yoshi's Island - Special Edition",
+      platform: "SNES",
+      genre: "Platform",
+      romPath: "/roms/yoshi.smc",
     },
-    onPlay() { /* storybook action placeholder */ },
+    onPlay() {
+      /* storybook action placeholder */
+    },
   },
 };
 
 export const RecentlyPlayed: Story = {
   args: {
     game: {
-      id: '4',
-      title: 'Sonic the Hedgehog',
-      platform: 'Genesis',
-      genre: 'Platform',
+      id: "4",
+      title: "Sonic the Hedgehog",
+      platform: "Genesis",
+      genre: "Platform",
       coverArt: superMarioBrosBox,
-      romPath: '/roms/sonic.md',
-      lastPlayed: new Date(),
+      romPath: "/roms/sonic.md",
+      lastPlayed: new Date("2024-12-01"),
       playTime: 7200, // 2 hours
     },
-    onPlay() { /* storybook action placeholder */ },
+    onPlay() {
+      /* storybook action placeholder */
+    },
   },
 };
 
 export const Favorited: Story = {
   args: {
     game: {
-      id: '6',
-      title: 'Super Mario Bros.',
-      platform: 'NES',
-      genre: 'Platform',
+      id: "6",
+      title: "Super Mario Bros.",
+      platform: "NES",
+      genre: "Platform",
       coverArt: superMarioBrosBox,
-      romPath: '/roms/smb.nes',
+      romPath: "/roms/smb.nes",
       favorite: true,
     },
     onPlay: fn(),
@@ -102,11 +110,11 @@ export const Favorited: Story = {
 export const NotFavorited: Story = {
   args: {
     game: {
-      id: '7',
-      title: 'Metroid',
-      platform: 'NES',
-      genre: 'Action',
-      romPath: '/roms/metroid.nes',
+      id: "7",
+      title: "Metroid",
+      platform: "NES",
+      genre: "Action",
+      romPath: "/roms/metroid.nes",
       favorite: false,
     },
     onPlay: fn(),
@@ -118,10 +126,10 @@ export const NotFavorited: Story = {
 export const AccessibilityTest: Story = {
   args: {
     game: {
-      id: '5',
-      title: 'Test Game',
-      platform: 'NES',
-      romPath: '/roms/test.nes',
+      id: "5",
+      title: "Test Game",
+      platform: "NES",
+      romPath: "/roms/test.nes",
     },
     onPlay: fn(),
     onOptions: fn(),
@@ -130,15 +138,15 @@ export const AccessibilityTest: Story = {
     const canvas = within(canvasElement);
 
     // Play button should have aria-label with game title
-    const playButton = canvas.getByRole('button', { name: /play test game/i });
+    const playButton = canvas.getByRole("button", { name: /play test game/i });
     await expect(playButton).toBeInTheDocument();
 
     // Options button should have aria-label with game title
-    const optionsButton = canvas.getByRole('button', { name: /options for test game/i });
+    const optionsButton = canvas.getByRole("button", { name: /options for test game/i });
     await expect(optionsButton).toBeInTheDocument();
 
     // Options button container should have focus-within:opacity-100 for keyboard accessibility
-    const optionsContainer = optionsButton.closest('.focus-within\\:opacity-100');
+    const optionsContainer = optionsButton.closest(String.raw`.focus-within\:opacity-100`);
     await expect(optionsContainer).not.toBeNull();
 
     // Test keyboard navigation - tab to Play button

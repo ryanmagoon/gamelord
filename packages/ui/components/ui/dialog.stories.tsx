@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import {
   Dialog,
   DialogContent,
@@ -7,21 +7,21 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from './dialog'
-import { Button } from './button'
-import { Input } from './input'
+} from "./dialog";
+import { Button } from "./button";
+import { Input } from "./input";
 
 const meta: Meta<typeof Dialog> = {
-  title: 'UI/Dialog',
+  title: "UI/Dialog",
   component: Dialog,
   parameters: {
-    layout: 'centered',
+    layout: "centered",
   },
-  tags: ['autodocs'],
-}
+  tags: ["autodocs"],
+};
 
-export default meta
-type Story = StoryObj<typeof Dialog>
+export default meta;
+type Story = StoryObj<typeof Dialog>;
 
 export const Default: Story = {
   render: () => (
@@ -32,9 +32,7 @@ export const Default: Story = {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>
-            Configure your application preferences.
-          </DialogDescription>
+          <DialogDescription>Configure your application preferences.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -48,7 +46,7 @@ export const Default: Story = {
       </DialogContent>
     </Dialog>
   ),
-}
+};
 
 export const WithForm: Story = {
   render: () => (
@@ -59,9 +57,7 @@ export const WithForm: Story = {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
-          <DialogDescription>
-            Update your profile information.
-          </DialogDescription>
+          <DialogDescription>Update your profile information.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -80,10 +76,10 @@ export const WithForm: Story = {
       </DialogContent>
     </Dialog>
   ),
-}
+};
 
 export const Wide: Story = {
-  name: 'Wide (Settings Layout)',
+  name: "Wide (Settings Layout)",
   render: () => (
     <Dialog>
       <DialogTrigger asChild>
@@ -95,7 +91,7 @@ export const Wide: Story = {
             <DialogTitle className="px-2 pb-2 text-sm font-semibold text-muted-foreground">
               Settings
             </DialogTitle>
-            {['General', 'Emulation', 'Library', 'About'].map((tab) => (
+            {["General", "Emulation", "Library", "About"].map((tab) => (
               <button
                 key={tab}
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left text-muted-foreground hover:bg-accent/50 hover:text-foreground first:bg-accent first:text-accent-foreground first:font-medium"
@@ -109,14 +105,20 @@ export const Wide: Story = {
             <div className="flex items-center justify-between py-2">
               <div>
                 <div className="text-sm font-medium">Theme</div>
-                <div className="text-xs text-muted-foreground">Choose light, dark, or match your system</div>
+                <div className="text-xs text-muted-foreground">
+                  Choose light, dark, or match your system
+                </div>
               </div>
-              <Button variant="outline" size="sm">System</Button>
+              <Button variant="outline" size="sm">
+                System
+              </Button>
             </div>
             <div className="flex items-center justify-between py-2">
               <div>
                 <div className="text-sm font-medium">UI sounds</div>
-                <div className="text-xs text-muted-foreground">Play retro sounds for UI interactions</div>
+                <div className="text-xs text-muted-foreground">
+                  Play retro sounds for UI interactions
+                </div>
               </div>
               <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-primary">
                 <span className="inline-block h-4 w-4 rounded-full bg-background translate-x-6" />
@@ -127,4 +129,4 @@ export const Wide: Story = {
       </DialogContent>
     </Dialog>
   ),
-}
+};

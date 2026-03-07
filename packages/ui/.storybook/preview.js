@@ -1,8 +1,8 @@
-import React from 'react';
-import isChromatic from 'chromatic/isChromatic';
-import { Agentation } from 'agentation';
-import { tvStaticManager } from '../components/TVStaticManager';
-import '../index.css';
+import React from "react";
+import isChromatic from "chromatic/isChromatic";
+import { Agentation } from "agentation";
+import { tvStaticManager } from "../components/TVStaticManager";
+import "../index.css";
 // index.css imports tailwindcss and theme for Storybook
 
 // In Chromatic's capture environment, make canvas noise deterministic (seeded
@@ -13,6 +13,18 @@ if (isChromatic()) {
 
 /** @type { import('@storybook/react-vite').Preview } */
 const preview = {
+  decorators: [
+    (Story) =>
+      React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(Story),
+        React.createElement(Agentation, {
+          endpoint: "http://localhost:4747",
+          copyToClipboard: true,
+        }),
+      ),
+  ],
   parameters: {
     controls: {
       matchers: {
@@ -23,18 +35,6 @@ const preview = {
     // Pause all CSS animations at their first frame for Chromatic snapshots.
     chromatic: { pauseAnimationAtEnd: true },
   },
-  decorators: [
-    (Story) =>
-      React.createElement(
-        React.Fragment,
-        null,
-        React.createElement(Story),
-        React.createElement(Agentation, {
-          endpoint: 'http://localhost:4747',
-          copyToClipboard: true,
-        }),
-      ),
-  ],
-}
+};
 
-export default preview
+export default preview;

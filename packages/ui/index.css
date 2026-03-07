@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /* Tell Tailwind where to scan for class usage */
 @source "./components/**/*.{js,ts,jsx,tsx}";
@@ -83,8 +83,12 @@
  * any resting padding (so cards sit edge-to-edge at rest).
  * ────────────────────────────────────────────────────────────────── */
 @keyframes border-rotate {
-  from { --border-angle: 0deg; }
-  to { --border-angle: 360deg; }
+  from {
+    --border-angle: 0deg;
+  }
+  to {
+    --border-angle: 360deg;
+  }
 }
 
 @property --border-angle {
@@ -106,7 +110,7 @@
 }
 
 .game-card-border::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -3px;
   border-radius: inherit;
@@ -175,5 +179,5 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }

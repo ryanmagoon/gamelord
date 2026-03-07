@@ -5,6 +5,7 @@
 GameLord is a native emulator frontend (OpenEmu-style) where Electron handles UI/library management and libretro cores are loaded directly via a native Node addon (`gamelord_libretro.node`) using dlopen. No external emulator processes.
 
 ### How It Works
+
 1. **Native addon** (`apps/desktop/native/src/libretro_core.cc`) loads libretro `.dylib` cores directly, implementing the full libretro frontend API (environment callbacks, video/audio/input)
 2. **Utility process** (`core-worker.ts`) runs the emulation loop in a dedicated Electron utility process with hybrid sleep+spin frame pacing (~0.1-0.5ms jitter), sending video frames and audio samples to the main process via `postMessage`
 3. **Main process** forwards frames/audio to the renderer via `webContents.send` with `Buffer`. `EmulationWorkerClient` manages the worker lifecycle and request/response protocol.
@@ -12,6 +13,7 @@ GameLord is a native emulator frontend (OpenEmu-style) where Electron handles UI
 5. **Input** is captured in the renderer (keyboard events) and forwarded through the main process to the utility process worker via IPC
 
 ### Key Files
+
 ```
 apps/desktop/native/src/
 ├── libretro_core.cc          - Native addon: dlopen, libretro API, frame/audio buffers
@@ -40,6 +42,7 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 ```
 
 ### Supported Cores
+
 - **NES:** fceumm (primary), nestopia, mesen
 - **Sega Saturn:** mednafen_saturn (Beetle Saturn, primary), yabause — requires BIOS files (`sega_101.bin`, `mpr-17933.bin`)
 - Cores located at: `~/Library/Application Support/GameLord/cores/`
@@ -75,7 +78,8 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### P0 — Critical (fix before any new features)
 
-- [x] **CI/CD pipeline** — GitHub Actions workflow: lint, type-check, test, native addon build on every PR
+- [x] **CI/CD pipeline** — GitHub Actions workflow: lint, type-check, format-check, test, native addon build on every PR
+- [x] **Fast frontend tooling** — Replaced ESLint with Oxlint, added Oxfmt for formatting, replaced tsc with tsgo for type checking (10-100x faster). Deferred Oxlint rules tracked in [#174](https://github.com/ryanmagoon/gamelord/issues/174)
 - [x] **Emulation loop error handling** — Wrap `core.runFrame()` in try-catch in `GameWindowManager.ts`; stop loop and notify renderer on crash instead of silently freezing
 - [x] **Bounded audio buffer** — Replace unbounded `std::vector` insert in `libretro_core.cc` with a fixed-size circular buffer to prevent memory exhaustion when renderer falls behind
 - [x] **Path validation** — Validate `romPath` and `corePath` are within expected directories before passing to `dlopen()` and filesystem operations; prevent path traversal
@@ -223,6 +227,11 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] **Discord Rich Presence** — Show the currently playing game, system, and elapsed time in the user's Discord status (e.g. "Playing Super Metroid (SNES)"). Toggle in settings. Uses Discord's local IPC socket — no network requests, no Discord SDK dependency needed (lightweight RPC client).
 - [ ] **Before/after launch scripts** — Let users configure shell commands to run before game launch and after game exit. Per-game or global. Use cases: switch audio output, dim smart lights, post to a Discord webhook, back up saves, toggle system settings.
 
+### Telemetry & Analytics
+
+- [ ] **PostHog product analytics** — Integrate `posthog-js` in the renderer for product analytics, feature flags, and A/B testing. Track which games/systems get played, feature usage, funnel analysis. Session replay for UX understanding (distinct from Sentry's error-context replay). Free tier: 1M events, 5K replays, 1M feature flag requests. Note: no offline event queuing (open issue) — events captured while offline are lost. No main-process instrumentation. Use the PostHog-Sentry connector to link errors to user profiles.
+- [ ] **Vercel Analytics for web properties** — Enable Vercel Analytics and Speed Insights on gamelord.app and docs site once deployed. Privacy-friendly (no cookies), Core Web Vitals tracking, per-deployment performance. Not applicable to the Electron app — only Vercel-deployed web properties.
+
 ### Alpha Release Milestone — [#143](https://github.com/ryanmagoon/gamelord/issues/143)
 
 Tracking issue for the first alpha release. All items below must be completed before shipping.
@@ -232,10 +241,11 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [ ] **Graceful app startup** — [#125](https://github.com/ryanmagoon/gamelord/issues/125)
 - [x] **Custom app menu** — GameLord (About, Preferences Cmd+,, Quit), File (Scan Library, Add ROM Folder), Edit, View, Window, Help (Report Issue, Documentation). Menu events wired to renderer via IPC. Preferences stubs to console.log until settings panel is built (#96). — [#162](https://github.com/ryanmagoon/gamelord/issues/162)
 - [ ] **Library UI redesign — shelf-based home view** — Replace the dashboard layout with a shelf-based layout: hero section, horizontal scroll rows grouped by category (Recently Played, Favorites, per-platform), Cmd+K command palette, no persistent chrome. Existing mosaic grid becomes the "browse all" sub-view. — [#141](https://github.com/ryanmagoon/gamelord/issues/141) (deferred to alpha.2)
-- [ ] **Cmd+K command palette** — Fuzzy search overlay for games, platforms, and actions. Replaces inline search toolbar. — [#142](https://github.com/ryanmagoon/gamelord/issues/142)
+- [x] **Cmd+K command palette** — Global Cmd+K opens a fuzzy search overlay (via `cmdk`) for games, platforms, and quick actions (Scan Library, Add Folder, Download Artwork, theme toggles). Replaces inline search toolbar with a clickable Cmd+K trigger button. — [#142](https://github.com/ryanmagoon/gamelord/issues/142)
 - [x] **Settings panel** — Modal dialog with sidebar tabs (General, Emulation, Library, About). Toolbar gear button + Cmd+, shortcut. Theme, SFX, shader, FPS counter, fast-forward speed, ROM directories, ScreenScraper credentials, about/credits. — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
-- [ ] **Bundled homebrew ROMs** — Ship 2-3 public domain NES ROMs for instant playability on first launch — [#139](https://github.com/ryanmagoon/gamelord/issues/139)
+- [x] **Bundled homebrew ROMs** — Ships 3 permissively-licensed NES homebrew ROMs (Lawn Mower CC0, NESert Golfing CC BY 4.0, 8-Bit Table Tennis MIT). HomebrewService auto-imports to user's ROM directory on first launch when library is empty, with metadata enrichment. Marker file prevents re-import. — [#139](https://github.com/ryanmagoon/gamelord/issues/139)
 - [ ] **DMG packaging** — Unsigned DMG via electron-builder, CI release workflow on tagged pushes — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
+- [ ] **Sentry crash & error reporting** — Integrate `@sentry/electron` for crash reporting before alpha ship. Captures JS exceptions in both main and renderer processes, native crashes (Minidumps) from the main process (critical for native addon segfaults), offline event queuing, source map uploads. Session Replay for error-context reproduction. Free tier: 5K errors/month.
 
 ### P8 — UI Polish
 
@@ -260,13 +270,13 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [ ] Playtime tracking and statistics — [#95](https://github.com/ryanmagoon/gamelord/issues/95)
 - [x] Settings panel — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
 - [ ] **Graphics quality setting** — A simple quality preference (e.g. "Quality" / "Performance") that controls shader complexity and cosmetic effects. "Performance" disables multi-pass CRT shaders (falls back to single-pass or nearest), simplifies the VHS pause screen, and strips heavy overlays. Lets users on lower-end hardware or high-refresh displays trade eye candy for consistent frame pacing. — [#97](https://github.com/ryanmagoon/gamelord/issues/97)
-- [ ] **Visual regression testing** — Set up automated screenshot diffing to catch CSS/layout breakages across commits. Evaluate Storybook + Chromatic, Playwright visual comparison, or Percy. Should cover all GameCard states (cover art, fallback static, sync phases, hover, launching) and key layout scenarios (edge cards, grid density). Prompted by the `.game-card-inner` height regression that broke static tiles.
+- [x] **Visual regression testing** — Chromatic integrated with Storybook. CI runs Chromatic on every PR. TV static renders a solid placeholder in Chromatic snapshots to avoid subpixel aliasing diffs from canvas scaling and gradient overlays. Storybook deployed to Vercel as a separate project (`packages/ui/vercel.json`).
 - [ ] **Graceful app startup** — Eliminate the FOUC (flash of unstyled content) on first load. Phase 1: add `show: false` + `ready-to-show` to main BrowserWindow, inline critical CSS in `index.html` (dark background, color-scheme meta), fade `#root` in smoothly once React mounts. Phase 2 (future): branded splash/loading state, staggered UI element cascade, CRT power-on flicker effect on startup. — [#125](https://github.com/ryanmagoon/gamelord/issues/125)
 
 ### P9 — Packaging & Distribution
 
 - [ ] Bundle libretro cores with the app — [#98](https://github.com/ryanmagoon/gamelord/issues/98)
-- [ ] **Bundled homebrew ROMs** — Ship a curated set of free/open-source homebrew ROMs so the app is playable out of the box with zero setup. Source ROMs with permissive licenses (public domain, CC0, MIT, etc.) across multiple systems (NES, SNES, GB, GBA, Genesis at minimum). Include metadata and cover art so they appear polished in the library. ROMs stored in app resources and auto-imported on first launch (or when the user's library is empty). Lets new users immediately experience the full emulation pipeline without needing to source their own ROMs. — [#139](https://github.com/ryanmagoon/gamelord/issues/139)
+- [x] **Bundled homebrew ROMs** — Initial implementation ships 3 NES homebrew ROMs (Lawn Mower, NESert Golfing, 8-Bit Table Tennis) with permissive licenses. Auto-imported via HomebrewService on first launch when library is empty. Future work: expand to additional systems (SNES, GB, GBA, Genesis). — [#139](https://github.com/ryanmagoon/gamelord/issues/139)
 - [ ] **DMG packaging + auto-updates** — electron-builder DMG with code signing, notarization, custom background. Auto-updates via electron-updater + GitHub Releases. — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
 - [ ] **Cross-platform support (Windows & Linux)** — Abstract `dlopen` → `LoadLibrary` for Windows, platform-detect core/config paths, download cores from correct buildbot URL per OS, electron-builder configs for NSIS/MSI (Windows) and AppImage/deb (Linux), CI matrix for all three platforms. The emulation pipeline is already OS-agnostic; the work is in native addon portability, path conventions, and packaging. — [#118](https://github.com/ryanmagoon/gamelord/issues/118)
 
@@ -292,15 +302,19 @@ Tracking issue for the first alpha release. All items below must be completed be
 ## Technical Notes
 
 ### Native Addon Build
+
 The bundled `node-gyp` is too old for Node 24. Use:
+
 ```bash
 cd apps/desktop/native && npx node-gyp rebuild
 ```
 
 ### Core Download
+
 ARM64 cores from: `https://buildbot.libretro.com/nightly/apple/osx/arm64/latest/`
 
 ### Known Issues
+
 - Mesen core fails to load games via the native addon (works in standalone C test). Use fceumm instead.
 - `node-gyp` v5.0.6 bundled with npm is incompatible with Node 24; must use `npx node-gyp` (v10+).
 - Hard-refreshing the game window causes the emulation to run at uncapped speed (the main-process emulation loop keeps pushing frames while the renderer resets its state).

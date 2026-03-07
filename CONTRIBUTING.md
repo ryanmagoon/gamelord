@@ -5,6 +5,7 @@ Thank you for your interest in contributing to GameLord! This document provides 
 ## Code of Conduct
 
 By participating in this project, you agree to abide by our Code of Conduct:
+
 - Be respectful and inclusive
 - Welcome newcomers and help them get started
 - Focus on constructive criticism
@@ -50,6 +51,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 - `chore:` Build process or auxiliary tool changes
 
 Examples:
+
 ```
 feat: add save state preview thumbnails
 fix: resolve controller input lag on Windows
@@ -61,6 +63,7 @@ docs: update ROM compatibility list
 We use [Conventional Comments](https://conventionalcomments.org/) for code reviews to ensure clear and actionable feedback:
 
 ### Comment Format
+
 ```
 <label> [decorations]: <subject>
 
@@ -68,6 +71,7 @@ We use [Conventional Comments](https://conventionalcomments.org/) for code revie
 ```
 
 ### Labels
+
 - **praise:** Highlight something positive
 - **nitpick:** Small, non-blocking suggestions
 - **suggestion:** Propose improvements
@@ -76,11 +80,13 @@ We use [Conventional Comments](https://conventionalcomments.org/) for code revie
 - **thought:** Share ideas that might not be actionable
 
 ### Decorations
+
 - **blocking:** Must be resolved before merging
 - **non-blocking:** Nice to have but not required
 - **if-minor:** Only address if making other changes
 
 ### Examples
+
 ```
 **suggestion:** Consider using `useMemo` here to prevent unnecessary re-renders.
 
@@ -142,6 +148,7 @@ When contributing to core functionality:
 ## Questions?
 
 Feel free to:
+
 - Open an issue for questions
 - Join our Discord community
 - Check existing issues and PRs
