@@ -125,7 +125,14 @@ afterAll(() => {
 
 beforeEach(() => {
   // Clean userData files between tests so each test starts fresh
-  for (const file of ["library-config.json", "library.json"]) {
+  for (const file of [
+    "library-config.json",
+    "library-config.json.bak",
+    "library-config.json.tmp",
+    "library.json",
+    "library.json.bak",
+    "library.json.tmp",
+  ]) {
     const filePath = path.join(USER_DATA_DIR, file);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
@@ -285,7 +292,7 @@ describe("LibraryService", () => {
   });
 
   describe("removeSystem", () => {
-    it("removes system and cascades to delete games from that system", async () => {
+    it("removes system config but preserves games for that system", async () => {
       // Seed config with just NES and SNES so we have a known set
       const config = {
         autoScan: false,
@@ -304,15 +311,19 @@ describe("LibraryService", () => {
       fs.writeFileSync(snesRomPath, "snes-game-data");
 
       const service = await createService();
-      await service.addGame(nesRomPath, "nes");
+      const nesGame = await service.addGame(nesRomPath, "nes");
       await service.addGame(snesRomPath, "snes");
 
       expect(service.getGames().length).toBe(2);
 
       await service.removeSystem("nes");
 
+      // System config should be gone
       expect(service.getSystems().find((s) => s.id === "nes")).toBeUndefined();
-      expect(service.getGames("nes")).toHaveLength(0);
+      // But game data should be preserved (coverArt, metadata, etc. intact)
+      expect(service.getGames("nes")).toHaveLength(1);
+      expect(nesGame).toBeDefined();
+      expect(service.getGames("nes")[0].id).toBe(nesGame?.id);
       expect(service.getGames("snes")).toHaveLength(1);
 
       // Clean up rom files
@@ -1128,7 +1139,7 @@ describe("LibraryService", () => {
       fs.unlinkSync(romPath);
     });
 
-    it("removes games whose ROM files are unreadable during backfill", async () => {
+    it("keeps games whose ROM files are unreadable during backfill", async () => {
       const gameId = sha256String("ghost-content");
       const games = [
         {
@@ -1144,8 +1155,10 @@ describe("LibraryService", () => {
       const service = await createService();
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // Game should be removed because the ROM file doesn't exist
-      expect(service.getGames()).toHaveLength(0);
+      // Game should be preserved — the ROM may be on an unmounted drive
+      const loadedGames = service.getGames();
+      expect(loadedGames).toHaveLength(1);
+      expect(loadedGames[0].title).toBe("Ghost Game");
     });
 
     it("skips games that already have all three hashes", async () => {
@@ -1174,6 +1187,145 @@ describe("LibraryService", () => {
       expect(loadedGames[0].romHashes).toEqual(hashes);
 
       fs.unlinkSync(romPath);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Atomic writes and backup fallback
+  // ---------------------------------------------------------------------------
+
+  describe("atomic writes and backup", () => {
+    it("creates a .bak backup of library.json on save", async () => {
+      const romPath = path.join(ROMS_DIR, "backup_test.nes");
+      fs.writeFileSync(romPath, "backup-test-data");
+
+      const service = await createService();
+      await service.addGame(romPath, "nes");
+
+      // After addGame, saveLibrary should have been called, creating a .bak
+      // On first write there's no existing file to back up, so write a second time
+      const romPath2 = path.join(ROMS_DIR, "backup_test2.nes");
+      fs.writeFileSync(romPath2, "backup-test-data-2");
+      await service.addGame(romPath2, "nes");
+
+      const bakPath = path.join(USER_DATA_DIR, "library.json.bak");
+      expect(fs.existsSync(bakPath)).toBe(true);
+
+      // The backup should contain the first game but not the second
+      const bakData: Array<Game> = JSON.parse(fs.readFileSync(bakPath, "utf8"));
+      expect(bakData).toHaveLength(1);
+
+      // The primary file should have both games
+      const primaryData: Array<Game> = JSON.parse(
+        fs.readFileSync(path.join(USER_DATA_DIR, "library.json"), "utf8"),
+      );
+      expect(primaryData).toHaveLength(2);
+
+      fs.unlinkSync(romPath);
+      fs.unlinkSync(romPath2);
+    });
+
+    it("falls back to .bak when primary library.json is corrupt", async () => {
+      // Seed a valid backup
+      const validGames = [
+        {
+          id: sha256String("fallback-content"),
+          title: "Fallback Game",
+          system: "Nintendo Entertainment System",
+          systemId: "nes",
+          romPath: "/test/fallback.nes",
+          romHashes: { crc32: "00000000", sha1: "a".repeat(40), md5: "b".repeat(32) },
+        },
+      ];
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library.json.bak"),
+        JSON.stringify(validGames, null, 2),
+      );
+
+      // Write corrupt primary
+      fs.writeFileSync(path.join(USER_DATA_DIR, "library.json"), "{invalid json!!!}");
+
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const games = service.getGames();
+      expect(games).toHaveLength(1);
+      expect(games[0].title).toBe("Fallback Game");
+    });
+
+    it("starts fresh when both primary and backup are missing", async () => {
+      // No library.json or library.json.bak exist (cleaned by beforeEach)
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(service.getGames()).toHaveLength(0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Artwork re-association
+  // ---------------------------------------------------------------------------
+
+  describe("artwork re-association", () => {
+    it("re-associates existing artwork file when a game is added via addGame", async () => {
+      const romPath = path.join(ROMS_DIR, "artwork_reassoc.nes");
+      const content = "artwork-reassoc-content";
+      fs.writeFileSync(romPath, content);
+
+      const gameId = sha256File(romPath);
+
+      // Pre-create an artwork file on disk as if a previous session downloaded it
+      const artworkDir = path.join(USER_DATA_DIR, "artwork");
+      fs.mkdirSync(artworkDir, { recursive: true });
+      fs.writeFileSync(path.join(artworkDir, `${gameId}.png`), "fake-png-data");
+
+      const service = await createService();
+      const game = await service.addGame(romPath, "nes");
+
+      expect(game).not.toBeNull();
+      expect(game!.coverArt).toBe(`artwork://${gameId}.png`);
+
+      fs.unlinkSync(romPath);
+      fs.rmSync(artworkDir, { recursive: true, force: true });
+    });
+
+    it("does not set coverArt when no artwork file exists on disk", async () => {
+      const romPath = path.join(ROMS_DIR, "no_artwork.nes");
+      fs.writeFileSync(romPath, "no-artwork-content");
+
+      const service = await createService();
+      const game = await service.addGame(romPath, "nes");
+
+      expect(game).not.toBeNull();
+      expect(game!.coverArt).toBeUndefined();
+
+      fs.unlinkSync(romPath);
+    });
+
+    it("re-associates artwork during scanDirectory for new games", async () => {
+      const scanDir = path.join(TEST_DIR, "artwork-scan-test");
+      fs.mkdirSync(scanDir, { recursive: true });
+
+      const romPath = path.join(scanDir, "scan_art_test.nes");
+      const content = "scan-art-test-content";
+      fs.writeFileSync(romPath, content);
+
+      const gameId = sha256File(romPath);
+
+      // Pre-create artwork
+      const artworkDir = path.join(USER_DATA_DIR, "artwork");
+      fs.mkdirSync(artworkDir, { recursive: true });
+      fs.writeFileSync(path.join(artworkDir, `${gameId}.png`), "fake-png");
+
+      const service = await createService();
+      const games = await service.scanDirectory(scanDir, "nes");
+
+      const game = games.find((g) => g.id === gameId);
+      expect(game).toBeDefined();
+      expect(game!.coverArt).toBe(`artwork://${gameId}.png`);
+
+      fs.rmSync(scanDir, { recursive: true, force: true });
+      fs.rmSync(artworkDir, { recursive: true, force: true });
     });
   });
 
@@ -1337,6 +1489,31 @@ describe("LibraryService", () => {
       expect(loadedGames[0].romHashes).toEqual(expectedHashes);
 
       fs.unlinkSync(romPath);
+    });
+
+    it("keeps games whose ROM files are unreadable during migration", async () => {
+      const oldMd5Id = "deadbeefcafeface1234567890abcdef"; // 32-char hex (old MD5 format)
+      const games = [
+        {
+          id: oldMd5Id,
+          title: "Unmounted Drive Game",
+          system: "Nintendo Entertainment System",
+          systemId: "nes",
+          romPath: "/nonexistent/unmounted/drive/game.nes",
+          coverArt: "artwork://some-art.png",
+        },
+      ];
+      fs.writeFileSync(path.join(USER_DATA_DIR, "library.json"), JSON.stringify(games, null, 2));
+
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Game should be preserved with its old ID, not deleted
+      const loadedGames = service.getGames();
+      expect(loadedGames).toHaveLength(1);
+      expect(loadedGames[0].id).toBe(oldMd5Id);
+      expect(loadedGames[0].title).toBe("Unmounted Drive Game");
+      expect(loadedGames[0].coverArt).toBe("artwork://some-art.png");
     });
   });
 

@@ -65,7 +65,7 @@ describe("useFlipAnimation", () => {
     vi.useRealTimers();
   });
 
-  it("marks all items as entering on first render", () => {
+  it("marks all items as stable on first render (host handles reveal)", () => {
     const items: Array<TestItem> = [
       { id: "1", label: "A" },
       { id: "2", label: "B" },
@@ -83,10 +83,12 @@ describe("useFlipAnimation", () => {
     );
 
     expect(result).toHaveLength(3);
-    expect(result.every((r) => r.animationState === "entering")).toBe(true);
+    // First-render items are stable — no entrance animation. The host
+    // element (e.g. #root opacity fade) provides the reveal transition.
+    expect(result.every((r) => r.animationState === "stable")).toBe(true);
   });
 
-  it("assigns staggered enter delays on first render", () => {
+  it("has zero enter delays on first render (no stagger needed)", () => {
     const items: Array<TestItem> = [
       { id: "1", label: "A" },
       { id: "2", label: "B" },
@@ -104,8 +106,8 @@ describe("useFlipAnimation", () => {
     );
 
     expect(result[0].enterDelay).toBe(0);
-    expect(result[1].enterDelay).toBe(40);
-    expect(result[2].enterDelay).toBe(80);
+    expect(result[1].enterDelay).toBe(0);
+    expect(result[2].enterDelay).toBe(0);
   });
 
   it("marks unchanged items as stable on re-render", () => {

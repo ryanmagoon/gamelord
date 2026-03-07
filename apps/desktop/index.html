@@ -4,6 +4,37 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GameLord</title>
+    <style>
+      /* Inline critical styles to prevent FOUC on cold launch.
+         Background color is set by the theme script below. */
+      body { margin: 0; }
+      #root {
+        opacity: 0;
+        transition: opacity 400ms ease;
+        /* Promote to GPU layer so the opacity transition runs on the
+           compositor thread, independent of main-thread card mounting. */
+        will-change: opacity;
+      }
+      #root.mounted {
+        opacity: 1;
+        /* Remove will-change after the transition to free GPU memory.
+           The transition-end event isn't available from inline CSS, so
+           we use a delayed inline style set in JS instead (see LibraryView). */
+      }
+    </style>
+    <script>
+      // Resolve the user's theme preference synchronously before first paint.
+      // Mirrors the logic in main.tsx but runs earlier (blocking <head> script)
+      // so the body background and color-scheme match from the very first frame.
+      ;(function() {
+        var saved = localStorage.getItem('gamelord:theme')
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        var dark = saved === 'dark' || (saved !== 'light' && prefersDark)
+        document.documentElement.classList.toggle('dark', dark)
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+        document.body.style.background = dark ? '#000' : '#fff'
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

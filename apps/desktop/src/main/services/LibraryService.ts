@@ -189,23 +189,56 @@ export class LibraryService extends EventEmitter {
     libraryLog.info(`Scaffolded ROM folders in ${basePath}`);
   }
 
+  /**
+   * Atomically write JSON data to a file with a `.bak` backup.
+   * Writes to a `.tmp` file first, renames the existing file to `.bak`,
+   * then renames `.tmp` to the final path. This ensures the file is
+   * never in a partially-written state.
+   */
+  private async atomicWriteJSON(filePath: string, data: unknown): Promise<void> {
+    const tmpPath = `${filePath}.tmp`;
+    const bakPath = `${filePath}.bak`;
+    const content = JSON.stringify(data, null, 2);
+
+    await fs.writeFile(tmpPath, content, "utf8");
+
+    try {
+      await fs.rename(filePath, bakPath);
+    } catch {
+      // First write ever — no existing file to back up
+    }
+
+    await fs.rename(tmpPath, filePath);
+  }
+
   private async saveConfig(): Promise<void> {
-    await fs.writeFile(this.configPath, JSON.stringify(this.config, null, 2));
+    await this.atomicWriteJSON(this.configPath, this.config);
   }
 
   private async loadLibrary(): Promise<void> {
+    let data: string | undefined;
+
     try {
-      const data = await fs.readFile(this.libraryPath, "utf8");
-      // Parse permissively — old library.json may have partial/missing romHashes
-      const games: Array<Game> = JSON.parse(data);
-      this.games = new Map(games.map((game) => [game.id, game]));
-      this.rebuildRomPathIndex();
-      await this.migrateGameIds();
-      await this.backfillRomHashes();
+      data = await fs.readFile(this.libraryPath, "utf8");
+      JSON.parse(data); // Validate JSON before using
     } catch {
-      // No library file yet
-      this.games = new Map();
+      // Primary file missing or corrupt — try backup
+      try {
+        data = await fs.readFile(`${this.libraryPath}.bak`, "utf8");
+        JSON.parse(data);
+        libraryLog.warn("Primary library.json was corrupt/missing; loaded from backup");
+      } catch {
+        // No backup either — start fresh
+        this.games = new Map();
+        return;
+      }
     }
+
+    const games: Array<Game> = JSON.parse(data);
+    this.games = new Map(games.map((game) => [game.id, game]));
+    this.rebuildRomPathIndex();
+    await this.migrateGameIds();
+    await this.backfillRomHashes();
   }
 
   /** Rebuild reverse indexes from the current games map. */
@@ -242,9 +275,12 @@ export class LibraryService extends EventEmitter {
           migrated = true;
         }
       } catch (error) {
-        libraryLog.warn(`Cannot read ROM for migration: ${game.romPath}, removing game:`, error);
-        this.games.delete(oldId);
-        migrated = true;
+        libraryLog.warn(
+          `Cannot read ROM for migration: ${game.romPath} — skipping (drive may be unmounted)`,
+          error,
+        );
+        // Do NOT delete — the ROM may be temporarily inaccessible.
+        // The game keeps its old ID until the ROM is readable again.
       }
     }
 
@@ -256,13 +292,13 @@ export class LibraryService extends EventEmitter {
 
   /**
    * Fills in missing romHashes for games loaded from an older library.json.
-   * Games whose ROM files are unreadable are removed from the library.
+   * Games whose ROM files are temporarily unreadable are skipped rather than
+   * removed — the drive may be unmounted or the file temporarily locked.
    */
   private async backfillRomHashes(): Promise<void> {
     let changed = false;
-    const toRemove: Array<string> = [];
 
-    for (const [id, game] of this.games.entries()) {
+    for (const [, game] of this.games.entries()) {
       const hashes = game.romHashes;
       if (hashes?.crc32 && hashes?.sha1 && hashes?.md5) {
         continue;
@@ -274,16 +310,12 @@ export class LibraryService extends EventEmitter {
         changed = true;
       } catch (error) {
         libraryLog.warn(
-          `Cannot read ROM for "${game.title}" at ${game.romPath}, removing from library:`,
+          `Cannot read ROM for "${game.title}" at ${game.romPath} — skipping hash backfill (drive may be unmounted)`,
           error,
         );
-        toRemove.push(id);
-        changed = true;
+        // Do NOT delete — the ROM may be temporarily inaccessible.
+        // The game keeps its incomplete hashes until the ROM is readable again.
       }
-    }
-
-    for (const id of toRemove) {
-      this.games.delete(id);
     }
 
     if (changed) {
@@ -294,7 +326,30 @@ export class LibraryService extends EventEmitter {
 
   private async saveLibrary(): Promise<void> {
     const games = Array.from(this.games.values());
-    await fs.writeFile(this.libraryPath, JSON.stringify(games, null, 2));
+    await this.atomicWriteJSON(this.libraryPath, games);
+  }
+
+  /**
+   * Check if an artwork file already exists on disk for a game ID.
+   * Returns the `artwork://` URL if found, undefined otherwise.
+   * This handles re-association when a game was previously removed
+   * and later re-scanned — the artwork file survives on disk even
+   * though the game entry was deleted.
+   */
+  private async findExistingArtwork(gameId: string): Promise<string | undefined> {
+    const artworkDir = path.join(app.getPath("userData"), "artwork");
+    const extensions = [".png", ".jpg", ".jpeg", ".webp"];
+
+    for (const ext of extensions) {
+      const filePath = path.join(artworkDir, `${gameId}${ext}`);
+      try {
+        await fs.access(filePath);
+        return `artwork://${gameId}${ext}`;
+      } catch {
+        // File doesn't exist with this extension
+      }
+    }
+    return undefined;
   }
 
   public async addSystem(system: GameSystem): Promise<void> {
@@ -307,22 +362,12 @@ export class LibraryService extends EventEmitter {
 
   public async removeSystem(systemId: string): Promise<void> {
     this.config.systems = this.config.systems.filter((s) => s.id !== systemId);
-    // Also remove all games from this system (and clean up cached ROMs)
-    for (const [id, game] of this.games.entries()) {
-      if (game.systemId === systemId) {
-        if (game.romPath.startsWith(this.romsCacheDir)) {
-          try {
-            await fs.unlink(game.romPath);
-          } catch {
-            // File may already be gone
-          }
-        }
-        this.games.delete(id);
-      }
-    }
-    this.rebuildRomPathIndex();
     await this.saveConfig();
-    await this.saveLibrary();
+    // Games for this system are intentionally kept in the library.
+    // Their coverArt, metadata, favorites, playTime, and save states
+    // are preserved. If the user re-adds the system or rescans, the
+    // games reappear with all enriched data intact. Games can still
+    // be removed individually via removeGame().
   }
 
   public async updateSystemPath(systemId: string, romsPath: string): Promise<void> {
@@ -540,6 +585,15 @@ export class LibraryService extends EventEmitter {
             title,
           };
 
+      // Re-associate orphaned artwork from a previous library entry
+      if (isNew && !game.coverArt) {
+        const existingArtwork = await this.findExistingArtwork(gameId);
+        if (existingArtwork) {
+          game.coverArt = existingArtwork;
+          libraryLog.info(`Re-associated existing artwork for ${title}`);
+        }
+      }
+
       this.games.set(gameId, game);
       this.romPathIndex.set(fullPath, gameId);
       libraryLog.debug(`${isNew ? "Added" : "Updated"} ${title} (${system.id})`);
@@ -569,6 +623,16 @@ export class LibraryService extends EventEmitter {
       const game = await this.handleZipFile(fullPath, systemIdFilter);
       if (game) {
         game.romMtime = mtimeMs;
+
+        // Re-associate orphaned artwork from a previous library entry
+        if (!game.coverArt) {
+          const existingArtwork = await this.findExistingArtwork(game.id);
+          if (existingArtwork) {
+            game.coverArt = existingArtwork;
+            libraryLog.info(`Re-associated existing artwork for ${game.title}`);
+          }
+        }
+
         this.games.set(game.id, game);
         this.romPathIndex.set(game.romPath, game.id);
         if (game.sourceArchivePath) {
@@ -696,6 +760,15 @@ export class LibraryService extends EventEmitter {
     if (ext === ".zip" && systemId !== "arcade") {
       const game = await this.handleZipFile(romPath, systemId);
       if (game) {
+        // Re-associate orphaned artwork from a previous library entry
+        if (!game.coverArt) {
+          const existingArtwork = await this.findExistingArtwork(game.id);
+          if (existingArtwork) {
+            game.coverArt = existingArtwork;
+            libraryLog.info(`Re-associated existing artwork for ${game.title}`);
+          }
+        }
+
         this.games.set(game.id, game);
         this.romPathIndex.set(game.romPath, game.id);
         if (game.sourceArchivePath) {
@@ -729,6 +802,13 @@ export class LibraryService extends EventEmitter {
       systemId: system.id,
       title: this.cleanGameTitle(path.basename(romPath, ext)),
     };
+
+    // Re-associate orphaned artwork from a previous library entry
+    const existingArtwork = await this.findExistingArtwork(gameId);
+    if (existingArtwork) {
+      game.coverArt = existingArtwork;
+      libraryLog.info(`Re-associated existing artwork for ${game.title}`);
+    }
 
     this.games.set(gameId, game);
     this.romPathIndex.set(romPath, gameId);

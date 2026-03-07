@@ -53,7 +53,7 @@ export const LibraryView: React.FC<{
   const [games, setGames] = useState<Array<AppGame>>([]);
   const [systems, setSystems] = useState<Array<GameSystem>>([]);
   const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<{
     processed: number;
@@ -619,6 +619,64 @@ export const LibraryView: React.FC<{
     [games, selectedSystem],
   );
 
+  // ---- Graceful reveal ----
+  // Reveal #root once the library UI is fully painted. The inline CSS in
+  // index.html starts #root at opacity 0; adding .mounted triggers a
+  // 300ms CSS transition so the entire UI (titlebar, toolbar, tabs, grid)
+  // fades in as one cohesive unit instead of popping in piece by piece.
+  //
+  // Two conditions gate the reveal:
+  //  1. `loading` is false (library data returned from IPC).
+  //  2. The grid has measured its container and positioned cards (via the
+  //     `onReady` callback from GameLibrary). For virtualized lists the
+  //     ResizeObserver fires asynchronously, so without this gate the
+  //     #root fade would complete before any cards are in the DOM.
+  //
+  // For empty libraries (no games), condition 2 is skipped because there
+  // is no grid to wait for — the EmptyLibrary component renders instead.
+  //
+  // `isRevealing` stays true during the fade so GameLibrary can minimise
+  // overscan and suppress card transitions, reducing GPU compositing work.
+  const hasRevealedRef = useRef(false);
+  const [gridReady, setGridReady] = useState(false);
+  const [isRevealing, setIsRevealing] = useState(true);
+  const handleGridReady = useCallback(() => setGridReady(true), []);
+
+  const shouldReveal = !loading && (gridReady || games.length === 0);
+
+  useEffect(() => {
+    if (shouldReveal && !hasRevealedRef.current) {
+      hasRevealedRef.current = true;
+      // Tell the main process to show the window. This triggers
+      // mainWindow.show() which rasterizes the full window surface
+      // for the first time — an expensive compositing pass. We give
+      // the compositor 2 full frames to settle before starting the
+      // opacity fade, otherwise the fade animation drops frames while
+      // the GPU is still rasterizing layers.
+      api.contentReady();
+      // Frame 1: browser composites the newly-shown window surface.
+      requestAnimationFrame(() => {
+        // Frame 2: first fully-rasterized frame is on screen (at opacity 0).
+        requestAnimationFrame(() => {
+          // Frame 3: now safe to start the opacity transition.
+          requestAnimationFrame(() => {
+            document.getElementById("root")?.classList.add("mounted");
+            // End reveal mode after the CSS transition completes (400ms) + buffer.
+            // This re-enables full overscan and card hover transitions.
+            // Also remove will-change to free the dedicated GPU layer.
+            setTimeout(() => {
+              setIsRevealing(false);
+              const root = document.getElementById("root");
+              if (root) {
+                root.style.willChange = "auto";
+              }
+            }, 500);
+          });
+        });
+      });
+    }
+  }, [shouldReveal]);
+
   // Per-game UI object cache — only recreates a UiGame when its source
   // AppGame object reference changes. This prevents ALL cards from
   // re-rendering when only one game's coverArt is updated.
@@ -695,13 +753,21 @@ export const LibraryView: React.FC<{
 
   if (games.length === 0 && !isScanning) {
     return (
-      <EmptyLibrary
-        onAddSystem={handleAddSystem}
-        onScanDirectory={handleSelectDirectory}
-        onQuickScan={handleQuickScan}
-        availableSystems={systems.length > 0 ? systems : []}
-        isImportingHomebrew={isImportingHomebrew}
-      />
+      <div
+        className="h-full"
+        style={{
+          opacity: shouldReveal ? 1 : 0,
+          transition: "opacity 250ms ease",
+        }}
+      >
+        <EmptyLibrary
+          onAddSystem={handleAddSystem}
+          onScanDirectory={handleSelectDirectory}
+          onQuickScan={handleQuickScan}
+          availableSystems={systems.length > 0 ? systems : []}
+          isImportingHomebrew={isImportingHomebrew}
+        />
+      </div>
     );
   }
 
@@ -831,6 +897,8 @@ export const LibraryView: React.FC<{
             artworkSyncStore={artworkSyncStore}
             launchingGameId={launchingGameId}
             scrollContainerRef={scrollContainerRef}
+            onReady={handleGridReady}
+            isRevealing={isRevealing}
             onSearchClick={() => handleCommandPaletteOpenChange(true)}
           />
         ) : (
