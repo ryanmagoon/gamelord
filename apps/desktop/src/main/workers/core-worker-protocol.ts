@@ -88,6 +88,7 @@ export type WorkerCommand =
   | { action: 'saveSram'; requestId: string }
   | { action: 'screenshot'; requestId: string; outputPath?: string }
   | { action: 'setSpeed'; multiplier: number }
+  | { action: 'setFastForwardAudio'; enabled: boolean }
   | { action: 'shutdown'; requestId: string }
   | {
       action: 'setupSharedBuffers'

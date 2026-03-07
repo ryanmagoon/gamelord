@@ -40,7 +40,8 @@ contextBridge.exposeInMainWorld('gamelord', {
     resume: () => ipcRenderer.invoke('emulation:resume'),
     reset: () => ipcRenderer.invoke('emulation:reset'),
     screenshot: (outputPath?: string) => ipcRenderer.invoke('emulation:screenshot', outputPath),
-    setSpeed: (multiplier: number) => ipcRenderer.invoke('emulation:setSpeed', multiplier)
+    setSpeed: (multiplier: number) => ipcRenderer.invoke('emulation:setSpeed', multiplier),
+    setFastForwardAudio: (enabled: boolean) => ipcRenderer.invoke('emulation:setFastForwardAudio', enabled)
   },
 
   // Save states

@@ -65,11 +65,19 @@ app.on('ready', () => {
     });
   });
 
-  // Auto-approve all permission requests. Cross-origin isolation (COEP)
+  // Auto-approve most permission requests. Cross-origin isolation (COEP)
   // causes Chromium to prompt for AudioContext permissions that are normally
   // auto-granted in Electron. Since this is a local desktop app (not a
-  // web browser), all permissions are safe to grant automatically.
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+  // web browser), most permissions are safe to grant automatically.
+  // Deny microphone/camera to prevent macOS system permission dialogs —
+  // AudioContext only needs audio output, not input.
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    if (permission === 'media') {
+      // 'media' covers both mic and camera — deny to avoid macOS prompts.
+      // AudioContext playback works without media capture permission.
+      callback(false);
+      return;
+    }
     callback(true);
   });
 
