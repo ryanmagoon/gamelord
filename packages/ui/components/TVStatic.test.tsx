@@ -1,8 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { TVStatic } from './TVStatic'
+import { tvStaticManager } from './TVStaticManager'
 
 describe('TVStatic', () => {
+  afterEach(() => {
+    tvStaticManager.setDeterministic(false)
+  })
+
   it('renders nothing when not active', () => {
     const { container } = render(<TVStatic active={false} />)
     expect(container.firstChild).toBeNull()
@@ -45,5 +50,19 @@ describe('TVStatic', () => {
     const { container } = render(<TVStatic active={true} phase="querying" />)
     expect(container.querySelector('.bg-red-500\\/15')).toBeNull()
     expect(container.querySelector('.bg-amber-500\\/15')).toBeNull()
+  })
+
+  it('renders a solid placeholder instead of canvas in deterministic mode', () => {
+    tvStaticManager.setDeterministic(true)
+    const { container } = render(<TVStatic active={true} />)
+    expect(container.querySelector('canvas')).toBeNull()
+    expect(screen.getByLabelText('Loading artwork')).toBeInTheDocument()
+  })
+
+  it('preserves tint overlays in deterministic mode', () => {
+    tvStaticManager.setDeterministic(true)
+    const { container } = render(<TVStatic active={true} phase="error" />)
+    expect(container.querySelector('canvas')).toBeNull()
+    expect(container.querySelector('.bg-red-500\\/15')).not.toBeNull()
   })
 })

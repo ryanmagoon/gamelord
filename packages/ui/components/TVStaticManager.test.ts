@@ -72,6 +72,12 @@ describe('TVStaticManager deterministic mode', () => {
     unregB()
   })
 
+  it('exposes deterministic state via isDeterministic()', () => {
+    expect(tvStaticManager.isDeterministic()).toBe(false)
+    tvStaticManager.setDeterministic(true)
+    expect(tvStaticManager.isDeterministic()).toBe(true)
+  })
+
   it('does not start rAF loop in deterministic mode', () => {
     tvStaticManager.setDeterministic(true)
     const spy = vi.spyOn(globalThis, 'requestAnimationFrame')
