@@ -156,6 +156,10 @@ export class EmulationWorkerClient extends EventEmitter {
     this.postCommand({ action: 'setSpeed', multiplier })
   }
 
+  setFastForwardAudio(enabled: boolean): void {
+    this.postCommand({ action: 'setFastForwardAudio', enabled })
+  }
+
   async saveState(slot: number): Promise<void> {
     await this.sendRequest({ action: 'saveState', slot })
   }

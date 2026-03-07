@@ -1,0 +1,27 @@
+Bundled Homebrew ROMs — License Information
+============================================
+
+These NES homebrew ROMs are bundled with GameLord so the app is playable
+out of the box. All ROMs have permissive licenses that allow redistribution.
+
+
+1. Lawn Mower
+   Author: Shiru
+   License: CC0 1.0 Universal (Public Domain Dedication)
+   Source: https://shiru.untergrund.net/software.shtml
+   Cover art: Title screen / gameplay screenshot from shiru.untergrund.net (CC0)
+   No attribution required.
+
+2. NESert Golfing
+   Author: Brad Smith (rainwarrior)
+   License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+   Source: https://github.com/bbbradsmith/NESertGolfing
+   Cover art: By Penelope Fedorko, from https://rainwarrior.itch.io/nesert-golfing (CC BY 4.0)
+   Attribution: NESert Golfing by Brad Smith, cover art by Penelope Fedorko, licensed under CC BY 4.0.
+
+3. 8-Bit Table Tennis
+   Author: Mike
+   License: MIT License
+   Source: https://github.com/mike42/8bit-table-tennis
+   Cover art: Title screen from repository (MIT)
+   Attribution: 8-Bit Table Tennis by Mike, licensed under MIT.
