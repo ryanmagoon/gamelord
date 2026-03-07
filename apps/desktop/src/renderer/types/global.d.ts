@@ -100,6 +100,9 @@ export interface GamelordAPI {
     onMessage: (callback: (data: unknown) => void) => void;
   };
 
+  // Signal to the main process that the renderer has loaded and is ready to show.
+  contentReady: () => void;
+
   on: (channel: string, callback: (...args: Array<any>) => void) => void;
   removeAllListeners: (channel: string) => void;
 }

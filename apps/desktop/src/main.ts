@@ -1,10 +1,16 @@
 import { config as loadDotenv } from "dotenv";
-import { app, BrowserWindow, nativeTheme, net, protocol, session } from "electron";
+import { app, BrowserWindow, ipcMain, nativeTheme, net, protocol, session } from "electron";
 import path from "node:path";
 import { setupAppMenu } from "./main/appMenu";
 import { IPCHandlers } from "./main/ipc/handlers";
 import { mainLog } from "./main/logger";
-import { getSavedWindowBounds, manageWindowState } from "./main/utils/windowState";
+import {
+  getSavedWindowBounds,
+  MAIN_WINDOW_CONFIG,
+  manageWindowState,
+  saveWindowStateNow,
+} from "./main/utils/windowState";
+import { animateWindowClose } from "./main/windowCloseAnimation";
 
 // Load .env from the desktop app root (apps/desktop/.env) before anything
 // reads process.env. This provides SCREENSCRAPER_DEV_ID / DEV_PASSWORD, etc.
@@ -20,8 +26,14 @@ const createWindow = () => {
   const savedBounds = getSavedWindowBounds();
 
   // Create the browser window with saved position/size.
+  // `show: false` prevents a flash of unstyled content (FOUC) on cold launch.
+  // The window stays hidden until the renderer signals it's ready via `ready-to-show`.
+  // No `backgroundColor` — the inline theme script in index.html sets the correct
+  // background (light or dark) before first paint, and `ready-to-show` ensures
+  // the window isn't revealed until that script has run.
   const mainWindow = new BrowserWindow({
     ...savedBounds,
+    show: false,
     minWidth: 800,
     minHeight: 600,
     titleBarStyle: "hiddenInset",
@@ -33,8 +45,46 @@ const createWindow = () => {
     },
   });
 
+  // The renderer sends 'app:contentReady' once the library data has loaded
+  // and the UI is rendered at opacity 0. Showing the window at that point
+  // lets the CSS transition (opacity 0 → 1) play visibly. If the signal
+  // doesn't arrive within 3 seconds (e.g. the renderer crashes), show
+  // anyway so the user isn't stuck with an invisible window.
+  let shown = false;
+  const showOnce = () => {
+    if (shown) {
+      return;
+    }
+    shown = true;
+    mainWindow.show();
+  };
+  ipcMain.once("app:contentReady", showOnce);
+  mainWindow.on("ready-to-show", () => {
+    setTimeout(showOnce, 3000);
+  });
+
   // Persist window position, size, and maximize state across sessions.
-  manageWindowState(mainWindow);
+  // manualCloseSave prevents the auto-close listener from saving bounds
+  // after the close animation shrinks the window.
+  manageWindowState(mainWindow, { ...MAIN_WINDOW_CONFIG, manualCloseSave: true });
+
+  // Animate the main window on close (fade + shrink toward center).
+  // Skip the animation during Cmd+Q / app.quit() — the quit flow handles
+  // cleanup and the user expects an instant exit.
+  let readyToClose = false;
+  mainWindow.on("close", (event) => {
+    if (readyToClose || isCleaningUp) {
+      return;
+    }
+
+    event.preventDefault();
+    saveWindowStateNow(mainWindow, MAIN_WINDOW_CONFIG);
+
+    animateWindowClose(mainWindow).then(() => {
+      readyToClose = true;
+      mainWindow.close();
+    });
+  });
 
   // and load the index.html of the app.
   if (process.env.ELECTRON_RENDERER_URL) {
