@@ -164,4 +164,27 @@ describe("SfxEngine", () => {
     engine.play("saveState");
     expect(AudioContext).toHaveBeenCalledTimes(1);
   });
+
+  it("warmup() pre-initializes AudioContext and buffers", async () => {
+    const engine = await importFreshEngine();
+    expect(AudioContext).not.toHaveBeenCalled();
+    engine.warmup();
+    expect(AudioContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("warmup() is idempotent — subsequent calls are no-ops", async () => {
+    const engine = await importFreshEngine();
+    engine.warmup();
+    engine.warmup();
+    engine.warmup();
+    expect(AudioContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("play() after warmup() reuses the existing AudioContext", async () => {
+    const engine = await importFreshEngine();
+    engine.warmup();
+    engine.play("click");
+    expect(AudioContext).toHaveBeenCalledTimes(1);
+    expect(mockSourceNode.start).toHaveBeenCalledWith(0);
+  });
 });
