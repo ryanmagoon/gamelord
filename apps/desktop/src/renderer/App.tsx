@@ -380,7 +380,7 @@ function App() {
   };
 
   // Theme actions for the command palette
-  const themeActions = useMemo<CommandAction[]>(() => [
+  const themeActions = useMemo<Array<CommandAction>>(() => [
     {
       id: "theme-system",
       label: "Theme: System",

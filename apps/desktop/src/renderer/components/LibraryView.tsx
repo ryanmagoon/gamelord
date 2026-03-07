@@ -43,7 +43,7 @@ export const LibraryView: React.FC<{
   /** ID of a game currently being launched. Shows shimmer on that card and disables others. */
   launchingGameId?: string | null;
   /** Extra actions to show in the command palette (e.g. theme toggles from parent). */
-  commandPaletteActions?: CommandAction[];
+  commandPaletteActions?: Array<CommandAction>;
 }> = ({ onPlayGame, getMenuItems, launchingGameId, commandPaletteActions = [] }) => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord;
   const { play: playSfx } = useSfx();
@@ -655,8 +655,8 @@ export const LibraryView: React.FC<{
   }, [filteredGames]);
 
   // Build command palette actions: library-level actions + parent-provided actions
-  const allPaletteActions = useMemo<CommandAction[]>(() => {
-    const libraryActions: CommandAction[] = [
+  const allPaletteActions = useMemo<Array<CommandAction>>(() => {
+    const libraryActions: Array<CommandAction> = [
       {
         id: 'scan-library',
         label: 'Scan Library',
