@@ -275,9 +275,12 @@ export class LibraryService extends EventEmitter {
           migrated = true;
         }
       } catch (error) {
-        libraryLog.warn(`Cannot read ROM for migration: ${game.romPath}, removing game:`, error);
-        this.games.delete(oldId);
-        migrated = true;
+        libraryLog.warn(
+          `Cannot read ROM for migration: ${game.romPath} — skipping (drive may be unmounted)`,
+          error,
+        );
+        // Do NOT delete — the ROM may be temporarily inaccessible.
+        // The game keeps its old ID until the ROM is readable again.
       }
     }
 
@@ -289,13 +292,13 @@ export class LibraryService extends EventEmitter {
 
   /**
    * Fills in missing romHashes for games loaded from an older library.json.
-   * Games whose ROM files are unreadable are removed from the library.
+   * Games whose ROM files are temporarily unreadable are skipped rather than
+   * removed — the drive may be unmounted or the file temporarily locked.
    */
   private async backfillRomHashes(): Promise<void> {
     let changed = false;
-    const toRemove: Array<string> = [];
 
-    for (const [id, game] of this.games.entries()) {
+    for (const [, game] of this.games.entries()) {
       const hashes = game.romHashes;
       if (hashes?.crc32 && hashes?.sha1 && hashes?.md5) {
         continue;
@@ -307,16 +310,12 @@ export class LibraryService extends EventEmitter {
         changed = true;
       } catch (error) {
         libraryLog.warn(
-          `Cannot read ROM for "${game.title}" at ${game.romPath}, removing from library:`,
+          `Cannot read ROM for "${game.title}" at ${game.romPath} — skipping hash backfill (drive may be unmounted)`,
           error,
         );
-        toRemove.push(id);
-        changed = true;
+        // Do NOT delete — the ROM may be temporarily inaccessible.
+        // The game keeps its incomplete hashes until the ROM is readable again.
       }
-    }
-
-    for (const id of toRemove) {
-      this.games.delete(id);
     }
 
     if (changed) {

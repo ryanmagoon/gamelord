@@ -1131,7 +1131,7 @@ describe("LibraryService", () => {
       fs.unlinkSync(romPath);
     });
 
-    it("removes games whose ROM files are unreadable during backfill", async () => {
+    it("keeps games whose ROM files are unreadable during backfill", async () => {
       const gameId = sha256String("ghost-content");
       const games = [
         {
@@ -1147,8 +1147,10 @@ describe("LibraryService", () => {
       const service = await createService();
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // Game should be removed because the ROM file doesn't exist
-      expect(service.getGames()).toHaveLength(0);
+      // Game should be preserved — the ROM may be on an unmounted drive
+      const loadedGames = service.getGames();
+      expect(loadedGames).toHaveLength(1);
+      expect(loadedGames[0].title).toBe("Ghost Game");
     });
 
     it("skips games that already have all three hashes", async () => {
@@ -1407,6 +1409,31 @@ describe("LibraryService", () => {
       expect(loadedGames[0].romHashes).toEqual(expectedHashes);
 
       fs.unlinkSync(romPath);
+    });
+
+    it("keeps games whose ROM files are unreadable during migration", async () => {
+      const oldMd5Id = "deadbeefcafeface1234567890abcdef"; // 32-char hex (old MD5 format)
+      const games = [
+        {
+          id: oldMd5Id,
+          title: "Unmounted Drive Game",
+          system: "Nintendo Entertainment System",
+          systemId: "nes",
+          romPath: "/nonexistent/unmounted/drive/game.nes",
+          coverArt: "artwork://some-art.png",
+        },
+      ];
+      fs.writeFileSync(path.join(USER_DATA_DIR, "library.json"), JSON.stringify(games, null, 2));
+
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Game should be preserved with its old ID, not deleted
+      const loadedGames = service.getGames();
+      expect(loadedGames).toHaveLength(1);
+      expect(loadedGames[0].id).toBe(oldMd5Id);
+      expect(loadedGames[0].title).toBe("Unmounted Drive Game");
+      expect(loadedGames[0].coverArt).toBe("artwork://some-art.png");
     });
   });
 
