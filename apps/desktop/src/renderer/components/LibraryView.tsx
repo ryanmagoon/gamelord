@@ -24,6 +24,7 @@ import type { Game as AppGame, GameSystem } from '../../types/library'
 import type { ArtworkProgress } from '../../types/artwork'
 import type { GamelordAPI } from '../types/global'
 import { EmptyLibrary } from './EmptyLibrary'
+import { useMenuEvents } from '../hooks/useMenuEvents'
 import { useSfx } from '../hooks/useSfx'
 
 interface CoreDownloadProgress {
@@ -52,6 +53,8 @@ export const LibraryView: React.FC<{
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState<{ processed: number; total: number; skipped: number } | null>(null)
   const [downloadProgress, setDownloadProgress] = useState<CoreDownloadProgress | null>(null)
+  /** True while the main process is importing bundled homebrew ROMs on first launch. */
+  const [isImportingHomebrew, setIsImportingHomebrew] = useState(true)
 
   // Artwork sync state — external store so phase updates bypass React re-renders.
   // Each GameCard subscribes to its own phase via useSyncExternalStore.
@@ -102,7 +105,21 @@ export const LibraryView: React.FC<{
   }, [artworkSyncStore])
 
   useEffect(() => {
-    loadLibrary()
+    loadLibrary().then((loadedGames) => {
+      // If the library already has games (returning user), no need to wait
+      // for homebrew import — it won't run anyway. For first-time users with
+      // empty libraries, wait for the homebrew import to complete via the
+      // library:homebrewImported event to avoid a flash of "empty library" UI.
+      if (loadedGames.length > 0) {
+        setIsImportingHomebrew(false)
+      }
+    })
+
+    // Reload library when bundled homebrew ROMs finish importing on first launch
+    api.on('library:homebrewImported', () => {
+      setIsImportingHomebrew(false)
+      loadLibrary()
+    })
 
     api.on('library:scanProgress', (progress: { game: AppGame; isNew: boolean; processed: number; total: number; skipped: number }) => {
       setScanProgress({ processed: progress.processed, total: progress.total, skipped: progress.skipped })
@@ -240,6 +257,7 @@ export const LibraryView: React.FC<{
 
     return () => {
       api.removeAllListeners('library:scanProgress')
+      api.removeAllListeners('library:homebrewImported')
       api.removeAllListeners('core:downloadProgress')
       api.removeAllListeners('artwork:progress')
       api.removeAllListeners('artwork:syncComplete')
@@ -250,7 +268,7 @@ export const LibraryView: React.FC<{
     }
   }, [])
 
-  const loadLibrary = async () => {
+  const loadLibrary = async (): Promise<AppGame[]> => {
     setLoading(true)
     try {
       const [loadedSystems, loadedGames] = await Promise.all([
@@ -259,8 +277,10 @@ export const LibraryView: React.FC<{
       ])
       setSystems(loadedSystems)
       setGames(loadedGames)
+      return loadedGames
     } catch (error) {
       console.error('Failed to load library:', error)
+      return []
     } finally {
       setLoading(false)
     }
@@ -365,6 +385,16 @@ export const LibraryView: React.FC<{
       setScanProgress(null)
     }
   }
+
+  // Wire app menu actions to existing handlers
+  useMenuEvents(api, {
+    onScanLibrary: handleScanSystemFolders,
+    onAddRomFolder: handleSelectDirectory,
+    onOpenSettings: () => {
+      // TODO: open settings panel — https://github.com/ryanmagoon/gamelord/issues/96
+      console.log('[menu] Preferences: settings panel not yet implemented')
+    },
+  })
 
   const handleAddRom = async (systemId: string) => {
     const romPath = await api.dialog.selectRomFile(systemId)
@@ -545,6 +575,7 @@ export const LibraryView: React.FC<{
         onScanDirectory={handleSelectDirectory}
         onQuickScan={handleQuickScan}
         availableSystems={systems.length > 0 ? systems : []}
+        isImportingHomebrew={isImportingHomebrew}
       />
     )
   }
