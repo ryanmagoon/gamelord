@@ -223,6 +223,11 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] **Discord Rich Presence** — Show the currently playing game, system, and elapsed time in the user's Discord status (e.g. "Playing Super Metroid (SNES)"). Toggle in settings. Uses Discord's local IPC socket — no network requests, no Discord SDK dependency needed (lightweight RPC client).
 - [ ] **Before/after launch scripts** — Let users configure shell commands to run before game launch and after game exit. Per-game or global. Use cases: switch audio output, dim smart lights, post to a Discord webhook, back up saves, toggle system settings.
 
+### Telemetry & Analytics
+
+- [ ] **PostHog product analytics** — Integrate `posthog-js` in the renderer for product analytics, feature flags, and A/B testing. Track which games/systems get played, feature usage, funnel analysis. Session replay for UX understanding (distinct from Sentry's error-context replay). Free tier: 1M events, 5K replays, 1M feature flag requests. Note: no offline event queuing (open issue) — events captured while offline are lost. No main-process instrumentation. Use the PostHog-Sentry connector to link errors to user profiles.
+- [ ] **Vercel Analytics for web properties** — Enable Vercel Analytics and Speed Insights on gamelord.app and docs site once deployed. Privacy-friendly (no cookies), Core Web Vitals tracking, per-deployment performance. Not applicable to the Electron app — only Vercel-deployed web properties.
+
 ### Alpha Release Milestone — [#143](https://github.com/ryanmagoon/gamelord/issues/143)
 
 Tracking issue for the first alpha release. All items below must be completed before shipping.
@@ -236,6 +241,7 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [x] **Settings panel** — Modal dialog with sidebar tabs (General, Emulation, Library, About). Toolbar gear button + Cmd+, shortcut. Theme, SFX, shader, FPS counter, fast-forward speed, ROM directories, ScreenScraper credentials, about/credits. — [#96](https://github.com/ryanmagoon/gamelord/issues/96)
 - [x] **Bundled homebrew ROMs** — Ships 3 permissively-licensed NES homebrew ROMs (Lawn Mower CC0, NESert Golfing CC BY 4.0, 8-Bit Table Tennis MIT). HomebrewService auto-imports to user's ROM directory on first launch when library is empty, with metadata enrichment. Marker file prevents re-import. — [#139](https://github.com/ryanmagoon/gamelord/issues/139)
 - [ ] **DMG packaging** — Unsigned DMG via electron-builder, CI release workflow on tagged pushes — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
+- [ ] **Sentry crash & error reporting** — Integrate `@sentry/electron` for crash reporting before alpha ship. Captures JS exceptions in both main and renderer processes, native crashes (Minidumps) from the main process (critical for native addon segfaults), offline event queuing, source map uploads. Session Replay for error-context reproduction. Free tier: 5K errors/month.
 
 ### P8 — UI Polish
 
