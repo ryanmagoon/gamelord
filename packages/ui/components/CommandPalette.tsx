@@ -1,54 +1,54 @@
-import React, { useMemo, useCallback, useEffect, useState, useRef } from 'react'
-import { Command, defaultFilter } from 'cmdk'
-import { Search, Gamepad2, Monitor, Play } from 'lucide-react'
-import { cn } from '../utils'
-import type { Game } from './GameCard'
+import React, { useMemo, useCallback, useEffect, useState, useRef } from "react";
+import { Command, defaultFilter } from "cmdk";
+import { Search, Gamepad2, Monitor, Play } from "lucide-react";
+import { cn } from "../utils";
+import type { Game } from "./GameCard";
 
 /** Maximum number of game results to render at once. */
-const MAX_VISIBLE_GAMES = 10
+const MAX_VISIBLE_GAMES = 10;
 
 /** An action the user can trigger from the command palette. */
 export interface CommandAction {
-  id: string
-  label: string
+  id: string;
+  label: string;
   /** Optional category for grouping (e.g. "Actions", "Settings"). */
-  group?: string
-  icon?: React.ReactNode
-  onSelect: () => void
+  group?: string;
+  icon?: React.ReactNode;
+  onSelect: () => void;
   /** Search keywords beyond the label text. */
-  keywords?: string[]
+  keywords?: Array<string>;
 }
 
 export interface CommandPaletteProps {
   /** Whether the palette is open. */
-  open: boolean
+  open: boolean;
   /** Called when the palette should close. */
-  onOpenChange: (open: boolean) => void
+  onOpenChange: (open: boolean) => void;
   /** Games to search across. */
-  games: Game[]
+  games: Array<Game>;
   /** Called when a game is selected from results. */
-  onSelectGame: (game: Game) => void
+  onSelectGame: (game: Game) => void;
   /** Quick actions available in the palette. */
-  actions?: CommandAction[]
-  className?: string
+  actions?: Array<CommandAction>;
+  className?: string;
 }
 
 /** Unique platform names from a game list, sorted alphabetically. */
-function extractPlatforms(games: Game[]): string[] {
-  const set = new Set<string>()
+function extractPlatforms(games: Array<Game>): Array<string> {
+  const set = new Set<string>();
   for (const game of games) {
-    set.add(game.platform)
+    set.add(game.platform);
   }
-  return Array.from(set).sort()
+  return Array.from(set).sort();
 }
 
 /** Platform game counts keyed by platform name. */
-function countByPlatform(games: Game[]): Map<string, number> {
-  const counts = new Map<string, number>()
+function countByPlatform(games: Array<Game>): Map<string, number> {
+  const counts = new Map<string, number>();
   for (const game of games) {
-    counts.set(game.platform, (counts.get(game.platform) ?? 0) + 1)
+    counts.set(game.platform, (counts.get(game.platform) ?? 0) + 1);
   }
-  return counts
+  return counts;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -59,98 +59,102 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   actions = [],
   className,
 }) => {
-  const [search, setSearch] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-  const prevOpenRef = useRef(false)
+  const [search, setSearch] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const prevOpenRef = useRef(false);
 
   // Reset search and focus input when palette opens
   useEffect(() => {
     if (open && !prevOpenRef.current) {
-      setSearch('')
+      setSearch("");
       // Focus after React commits the visible DOM
       requestAnimationFrame(() => {
-        inputRef.current?.focus()
-      })
+        inputRef.current?.focus();
+      });
     }
-    prevOpenRef.current = open
-  }, [open])
+    prevOpenRef.current = open;
+  }, [open]);
 
-  const platforms = useMemo(() => extractPlatforms(games), [games])
-  const platformCounts = useMemo(() => countByPlatform(games), [games])
+  const platforms = useMemo(() => extractPlatforms(games), [games]);
+  const platformCounts = useMemo(() => countByPlatform(games), [games]);
 
   // External filtering: score + cap games to MAX_VISIBLE_GAMES
   const filteredGames = useMemo(() => {
     if (!search) {
-      return games.slice(0, MAX_VISIBLE_GAMES)
+      return games.slice(0, MAX_VISIBLE_GAMES);
     }
-    const scored: Array<{ game: Game; score: number }> = []
+    const scored: Array<{ game: Game; score: number }> = [];
     for (const game of games) {
-      const score = defaultFilter(`${game.title} ${game.platform}`, search)
+      const score = defaultFilter(`${game.title} ${game.platform}`, search);
       if (score > 0) {
-        scored.push({ game, score })
+        scored.push({ game, score });
       }
     }
-    scored.sort((a, b) => b.score - a.score)
-    return scored.slice(0, MAX_VISIBLE_GAMES).map((s) => s.game)
-  }, [games, search])
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, MAX_VISIBLE_GAMES).map((s) => s.game);
+  }, [games, search]);
 
-  const remainingGames = search ? 0 : Math.max(0, games.length - MAX_VISIBLE_GAMES)
+  const remainingGames = search ? 0 : Math.max(0, games.length - MAX_VISIBLE_GAMES);
 
   // External filtering: platforms (small set, no cap needed)
   const filteredPlatforms = useMemo(() => {
-    if (!search) return platforms
-    return platforms.filter((p) => defaultFilter(p, search) > 0)
-  }, [platforms, search])
+    if (!search) {
+      return platforms;
+    }
+    return platforms.filter((p) => defaultFilter(p, search) > 0);
+  }, [platforms, search]);
 
   // External filtering: actions (small set, no cap needed)
   const filteredGroupedActions = useMemo(() => {
-    const groups = new Map<string, CommandAction[]>()
+    const groups = new Map<string, Array<CommandAction>>();
     for (const action of actions) {
       if (search) {
         const text = action.keywords
-          ? `${action.label} ${action.keywords.join(' ')}`
-          : action.label
-        if (defaultFilter(text, search) <= 0) continue
+          ? `${action.label} ${action.keywords.join(" ")}`
+          : action.label;
+        if (defaultFilter(text, search) <= 0) {
+          continue;
+        }
       }
-      const group = action.group ?? 'Actions'
-      const list = groups.get(group)
+      const group = action.group ?? "Actions";
+      const list = groups.get(group);
       if (list) {
-        list.push(action)
+        list.push(action);
       } else {
-        groups.set(group, [action])
+        groups.set(group, [action]);
       }
     }
-    return groups
-  }, [actions, search])
+    return groups;
+  }, [actions, search]);
 
   const hasResults =
     filteredGames.length > 0 ||
     filteredPlatforms.length > 0 ||
-    Array.from(filteredGroupedActions.values()).some((g) => g.length > 0)
+    Array.from(filteredGroupedActions.values()).some((g) => g.length > 0);
 
   const handleSelectGame = useCallback(
     (gameId: string) => {
-      const game = games.find((g) => g.id === gameId)
+      const game = games.find((g) => g.id === gameId);
       if (game) {
-        onSelectGame(game)
-        onOpenChange(false)
+        onSelectGame(game);
+        onOpenChange(false);
       }
     },
     [games, onSelectGame, onOpenChange],
-  )
+  );
 
   const handleSelectAction = useCallback(
     (action: CommandAction) => {
-      action.onSelect()
-      onOpenChange(false)
+      action.onSelect();
+      onOpenChange(false);
     },
     [onOpenChange],
-  )
+  );
 
   // Keep the palette mounted (hidden) to avoid re-mount cost on every open.
   // Visibility is controlled via CSS, not by unmounting.
   if (!open) {
-    return <div className="hidden" aria-hidden />
+    return <div className="hidden" aria-hidden />;
   }
 
   return (
@@ -166,14 +170,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       <div className="fixed inset-0 flex items-start justify-center pt-[20vh]">
         <Command
           className={cn(
-            'w-full max-w-lg rounded-lg border bg-popover text-popover-foreground shadow-2xl animate-dialog-scan-in',
+            "w-full max-w-lg rounded-lg border bg-popover text-popover-foreground shadow-2xl animate-dialog-scan-in",
             className,
           )}
           shouldFilter={false}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault()
-              onOpenChange(false)
+            if (e.key === "Escape") {
+              e.preventDefault();
+              onOpenChange(false);
             }
           }}
           loop
@@ -230,7 +234,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 ))}
                 {remainingGames > 0 && (
                   <div className="px-2 py-1.5 text-xs text-muted-foreground/60">
-                    Type to search {remainingGames} more game{remainingGames === 1 ? '' : 's'}…
+                    Type to search {remainingGames} more game{remainingGames === 1 ? "" : "s"}…
                   </div>
                 )}
               </Command.Group>
@@ -240,25 +244,27 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             {filteredPlatforms.length > 0 && (
               <Command.Group heading="Platforms" className="command-palette-group">
                 {filteredPlatforms.map((platform) => {
-                  const count = platformCounts.get(platform) ?? 0
+                  const count = platformCounts.get(platform) ?? 0;
                   return (
                     <Command.Item
                       key={platform}
                       value={`platform-${platform}`}
                       onSelect={() => {
-                        const first = games.find((g) => g.platform === platform)
-                        if (first) onSelectGame(first)
-                        onOpenChange(false)
+                        const first = games.find((g) => g.platform === platform);
+                        if (first) {
+                          onSelectGame(first);
+                        }
+                        onOpenChange(false);
                       }}
                       className="command-palette-item"
                     >
                       <Monitor className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />
                       <span className="text-sm">{platform}</span>
                       <span className="ml-auto text-xs text-muted-foreground">
-                        {count} {count === 1 ? 'game' : 'games'}
+                        {count} {count === 1 ? "game" : "games"}
                       </span>
                     </Command.Item>
-                  )
+                  );
                 })}
               </Command.Group>
             )}
@@ -285,5 +291,5 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </Command>
       </div>
     </div>
-  )
-}
+  );
+};
