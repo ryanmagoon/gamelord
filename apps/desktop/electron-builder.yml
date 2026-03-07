@@ -15,6 +15,8 @@ asarUnpack:
 extraResources:
   - from: native/build/Release/gamelord_libretro.node
     to: gamelord_libretro.node
+  - from: resources/homebrew
+    to: homebrew
 
 mac:
   category: public.app-category.games

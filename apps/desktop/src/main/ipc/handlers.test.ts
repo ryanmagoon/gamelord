@@ -28,6 +28,11 @@ vi.mock('../emulator/EmulationWorkerClient');
 vi.mock('../emulator/resolveAddonPath');
 vi.mock('../services/LibraryService');
 vi.mock('../services/ArtworkService');
+vi.mock('../services/HomebrewService', () => {
+  const MockHomebrewService = vi.fn();
+  MockHomebrewService.prototype.importIfNeeded = vi.fn().mockResolvedValue(false);
+  return { HomebrewService: MockHomebrewService };
+});
 vi.mock('../GameWindowManager');
 vi.mock('../logger', () => ({
   ipcLog: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
@@ -38,6 +43,7 @@ import { EmulatorManager } from '../emulator/EmulatorManager';
 import { EmulationWorkerClient } from '../emulator/EmulationWorkerClient';
 import { resolveAddonPath } from '../emulator/resolveAddonPath';
 import { LibraryService } from '../services/LibraryService';
+import { HomebrewService } from '../services/HomebrewService';
 import { GameWindowManager } from '../GameWindowManager';
 import { IPCHandlers } from './handlers';
 import type { Game, GameSystem } from '../../types/library';
@@ -171,6 +177,13 @@ beforeEach(() => {
     });
     gameWindowManagerInstance.on = vi.fn(() => gameWindowManagerInstance);
     return gameWindowManagerInstance;
+  } as any);
+
+  // Configure HomebrewService mock constructor
+  vi.mocked(HomebrewService).mockImplementation(function (this: Record<string, unknown>) {
+    Object.assign(this, {
+      importIfNeeded: vi.fn().mockResolvedValue(false),
+    });
   } as any);
 
   // Instantiate IPCHandlers — triggers all handler registrations

@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('gamelord', {
       'overlay:show-controls',
       'core:downloadProgress',
       'library:scanProgress',
+      'library:homebrewImported',
       'artwork:progress',
       'artwork:syncComplete',
       'artwork:syncError',
