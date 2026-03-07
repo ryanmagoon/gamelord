@@ -1,17 +1,17 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, within, userEvent, fn } from 'storybook/test'
-import { CoreDownloadBanner } from './CoreDownloadBanner'
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, within, userEvent, fn } from "storybook/test";
+import { CoreDownloadBanner } from "./CoreDownloadBanner";
 
 const meta = {
-  title: 'Components/CoreDownloadBanner',
+  title: "Components/CoreDownloadBanner",
   component: CoreDownloadBanner,
   parameters: {
-    layout: 'padded',
+    layout: "padded",
   },
-  tags: ['autodocs'],
+  tags: ["autodocs"],
   argTypes: {
-    onRetry: { action: 'retry' },
-    onDismiss: { action: 'dismiss' },
+    onRetry: { action: "retry" },
+    onDismiss: { action: "dismiss" },
   },
   decorators: [
     (Story) => (
@@ -20,79 +20,79 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof CoreDownloadBanner>
+} satisfies Meta<typeof CoreDownloadBanner>;
 
-export default meta
-type Story = StoryObj<typeof meta>
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const Downloading: Story = {
   args: {
-    coreName: 'mesen_libretro',
-    phase: 'downloading',
+    coreName: "mesen_libretro",
+    phase: "downloading",
     percent: 45,
     onRetry: fn(),
     onDismiss: fn(),
   },
-}
+};
 
 export const DownloadingAlmostDone: Story = {
   args: {
-    coreName: 'mesen_libretro',
-    phase: 'downloading',
+    coreName: "mesen_libretro",
+    phase: "downloading",
     percent: 95,
     onRetry: fn(),
     onDismiss: fn(),
   },
-}
+};
 
 export const Extracting: Story = {
   args: {
-    coreName: 'mesen_libretro',
-    phase: 'extracting',
+    coreName: "mesen_libretro",
+    phase: "extracting",
     percent: 70,
     onRetry: fn(),
     onDismiss: fn(),
   },
-}
+};
 
 export const Error: Story = {
   args: {
-    coreName: 'mesen_libretro',
-    phase: 'error',
+    coreName: "mesen_libretro",
+    phase: "error",
     percent: 0,
     onRetry: fn(),
     onDismiss: fn(),
   },
-}
+};
 
 export const AccessibilityTest: Story = {
   args: {
-    coreName: 'test_core',
-    phase: 'error',
+    coreName: "test_core",
+    phase: "error",
     percent: 0,
     onRetry: fn(),
     onDismiss: fn(),
   },
   play: async ({ canvasElement, args }) => {
-    const canvas = within(canvasElement)
+    const canvas = within(canvasElement);
 
     // Retry button should be present in error state
-    const retryButton = canvas.getByRole('button', { name: /retry/i })
-    await expect(retryButton).toBeInTheDocument()
+    const retryButton = canvas.getByRole("button", { name: /retry/i });
+    await expect(retryButton).toBeInTheDocument();
 
     // Dismiss button should be present with aria-label
-    const dismissButton = canvas.getByRole('button', { name: /dismiss error/i })
-    await expect(dismissButton).toBeInTheDocument()
+    const dismissButton = canvas.getByRole("button", { name: /dismiss error/i });
+    await expect(dismissButton).toBeInTheDocument();
 
     // Error message should show the core name
-    await expect(canvas.getByText(/failed to download test_core/i)).toBeInTheDocument()
+    await expect(canvas.getByText(/failed to download test_core/i)).toBeInTheDocument();
 
     // Click Retry and verify callback
-    await userEvent.click(retryButton)
-    await expect(args.onRetry).toHaveBeenCalled()
+    await userEvent.click(retryButton);
+    await expect(args.onRetry).toHaveBeenCalled();
 
     // Click Dismiss and verify callback
-    await userEvent.click(dismissButton)
-    await expect(args.onDismiss).toHaveBeenCalled()
+    await userEvent.click(dismissButton);
+    await expect(args.onDismiss).toHaveBeenCalled();
   },
-}
+};

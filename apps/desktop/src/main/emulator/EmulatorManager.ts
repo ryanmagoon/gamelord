@@ -1,34 +1,34 @@
-import { EventEmitter } from 'events';
-import { app, powerSaveBlocker } from 'electron';
-import { EmulatorCore, EmulatorInfo } from './EmulatorCore';
-import { RetroArchCore } from './RetroArchCore';
-import { LibretroNativeCore } from './LibretroNativeCore';
-import { EmulationWorkerClient } from './EmulationWorkerClient';
-import { CoreDownloader, CoreInfo } from './CoreDownloader';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import { EventEmitter } from "node:events";
+import { app, powerSaveBlocker } from "electron";
+import { EmulatorCore, EmulatorInfo } from "./EmulatorCore";
+import { RetroArchCore } from "./RetroArchCore";
+import { LibretroNativeCore } from "./LibretroNativeCore";
+import { EmulationWorkerClient } from "./EmulationWorkerClient";
+import { CoreDownloader, CoreInfo } from "./CoreDownloader";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
 
 /**
  * Systems that require BIOS files to run. Maps system ID to an array of
  * required filenames that must be present in the BIOS directory.
  */
-const BIOS_REQUIREMENTS: Record<string, { files: string[]; systemName: string }> = {
-  saturn: {
-    files: ['sega_101.bin', 'mpr-17933.bin'],
-    systemName: 'Sega Saturn',
-  },
+const BIOS_REQUIREMENTS: Record<string, { files: Array<string>; systemName: string }> = {
   psx: {
-    files: ['scph5501.bin'],
-    systemName: 'PlayStation',
+    files: ["scph5501.bin"],
+    systemName: "PlayStation",
+  },
+  saturn: {
+    files: ["sega_101.bin", "mpr-17933.bin"],
+    systemName: "Sega Saturn",
   },
 };
 
 export interface BiosValidationResult {
-  valid: boolean
-  missingFiles: string[]
-  biosDir: string
-  systemName: string
+  biosDir: string;
+  missingFiles: Array<string>;
+  systemName: string;
+  valid: boolean;
 }
 
 /**
@@ -45,8 +45,8 @@ export class EmulatorManager extends EventEmitter {
   constructor() {
     super();
     this.coreDownloader = new CoreDownloader();
-    this.coreDownloader.on('progress', (progress) => {
-      this.emit('core:downloadProgress', progress);
+    this.coreDownloader.on("progress", (progress) => {
+      this.emit("core:downloadProgress", progress);
     });
     this.discoverEmulators();
   }
@@ -63,19 +63,19 @@ export class EmulatorManager extends EventEmitter {
   validateBios(systemId: string): BiosValidationResult {
     const requirement = BIOS_REQUIREMENTS[systemId];
     if (!requirement) {
-      return { valid: true, missingFiles: [], biosDir: '', systemName: '' };
+      return { biosDir: "", missingFiles: [], systemName: "", valid: true };
     }
 
-    const biosDir = path.join(app.getPath('userData'), 'BIOS');
+    const biosDir = path.join(app.getPath("userData"), "BIOS");
     const missingFiles = requirement.files.filter(
-      (file) => !fs.existsSync(path.join(biosDir, file))
+      (file) => !fs.existsSync(path.join(biosDir, file)),
     );
 
     return {
-      valid: missingFiles.length === 0,
-      missingFiles,
       biosDir,
+      missingFiles,
       systemName: requirement.systemName,
+      valid: missingFiles.length === 0,
     };
   }
 
@@ -86,12 +86,7 @@ export class EmulatorManager extends EventEmitter {
     // Check for RetroArch
     const retroarchPaths = this.findRetroArchInstallation();
     if (retroarchPaths.length > 0) {
-      this.availableEmulators.set('retroarch', {
-        id: 'retroarch',
-        name: 'RetroArch',
-        type: 'retroarch',
-        path: retroarchPaths[0],
-        supportedSystems: ['nes', 'snes', 'genesis', 'gb', 'gbc', 'gba', 'n64', 'psx', 'saturn'],
+      this.availableEmulators.set("retroarch", {
         features: {
           saveStates: true,
           screenshots: true,
@@ -100,22 +95,21 @@ export class EmulatorManager extends EventEmitter {
           fastForward: true,
           rewind: true,
           shaders: true,
-          cheats: true
-        }
+          cheats: true,
+        },
+        id: "retroarch",
+        name: "RetroArch",
+        path: retroarchPaths[0],
+        supportedSystems: ["nes", "snes", "genesis", "gb", "gbc", "gba", "n64", "psx", "saturn"],
+        type: "retroarch",
       });
-
     }
 
     // Check for libretro cores (native mode — no RetroArch process needed)
     // Always register native mode; cores will be downloaded on demand
     const coresPath = this.coreDownloader.getCoresDirectory();
     {
-      this.availableEmulators.set('libretro-native', {
-        id: 'libretro-native',
-        name: 'LibretroNative',
-        type: 'libretro-native',
-        path: coresPath,
-        supportedSystems: ['nes', 'snes', 'genesis', 'gb', 'gbc', 'gba', 'n64', 'psx', 'saturn', 'psp', 'nds', 'arcade'],
+      this.availableEmulators.set("libretro-native", {
         features: {
           saveStates: true,
           screenshots: true,
@@ -124,45 +118,62 @@ export class EmulatorManager extends EventEmitter {
           fastForward: true,
           rewind: false,
           shaders: false,
-          cheats: false
-        }
+          cheats: false,
+        },
+        id: "libretro-native",
+        name: "LibretroNative",
+        path: coresPath,
+        supportedSystems: [
+          "nes",
+          "snes",
+          "genesis",
+          "gb",
+          "gbc",
+          "gba",
+          "n64",
+          "psx",
+          "saturn",
+          "psp",
+          "nds",
+          "arcade",
+        ],
+        type: "libretro-native",
       });
-
     }
   }
 
   /**
    * Find RetroArch installation on the system
    */
-  private findRetroArchInstallation(): string[] {
-    const possiblePaths: string[] = [];
+  private findRetroArchInstallation(): Array<string> {
+    const possiblePaths: Array<string> = [];
 
-    if (process.platform === 'darwin') {
+    if (process.platform === "darwin") {
       possiblePaths.push(
-        '/Applications/RetroArch.app/Contents/MacOS/RetroArch',
-        path.join(os.homedir(), 'Applications/RetroArch.app/Contents/MacOS/RetroArch')
+        "/Applications/RetroArch.app/Contents/MacOS/RetroArch",
+        path.join(os.homedir(), "Applications/RetroArch.app/Contents/MacOS/RetroArch"),
       );
-    } else if (process.platform === 'win32') {
+    } else if (process.platform === "win32") {
       possiblePaths.push(
-        'C:\\Program Files\\RetroArch\\retroarch.exe',
-        'C:\\Program Files (x86)\\RetroArch\\retroarch.exe',
-        path.join(os.homedir(), 'AppData\\Roaming\\RetroArch\\retroarch.exe')
+        String.raw`C:\Program Files\RetroArch\retroarch.exe`,
+        String.raw`C:\Program Files (x86)\RetroArch\retroarch.exe`,
+        path.join(os.homedir(), String.raw`AppData\Roaming\RetroArch\retroarch.exe`),
       );
-    } else if (process.platform === 'linux') {
+    } else if (process.platform === "linux") {
       possiblePaths.push(
-        '/usr/bin/retroarch',
-        '/usr/local/bin/retroarch',
-        path.join(os.homedir(), '.local/bin/retroarch')
+        "/usr/bin/retroarch",
+        "/usr/local/bin/retroarch",
+        path.join(os.homedir(), ".local/bin/retroarch"),
       );
     }
 
-    return possiblePaths.filter(p => fs.existsSync(p));
+    return possiblePaths.filter((p) => fs.existsSync(p));
   }
 
   /**
    * Get list of available emulators
    */
-  getAvailableEmulators(): EmulatorInfo[] {
+  getAvailableEmulators(): Array<EmulatorInfo> {
     return Array.from(this.availableEmulators.values());
   }
 
@@ -177,7 +188,7 @@ export class EmulatorManager extends EventEmitter {
    * Returns info about all known cores for a system, including
    * display name, description, and installation status.
    */
-  getCoresForSystem(systemId: string): CoreInfo[] {
+  getCoresForSystem(systemId: string): Array<CoreInfo> {
     return this.coreDownloader.getCoresForSystem(systemId);
   }
 
@@ -185,7 +196,13 @@ export class EmulatorManager extends EventEmitter {
    * Launch a game with the specified emulator and system.
    * When coreName is provided, that specific core is used instead of auto-selection.
    */
-  async launchGame(romPath: string, systemId: string, emulatorId?: string, extraArgs?: string[], coreName?: string): Promise<void> {
+  async launchGame(
+    romPath: string,
+    systemId: string,
+    emulatorId?: string,
+    extraArgs?: Array<string>,
+    coreName?: string,
+  ): Promise<void> {
     // Close current emulator if running
     if (this.currentEmulator?.isActive()) {
       await this.currentEmulator.terminate();
@@ -208,7 +225,7 @@ export class EmulatorManager extends EventEmitter {
 
     // Get core path for the system (RetroArch or native libretro)
     const options: any = {};
-    if (emulatorInfo.type === 'retroarch' || emulatorInfo.type === 'libretro-native') {
+    if (emulatorInfo.type === "retroarch" || emulatorInfo.type === "libretro-native") {
       if (coreName) {
         // Use the specific core requested by the user
         options.corePath = this.coreDownloader.getCorePath(coreName);
@@ -233,10 +250,10 @@ export class EmulatorManager extends EventEmitter {
 
     this.startPowerSaveBlocker();
 
-    this.emit('gameLaunched', {
+    this.emit("gameLaunched", {
+      emulatorId: emulatorInfo.id,
       romPath,
       systemId,
-      emulatorId: emulatorInfo.id
     });
   }
 
@@ -245,15 +262,15 @@ export class EmulatorManager extends EventEmitter {
    */
   private async createEmulatorInstance(
     emulatorInfo: EmulatorInfo,
-    systemId: string
+    systemId: string,
   ): Promise<EmulatorCore> {
     switch (emulatorInfo.type) {
-      case 'retroarch': {
+      case "retroarch": {
         const corePath = this.getCorePathForSystem(systemId);
         return new RetroArchCore(emulatorInfo.path, corePath ?? undefined);
       }
 
-      case 'libretro-native': {
+      case "libretro-native": {
         return new LibretroNativeCore(emulatorInfo.path);
       }
 
@@ -267,19 +284,19 @@ export class EmulatorManager extends EventEmitter {
    * cores directory first, then falling back to RetroArch's directory.
    */
   getCorePathForSystem(systemId: string): string | null {
-    const coreMapping: Record<string, string[]> = {
-      'nes': ['fceumm_libretro', 'nestopia_libretro', 'mesen_libretro'],
-      'snes': ['snes9x_libretro', 'bsnes_libretro'],
-      'genesis': ['genesis_plus_gx_libretro', 'picodrive_libretro'],
-      'gb': ['gambatte_libretro', 'mgba_libretro'],
-      'gbc': ['gambatte_libretro', 'mgba_libretro'],
-      'gba': ['mgba_libretro', 'vba_next_libretro'],
-      'n64': ['mupen64plus_next_libretro', 'parallel_n64_libretro'],
-      'psx': ['pcsx_rearmed_libretro', 'beetle_psx_libretro'],
-      'saturn': ['mednafen_saturn_libretro', 'yabause_libretro'],
-      'psp': ['ppsspp_libretro'],
-      'nds': ['desmume_libretro'],
-      'arcade': ['mame_libretro'],
+    const coreMapping: Record<string, Array<string>> = {
+      arcade: ["mame_libretro"],
+      gb: ["gambatte_libretro", "mgba_libretro"],
+      gba: ["mgba_libretro", "vba_next_libretro"],
+      gbc: ["gambatte_libretro", "mgba_libretro"],
+      genesis: ["genesis_plus_gx_libretro", "picodrive_libretro"],
+      n64: ["mupen64plus_next_libretro", "parallel_n64_libretro"],
+      nds: ["desmume_libretro"],
+      nes: ["fceumm_libretro", "nestopia_libretro", "mesen_libretro"],
+      psp: ["ppsspp_libretro"],
+      psx: ["pcsx_rearmed_libretro", "beetle_psx_libretro"],
+      saturn: ["mednafen_saturn_libretro", "yabause_libretro"],
+      snes: ["snes9x_libretro", "bsnes_libretro"],
     };
 
     const coreNames = coreMapping[systemId];
@@ -287,8 +304,8 @@ export class EmulatorManager extends EventEmitter {
       return null;
     }
 
-    const extension = process.platform === 'darwin' ? '.dylib' :
-                      process.platform === 'win32' ? '.dll' : '.so';
+    const extension =
+      process.platform === "darwin" ? ".dylib" : process.platform === "win32" ? ".dll" : ".so";
 
     // Check app-managed cores directory first
     const appCoresDir = this.coreDownloader.getCoresDirectory();
@@ -319,12 +336,12 @@ export class EmulatorManager extends EventEmitter {
   private getRetroArchCoresPath(): string | null {
     let basePath: string;
 
-    if (process.platform === 'darwin') {
-      basePath = path.join(os.homedir(), 'Library/Application Support/RetroArch/cores');
-    } else if (process.platform === 'win32') {
-      basePath = path.join(os.homedir(), 'AppData/Roaming/RetroArch/cores');
+    if (process.platform === "darwin") {
+      basePath = path.join(os.homedir(), "Library/Application Support/RetroArch/cores");
+    } else if (process.platform === "win32") {
+      basePath = path.join(os.homedir(), "AppData/Roaming/RetroArch/cores");
     } else {
-      basePath = path.join(os.homedir(), '.config/retroarch/cores');
+      basePath = path.join(os.homedir(), ".config/retroarch/cores");
     }
 
     return fs.existsSync(basePath) ? basePath : null;
@@ -336,13 +353,13 @@ export class EmulatorManager extends EventEmitter {
   private selectBestEmulator(systemId: string): EmulatorInfo | undefined {
     // Prefer native libretro core loading (single-window, no external process).
     // Cores will be auto-downloaded if missing during the launch flow.
-    const native = this.availableEmulators.get('libretro-native');
+    const native = this.availableEmulators.get("libretro-native");
     if (native && native.supportedSystems.includes(systemId)) {
       return native;
     }
 
     // Fall back to RetroArch process mode
-    const retroarch = this.availableEmulators.get('retroarch');
+    const retroarch = this.availableEmulators.get("retroarch");
     if (retroarch && retroarch.supportedSystems.includes(systemId)) {
       return retroarch;
     }
@@ -361,21 +378,21 @@ export class EmulatorManager extends EventEmitter {
    * Setup event forwarding from emulator to manager
    */
   private setupEventForwarding(emulator: EmulatorCore): void {
-    emulator.on('launched', (data) => this.emit('emulator:launched', data));
-    emulator.on('exited', (data) => {
+    emulator.on("launched", (data) => this.emit("emulator:launched", data));
+    emulator.on("exited", (data) => {
       this.stopPowerSaveBlocker();
-      this.emit('emulator:exited', data);
+      this.emit("emulator:exited", data);
     });
-    emulator.on('error', (error) => this.emit('emulator:error', error));
-    emulator.on('stateSaved', (data) => this.emit('emulator:stateSaved', data));
-    emulator.on('stateLoaded', (data) => this.emit('emulator:stateLoaded', data));
-    emulator.on('screenshotTaken', (data) => this.emit('emulator:screenshotTaken', data));
-    emulator.on('paused', () => this.emit('emulator:paused'));
-    emulator.on('resumed', () => this.emit('emulator:resumed'));
-    emulator.on('reset', () => this.emit('emulator:reset'));
-    emulator.on('terminated', () => {
+    emulator.on("error", (error) => this.emit("emulator:error", error));
+    emulator.on("stateSaved", (data) => this.emit("emulator:stateSaved", data));
+    emulator.on("stateLoaded", (data) => this.emit("emulator:stateLoaded", data));
+    emulator.on("screenshotTaken", (data) => this.emit("emulator:screenshotTaken", data));
+    emulator.on("paused", () => this.emit("emulator:paused"));
+    emulator.on("resumed", () => this.emit("emulator:resumed"));
+    emulator.on("reset", () => this.emit("emulator:reset"));
+    emulator.on("terminated", () => {
       this.stopPowerSaveBlocker();
-      this.emit('emulator:terminated');
+      this.emit("emulator:terminated");
     });
   }
 
@@ -391,11 +408,11 @@ export class EmulatorManager extends EventEmitter {
 
     // Forward worker client events through the same event chain as EmulatorCore
     if (client) {
-      client.on('paused', () => this.emit('emulator:paused'));
-      client.on('resumed', () => this.emit('emulator:resumed'));
-      client.on('reset', () => this.emit('emulator:reset'));
-      client.on('error', (error) => this.emit('emulator:error', error));
-      client.on('speedChanged', (data) => this.emit('emulator:speedChanged', data));
+      client.on("paused", () => this.emit("emulator:paused"));
+      client.on("resumed", () => this.emit("emulator:resumed"));
+      client.on("reset", () => this.emit("emulator:reset"));
+      client.on("error", (error) => this.emit("emulator:error", error));
+      client.on("speedChanged", (data) => this.emit("emulator:speedChanged", data));
     }
   }
 
@@ -415,7 +432,7 @@ export class EmulatorManager extends EventEmitter {
       return;
     }
     if (!this.currentEmulator?.isActive()) {
-      throw new Error('No emulator is currently running');
+      throw new Error("No emulator is currently running");
     }
     await this.currentEmulator.saveState(slot);
   }
@@ -429,7 +446,7 @@ export class EmulatorManager extends EventEmitter {
       return;
     }
     if (!this.currentEmulator?.isActive()) {
-      throw new Error('No emulator is currently running');
+      throw new Error("No emulator is currently running");
     }
     await this.currentEmulator.loadState(slot);
   }
@@ -442,7 +459,7 @@ export class EmulatorManager extends EventEmitter {
       return await this.workerClient.screenshot(outputPath);
     }
     if (!this.currentEmulator?.isActive()) {
-      throw new Error('No emulator is currently running');
+      throw new Error("No emulator is currently running");
     }
     return await this.currentEmulator.screenshot(outputPath);
   }
@@ -456,7 +473,7 @@ export class EmulatorManager extends EventEmitter {
       return;
     }
     if (!this.currentEmulator?.isActive()) {
-      throw new Error('No emulator is currently running');
+      throw new Error("No emulator is currently running");
     }
     await this.currentEmulator.pause();
   }
@@ -470,7 +487,7 @@ export class EmulatorManager extends EventEmitter {
       return;
     }
     if (!this.currentEmulator?.isActive()) {
-      throw new Error('No emulator is currently running');
+      throw new Error("No emulator is currently running");
     }
     await this.currentEmulator.resume();
   }
@@ -503,7 +520,7 @@ export class EmulatorManager extends EventEmitter {
       return;
     }
     if (!this.currentEmulator?.isActive()) {
-      throw new Error('No emulator is currently running');
+      throw new Error("No emulator is currently running");
     }
     await this.currentEmulator.reset();
   }
@@ -534,13 +551,17 @@ export class EmulatorManager extends EventEmitter {
 
   /** Prevent the display from sleeping while a game is running. */
   private startPowerSaveBlocker(): void {
-    if (this.powerSaveBlockerId !== null) return;
-    this.powerSaveBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+    if (this.powerSaveBlockerId !== null) {
+      return;
+    }
+    this.powerSaveBlockerId = powerSaveBlocker.start("prevent-display-sleep");
   }
 
   /** Allow the display to sleep again. */
   private stopPowerSaveBlocker(): void {
-    if (this.powerSaveBlockerId === null) return;
+    if (this.powerSaveBlockerId === null) {
+      return;
+    }
     if (powerSaveBlocker.isStarted(this.powerSaveBlockerId)) {
       powerSaveBlocker.stop(this.powerSaveBlockerId);
     }
@@ -551,7 +572,9 @@ export class EmulatorManager extends EventEmitter {
    * Check if an emulator is currently running
    */
   isEmulatorRunning(): boolean {
-    if (this.workerClient?.isRunning()) return true;
+    if (this.workerClient?.isRunning()) {
+      return true;
+    }
     return this.currentEmulator?.isActive() ?? false;
   }
 

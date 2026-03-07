@@ -1,18 +1,18 @@
-import type { ShaderPresetDefinition } from '../types';
-import { motionBlurFragmentShader } from '../shaders';
+import type { ShaderPresetDefinition } from "../types";
+import { motionBlurFragmentShader } from "../shaders";
 
 export const motionBlurPreset: ShaderPresetDefinition = {
-  id: 'motion-blur',
-  label: 'Motion Blur',
+  id: "motion-blur",
+  label: "Motion Blur",
+  luts: [],
   passes: [
     {
       index: 0,
       fragmentSource: motionBlurFragmentShader,
-      scale: { type: 'viewport', x: 1, y: 1 },
-      filter: 'linear',
-      format: 'rgba8',
+      scale: { type: "viewport", x: 1, y: 1 },
+      filter: "linear",
+      format: "rgba8",
       feedback: true,
     },
   ],
-  luts: [],
 };

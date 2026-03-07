@@ -13,24 +13,24 @@
  */
 
 /** Control SAB field indices (Int32Array). */
-export const CTRL_ACTIVE_BUFFER = 0
-export const CTRL_FRAME_SEQUENCE = 1
-export const CTRL_FRAME_WIDTH = 2
-export const CTRL_FRAME_HEIGHT = 3
-export const CTRL_AUDIO_WRITE_POS = 4
-export const CTRL_AUDIO_READ_POS = 5
-export const CTRL_AUDIO_SAMPLE_RATE = 6
+export const CTRL_ACTIVE_BUFFER = 0;
+export const CTRL_FRAME_SEQUENCE = 1;
+export const CTRL_FRAME_WIDTH = 2;
+export const CTRL_FRAME_HEIGHT = 3;
+export const CTRL_AUDIO_WRITE_POS = 4;
+export const CTRL_AUDIO_READ_POS = 5;
+export const CTRL_AUDIO_SAMPLE_RATE = 6;
 
 /** Control SAB byte length (8 × 4 bytes). */
-export const CTRL_SAB_BYTE_LENGTH = 8 * Int32Array.BYTES_PER_ELEMENT
+export const CTRL_SAB_BYTE_LENGTH = 8 * Int32Array.BYTES_PER_ELEMENT;
 
 /**
  * Audio ring buffer capacity in Int16 samples.
  * Power-of-2 for efficient modular arithmetic.
  * 32768 samples ≈ 341ms of stereo audio at 48kHz.
  */
-export const AUDIO_RING_SAMPLES = 32768
-export const AUDIO_RING_BYTE_LENGTH = AUDIO_RING_SAMPLES * Int16Array.BYTES_PER_ELEMENT
+export const AUDIO_RING_SAMPLES = 32_768;
+export const AUDIO_RING_BYTE_LENGTH = AUDIO_RING_SAMPLES * Int16Array.BYTES_PER_ELEMENT;
 
 /**
  * Compute the byte size for a single video buffer from AV info geometry.
@@ -42,7 +42,7 @@ export function computeVideoBufferSize(
   baseWidth: number,
   baseHeight: number,
 ): number {
-  const w = maxWidth > 0 ? maxWidth : Math.max(baseWidth, 1024)
-  const h = maxHeight > 0 ? maxHeight : Math.max(baseHeight, 1024)
-  return w * h * 4 // RGBA8888
+  const w = maxWidth > 0 ? maxWidth : Math.max(baseWidth, 1024);
+  const h = maxHeight > 0 ? maxHeight : Math.max(baseHeight, 1024);
+  return w * h * 4; // RGBA8888
 }

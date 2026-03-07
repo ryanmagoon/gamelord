@@ -1,20 +1,20 @@
-import { execFile } from 'child_process'
-import { promisify } from 'util'
-import path from 'path'
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import path from "node:path";
 
-const execFileAsync = promisify(execFile)
+const execFileAsync = promisify(execFile);
 
 /**
  * Lists all file entries inside a zip archive.
  * Uses `unzip -Z1` (zipinfo mode, filenames only).
  * Filters out directory entries and macOS resource fork junk (`__MACOSX/`).
  */
-export async function listZipContents(zipPath: string): Promise<string[]> {
-  const { stdout } = await execFileAsync('unzip', ['-Z1', zipPath])
+export async function listZipContents(zipPath: string): Promise<Array<string>> {
+  const { stdout } = await execFileAsync("unzip", ["-Z1", zipPath]);
   return stdout
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0 && !line.endsWith('/') && !line.startsWith('__MACOSX/'))
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.endsWith("/") && !line.startsWith("__MACOSX/"));
 }
 
 /**
@@ -24,19 +24,19 @@ export async function listZipContents(zipPath: string): Promise<string[]> {
  */
 export async function findRomInZip(
   zipPath: string,
-  nativeExtensions: string[],
+  nativeExtensions: Array<string>,
 ): Promise<{ entryName: string; extension: string } | null> {
-  const entries = await listZipContents(zipPath)
-  const extensionSet = new Set(nativeExtensions.map(ext => ext.toLowerCase()))
+  const entries = await listZipContents(zipPath);
+  const extensionSet = new Set(nativeExtensions.map((ext) => ext.toLowerCase()));
 
   for (const entry of entries) {
-    const ext = path.extname(entry).toLowerCase()
+    const ext = path.extname(entry).toLowerCase();
     if (extensionSet.has(ext)) {
-      return { entryName: entry, extension: ext }
+      return { entryName: entry, extension: ext };
     }
   }
 
-  return null
+  return null;
 }
 
 /**
@@ -50,6 +50,6 @@ export async function extractFileFromZip(
   entryName: string,
   destDir: string,
 ): Promise<string> {
-  await execFileAsync('unzip', ['-o', '-j', zipPath, entryName, '-d', destDir])
-  return path.join(destDir, path.basename(entryName))
+  await execFileAsync("unzip", ["-o", "-j", zipPath, entryName, "-d", destDir]);
+  return path.join(destDir, path.basename(entryName));
 }

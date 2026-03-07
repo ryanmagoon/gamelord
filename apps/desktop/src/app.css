@@ -7,40 +7,40 @@
  * "Square" is the default body font; others are available via font-family.
  */
 @font-face {
-  font-family: 'Geist Pixel Square';
-  src: url('./assets/fonts/geist-pixel/GeistPixel-Square.woff2') format('woff2');
+  font-family: "Geist Pixel Square";
+  src: url("./assets/fonts/geist-pixel/GeistPixel-Square.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Geist Pixel Grid';
-  src: url('./assets/fonts/geist-pixel/GeistPixel-Grid.woff2') format('woff2');
+  font-family: "Geist Pixel Grid";
+  src: url("./assets/fonts/geist-pixel/GeistPixel-Grid.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Geist Pixel Circle';
-  src: url('./assets/fonts/geist-pixel/GeistPixel-Circle.woff2') format('woff2');
+  font-family: "Geist Pixel Circle";
+  src: url("./assets/fonts/geist-pixel/GeistPixel-Circle.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Geist Pixel Triangle';
-  src: url('./assets/fonts/geist-pixel/GeistPixel-Triangle.woff2') format('woff2');
+  font-family: "Geist Pixel Triangle";
+  src: url("./assets/fonts/geist-pixel/GeistPixel-Triangle.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Geist Pixel Line';
-  src: url('./assets/fonts/geist-pixel/GeistPixel-Line.woff2') format('woff2');
+  font-family: "Geist Pixel Line";
+  src: url("./assets/fonts/geist-pixel/GeistPixel-Line.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -48,7 +48,7 @@
 
 /* Override the system font stack from theme.css with Geist Pixel Square. */
 body {
-  font-family: 'Geist Pixel Square', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-family: "Geist Pixel Square", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 }
 
 /* Scan local renderer components */
@@ -79,7 +79,10 @@ body {
  */
 .theme-transitioning,
 .theme-transitioning * {
-  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease !important;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease !important;
 }
 
 /* Staggered game-card entrance animation */
@@ -121,13 +124,21 @@ body {
  * Registered as @utility so Tailwind v4 can generate data-[state] variants.
  */
 @keyframes overlay-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes overlay-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 @utility animate-overlay-fade-in {
@@ -207,7 +218,8 @@ body {
  * Pattern: normal → bright → normal → dim → normal, starting at the idle
  * brightness so there's no jarring jump when the animation kicks in. */
 @keyframes card-sync-pulse {
-  0%, 100% {
+  0%,
+  100% {
     filter: brightness(1);
   }
   25% {
@@ -222,13 +234,17 @@ body {
 }
 
 .animate-card-sync-pulse {
-  animation: card-sync-pulse 1.0s ease-in-out infinite;
+  animation: card-sync-pulse 1s ease-in-out infinite;
 }
 
 /* Fade-in for the "Artwork not found" label on cards. */
 @keyframes not-found-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .animate-not-found-fade-in {
@@ -274,8 +290,12 @@ body {
  * any resting padding (so cards sit edge-to-edge at rest).
  * ────────────────────────────────────────────────────────────────── */
 @keyframes border-rotate {
-  from { --border-angle: 0deg; }
-  to { --border-angle: 360deg; }
+  from {
+    --border-angle: 0deg;
+  }
+  to {
+    --border-angle: 360deg;
+  }
 }
 
 @property --border-angle {
@@ -297,7 +317,7 @@ body {
 }
 
 .game-card-border::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -3px;
   border-radius: inherit;
@@ -365,5 +385,7 @@ body {
 
 /* Scroll letter indicator — CRT phosphor glow in dark mode */
 .dark .scroll-letter-indicator {
-  text-shadow: 0 0 40px rgba(120, 200, 255, 0.6), 0 0 100px rgba(120, 200, 255, 0.3);
+  text-shadow:
+    0 0 40px rgba(120, 200, 255, 0.6),
+    0 0 100px rgba(120, 200, 255, 0.3);
 }

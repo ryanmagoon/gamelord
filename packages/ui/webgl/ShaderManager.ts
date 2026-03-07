@@ -9,17 +9,17 @@ export class ShaderManager {
 
   createShader(name: string, vertexSource: string, fragmentSource: string): void {
     const gl = this.gl;
-    
+
     const vertexShader = this.compileShader(gl.VERTEX_SHADER, vertexSource);
     const fragmentShader = this.compileShader(gl.FRAGMENT_SHADER, fragmentSource);
-    
+
     if (!vertexShader || !fragmentShader) {
       throw new Error(`Failed to compile shaders for ${name}`);
     }
 
     const program = gl.createProgram();
     if (!program) {
-      throw new Error('Failed to create shader program');
+      throw new Error("Failed to create shader program");
     }
 
     gl.attachShader(program, vertexShader);
@@ -42,8 +42,10 @@ export class ShaderManager {
   private compileShader(type: number, source: string): WebGLShader | null {
     const gl = this.gl;
     const shader = gl.createShader(type);
-    
-    if (!shader) return null;
+
+    if (!shader) {
+      return null;
+    }
 
     gl.shaderSource(shader, source);
     gl.compileShader(shader);

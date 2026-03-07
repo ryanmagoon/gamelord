@@ -1,16 +1,16 @@
-import { ROW_HEIGHT, MOSAIC_GAP } from './mosaicGrid'
+import { ROW_HEIGHT, MOSAIC_GAP } from "./mosaicGrid";
 
 export interface MosaicLayoutItem {
-  index: number
-  x: number
-  y: number
-  width: number
-  height: number
+  height: number;
+  index: number;
+  width: number;
+  x: number;
+  y: number;
 }
 
 export interface MosaicLayoutResult {
-  items: MosaicLayoutItem[]
-  totalHeight: number
+  items: Array<MosaicLayoutItem>;
+  totalHeight: number;
 }
 
 /**
@@ -18,7 +18,7 @@ export interface MosaicLayoutResult {
  * row height. Rows that would exceed this cap get more items packed in
  * to keep the height reasonable (e.g. systems with uniformly tall art).
  */
-const MAX_ROW_HEIGHT_FACTOR = 1.4
+const MAX_ROW_HEIGHT_FACTOR = 1.4;
 
 /**
  * Computes absolute `{ x, y, width, height }` positions for every item using
@@ -32,57 +32,65 @@ const MAX_ROW_HEIGHT_FACTOR = 1.4
  * or two remain.
  */
 export function computeRowLayout(
-  aspectRatios: number[],
+  aspectRatios: Array<number>,
   containerWidth: number,
   gap: number = MOSAIC_GAP,
   baseRowHeight: number = ROW_HEIGHT,
 ): MosaicLayoutResult {
   if (aspectRatios.length === 0 || containerWidth <= 0) {
-    return { items: [], totalHeight: 0 }
+    return { items: [], totalHeight: 0 };
   }
 
-  const maxRowHeight = baseRowHeight * MAX_ROW_HEIGHT_FACTOR
+  const maxRowHeight = baseRowHeight * MAX_ROW_HEIGHT_FACTOR;
 
-  const items: MosaicLayoutItem[] = []
-  let y = 0
+  const items: Array<MosaicLayoutItem> = [];
+  let y = 0;
 
-  let rowStart = 0
+  let rowStart = 0;
 
   for (let i = 0; i < aspectRatios.length; i++) {
     // Placeholder — justified rows overwrite these values
-    items.push({ index: i, x: 0, y, width: 0, height: baseRowHeight })
+    items.push({ height: baseRowHeight, index: i, width: 0, x: 0, y });
 
     // Compute what the justified height would be if we finalized at item i
-    const rowHeight = justifiedRowHeight(aspectRatios, rowStart, i + 1, containerWidth, gap)
+    const rowHeight = justifiedRowHeight(aspectRatios, rowStart, i + 1, containerWidth, gap);
 
     // If adding this card made the row tight enough (height ≤ target), finalize
     if (rowHeight <= baseRowHeight) {
       // Finalize row rowStart..i
-      y = justifyRow(items, aspectRatios, rowStart, i + 1, containerWidth, gap, y)
-      rowStart = i + 1
+      y = justifyRow(items, aspectRatios, rowStart, i + 1, containerWidth, gap, y);
+      rowStart = i + 1;
     } else if (i === aspectRatios.length - 1) {
       // Last item: don't justify the final row. If the row would be too tall
       // (not enough items to fill the width), cap it at maxRowHeight.
       if (rowHeight > maxRowHeight) {
         // Use capped height and scale widths proportionally
-        y = layoutRowAtHeight(items, aspectRatios, rowStart, i + 1, Math.round(maxRowHeight), gap, y)
+        y = layoutRowAtHeight(
+          items,
+          aspectRatios,
+          rowStart,
+          i + 1,
+          Math.round(maxRowHeight),
+          gap,
+          y,
+        );
       } else {
         // Lay out at natural base height (unjustified)
-        let x = 0
+        let x = 0;
         for (let j = rowStart; j <= i; j++) {
-          const w = Math.round(baseRowHeight * aspectRatios[j])
-          items[j].x = x
-          items[j].y = y
-          items[j].width = Math.max(80, w)
-          items[j].height = baseRowHeight
-          x += items[j].width + gap
+          const w = Math.round(baseRowHeight * aspectRatios[j]);
+          items[j].x = x;
+          items[j].y = y;
+          items[j].width = Math.max(80, w);
+          items[j].height = baseRowHeight;
+          x += items[j].width + gap;
         }
-        y += baseRowHeight
+        y += baseRowHeight;
       }
     }
   }
 
-  return { items, totalHeight: y }
+  return { items, totalHeight: y };
 }
 
 /**
@@ -93,19 +101,19 @@ export function computeRowLayout(
  * Justified height = (containerWidth - totalGap) / totalAR
  */
 function justifiedRowHeight(
-  aspectRatios: number[],
+  aspectRatios: Array<number>,
   rowStart: number,
   rowEnd: number,
   containerWidth: number,
   gap: number,
 ): number {
-  const count = rowEnd - rowStart
-  const totalGap = (count - 1) * gap
-  let totalAR = 0
+  const count = rowEnd - rowStart;
+  const totalGap = (count - 1) * gap;
+  let totalAR = 0;
   for (let i = rowStart; i < rowEnd; i++) {
-    totalAR += Math.max(80 / ROW_HEIGHT, aspectRatios[i])
+    totalAR += Math.max(80 / ROW_HEIGHT, aspectRatios[i]);
   }
-  return (containerWidth - totalGap) / totalAR
+  return (containerWidth - totalGap) / totalAR;
 }
 
 /**
@@ -113,8 +121,8 @@ function justifiedRowHeight(
  * container width, then laying out each card. Returns the y for the next row.
  */
 function justifyRow(
-  items: MosaicLayoutItem[],
-  aspectRatios: number[],
+  items: Array<MosaicLayoutItem>,
+  aspectRatios: Array<number>,
   rowStart: number,
   rowEnd: number,
   containerWidth: number,
@@ -123,8 +131,8 @@ function justifyRow(
 ): number {
   const rowHeight = Math.round(
     justifiedRowHeight(aspectRatios, rowStart, rowEnd, containerWidth, gap),
-  )
-  return layoutRowAtHeight(items, aspectRatios, rowStart, rowEnd, rowHeight, gap, y)
+  );
+  return layoutRowAtHeight(items, aspectRatios, rowStart, rowEnd, rowHeight, gap, y);
 }
 
 /**
@@ -133,29 +141,29 @@ function justifyRow(
  * for the next row.
  */
 function layoutRowAtHeight(
-  items: MosaicLayoutItem[],
-  aspectRatios: number[],
+  items: Array<MosaicLayoutItem>,
+  aspectRatios: Array<number>,
   rowStart: number,
   rowEnd: number,
   rowHeight: number,
   gap: number,
   y: number,
 ): number {
-  let x = 0
+  let x = 0;
   for (let i = rowStart; i < rowEnd; i++) {
-    items[i].x = x
-    items[i].y = y
-    items[i].height = rowHeight
+    items[i].x = x;
+    items[i].y = y;
+    items[i].height = rowHeight;
 
     if (i === rowEnd - 1) {
       // Last card absorbs rounding remainder so the row fills exactly
-      items[i].width = Math.max(80, Math.round(rowHeight * aspectRatios[i]))
+      items[i].width = Math.max(80, Math.round(rowHeight * aspectRatios[i]));
     } else {
-      const w = Math.max(80, Math.round(rowHeight * aspectRatios[i]))
-      items[i].width = w
-      x += w + gap
+      const w = Math.max(80, Math.round(rowHeight * aspectRatios[i]));
+      items[i].width = w;
+      x += w + gap;
     }
   }
 
-  return y + rowHeight + gap
+  return y + rowHeight + gap;
 }

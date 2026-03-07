@@ -1,15 +1,15 @@
-import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog } from 'electron';
-import { EmulatorManager } from '../emulator/EmulatorManager';
-import { LibretroNativeCore } from '../emulator/LibretroNativeCore';
-import { EmulationWorkerClient } from '../emulator/EmulationWorkerClient';
-import { resolveAddonPath } from '../emulator/resolveAddonPath';
-import { LibraryService } from '../services/LibraryService';
-import { ArtworkService } from '../services/ArtworkService';
-import { HomebrewService } from '../services/HomebrewService';
-import { ScreenScraperError } from '../services/ScreenScraperClient';
-import { GameWindowManager } from '../GameWindowManager';
-import { GameSystem } from '../../types/library';
-import { ipcLog } from '../logger';
+import { ipcMain, IpcMainInvokeEvent, BrowserWindow, dialog } from "electron";
+import { EmulatorManager } from "../emulator/EmulatorManager";
+import { LibretroNativeCore } from "../emulator/LibretroNativeCore";
+import { EmulationWorkerClient } from "../emulator/EmulationWorkerClient";
+import { resolveAddonPath } from "../emulator/resolveAddonPath";
+import { LibraryService } from "../services/LibraryService";
+import { ArtworkService } from "../services/ArtworkService";
+import { HomebrewService } from "../services/HomebrewService";
+import { ScreenScraperError } from "../services/ScreenScraperClient";
+import { GameWindowManager } from "../GameWindowManager";
+import { GameSystem } from "../../types/library";
+import { ipcLog } from "../logger";
 
 export class IPCHandlers {
   private emulatorManager: EmulatorManager;
@@ -33,222 +33,249 @@ export class IPCHandlers {
 
     // Import bundled homebrew ROMs on first launch (async, non-blocking).
     // Notifies the renderer when done so it can reload the library.
-    this.homebrewService.importIfNeeded().then((imported) => {
-      if (imported) {
-        const windows = BrowserWindow.getAllWindows();
-        for (const window of windows) {
-          window.webContents.send('library:homebrewImported');
+    this.homebrewService
+      .importIfNeeded()
+      .then((imported) => {
+        if (imported) {
+          const windows = BrowserWindow.getAllWindows();
+          for (const window of windows) {
+            window.webContents.send("library:homebrewImported");
+          }
         }
-      }
-    }).catch((error) => {
-      ipcLog.error('Homebrew import failed:', error);
-    });
+      })
+      .catch((error) => {
+        ipcLog.error("Homebrew import failed:", error);
+      });
   }
 
   private setupHandlers(): void {
     // Emulator management
-    ipcMain.handle('emulator:getCoresForSystem', async (event: IpcMainInvokeEvent, systemId: string) => {
-      return this.emulatorManager.getCoresForSystem(systemId);
-    });
+    ipcMain.handle(
+      "emulator:getCoresForSystem",
+      async (event: IpcMainInvokeEvent, systemId: string) => {
+        return this.emulatorManager.getCoresForSystem(systemId);
+      },
+    );
 
-    ipcMain.handle('emulator:downloadCore', async (event: IpcMainInvokeEvent, coreName: string, systemId: string) => {
-      try {
-        const corePath = await this.emulatorManager.getCoreDownloader().downloadCore(coreName, systemId);
-        return { success: true, corePath };
-      } catch (error) {
-        ipcLog.error('Failed to download core:', error);
-        return { success: false, error: (error as Error).message };
-      }
-    });
-
-    ipcMain.handle('emulator:launch', async (event: IpcMainInvokeEvent, romPath: string, systemId: string, emulatorId?: string, coreName?: string, cardBounds?: { x: number; y: number; width: number; height: number }) => {
-      try {
-        // Find the game in the library to get full metadata
-        const games = this.libraryService.getGames(systemId);
-        const game = games.find(g => g.romPath === romPath);
-
-        if (!game) {
-          throw new Error('Game not found in library');
+    ipcMain.handle(
+      "emulator:downloadCore",
+      async (event: IpcMainInvokeEvent, coreName: string, systemId: string) => {
+        try {
+          const corePath = await this.emulatorManager
+            .getCoreDownloader()
+            .downloadCore(coreName, systemId);
+          return { success: true, corePath };
+        } catch (error) {
+          ipcLog.error("Failed to download core:", error);
+          return { success: false, error: (error as Error).message };
         }
+      },
+    );
 
-        // Validate BIOS files before attempting to launch
-        const biosCheck = this.emulatorManager.validateBios(systemId);
-        if (!biosCheck.valid) {
-          const fileList = biosCheck.missingFiles.join(', ');
-          return {
-            success: false,
-            error: `${biosCheck.systemName} requires BIOS files that are missing: ${fileList}. Place them in: ${biosCheck.biosDir}`,
-          };
-        }
+    ipcMain.handle(
+      "emulator:launch",
+      async (
+        event: IpcMainInvokeEvent,
+        romPath: string,
+        systemId: string,
+        emulatorId?: string,
+        coreName?: string,
+        cardBounds?: { x: number; y: number; width: number; height: number },
+      ) => {
+        try {
+          // Find the game in the library to get full metadata
+          const games = this.libraryService.getGames(systemId);
+          const game = games.find((g) => g.romPath === romPath);
 
-        // Convert renderer-relative card bounds to screen coordinates
-        let cardScreenBounds: { x: number; y: number; width: number; height: number } | undefined;
-        if (cardBounds) {
-          const senderWindow = BrowserWindow.fromWebContents(event.sender);
-          if (senderWindow) {
-            const windowBounds = senderWindow.getContentBounds();
-            cardScreenBounds = {
-              x: windowBounds.x + cardBounds.x,
-              y: windowBounds.y + cardBounds.y,
-              width: cardBounds.width,
-              height: cardBounds.height,
+          if (!game) {
+            throw new Error("Game not found in library");
+          }
+
+          // Validate BIOS files before attempting to launch
+          const biosCheck = this.emulatorManager.validateBios(systemId);
+          if (!biosCheck.valid) {
+            const fileList = biosCheck.missingFiles.join(", ");
+            return {
+              success: false,
+              error: `${biosCheck.systemName} requires BIOS files that are missing: ${fileList}. Place them in: ${biosCheck.biosDir}`,
             };
           }
-        }
 
-        // Launch the emulator with optional specific core
-        await this.emulatorManager.launchGame(romPath, systemId, emulatorId, undefined, coreName);
-
-        if (this.emulatorManager.isNativeMode()) {
-          // Native mode: single window, game renders inside BrowserWindow canvas
-          const nativeCore = this.emulatorManager.getCurrentEmulator() as LibretroNativeCore;
-
-          // Check for autosave and prompt user with custom dialog
-          let shouldResume = false;
-          if (nativeCore.hasAutoSave()) {
-            const mainWindow = BrowserWindow.getFocusedWindow();
-            if (mainWindow) {
-              shouldResume = await this.showResumeGameDialog(mainWindow, game.title);
-              if (!shouldResume) {
-                nativeCore.deleteAutoSave();
-              }
+          // Convert renderer-relative card bounds to screen coordinates
+          let cardScreenBounds: { x: number; y: number; width: number; height: number } | undefined;
+          if (cardBounds) {
+            const senderWindow = BrowserWindow.fromWebContents(event.sender);
+            if (senderWindow) {
+              const windowBounds = senderWindow.getContentBounds();
+              cardScreenBounds = {
+                x: windowBounds.x + cardBounds.x,
+                y: windowBounds.y + cardBounds.y,
+                width: cardBounds.width,
+                height: cardBounds.height,
+              };
             }
           }
 
-          // Spawn the emulation worker process
-          const workerClient = new EmulationWorkerClient();
-          const addonPath = resolveAddonPath();
-          const avInfo = await workerClient.init({
-            corePath: nativeCore.getCorePath(),
-            romPath: nativeCore.getRomPath(),
-            systemDir: nativeCore.getSystemDir(),
-            saveDir: nativeCore.getSaveDir(),
-            sramDir: nativeCore.getSramDir(),
-            saveStatesDir: nativeCore.getSaveStatesDir(),
-            addonPath,
-          });
+          // Launch the emulator with optional specific core
+          await this.emulatorManager.launchGame(romPath, systemId, emulatorId, undefined, coreName);
 
-          // Store the worker client on the emulator manager for control routing
-          this.emulatorManager.setWorkerClient(workerClient);
+          if (this.emulatorManager.isNativeMode()) {
+            // Native mode: single window, game renders inside BrowserWindow canvas
+            const nativeCore = this.emulatorManager.getCurrentEmulator() as LibretroNativeCore;
 
-          this.gameWindowManager.createNativeGameWindow(game, workerClient, avInfo, shouldResume, cardScreenBounds);
-        } else {
-          // Legacy overlay mode: external RetroArch process
-          this.gameWindowManager.createGameWindow(game);
+            // Check for autosave and prompt user with custom dialog
+            let shouldResume = false;
+            if (nativeCore.hasAutoSave()) {
+              const mainWindow = BrowserWindow.getFocusedWindow();
+              if (mainWindow) {
+                shouldResume = await this.showResumeGameDialog(mainWindow, game.title);
+                if (!shouldResume) {
+                  nativeCore.deleteAutoSave();
+                }
+              }
+            }
 
-          // Start tracking RetroArch window to overlay our controls
-          const pid = this.emulatorManager.getCurrentEmulatorPid();
-          if (pid) {
-            this.gameWindowManager.startTrackingRetroArchWindow(game.id, pid);
+            // Spawn the emulation worker process
+            const workerClient = new EmulationWorkerClient();
+            const addonPath = resolveAddonPath();
+            const avInfo = await workerClient.init({
+              corePath: nativeCore.getCorePath(),
+              romPath: nativeCore.getRomPath(),
+              systemDir: nativeCore.getSystemDir(),
+              saveDir: nativeCore.getSaveDir(),
+              sramDir: nativeCore.getSramDir(),
+              saveStatesDir: nativeCore.getSaveStatesDir(),
+              addonPath,
+            });
+
+            // Store the worker client on the emulator manager for control routing
+            this.emulatorManager.setWorkerClient(workerClient);
+
+            this.gameWindowManager.createNativeGameWindow(
+              game,
+              workerClient,
+              avInfo,
+              shouldResume,
+              cardScreenBounds,
+            );
           } else {
-            ipcLog.warn('Could not get emulator PID for window tracking');
+            // Legacy overlay mode: external RetroArch process
+            this.gameWindowManager.createGameWindow(game);
+
+            // Start tracking RetroArch window to overlay our controls
+            const pid = this.emulatorManager.getCurrentEmulatorPid();
+            if (pid) {
+              this.gameWindowManager.startTrackingRetroArchWindow(game.id, pid);
+            } else {
+              ipcLog.warn("Could not get emulator PID for window tracking");
+            }
           }
+
+          return { success: true };
+        } catch (error) {
+          ipcLog.error("Failed to launch emulator:", error);
+          return { success: false, error: (error as Error).message };
         }
+      },
+    );
 
-        return { success: true };
-      } catch (error) {
-        ipcLog.error('Failed to launch emulator:', error);
-        return { success: false, error: (error as Error).message };
-      }
-    });
-
-    ipcMain.handle('emulator:stop', async () => {
+    ipcMain.handle("emulator:stop", async () => {
       try {
         await this.emulatorManager.stopEmulator();
         return { success: true };
       } catch (error) {
-        ipcLog.error('Failed to stop emulator:', error);
+        ipcLog.error("Failed to stop emulator:", error);
         return { success: false, error: (error as Error).message };
       }
     });
 
-    ipcMain.handle('emulator:getAvailable', () => {
+    ipcMain.handle("emulator:getAvailable", () => {
       return this.emulatorManager.getAvailableEmulators();
     });
 
-    ipcMain.handle('emulator:isRunning', () => {
+    ipcMain.handle("emulator:isRunning", () => {
       return this.emulatorManager.isEmulatorRunning();
     });
 
     // Emulation control
-    ipcMain.handle('emulation:pause', async () => {
+    ipcMain.handle("emulation:pause", async () => {
       try {
         await this.emulatorManager.pause();
         return { success: true };
       } catch (error) {
-        ipcLog.error('Failed to pause emulation:', error);
+        ipcLog.error("Failed to pause emulation:", error);
         return { success: false, error: (error as Error).message };
       }
     });
 
-    ipcMain.handle('emulation:resume', async () => {
+    ipcMain.handle("emulation:resume", async () => {
       try {
         await this.emulatorManager.resume();
         return { success: true };
       } catch (error) {
-        ipcLog.error('Failed to resume emulation:', error);
+        ipcLog.error("Failed to resume emulation:", error);
         return { success: false, error: (error as Error).message };
       }
     });
 
-    ipcMain.handle('emulation:reset', async () => {
+    ipcMain.handle("emulation:reset", async () => {
       try {
         await this.emulatorManager.reset();
         return { success: true };
       } catch (error) {
-        ipcLog.error('Failed to reset emulation:', error);
+        ipcLog.error("Failed to reset emulation:", error);
         return { success: false, error: (error as Error).message };
       }
     });
 
-    ipcMain.handle('emulation:setSpeed', (_event, multiplier: number) => {
+    ipcMain.handle("emulation:setSpeed", (_event, multiplier: number) => {
       try {
         this.emulatorManager.setSpeed(multiplier);
         return { success: true };
       } catch (error) {
-        ipcLog.error('Failed to set emulation speed:', error);
+        ipcLog.error("Failed to set emulation speed:", error);
         return { success: false, error: (error as Error).message };
       }
     });
 
-    ipcMain.handle('emulation:setFastForwardAudio', (_event, enabled: boolean) => {
+    ipcMain.handle("emulation:setFastForwardAudio", (_event, enabled: boolean) => {
       try {
         this.emulatorManager.setFastForwardAudio(enabled);
         return { success: true };
       } catch (error) {
-        ipcLog.error('Failed to set fast-forward audio:', error);
+        ipcLog.error("Failed to set fast-forward audio:", error);
         return { success: false, error: (error as Error).message };
       }
     });
 
     // Save states
-    ipcMain.handle('savestate:save', async (event, slot: number) => {
+    ipcMain.handle("savestate:save", async (event, slot: number) => {
       try {
         await this.emulatorManager.saveState(slot);
         return { success: true };
       } catch (error) {
-        ipcLog.error('Failed to save state:', error);
+        ipcLog.error("Failed to save state:", error);
         return { success: false, error: (error as Error).message };
       }
     });
 
-    ipcMain.handle('savestate:load', async (event, slot: number) => {
+    ipcMain.handle("savestate:load", async (event, slot: number) => {
       try {
         await this.emulatorManager.loadState(slot);
         return { success: true };
       } catch (error) {
-        ipcLog.error('Failed to load state:', error);
+        ipcLog.error("Failed to load state:", error);
         return { success: false, error: (error as Error).message };
       }
     });
 
     // Screenshot
-    ipcMain.handle('emulation:screenshot', async (event, outputPath?: string) => {
+    ipcMain.handle("emulation:screenshot", async (event, outputPath?: string) => {
       try {
         const path = await this.emulatorManager.screenshot(outputPath);
         return { success: true, path };
       } catch (error) {
-        ipcLog.error('Failed to take screenshot:', error);
+        ipcLog.error("Failed to take screenshot:", error);
         return { success: false, error: (error as Error).message };
       }
     });
@@ -263,119 +290,137 @@ export class IPCHandlers {
       });
     };
 
-    this.emulatorManager.on('gameLaunched', (data) => forwardEvent('emulator:launched', data));
-    this.emulatorManager.on('emulator:exited', (data) => forwardEvent('emulator:exited', data));
-    this.emulatorManager.on('emulator:error', (error) => forwardEvent('emulator:error', error));
-    this.emulatorManager.on('emulator:stateSaved', (data) => forwardEvent('emulator:stateSaved', data));
-    this.emulatorManager.on('emulator:stateLoaded', (data) => forwardEvent('emulator:stateLoaded', data));
-    this.emulatorManager.on('emulator:screenshotTaken', (data) => forwardEvent('emulator:screenshotTaken', data));
-    this.emulatorManager.on('emulator:paused', () => forwardEvent('emulator:paused'));
-    this.emulatorManager.on('emulator:resumed', () => forwardEvent('emulator:resumed'));
-    this.emulatorManager.on('emulator:reset', () => forwardEvent('emulator:reset'));
-    this.emulatorManager.on('emulator:speedChanged', (data) => forwardEvent('emulator:speedChanged', data));
-    this.emulatorManager.on('emulator:terminated', () => forwardEvent('emulator:terminated'));
-    this.emulatorManager.on('core:downloadProgress', (data) => forwardEvent('core:downloadProgress', data));
+    this.emulatorManager.on("gameLaunched", (data) => forwardEvent("emulator:launched", data));
+    this.emulatorManager.on("emulator:exited", (data) => forwardEvent("emulator:exited", data));
+    this.emulatorManager.on("emulator:error", (error) => forwardEvent("emulator:error", error));
+    this.emulatorManager.on("emulator:stateSaved", (data) =>
+      forwardEvent("emulator:stateSaved", data),
+    );
+    this.emulatorManager.on("emulator:stateLoaded", (data) =>
+      forwardEvent("emulator:stateLoaded", data),
+    );
+    this.emulatorManager.on("emulator:screenshotTaken", (data) =>
+      forwardEvent("emulator:screenshotTaken", data),
+    );
+    this.emulatorManager.on("emulator:paused", () => forwardEvent("emulator:paused"));
+    this.emulatorManager.on("emulator:resumed", () => forwardEvent("emulator:resumed"));
+    this.emulatorManager.on("emulator:reset", () => forwardEvent("emulator:reset"));
+    this.emulatorManager.on("emulator:speedChanged", (data) =>
+      forwardEvent("emulator:speedChanged", data),
+    );
+    this.emulatorManager.on("emulator:terminated", () => forwardEvent("emulator:terminated"));
+    this.emulatorManager.on("core:downloadProgress", (data) =>
+      forwardEvent("core:downloadProgress", data),
+    );
   }
 
   private setupLibraryHandlers(): void {
     // Forward scan progress events to all renderer windows
-    this.libraryService.on('scanProgress', (data) => {
+    this.libraryService.on("scanProgress", (data) => {
       const windows = BrowserWindow.getAllWindows();
       windows.forEach((window: BrowserWindow) => {
-        window.webContents.send('library:scanProgress', data);
+        window.webContents.send("library:scanProgress", data);
       });
     });
 
     // System management
-    ipcMain.handle('library:getSystems', () => {
+    ipcMain.handle("library:getSystems", () => {
       return this.libraryService.getSystems();
     });
 
-    ipcMain.handle('library:addSystem', async (event, system: GameSystem) => {
+    ipcMain.handle("library:addSystem", async (event, system: GameSystem) => {
       await this.libraryService.addSystem(system);
       return { success: true };
     });
 
-    ipcMain.handle('library:removeSystem', async (event, systemId: string) => {
+    ipcMain.handle("library:removeSystem", async (event, systemId: string) => {
       await this.libraryService.removeSystem(systemId);
       return { success: true };
     });
 
-    ipcMain.handle('library:updateSystemPath', async (event, systemId: string, romsPath: string) => {
-      await this.libraryService.updateSystemPath(systemId, romsPath);
-      return { success: true };
-    });
+    ipcMain.handle(
+      "library:updateSystemPath",
+      async (event, systemId: string, romsPath: string) => {
+        await this.libraryService.updateSystemPath(systemId, romsPath);
+        return { success: true };
+      },
+    );
 
     // Game management
-    ipcMain.handle('library:getGames', (event, systemId?: string) => {
+    ipcMain.handle("library:getGames", (event, systemId?: string) => {
       return this.libraryService.getGames(systemId);
     });
 
-    ipcMain.handle('library:addGame', async (event, romPath: string, systemId: string) => {
+    ipcMain.handle("library:addGame", async (event, romPath: string, systemId: string) => {
       const game = await this.libraryService.addGame(romPath, systemId);
       return game;
     });
 
-    ipcMain.handle('library:removeGame', async (event, gameId: string) => {
+    ipcMain.handle("library:removeGame", async (event, gameId: string) => {
       await this.libraryService.removeGame(gameId);
       return { success: true };
     });
 
-    ipcMain.handle('library:updateGame', async (event, gameId: string, updates: any) => {
+    ipcMain.handle("library:updateGame", async (event, gameId: string, updates: any) => {
       await this.libraryService.updateGame(gameId, updates);
       return { success: true };
     });
 
     // Scanning
-    ipcMain.handle('library:scanDirectory', async (event, directoryPath: string, systemId?: string) => {
-      const games = await this.libraryService.scanDirectory(directoryPath, systemId);
-      return games;
-    });
+    ipcMain.handle(
+      "library:scanDirectory",
+      async (event, directoryPath: string, systemId?: string) => {
+        const games = await this.libraryService.scanDirectory(directoryPath, systemId);
+        return games;
+      },
+    );
 
-    ipcMain.handle('library:scanSystemFolders', async () => {
+    ipcMain.handle("library:scanSystemFolders", async () => {
       const games = await this.libraryService.scanSystemFolders();
       return games;
     });
 
     // Config
-    ipcMain.handle('library:getConfig', () => {
+    ipcMain.handle("library:getConfig", () => {
       return this.libraryService.getConfig();
     });
 
-    ipcMain.handle('library:setRomsBasePath', async (event, basePath: string) => {
+    ipcMain.handle("library:setRomsBasePath", async (event, basePath: string) => {
       await this.libraryService.setRomsBasePath(basePath);
       return { success: true };
     });
 
     // File dialogs
-    ipcMain.handle('dialog:selectDirectory', async () => {
+    ipcMain.handle("dialog:selectDirectory", async () => {
       const result = await dialog.showOpenDialog({
-        properties: ['openDirectory'],
-        title: 'Select ROMs Directory'
+        properties: ["openDirectory"],
+        title: "Select ROMs Directory",
       });
-      
+
       if (!result.canceled && result.filePaths.length > 0) {
         return result.filePaths[0];
       }
       return null;
     });
 
-    ipcMain.handle('dialog:selectRomFile', async (event, systemId: string) => {
-      const system = this.libraryService.getSystems().find(s => s.id === systemId);
-      const filters = system ? [
-        {
-          name: `${system.name} ROMs`,
-          extensions: [
-            ...system.extensions.map(ext => ext.substring(1)), // Remove dots
-            ...(systemId !== 'arcade' ? ['zip'] : []),
-          ],
-        }
-      ] : [];
+    ipcMain.handle("dialog:selectRomFile", async (event, systemId: string) => {
+      const system = this.libraryService.getSystems().find((s) => s.id === systemId);
+      const filters = system
+        ? [
+            {
+              name: `${system.name} ROMs`,
+              extensions: [
+                ...system.extensions.map((ext) => ext.slice(1)), // Remove dots
+                ...(systemId !== "arcade" ? ["zip"] : []),
+              ],
+            },
+          ]
+        : [];
 
       const result = await dialog.showOpenDialog({
-        properties: ['openFile'],
-        title: 'Select ROM File',
-        filters
+        properties: ["openFile"],
+        title: "Select ROM File",
+        filters,
       });
 
       if (!result.canceled && result.filePaths.length > 0) {
@@ -394,10 +439,10 @@ export class IPCHandlers {
       });
     };
 
-    this.artworkService.on('progress', (data) => forwardEvent('artwork:progress', data));
-    this.artworkService.on('syncComplete', (data) => forwardEvent('artwork:syncComplete', data));
+    this.artworkService.on("progress", (data) => forwardEvent("artwork:progress", data));
+    this.artworkService.on("syncComplete", (data) => forwardEvent("artwork:syncComplete", data));
 
-    ipcMain.handle('artwork:syncGame', async (_event, gameId: string) => {
+    ipcMain.handle("artwork:syncGame", async (_event, gameId: string) => {
       try {
         const success = await this.artworkService.syncGame(gameId);
         return { success };
@@ -406,12 +451,12 @@ export class IPCHandlers {
       }
     });
 
-    ipcMain.handle('artwork:syncAll', () => {
+    ipcMain.handle("artwork:syncAll", () => {
       // Start sync in background — attach error handler to catch unhandled rejections
       const syncPromise = this.artworkService.syncAllGames();
       syncPromise.catch((error) => {
-        ipcLog.error('Artwork sync failed:', error);
-        forwardEvent('artwork:syncError', {
+        ipcLog.error("Artwork sync failed:", error);
+        forwardEvent("artwork:syncError", {
           error: error instanceof Error ? error.message : String(error),
           errorCode: error instanceof ScreenScraperError ? error.errorCode : undefined,
         });
@@ -419,12 +464,12 @@ export class IPCHandlers {
       return { success: true };
     });
 
-    ipcMain.handle('artwork:syncGames', (_event, gameIds: string[]) => {
+    ipcMain.handle("artwork:syncGames", (_event, gameIds: Array<string>) => {
       // Start targeted sync in background for auto-sync after import
       const syncPromise = this.artworkService.syncGames(gameIds);
       syncPromise.catch((error) => {
-        ipcLog.error('Artwork sync for imported games failed:', error);
-        forwardEvent('artwork:syncError', {
+        ipcLog.error("Artwork sync for imported games failed:", error);
+        forwardEvent("artwork:syncError", {
           error: error instanceof Error ? error.message : String(error),
           errorCode: error instanceof ScreenScraperError ? error.errorCode : undefined,
         });
@@ -432,35 +477,38 @@ export class IPCHandlers {
       return { success: true };
     });
 
-    ipcMain.handle('artwork:cancelSync', () => {
+    ipcMain.handle("artwork:cancelSync", () => {
       this.artworkService.cancelSync();
       return { success: true };
     });
 
-    ipcMain.handle('artwork:getSyncStatus', () => {
+    ipcMain.handle("artwork:getSyncStatus", () => {
       return this.artworkService.getSyncStatus();
     });
 
-    ipcMain.handle('artwork:getCredentials', () => {
+    ipcMain.handle("artwork:getCredentials", () => {
       return { hasCredentials: this.artworkService.hasCredentials() };
     });
 
-    ipcMain.handle('artwork:setCredentials', async (_event, userId: string, userPassword: string) => {
-      try {
-        // Validate credentials against ScreenScraper before saving
-        const validation = await this.artworkService.validateCredentials(userId, userPassword);
-        if (!validation.valid) {
-          return { success: false, error: validation.error, errorCode: validation.errorCode };
+    ipcMain.handle(
+      "artwork:setCredentials",
+      async (_event, userId: string, userPassword: string) => {
+        try {
+          // Validate credentials against ScreenScraper before saving
+          const validation = await this.artworkService.validateCredentials(userId, userPassword);
+          if (!validation.valid) {
+            return { success: false, error: validation.error, errorCode: validation.errorCode };
+          }
+
+          await this.artworkService.setCredentials(userId, userPassword);
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: (error as Error).message };
         }
+      },
+    );
 
-        await this.artworkService.setCredentials(userId, userPassword);
-        return { success: true };
-      } catch (error) {
-        return { success: false, error: (error as Error).message };
-      }
-    });
-
-    ipcMain.handle('artwork:clearCredentials', async () => {
+    ipcMain.handle("artwork:clearCredentials", async () => {
       try {
         await this.artworkService.clearCredentials();
         return { success: true };
@@ -472,7 +520,7 @@ export class IPCHandlers {
 
   private setupDialogHandlers(): void {
     // Handle resume game dialog response from renderer
-    ipcMain.on('dialog:resumeGameResponse', (event, requestId: string, shouldResume: boolean) => {
+    ipcMain.on("dialog:resumeGameResponse", (event, requestId: string, shouldResume: boolean) => {
       const resolver = this.pendingResumeDialogs.get(requestId);
       if (resolver) {
         resolver(shouldResume);
@@ -501,7 +549,7 @@ export class IPCHandlers {
       const requestId = `resume-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       this.pendingResumeDialogs.set(requestId, resolve);
 
-      window.webContents.send('dialog:showResumeGame', {
+      window.webContents.send("dialog:showResumeGame", {
         requestId,
         gameTitle,
       });
@@ -512,7 +560,7 @@ export class IPCHandlers {
           this.pendingResumeDialogs.delete(requestId);
           resolve(false);
         }
-      }, 30000);
+      }, 30_000);
     });
   }
 }

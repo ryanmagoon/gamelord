@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import {
   cn,
   SHADER_LABELS,
   SHADER_PRESETS,
-} from '@gamelord/ui'
+} from "@gamelord/ui";
 import {
   Settings,
   Gamepad2,
@@ -29,28 +29,28 @@ import {
   ExternalLink,
   Check,
   FolderSearch,
-} from 'lucide-react'
-import { useSfx } from '../../hooks/useSfx'
-import type { GamelordAPI } from '../../types/global'
-import type { GameSystem } from '../../../types/library'
+} from "lucide-react";
+import { useSfx } from "../../hooks/useSfx";
+import type { GamelordAPI } from "../../types/global";
+import type { GameSystem } from "../../../types/library";
 
-type ThemeMode = 'system' | 'dark' | 'light'
+type ThemeMode = "system" | "dark" | "light";
 
-type SettingsTab = 'general' | 'emulation' | 'library' | 'about'
+type SettingsTab = "general" | "emulation" | "library" | "about";
 
 interface SettingsDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  themeMode: ThemeMode
-  onThemeChange: (mode: ThemeMode) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  themeMode: ThemeMode;
+  onThemeChange: (mode: ThemeMode) => void;
 }
 
-const TAB_CONFIG: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'general', label: 'General', icon: <Settings className="h-4 w-4" /> },
-  { id: 'emulation', label: 'Emulation', icon: <Gamepad2 className="h-4 w-4" /> },
-  { id: 'library', label: 'Library', icon: <FolderOpen className="h-4 w-4" /> },
-  { id: 'about', label: 'About', icon: <Info className="h-4 w-4" /> },
-]
+const TAB_CONFIG: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
+  { id: "general", label: "General", icon: <Settings className="h-4 w-4" /> },
+  { id: "emulation", label: "Emulation", icon: <Gamepad2 className="h-4 w-4" /> },
+  { id: "library", label: "Library", icon: <FolderOpen className="h-4 w-4" /> },
+  { id: "about", label: "About", icon: <Info className="h-4 w-4" /> },
+];
 
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   open,
@@ -58,20 +58,17 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   themeMode,
   onThemeChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general')
-  const { play: playSfx } = useSfx()
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const { play: playSfx } = useSfx();
 
   const handleTabChange = (tab: SettingsTab) => {
-    playSfx('click')
-    setActiveTab(tab)
-  }
+    playSfx("click");
+    setActiveTab(tab);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="sm:max-w-2xl p-0 gap-0 overflow-hidden"
-        hideCloseButton
-      >
+      <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden" hideCloseButton>
         <div className="flex h-[480px]">
           {/* Sidebar */}
           <nav className="w-44 shrink-0 border-r bg-muted/30 p-3 flex flex-col gap-1">
@@ -83,10 +80,10 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
                 className={cn(
-                  'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors text-left',
+                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors text-left",
                   activeTab === tab.id
-                    ? 'bg-accent text-accent-foreground font-medium'
-                    : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                    ? "bg-accent text-accent-foreground font-medium"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                 )}
               >
                 {tab.icon}
@@ -97,80 +94,78 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
-            {activeTab === 'general' && (
+            {activeTab === "general" && (
               <GeneralTab themeMode={themeMode} onThemeChange={onThemeChange} />
             )}
-            {activeTab === 'emulation' && <EmulationTab />}
-            {activeTab === 'library' && <LibraryTab />}
-            {activeTab === 'about' && <AboutTab />}
+            {activeTab === "emulation" && <EmulationTab />}
+            {activeTab === "library" && <LibraryTab />}
+            {activeTab === "about" && <AboutTab />}
           </div>
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};
 
 /** Section heading within a settings tab. */
 const SectionHeading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <h3 className="text-sm font-semibold text-foreground mb-3">{children}</h3>
-)
+);
 
 /** Row for a single setting: label on the left, control on the right. */
 const SettingRow: React.FC<{
-  label: string
-  description?: string
-  children: React.ReactNode
+  label: string;
+  description?: string;
+  children: React.ReactNode;
 }> = ({ label, description, children }) => (
   <div className="flex items-center justify-between py-2">
     <div className="flex-1 min-w-0 pr-4">
       <div className="text-sm font-medium">{label}</div>
-      {description && (
-        <div className="text-xs text-muted-foreground mt-0.5">{description}</div>
-      )}
+      {description && <div className="text-xs text-muted-foreground mt-0.5">{description}</div>}
     </div>
     <div className="shrink-0">{children}</div>
   </div>
-)
+);
 
 /** Toggle switch styled as a button. */
 const Toggle: React.FC<{
-  checked: boolean
-  onChange: (checked: boolean) => void
-  'aria-label'?: string
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  "aria-label"?: string;
 }> = ({ checked, onChange, ...props }) => (
   <button
     role="switch"
     aria-checked={checked}
     onClick={() => onChange(!checked)}
     className={cn(
-      'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-      checked ? 'bg-primary' : 'bg-muted'
+      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+      checked ? "bg-primary" : "bg-muted",
     )}
     {...props}
   >
     <span
       className={cn(
-        'inline-block h-4 w-4 rounded-full bg-background transition-transform',
-        checked ? 'translate-x-6' : 'translate-x-1'
+        "inline-block h-4 w-4 rounded-full bg-background transition-transform",
+        checked ? "translate-x-6" : "translate-x-1",
       )}
     />
   </button>
-)
+);
 
 // ---------------------------------------------------------------------------
 // General Tab
 // ---------------------------------------------------------------------------
 
 const GeneralTab: React.FC<{
-  themeMode: ThemeMode
-  onThemeChange: (mode: ThemeMode) => void
+  themeMode: ThemeMode;
+  onThemeChange: (mode: ThemeMode) => void;
 }> = ({ themeMode, onThemeChange }) => {
-  const { preferences, setEnabled, setVolume, play } = useSfx()
+  const { preferences, setEnabled, setVolume, play } = useSfx();
 
   const handleThemeChange = (value: string) => {
-    play('click')
-    onThemeChange(value as ThemeMode)
-  }
+    play("click");
+    onThemeChange(value as ThemeMode);
+  };
 
   return (
     <div className="space-y-6">
@@ -207,12 +202,17 @@ const GeneralTab: React.FC<{
 
       <div>
         <SectionHeading>Sound Effects</SectionHeading>
-        <SettingRow label="UI sounds" description="Play retro sounds for clicks, toggles, and actions">
+        <SettingRow
+          label="UI sounds"
+          description="Play retro sounds for clicks, toggles, and actions"
+        >
           <Toggle
             checked={preferences.enabled}
             onChange={(v) => {
-              setEnabled(v)
-              if (v) play('toggleOn')
+              setEnabled(v);
+              if (v) {
+                play("toggleOn");
+              }
             }}
             aria-label="Toggle sound effects"
           />
@@ -227,7 +227,7 @@ const GeneralTab: React.FC<{
                 max={1}
                 step={0.05}
                 value={preferences.volume}
-                onChange={(e) => setVolume(parseFloat(e.target.value))}
+                onChange={(e) => setVolume(Number.parseFloat(e.target.value))}
                 className="w-24 accent-primary"
                 aria-label="Sound effects volume"
               />
@@ -237,61 +237,61 @@ const GeneralTab: React.FC<{
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Emulation Tab
 // ---------------------------------------------------------------------------
 
-const FAST_FORWARD_SPEEDS = [1.5, 2, 3, 4, 6, 8]
+const FAST_FORWARD_SPEEDS = [1.5, 2, 3, 4, 6, 8];
 
 const EmulationTab: React.FC = () => {
-  const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
-  const { play: playSfx } = useSfx()
+  const api = (window as unknown as { gamelord: GamelordAPI }).gamelord;
+  const { play: playSfx } = useSfx();
 
   const [showFps, setShowFps] = useState(() => {
-    return localStorage.getItem('gamelord:showFps') === 'true'
-  })
+    return localStorage.getItem("gamelord:showFps") === "true";
+  });
 
   const [fastForwardSpeed, setFastForwardSpeed] = useState(() => {
-    const saved = localStorage.getItem('gamelord:fastForwardSpeed')
-    return saved !== null ? parseFloat(saved) : 2
-  })
+    const saved = localStorage.getItem("gamelord:fastForwardSpeed");
+    return saved !== null ? Number.parseFloat(saved) : 2;
+  });
 
   const [fastForwardAudio, setFastForwardAudio] = useState(() => {
-    return localStorage.getItem('gamelord:fastForwardAudio') === 'true'
-  })
+    return localStorage.getItem("gamelord:fastForwardAudio") === "true";
+  });
 
   const [defaultShader, setDefaultShader] = useState(() => {
-    return localStorage.getItem('gamelord:shader') ?? 'default'
-  })
+    return localStorage.getItem("gamelord:shader") ?? "default";
+  });
 
   const handleShowFpsChange = (checked: boolean) => {
-    setShowFps(checked)
-    localStorage.setItem('gamelord:showFps', String(checked))
-    playSfx(checked ? 'toggleOn' : 'toggleOff')
-  }
+    setShowFps(checked);
+    localStorage.setItem("gamelord:showFps", String(checked));
+    playSfx(checked ? "toggleOn" : "toggleOff");
+  };
 
   const handleFastForwardAudioChange = (checked: boolean) => {
-    setFastForwardAudio(checked)
-    localStorage.setItem('gamelord:fastForwardAudio', String(checked))
-    api.emulation.setFastForwardAudio(checked)
-    playSfx(checked ? 'toggleOn' : 'toggleOff')
-  }
+    setFastForwardAudio(checked);
+    localStorage.setItem("gamelord:fastForwardAudio", String(checked));
+    api.emulation.setFastForwardAudio(checked);
+    playSfx(checked ? "toggleOn" : "toggleOff");
+  };
 
   const handleFastForwardSpeedChange = (value: string) => {
-    const speed = parseFloat(value)
-    setFastForwardSpeed(speed)
-    localStorage.setItem('gamelord:fastForwardSpeed', String(speed))
-    playSfx('click')
-  }
+    const speed = Number.parseFloat(value);
+    setFastForwardSpeed(speed);
+    localStorage.setItem("gamelord:fastForwardSpeed", String(speed));
+    playSfx("click");
+  };
 
   const handleDefaultShaderChange = (value: string) => {
-    setDefaultShader(value)
-    localStorage.setItem('gamelord:shader', value)
-    playSfx('click')
-  }
+    setDefaultShader(value);
+    localStorage.setItem("gamelord:shader", value);
+    playSfx("click");
+  };
 
   return (
     <div className="space-y-6">
@@ -326,10 +326,7 @@ const EmulationTab: React.FC = () => {
           label="Fast-forward speed"
           description="Multiplier when fast-forward is active (Tab key)"
         >
-          <Select
-            value={String(fastForwardSpeed)}
-            onValueChange={handleFastForwardSpeedChange}
-          >
+          <Select value={String(fastForwardSpeed)} onValueChange={handleFastForwardSpeedChange}>
             <SelectTrigger className="w-24 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -354,114 +351,127 @@ const EmulationTab: React.FC = () => {
         </SettingRow>
       </div>
     </div>
-  )
-}
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Library Tab
 // ---------------------------------------------------------------------------
 
 const LibraryTab: React.FC = () => {
-  const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
-  const { play: playSfx } = useSfx()
+  const api = (window as unknown as { gamelord: GamelordAPI }).gamelord;
+  const { play: playSfx } = useSfx();
 
-  const [romsBasePath, setRomsBasePath] = useState<string>('')
-  const [systems, setSystems] = useState<GameSystem[]>([])
-  const [hasCredentials, setHasCredentials] = useState(false)
-  const [credentialUserId, setCredentialUserId] = useState('')
-  const [credentialPassword, setCredentialPassword] = useState('')
-  const [credentialError, setCredentialError] = useState('')
-  const [credentialSaving, setCredentialSaving] = useState(false)
-  const [credentialSuccess, setCredentialSuccess] = useState(false)
+  const [romsBasePath, setRomsBasePath] = useState<string>("");
+  const [systems, setSystems] = useState<Array<GameSystem>>([]);
+  const [hasCredentials, setHasCredentials] = useState(false);
+  const [credentialUserId, setCredentialUserId] = useState("");
+  const [credentialPassword, setCredentialPassword] = useState("");
+  const [credentialError, setCredentialError] = useState("");
+  const [credentialSaving, setCredentialSaving] = useState(false);
+  const [credentialSuccess, setCredentialSuccess] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       const [config, creds] = await Promise.all([
         api.library.getConfig(),
         api.artwork.getCredentials(),
-      ])
-      setRomsBasePath(config.romsBasePath ?? '')
-      setSystems(config.systems ?? [])
-      setHasCredentials(creds.hasCredentials)
-    }
-    load()
-  }, [api])
+      ]);
+      setRomsBasePath(config.romsBasePath ?? "");
+      setSystems(config.systems ?? []);
+      setHasCredentials(creds.hasCredentials);
+    };
+    load();
+  }, [api]);
 
   const handleChangeBasePath = async () => {
-    playSfx('click')
-    const selected = await api.dialog.selectDirectory()
+    playSfx("click");
+    const selected = await api.dialog.selectDirectory();
     if (selected) {
-      await api.library.setRomsBasePath(selected)
-      setRomsBasePath(selected)
-      playSfx('toggleOn')
+      await api.library.setRomsBasePath(selected);
+      setRomsBasePath(selected);
+      playSfx("toggleOn");
     }
-  }
+  };
 
   const handleAddRomFolder = async () => {
-    playSfx('click')
-    const selected = await api.dialog.selectDirectory()
+    playSfx("click");
+    const selected = await api.dialog.selectDirectory();
     if (selected) {
-      await api.library.scanDirectory(selected)
-      playSfx('toggleOn')
+      await api.library.scanDirectory(selected);
+      playSfx("toggleOn");
     }
-  }
+  };
 
   const handleSaveCredentials = async () => {
     if (!credentialUserId.trim() || !credentialPassword.trim()) {
-      setCredentialError('Both User ID and Password are required')
-      return
+      setCredentialError("Both User ID and Password are required");
+      return;
     }
-    setCredentialSaving(true)
-    setCredentialError('')
-    setCredentialSuccess(false)
+    setCredentialSaving(true);
+    setCredentialError("");
+    setCredentialSuccess(false);
     try {
       const result = await api.artwork.setCredentials(
         credentialUserId.trim(),
         credentialPassword.trim(),
-      )
+      );
       if (result.success) {
-        setHasCredentials(true)
-        setCredentialSuccess(true)
-        setCredentialUserId('')
-        setCredentialPassword('')
-        playSfx('syncComplete')
-        setTimeout(() => setCredentialSuccess(false), 3000)
+        setHasCredentials(true);
+        setCredentialSuccess(true);
+        setCredentialUserId("");
+        setCredentialPassword("");
+        playSfx("syncComplete");
+        setTimeout(() => setCredentialSuccess(false), 3000);
       } else {
-        setCredentialError(result.error ?? 'Validation failed')
-        playSfx('error')
+        setCredentialError(result.error ?? "Validation failed");
+        playSfx("error");
       }
     } catch {
-      setCredentialError('Failed to save credentials')
-      playSfx('error')
+      setCredentialError("Failed to save credentials");
+      playSfx("error");
     } finally {
-      setCredentialSaving(false)
+      setCredentialSaving(false);
     }
-  }
+  };
 
   const handleClearCredentials = async () => {
-    await api.artwork.clearCredentials()
-    setHasCredentials(false)
-    setCredentialSuccess(false)
-    playSfx('toggleOff')
-  }
+    await api.artwork.clearCredentials();
+    setHasCredentials(false);
+    setCredentialSuccess(false);
+    playSfx("toggleOff");
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <SectionHeading>ROM Directories</SectionHeading>
         <SettingRow label="Base ROM path" description="Root folder for system subfolders">
-          <Button variant="outline" size="sm" onClick={handleChangeBasePath} className="h-8 text-xs gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleChangeBasePath}
+            className="h-8 text-xs gap-1.5"
+          >
             <FolderSearch className="h-3.5 w-3.5" />
-            {romsBasePath ? 'Change' : 'Set'}
+            {romsBasePath ? "Change" : "Set"}
           </Button>
         </SettingRow>
         {romsBasePath && (
-          <div className="text-xs text-muted-foreground px-0 pb-2 font-mono truncate" title={romsBasePath}>
+          <div
+            className="text-xs text-muted-foreground px-0 pb-2 font-mono truncate"
+            title={romsBasePath}
+          >
             {romsBasePath}
           </div>
         )}
         <SettingRow label="Scan additional folder" description="Add ROMs from any directory">
-          <Button variant="outline" size="sm" onClick={handleAddRomFolder} className="h-8 text-xs gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAddRomFolder}
+            className="h-8 text-xs gap-1.5"
+          >
             <Plus className="h-3.5 w-3.5" />
             Add Folder
           </Button>
@@ -486,8 +496,7 @@ const LibraryTab: React.FC = () => {
       <div>
         <SectionHeading>ScreenScraper</SectionHeading>
         <p className="text-xs text-muted-foreground mb-3">
-          Credentials for downloading cover art and metadata.
-          Free account at screenscraper.fr.
+          Credentials for downloading cover art and metadata. Free account at screenscraper.fr.
         </p>
         {hasCredentials ? (
           <div className="flex items-center justify-between">
@@ -495,7 +504,12 @@ const LibraryTab: React.FC = () => {
               <Check className="h-4 w-4 text-green-500" />
               <span className="text-muted-foreground">Credentials saved</span>
             </div>
-            <Button variant="outline" size="sm" onClick={handleClearCredentials} className="h-8 text-xs gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearCredentials}
+              className="h-8 text-xs gap-1.5"
+            >
               <Trash2 className="h-3.5 w-3.5" />
               Clear
             </Button>
@@ -505,22 +519,26 @@ const LibraryTab: React.FC = () => {
             <Input
               placeholder="User ID"
               value={credentialUserId}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCredentialUserId(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setCredentialUserId(e.target.value)
+              }
               className="h-8 text-xs"
             />
             <Input
               type="password"
               placeholder="Password"
               value={credentialPassword}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCredentialPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setCredentialPassword(e.target.value)
+              }
               className="h-8 text-xs"
               onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                if (e.key === 'Enter') void handleSaveCredentials()
+                if (e.key === "Enter") {
+                  void handleSaveCredentials();
+                }
               }}
             />
-            {credentialError && (
-              <p className="text-xs text-destructive">{credentialError}</p>
-            )}
+            {credentialError && <p className="text-xs text-destructive">{credentialError}</p>}
             {credentialSuccess && (
               <p className="text-xs text-green-500 flex items-center gap-1">
                 <Check className="h-3 w-3" />
@@ -533,14 +551,14 @@ const LibraryTab: React.FC = () => {
               disabled={credentialSaving}
               className="h-8 text-xs"
             >
-              {credentialSaving ? 'Validating...' : 'Save Credentials'}
+              {credentialSaving ? "Validating..." : "Save Credentials"}
             </Button>
           </div>
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
 // ---------------------------------------------------------------------------
 // About Tab
@@ -550,9 +568,7 @@ const AboutTab: React.FC = () => (
   <div className="space-y-6">
     <div className="text-center space-y-3">
       <h2 className="text-2xl font-bold tracking-tight">GameLord</h2>
-      <p className="text-sm text-muted-foreground">
-        v0.1.0-alpha
-      </p>
+      <p className="text-sm text-muted-foreground">v0.1.0-alpha</p>
     </div>
 
     <div>
@@ -597,4 +613,4 @@ const AboutTab: React.FC = () => (
       </div>
     </div>
   </div>
-)
+);

@@ -119,6 +119,7 @@ The built application will be available in the `out` directory.
 ### Code Signing
 
 For macOS distribution, you'll need:
+
 1. An Apple Developer account
 2. A valid Developer ID certificate
 3. Notarization credentials
@@ -137,4 +138,3 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-

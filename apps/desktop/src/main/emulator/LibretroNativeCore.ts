@@ -1,9 +1,9 @@
-import { EmulatorCore, EmulatorLaunchOptions } from './EmulatorCore'
-import * as path from 'path'
-import * as fs from 'fs'
-import * as os from 'os'
-import { app } from 'electron'
-import { validateCorePath, validateRomPath } from '../utils/pathValidation'
+import { EmulatorCore, EmulatorLaunchOptions } from "./EmulatorCore";
+import * as path from "node:path";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import { app } from "electron";
+import { validateCorePath, validateRomPath } from "../utils/pathValidation";
 
 /**
  * EmulatorCore implementation for native libretro mode.
@@ -22,46 +22,44 @@ import { validateCorePath, validateRomPath } from '../utils/pathValidation'
  * responsibilities belong to the worker process.
  */
 export class LibretroNativeCore extends EmulatorCore {
-  private _corePath: string | null = null
-  private _systemDir: string | null = null
-  private readonly _saveStatesDir: string
-  private readonly _sramDir: string
-  private readonly _saveDir: string
-  private readonly _biosDir: string
+  private _corePath: string | null = null;
+  private _systemDir: string | null = null;
+  private readonly _saveStatesDir: string;
+  private readonly _sramDir: string;
+  private readonly _saveDir: string;
+  private readonly _biosDir: string;
 
-  constructor(
-    private readonly coresBasePath: string,
-  ) {
-    super('LibretroNative', coresBasePath)
-    this._saveStatesDir = path.join(app.getPath('userData'), 'savestates')
-    this._sramDir = path.join(app.getPath('userData'), 'saves')
-    this._saveDir = path.join(app.getPath('userData'), 'saves')
-    this._biosDir = path.join(app.getPath('userData'), 'BIOS')
-    fs.mkdirSync(this._saveStatesDir, { recursive: true })
-    fs.mkdirSync(this._sramDir, { recursive: true })
-    fs.mkdirSync(this._biosDir, { recursive: true })
+  constructor(private readonly coresBasePath: string) {
+    super("LibretroNative", coresBasePath);
+    this._saveStatesDir = path.join(app.getPath("userData"), "savestates");
+    this._sramDir = path.join(app.getPath("userData"), "saves");
+    this._saveDir = path.join(app.getPath("userData"), "saves");
+    this._biosDir = path.join(app.getPath("userData"), "BIOS");
+    fs.mkdirSync(this._saveStatesDir, { recursive: true });
+    fs.mkdirSync(this._sramDir, { recursive: true });
+    fs.mkdirSync(this._biosDir, { recursive: true });
   }
 
   /**
    * Directories that are allowed to contain libretro cores.
    * Cores loaded via dlopen must come from one of these locations.
    */
-  private getAllowedCoreDirs(): string[] {
+  private getAllowedCoreDirs(): Array<string> {
     const dirs = [
       // App-managed cores directory
-      path.join(app.getPath('userData'), 'cores'),
-    ]
+      path.join(app.getPath("userData"), "cores"),
+    ];
 
     // RetroArch cores directories (platform-specific)
-    if (process.platform === 'darwin') {
-      dirs.push(path.join(os.homedir(), 'Library/Application Support/RetroArch/cores'))
-    } else if (process.platform === 'win32') {
-      dirs.push(path.join(os.homedir(), 'AppData/Roaming/RetroArch/cores'))
+    if (process.platform === "darwin") {
+      dirs.push(path.join(os.homedir(), "Library/Application Support/RetroArch/cores"));
+    } else if (process.platform === "win32") {
+      dirs.push(path.join(os.homedir(), "AppData/Roaming/RetroArch/cores"));
     } else {
-      dirs.push(path.join(os.homedir(), '.config/retroarch/cores'))
+      dirs.push(path.join(os.homedir(), ".config/retroarch/cores"));
     }
 
-    return dirs.filter((dir) => fs.existsSync(dir))
+    return dirs.filter((dir) => fs.existsSync(dir));
   }
 
   /**
@@ -70,25 +68,25 @@ export class LibretroNativeCore extends EmulatorCore {
    */
   async launch(romPath: string, options: EmulatorLaunchOptions = {}): Promise<void> {
     if (this.isRunning) {
-      throw new Error('Emulator is already running')
+      throw new Error("Emulator is already running");
     }
 
-    const corePath = options.corePath
+    const corePath = options.corePath;
     if (!corePath) {
-      throw new Error('Core path is required')
+      throw new Error("Core path is required");
     }
 
     // Validate paths before passing to the worker
-    const validatedRomPath = validateRomPath(romPath)
-    const validatedCorePath = validateCorePath(corePath, this.getAllowedCoreDirs())
+    const validatedRomPath = validateRomPath(romPath);
+    const validatedCorePath = validateCorePath(corePath, this.getAllowedCoreDirs());
 
-    this.romPath = validatedRomPath
-    this._corePath = validatedCorePath
-    this._systemDir = this._biosDir
+    this.romPath = validatedRomPath;
+    this._corePath = validatedCorePath;
+    this._systemDir = this._biosDir;
 
-    this.isRunning = true
+    this.isRunning = true;
 
-    this.emit('launched', { romPath: validatedRomPath, corePath: validatedCorePath })
+    this.emit("launched", { romPath: validatedRomPath, corePath: validatedCorePath });
   }
 
   // -------------------------------------------------------------------------
@@ -96,30 +94,36 @@ export class LibretroNativeCore extends EmulatorCore {
   // -------------------------------------------------------------------------
 
   getCorePath(): string {
-    if (!this._corePath) throw new Error('Core not launched — no core path available')
-    return this._corePath
+    if (!this._corePath) {
+      throw new Error("Core not launched — no core path available");
+    }
+    return this._corePath;
   }
 
   getRomPath(): string {
-    if (!this.romPath) throw new Error('Core not launched — no ROM path available')
-    return this.romPath
+    if (!this.romPath) {
+      throw new Error("Core not launched — no ROM path available");
+    }
+    return this.romPath;
   }
 
   getSystemDir(): string {
-    if (!this._systemDir) throw new Error('Core not launched — no system dir available')
-    return this._systemDir
+    if (!this._systemDir) {
+      throw new Error("Core not launched — no system dir available");
+    }
+    return this._systemDir;
   }
 
   getSaveDir(): string {
-    return this._saveDir
+    return this._saveDir;
   }
 
   getSramDir(): string {
-    return this._sramDir
+    return this._sramDir;
   }
 
   getSaveStatesDir(): string {
-    return this._saveStatesDir
+    return this._saveStatesDir;
   }
 
   // -------------------------------------------------------------------------
@@ -127,32 +131,34 @@ export class LibretroNativeCore extends EmulatorCore {
   // -------------------------------------------------------------------------
 
   hasAutoSave(): boolean {
-    return fs.existsSync(this.getAutoSavePath())
+    return fs.existsSync(this.getAutoSavePath());
   }
 
   hasAutoSaveForRom(romPath: string): boolean {
-    const romName = path.basename(romPath, path.extname(romPath))
-    return fs.existsSync(path.join(this._saveStatesDir, romName, 'autosave.sav'))
+    const romName = path.basename(romPath, path.extname(romPath));
+    return fs.existsSync(path.join(this._saveStatesDir, romName, "autosave.sav"));
   }
 
   deleteAutoSave(): void {
-    const autoSavePath = this.getAutoSavePath()
+    const autoSavePath = this.getAutoSavePath();
     if (fs.existsSync(autoSavePath)) {
-      fs.unlinkSync(autoSavePath)
+      fs.unlinkSync(autoSavePath);
     }
   }
 
   deleteAutoSaveForRom(romPath: string): void {
-    const romName = path.basename(romPath, path.extname(romPath))
-    const autoSavePath = path.join(this._saveStatesDir, romName, 'autosave.sav')
+    const romName = path.basename(romPath, path.extname(romPath));
+    const autoSavePath = path.join(this._saveStatesDir, romName, "autosave.sav");
     if (fs.existsSync(autoSavePath)) {
-      fs.unlinkSync(autoSavePath)
+      fs.unlinkSync(autoSavePath);
     }
   }
 
   private getAutoSavePath(): string {
-    const romName = this.romPath ? path.basename(this.romPath, path.extname(this.romPath)) : 'unknown'
-    return path.join(this._saveStatesDir, romName, 'autosave.sav')
+    const romName = this.romPath
+      ? path.basename(this.romPath, path.extname(this.romPath))
+      : "unknown";
+    return path.join(this._saveStatesDir, romName, "autosave.sav");
   }
 
   // -------------------------------------------------------------------------
@@ -160,42 +166,42 @@ export class LibretroNativeCore extends EmulatorCore {
   // -------------------------------------------------------------------------
 
   async saveState(_slot: number): Promise<void> {
-    throw new Error('Save state is handled by the emulation worker')
+    throw new Error("Save state is handled by the emulation worker");
   }
 
   async loadState(_slot: number): Promise<void> {
-    throw new Error('Load state is handled by the emulation worker')
+    throw new Error("Load state is handled by the emulation worker");
   }
 
   async screenshot(_outputPath?: string): Promise<string> {
-    throw new Error('Screenshot is handled by the emulation worker')
+    throw new Error("Screenshot is handled by the emulation worker");
   }
 
   async pause(): Promise<void> {
-    this.emit('paused')
+    this.emit("paused");
   }
 
   async resume(): Promise<void> {
-    this.emit('resumed')
+    this.emit("resumed");
   }
 
   async reset(): Promise<void> {
-    this.emit('reset')
+    this.emit("reset");
   }
 
   async terminate(): Promise<void> {
-    this.cleanup()
+    this.cleanup();
   }
 
   protected cleanup(): void {
-    this._corePath = null
-    this._systemDir = null
-    this.process = null
-    this.isRunning = false
-    this.emit('terminated')
+    this._corePath = null;
+    this._systemDir = null;
+    this.process = null;
+    this.isRunning = false;
+    this.emit("terminated");
   }
 
   isActive(): boolean {
-    return this.isRunning
+    return this.isRunning;
   }
 }

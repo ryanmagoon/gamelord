@@ -4,19 +4,18 @@
   "private": true,
   "description": "A modern emulation frontend with superior UI/UX polish and features",
   "keywords": [
+    "electron",
     "emulator",
     "frontend",
-    "libretro",
     "gaming",
-    "electron",
+    "libretro",
     "react"
   ],
+  "license": "MIT",
   "author": {
     "name": "Ryan Magoon",
     "email": "mr.magoon5@gmail.com"
   },
-  "license": "MIT",
-  "packageManager": "pnpm@10.15.0",
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
@@ -24,11 +23,24 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "typecheck": "turbo typecheck",
+    "format": "turbo format",
+    "format:check": "turbo format:check",
     "storybook": "turbo storybook",
     "build-storybook": "turbo build-storybook"
   },
   "devDependencies": {
+    "@nkzw/eslint-plugin": "^2.0.0",
+    "@nkzw/oxlint-config": "^1.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript/native-preview": "7.0.0-dev.20260306.1",
+    "eslint-plugin-no-only-tests": "^3.3.0",
+    "eslint-plugin-perfectionist": "^5.6.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "oxfmt": "^0.36.0",
+    "oxlint": "^1.51.0",
     "turbo": "^2.5.5",
     "typescript": "5.8.3"
-  }
+  },
+  "packageManager": "pnpm@10.15.0"
 }

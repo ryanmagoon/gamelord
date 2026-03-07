@@ -24,6 +24,7 @@ git branch -m claude/random-name feat/descriptive-feature-name
 ```
 
 This matters because:
+
 - The dev branch badge in the title bar displays the branch name — a descriptive name immediately tells you which feature each app window belongs to.
 - PRs, commit history, and `git branch` output are all more readable with meaningful names.
 - The worktree directory name stays the same (it's just a checkout path), so nothing else breaks.

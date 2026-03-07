@@ -1,34 +1,29 @@
-import React from 'react';
-import { Game } from './GameCard';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { 
-  Play, 
-  Settings, 
-  Clock, 
-  Calendar, 
-  HardDrive,
-  Info
-} from 'lucide-react';
-import { PlatformIcon } from './PlatformIcon';
-import { cn } from '../utils';
+import React from "react";
+import { Game } from "./GameCard";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Play, Settings, Clock, Calendar, HardDrive, Info } from "lucide-react";
+import { PlatformIcon } from "./PlatformIcon";
+import { cn } from "../utils";
 
 export interface GameDetailsProps {
+  className?: string;
   game: Game;
   onPlay: (game: Game) => void;
   onSettings?: (game: Game) => void;
-  className?: string;
 }
 
 export const GameDetails: React.FC<GameDetailsProps> = ({
+  className,
   game,
   onPlay,
   onSettings,
-  className
 }) => {
   const formatPlayTime = (seconds?: number) => {
-    if (!seconds) return 'Never played';
+    if (!seconds) {
+      return "Never played";
+    }
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     if (hours > 0) {
@@ -38,15 +33,25 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
   };
 
   const formatLastPlayed = (date?: Date) => {
-    if (!date) return 'Never';
+    if (!date) {
+      return "Never";
+    }
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+
+    if (days === 0) {
+      return "Today";
+    }
+    if (days === 1) {
+      return "Yesterday";
+    }
+    if (days < 7) {
+      return `${days} days ago`;
+    }
+    if (days < 30) {
+      return `${Math.floor(days / 7)} weeks ago`;
+    }
     return date.toLocaleDateString();
   };
 
@@ -58,11 +63,7 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
         <div className="flex-shrink-0">
           <div className="w-48 h-64 bg-muted rounded-lg overflow-hidden">
             {game.coverArt ? (
-              <img 
-                src={game.coverArt} 
-                alt={game.title}
-                className="w-full h-full object-cover"
-              />
+              <img alt={game.title} className="w-full h-full object-cover" src={game.coverArt} />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                 <Info className="h-12 w-12" />
@@ -77,12 +78,10 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
             <h1 className="text-3xl font-bold mb-2">{game.title}</h1>
             <div className="flex items-center gap-4 text-muted-foreground">
               <div className="flex items-center gap-2">
-                <PlatformIcon platform={game.platform} className="h-5 w-5" />
+                <PlatformIcon className="h-5 w-5" platform={game.platform} />
                 <span>{game.platform}</span>
               </div>
-              {game.genre && (
-                <Badge variant="secondary">{game.genre}</Badge>
-              )}
+              {game.genre && <Badge variant="secondary">{game.genre}</Badge>}
             </div>
           </div>
 
@@ -93,11 +92,7 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
               Play Now
             </Button>
             {onSettings && (
-              <Button 
-                variant="outline" 
-                onClick={() => onSettings(game)}
-                size="lg"
-              >
+              <Button onClick={() => onSettings(game)} size="lg" variant="outline">
                 <Settings className="h-5 w-5 mr-2" />
                 Settings
               </Button>
@@ -114,9 +109,7 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatPlayTime(game.playTime)}
-            </div>
+            <div className="text-2xl font-bold">{formatPlayTime(game.playTime)}</div>
           </CardContent>
         </Card>
 
@@ -126,9 +119,7 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatLastPlayed(game.lastPlayed)}
-            </div>
+            <div className="text-2xl font-bold">{formatLastPlayed(game.lastPlayed)}</div>
           </CardContent>
         </Card>
 
@@ -139,7 +130,7 @@ export const GameDetails: React.FC<GameDetailsProps> = ({
           </CardHeader>
           <CardContent>
             <div className="text-sm font-mono truncate" title={game.romPath}>
-              {game.romPath.split('/').pop()}
+              {game.romPath.split("/").pop()}
             </div>
           </CardContent>
         </Card>

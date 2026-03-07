@@ -1,42 +1,32 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from './card'
-import { Button } from './button'
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./card";
+import { Button } from "./button";
 
 const meta = {
-  title: 'UI/Card',
+  argTypes: {
+    className: { control: "text" },
+  },
   component: Card,
   parameters: {
-    layout: 'padded',
+    layout: "padded",
   },
-  tags: ['autodocs'],
-  argTypes: {
-    className: { control: 'text' },
-  },
-} satisfies Meta<typeof Card>
+  tags: ["autodocs"],
+  title: "UI/Card",
+} satisfies Meta<typeof Card>;
 
-export default meta
-type Story = StoryObj<typeof meta>
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const Basic: Story = {
   render: (args) => (
     <Card {...args}>
       <CardHeader>
         <CardTitle>Card Title</CardTitle>
-        <CardDescription>
-          Optional description text for context.
-        </CardDescription>
+        <CardDescription>Optional description text for context.</CardDescription>
       </CardHeader>
       <CardContent>
         <p className="text-sm">
-          This is the card content area. Use it to place body text, forms, or
-          any custom content.
+          This is the card content area. Use it to place body text, forms, or any custom content.
         </p>
       </CardContent>
       <CardFooter>
@@ -44,11 +34,11 @@ export const Basic: Story = {
       </CardFooter>
     </Card>
   ),
-}
+};
 
 export const WithCustomStyles: Story = {
   args: {
-    className: 'border-primary/50 shadow-md bg-red-500',
+    className: "border-primary/50 shadow-md bg-red-500",
   },
   render: (args) => (
     <Card {...args}>
@@ -68,4 +58,4 @@ export const WithCustomStyles: Story = {
       </CardFooter>
     </Card>
   ),
-}
+};

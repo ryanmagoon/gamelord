@@ -1,16 +1,16 @@
-import type { BrowserWindow } from 'electron'
+import type { BrowserWindow } from "electron";
 
 /** Duration of the OS-level window open/morph animation in ms. */
-export const WINDOW_OPEN_ANIMATION_DURATION = 300
+export const WINDOW_OPEN_ANIMATION_DURATION = 300;
 
 /** Number of discrete animation steps (~60fps at 300ms). */
-export const WINDOW_OPEN_ANIMATION_STEPS = 18
+export const WINDOW_OPEN_ANIMATION_STEPS = 18;
 
 interface Bounds {
-  x: number
-  y: number
-  width: number
-  height: number
+  height: number;
+  width: number;
+  x: number;
+  y: number;
 }
 
 /**
@@ -31,52 +31,56 @@ export function animateWindowOpen(
 ): Promise<void> {
   return new Promise<void>((resolve) => {
     if (window.isDestroyed()) {
-      resolve()
-      return
+      resolve();
+      return;
     }
 
-    const totalSteps = WINDOW_OPEN_ANIMATION_STEPS
-    const stepDuration = WINDOW_OPEN_ANIMATION_DURATION / totalSteps
-    let currentStep = 0
+    const totalSteps = WINDOW_OPEN_ANIMATION_STEPS;
+    const stepDuration = WINDOW_OPEN_ANIMATION_DURATION / totalSteps;
+    let currentStep = 0;
 
     // Start at the card's position with 0 opacity
-    window.setBounds(startBounds)
-    window.setOpacity(0)
-    window.showInactive()
+    window.setBounds(startBounds);
+    window.setOpacity(0);
+    window.showInactive();
 
     const interval = setInterval(() => {
-      currentStep++
+      currentStep++;
 
       if (window.isDestroyed()) {
-        clearInterval(interval)
-        resolve()
-        return
+        clearInterval(interval);
+        resolve();
+        return;
       }
 
       // Progress from 0 → 1
-      const progress = currentStep / totalSteps
+      const progress = currentStep / totalSteps;
 
       // Cubic ease-out: starts fast, decelerates smoothly
-      const easedProgress = 1 - Math.pow(1 - progress, 3)
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
 
       // Fade opacity from 0 to 1
-      window.setOpacity(easedProgress)
+      window.setOpacity(easedProgress);
 
       // Interpolate bounds from start to end
-      const newX = Math.round(startBounds.x + (endBounds.x - startBounds.x) * easedProgress)
-      const newY = Math.round(startBounds.y + (endBounds.y - startBounds.y) * easedProgress)
-      const newWidth = Math.round(startBounds.width + (endBounds.width - startBounds.width) * easedProgress)
-      const newHeight = Math.round(startBounds.height + (endBounds.height - startBounds.height) * easedProgress)
-      window.setBounds({ x: newX, y: newY, width: newWidth, height: newHeight })
+      const newX = Math.round(startBounds.x + (endBounds.x - startBounds.x) * easedProgress);
+      const newY = Math.round(startBounds.y + (endBounds.y - startBounds.y) * easedProgress);
+      const newWidth = Math.round(
+        startBounds.width + (endBounds.width - startBounds.width) * easedProgress,
+      );
+      const newHeight = Math.round(
+        startBounds.height + (endBounds.height - startBounds.height) * easedProgress,
+      );
+      window.setBounds({ height: newHeight, width: newWidth, x: newX, y: newY });
 
       if (currentStep >= totalSteps) {
-        clearInterval(interval)
+        clearInterval(interval);
         // Ensure final state is exact
-        window.setOpacity(1)
-        window.setBounds(endBounds)
-        window.focus()
-        resolve()
+        window.setOpacity(1);
+        window.setBounds(endBounds);
+        window.focus();
+        resolve();
       }
-    }, stepDuration)
-  })
+    }, stepDuration);
+  });
 }

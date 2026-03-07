@@ -1,12 +1,12 @@
-import { EventEmitter } from 'events';
-import { promises as fs } from 'fs';
-import * as fsSync from 'fs';
-import path from 'path';
-import https from 'https';
-import { app } from 'electron';
-import { artworkLog } from '../logger';
-import { LibraryService } from './LibraryService';
-import { ScreenScraperClient, ScreenScraperError } from './ScreenScraperClient';
+import { EventEmitter } from "node:events";
+import { promises as fs } from "node:fs";
+import * as fsSync from "node:fs";
+import path from "node:path";
+import https from "node:https";
+import { app } from "electron";
+import { artworkLog } from "../logger";
+import { LibraryService } from "./LibraryService";
+import { ScreenScraperClient, ScreenScraperError } from "./ScreenScraperClient";
 import {
   ArtworkConfig,
   ArtworkErrorCode,
@@ -14,18 +14,18 @@ import {
   ArtworkSyncStatus,
   ScreenScraperCredentials,
   ScreenScraperGameInfo,
-} from '../../types/artwork';
-import { readImageDimensions } from '../utils/readImageDimensions';
-import { getRegionalSystemName } from '../../types/library';
+} from "../../types/artwork";
+import { readImageDimensions } from "../utils/readImageDimensions";
+import { getRegionalSystemName } from "../../types/library";
 
 /** Minimum delay between API requests in milliseconds. */
 const RATE_LIMIT_DELAY_MS = 1100;
 
 /** Backoff delay after a rate limit (429) response. */
-const RATE_LIMIT_BACKOFF_MS = 10000;
+const RATE_LIMIT_BACKOFF_MS = 10_000;
 
 /** Timeout for image downloads in milliseconds (30 seconds). */
-const DOWNLOAD_TIMEOUT_MS = 30000;
+const DOWNLOAD_TIMEOUT_MS = 30_000;
 
 /**
  * Orchestrates the artwork and metadata pipeline:
@@ -46,9 +46,9 @@ export class ArtworkService extends EventEmitter {
   constructor(libraryService: LibraryService) {
     super();
     this.libraryService = libraryService;
-    const userData = app.getPath('userData');
-    this.artworkDirectory = path.join(userData, 'artwork');
-    this.configPath = path.join(userData, 'artwork-config.json');
+    const userData = app.getPath("userData");
+    this.artworkDirectory = path.join(userData, "artwork");
+    this.configPath = path.join(userData, "artwork-config.json");
     this.loadConfig();
 
     // Backfill aspect ratios for games that have cover art but no stored ratio
@@ -64,22 +64,24 @@ export class ArtworkService extends EventEmitter {
     const games = this.libraryService.getGames();
     // Also re-check games clamped at the old boundaries (0.5 or 1.2) — they
     // may have been truncated by a tighter clamp range.
-    const needsBackfill = games.filter(g =>
-      g.coverArt && (
-        g.coverArtAspectRatio === undefined ||
-        g.coverArtAspectRatio === 0.5 ||
-        g.coverArtAspectRatio === 1.2
-      ),
+    const needsBackfill = games.filter(
+      (g) =>
+        g.coverArt &&
+        (g.coverArtAspectRatio === undefined ||
+          g.coverArtAspectRatio === 0.5 ||
+          g.coverArtAspectRatio === 1.2),
     );
 
-    if (needsBackfill.length === 0) return;
+    if (needsBackfill.length === 0) {
+      return;
+    }
 
     artworkLog.info(`Backfilling aspect ratios for ${needsBackfill.length} game(s)`);
 
     for (const game of needsBackfill) {
       try {
         // Resolve artwork:// URL to filesystem path
-        const filename = game.coverArt!.replace('artwork://', '');
+        const filename = game.coverArt!.replace("artwork://", "");
         const filePath = path.join(this.artworkDirectory, filename);
 
         const dimensions = await readImageDimensions(filePath);
@@ -89,7 +91,10 @@ export class ArtworkService extends EventEmitter {
           await this.libraryService.updateGame(game.id, { coverArtAspectRatio });
         }
       } catch (error) {
-        artworkLog.error(`Failed to backfill aspect ratio for ${game.title}:`, error instanceof Error ? error.message : error);
+        artworkLog.error(
+          `Failed to backfill aspect ratio for ${game.title}:`,
+          error instanceof Error ? error.message : error,
+        );
       }
     }
   }
@@ -111,8 +116,8 @@ export class ArtworkService extends EventEmitter {
     userPassword: string,
   ): Promise<{ valid: boolean; error?: string; errorCode?: ArtworkErrorCode }> {
     const credentials: ScreenScraperCredentials = {
-      devId: process.env.SCREENSCRAPER_DEV_ID ?? '',
-      devPassword: process.env.SCREENSCRAPER_DEV_PASSWORD ?? '',
+      devId: process.env.SCREENSCRAPER_DEV_ID ?? "",
+      devPassword: process.env.SCREENSCRAPER_DEV_PASSWORD ?? "",
       userId,
       userPassword,
     };
@@ -124,11 +129,15 @@ export class ArtworkService extends EventEmitter {
       return { valid: true };
     } catch (error) {
       if (error instanceof ScreenScraperError) {
-        return { valid: false, error: error.message, errorCode: error.errorCode as ArtworkErrorCode };
+        return {
+          valid: false,
+          error: error.message,
+          errorCode: error.errorCode as ArtworkErrorCode,
+        };
       }
       return {
         valid: false,
-        error: error instanceof Error ? error.message : 'Unknown error validating credentials.',
+        error: error instanceof Error ? error.message : "Unknown error validating credentials.",
       };
     }
   }
@@ -161,9 +170,13 @@ export class ArtworkService extends EventEmitter {
    */
   async syncGame(gameId: string, force = false): Promise<boolean> {
     const game = this.libraryService.getGame(gameId);
-    if (!game) return false;
+    if (!game) {
+      return false;
+    }
 
-    if (game.coverArt && !force) return true;
+    if (game.coverArt && !force) {
+      return true;
+    }
 
     const client = this.createClient();
 
@@ -177,10 +190,10 @@ export class ArtworkService extends EventEmitter {
       gameInfo = await client.fetchByHash(md5, game.systemId);
     } catch (error) {
       if (error instanceof ScreenScraperError) {
-        if (error.errorCode === 'auth-failed') {
+        if (error.errorCode === "auth-failed") {
           throw error; // Auth errors must propagate — never swallow
         }
-        if (error.errorCode === 'rate-limited') {
+        if (error.errorCode === "rate-limited") {
           await this.sleep(RATE_LIMIT_BACKOFF_MS);
         }
         // Other errors (timeout, network): fall through to name search
@@ -195,17 +208,20 @@ export class ArtworkService extends EventEmitter {
         await this.waitForRateLimit();
         gameInfo = await client.fetchByName(game.title, game.systemId);
       } catch (error) {
-        if (error instanceof ScreenScraperError && error.errorCode === 'auth-failed') {
+        if (error instanceof ScreenScraperError && error.errorCode === "auth-failed") {
           throw error; // Auth errors must propagate
         }
         // Other errors: game is genuinely not found via name search
       }
     }
 
-    if (!gameInfo) return false;
+    if (!gameInfo) {
+      return false;
+    }
 
     // Step 4: Download artwork
-    const artworkUrl = gameInfo.media.boxArt2d ?? gameInfo.media.boxArt3d ?? gameInfo.media.screenshot;
+    const artworkUrl =
+      gameInfo.media.boxArt2d ?? gameInfo.media.boxArt3d ?? gameInfo.media.screenshot;
     let coverArtPath: string | undefined;
     let coverArtAspectRatio: number | undefined;
     if (artworkUrl) {
@@ -222,14 +238,19 @@ export class ArtworkService extends EventEmitter {
         }
       } catch (error) {
         // Download failed — log but still save metadata
-        artworkLog.error(`Artwork download failed for ${game.title}:`, error instanceof Error ? error.message : error);
+        artworkLog.error(
+          `Artwork download failed for ${game.title}:`,
+          error instanceof Error ? error.message : error,
+        );
       }
     }
 
     // Step 5: Update game record (including regional system name if applicable)
     const regionalName = getRegionalSystemName(game.systemId, gameInfo.region);
     await this.libraryService.updateGame(gameId, {
-      ...(coverArtPath ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl!)}` } : {}),
+      ...(coverArtPath
+        ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl!)}` }
+        : {}),
       ...(coverArtAspectRatio !== undefined ? { coverArtAspectRatio } : {}),
       ...(regionalName ? { system: regionalName } : {}),
       metadata: {
@@ -259,16 +280,16 @@ export class ArtworkService extends EventEmitter {
     this.cancelled = false;
 
     const allGames = this.libraryService.getGames();
-    const gamesToSync = allGames.filter(game => !game.coverArt);
+    const gamesToSync = allGames.filter((game) => !game.coverArt);
 
-    return this.runSyncBatch(gamesToSync.map(game => game.id));
+    return this.runSyncBatch(gamesToSync.map((game) => game.id));
   }
 
   /**
    * Sync artwork for a specific list of game IDs.
    * Used for auto-sync after ROM import to avoid re-syncing the entire library.
    */
-  async syncGames(gameIds: string[]): Promise<ArtworkSyncStatus> {
+  async syncGames(gameIds: Array<string>): Promise<ArtworkSyncStatus> {
     if (this.syncing) {
       return { inProgress: true, processed: 0, total: 0, found: 0, notFound: 0, errors: 0 };
     }
@@ -277,7 +298,7 @@ export class ArtworkService extends EventEmitter {
     this.cancelled = false;
 
     // Filter to only games that exist and don't already have cover art
-    const filteredIds = gameIds.filter(id => {
+    const filteredIds = gameIds.filter((id) => {
       const game = this.libraryService.getGame(id);
       return game && !game.coverArt;
     });
@@ -305,12 +326,17 @@ export class ArtworkService extends EventEmitter {
     return new Promise((resolve, reject) => {
       const follow = (targetUrl: string, redirectCount: number) => {
         if (redirectCount > 5) {
-          reject(new Error('Too many redirects while downloading artwork'));
+          reject(new Error("Too many redirects while downloading artwork"));
           return;
         }
 
         const request = https.get(targetUrl, (response) => {
-          if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          if (
+            response.statusCode &&
+            response.statusCode >= 300 &&
+            response.statusCode < 400 &&
+            response.headers.location
+          ) {
             response.destroy();
             follow(response.headers.location, redirectCount + 1);
             return;
@@ -324,23 +350,25 @@ export class ArtworkService extends EventEmitter {
 
           const file = fsSync.createWriteStream(destPath);
           response.pipe(file);
-          file.on('finish', () => {
+          file.on("finish", () => {
             file.close();
             resolve(destPath);
           });
-          file.on('error', (err) => {
-            fsSync.unlink(destPath, (_err) => { /* best-effort cleanup */ });
+          file.on("error", (err) => {
+            fsSync.unlink(destPath, (_err) => {
+              /* best-effort cleanup */
+            });
             reject(err);
           });
         });
 
-        request.on('error', (error) => {
+        request.on("error", (error) => {
           reject(new Error(`Network error downloading artwork: ${error.message}`));
         });
 
         request.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
           request.destroy();
-          reject(new Error('Artwork download timed out after 30 seconds'));
+          reject(new Error("Artwork download timed out after 30 seconds"));
         });
       };
 
@@ -357,20 +385,20 @@ export class ArtworkService extends EventEmitter {
   private createClient(): ScreenScraperClient {
     if (!this.config.screenscraper?.userId || !this.config.screenscraper?.userPassword) {
       throw new ScreenScraperError(
-        'ScreenScraper user credentials are not configured. Please set your account in the credentials dialog.',
+        "ScreenScraper user credentials are not configured. Please set your account in the credentials dialog.",
         0,
-        'auth-failed',
+        "auth-failed",
       );
     }
 
-    const devId = process.env.SCREENSCRAPER_DEV_ID ?? '';
-    const devPassword = process.env.SCREENSCRAPER_DEV_PASSWORD ?? '';
+    const devId = process.env.SCREENSCRAPER_DEV_ID ?? "";
+    const devPassword = process.env.SCREENSCRAPER_DEV_PASSWORD ?? "";
 
     if (!devId || !devPassword) {
       throw new ScreenScraperError(
-        'ScreenScraper developer credentials are not configured in .env — artwork sync will not work.',
+        "ScreenScraper developer credentials are not configured in .env — artwork sync will not work.",
         0,
-        'config-error',
+        "config-error",
       );
     }
 
@@ -388,7 +416,7 @@ export class ArtworkService extends EventEmitter {
    * Internal batch sync implementation shared by syncAllGames() and syncGames().
    * Processes game IDs serially with rate limiting, progress emission, and cancellation.
    */
-  private async runSyncBatch(gameIds: string[]): Promise<ArtworkSyncStatus> {
+  private async runSyncBatch(gameIds: Array<string>): Promise<ArtworkSyncStatus> {
     const total = gameIds.length;
     let processed = 0;
     let found = 0;
@@ -396,7 +424,9 @@ export class ArtworkService extends EventEmitter {
     let errors = 0;
 
     for (const gameId of gameIds) {
-      if (this.cancelled) break;
+      if (this.cancelled) {
+        break;
+      }
 
       const game = this.libraryService.getGame(gameId);
       if (!game) {
@@ -407,7 +437,7 @@ export class ArtworkService extends EventEmitter {
       this.emitProgress({
         gameId: game.id,
         gameTitle: game.title,
-        phase: 'hashing',
+        phase: "hashing",
         current: processed + 1,
         total,
       });
@@ -416,7 +446,7 @@ export class ArtworkService extends EventEmitter {
         this.emitProgress({
           gameId: game.id,
           gameTitle: game.title,
-          phase: 'querying',
+          phase: "querying",
           current: processed + 1,
           total,
         });
@@ -430,7 +460,7 @@ export class ArtworkService extends EventEmitter {
           this.emitProgress({
             gameId: game.id,
             gameTitle: game.title,
-            phase: 'done',
+            phase: "done",
             current: processed + 1,
             total,
             coverArt: updatedGame?.coverArt,
@@ -441,7 +471,7 @@ export class ArtworkService extends EventEmitter {
           this.emitProgress({
             gameId: game.id,
             gameTitle: game.title,
-            phase: 'not-found',
+            phase: "not-found",
             current: processed + 1,
             total,
           });
@@ -450,14 +480,12 @@ export class ArtworkService extends EventEmitter {
         errors++;
 
         const errorCode: ArtworkErrorCode | undefined =
-          error instanceof ScreenScraperError
-            ? (error.errorCode as ArtworkErrorCode)
-            : undefined;
+          error instanceof ScreenScraperError ? (error.errorCode as ArtworkErrorCode) : undefined;
 
         this.emitProgress({
           gameId: game.id,
           gameTitle: game.title,
-          phase: 'error',
+          phase: "error",
           current: processed + 1,
           total,
           error: error instanceof Error ? error.message : String(error),
@@ -465,7 +493,7 @@ export class ArtworkService extends EventEmitter {
         });
 
         // Auth and config failures should stop the entire batch — no point continuing
-        if (errorCode === 'auth-failed' || errorCode === 'config-error') {
+        if (errorCode === "auth-failed" || errorCode === "config-error") {
           break;
         }
       }
@@ -474,8 +502,15 @@ export class ArtworkService extends EventEmitter {
     }
 
     this.syncing = false;
-    const status: ArtworkSyncStatus = { inProgress: false, processed, total, found, notFound, errors };
-    this.emit('syncComplete', status);
+    const status: ArtworkSyncStatus = {
+      inProgress: false,
+      processed,
+      total,
+      found,
+      notFound,
+      errors,
+    };
+    this.emit("syncComplete", status);
     return status;
   }
 
@@ -489,23 +524,23 @@ export class ArtworkService extends EventEmitter {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private emitProgress(progress: ArtworkProgress): void {
-    this.emit('progress', progress);
+    this.emit("progress", progress);
   }
 
   /** Extract the file extension from an image URL. */
   private getImageExtension(url: string): string {
     const urlPath = new URL(url).pathname;
     const ext = path.extname(urlPath).toLowerCase();
-    return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext) ? ext : '.png';
+    return [".png", ".jpg", ".jpeg", ".webp"].includes(ext) ? ext : ".png";
   }
 
   private async loadConfig(): Promise<void> {
     try {
-      const data = await fs.readFile(this.configPath, 'utf-8');
+      const data = await fs.readFile(this.configPath, "utf8");
       this.config = JSON.parse(data);
     } catch {
       this.config = {};

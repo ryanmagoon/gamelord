@@ -1,13 +1,13 @@
-import { VideoFrame } from '../types/global';
-import { ShaderManager } from './ShaderManager';
-import { FramebufferManager } from './FramebufferManager';
-import { LutLoader } from './LutLoader';
-import { defaultVertexShader } from './shaders';
-import { PRESET_LIST, PRESET_MAP } from './presets';
-import type { ShaderPresetDefinition, ShaderPassDefinition, FilterMode } from './types';
+import { VideoFrame } from "../types/global";
+import { ShaderManager } from "./ShaderManager";
+import { FramebufferManager } from "./FramebufferManager";
+import { LutLoader } from "./LutLoader";
+import { defaultVertexShader } from "./shaders";
+import { PRESET_LIST, PRESET_MAP } from "./presets";
+import type { ShaderPresetDefinition, ShaderPassDefinition, FilterMode } from "./types";
 
 /** Preset ids for the shader menu. */
-export const SHADER_PRESETS: string[] = PRESET_LIST.map((p) => p.id);
+export const SHADER_PRESETS: Array<string> = PRESET_LIST.map((p) => p.id);
 
 /** Human-readable labels keyed by preset id. */
 export const SHADER_LABELS: Record<string, string> = Object.fromEntries(
@@ -27,9 +27,9 @@ export class WebGLRenderer {
   private lutLoader: LutLoader | null = null;
   private originalTexture: WebGLTexture | null = null;
   private vertexBuffer: WebGLBuffer | null = null;
-  private currentPresetId = 'default';
+  private currentPresetId = "default";
   private currentPreset: ShaderPresetDefinition | null = null;
-  private compiledPasses: CompiledPass[] = [];
+  private compiledPasses: Array<CompiledPass> = [];
   private frameWidth = 256;
   private frameHeight = 240;
   private frameCount = 0;
@@ -39,16 +39,16 @@ export class WebGLRenderer {
   }
 
   initialize(): void {
-    const gl = this.canvas.getContext('webgl2', {
+    const gl = this.canvas.getContext("webgl2", {
       alpha: false,
       antialias: false,
       depth: false,
-      powerPreference: 'high-performance',
+      powerPreference: "high-performance",
       preserveDrawingBuffer: false,
     });
 
     if (!gl) {
-      throw new Error('WebGL2 not supported');
+      throw new Error("WebGL2 not supported");
     }
 
     this.gl = gl;
@@ -57,19 +57,14 @@ export class WebGLRenderer {
     this.lutLoader = new LutLoader(gl);
 
     // Enable float texture rendering if available
-    gl.getExtension('EXT_color_buffer_float');
-    gl.getExtension('EXT_color_buffer_half_float');
+    gl.getExtension("EXT_color_buffer_float");
+    gl.getExtension("EXT_color_buffer_half_float");
 
     // Full-screen quad: position (x,y) + texCoord (u,v)
     // Standard OpenGL tex coords: (0,0) at bottom-left, (1,1) at top-right.
     // Source textures are uploaded with UNPACK_FLIP_Y_WEBGL=true so they match
     // OpenGL's bottom-up convention, making coords consistent across all passes.
-    const vertices = new Float32Array([
-      -1, -1, 0, 0,
-       1, -1, 1, 0,
-      -1,  1, 0, 1,
-       1,  1, 1, 1,
-    ]);
+    const vertices = new Float32Array([-1, -1, 0, 0, 1, -1, 1, 0, -1, 1, 0, 1, 1, 1, 1, 1]);
 
     this.vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
@@ -89,11 +84,13 @@ export class WebGLRenderer {
     gl.clearColor(0, 0, 0, 1);
 
     // Compile default preset
-    this.applyPreset('default');
+    this.applyPreset("default");
   }
 
   renderFrame(frame: VideoFrame): void {
-    if (!this.gl || !this.originalTexture || !this.shaderManager || !this.framebufferManager) return;
+    if (!this.gl || !this.originalTexture || !this.shaderManager || !this.framebufferManager) {
+      return;
+    }
 
     const gl = this.gl;
 
@@ -105,14 +102,19 @@ export class WebGLRenderer {
     // Upload raw frame to originalTexture.
     // frame.data may be an ArrayBuffer (IPC path) or a Uint8Array view
     // into a SharedArrayBuffer (zero-copy SAB path).
-    const data = frame.data instanceof Uint8Array
-      ? frame.data
-      : new Uint8Array(frame.data as ArrayBuffer);
+    const data =
+      frame.data instanceof Uint8Array ? frame.data : new Uint8Array(frame.data as ArrayBuffer);
     gl.bindTexture(gl.TEXTURE_2D, this.originalTexture);
     gl.texImage2D(
-      gl.TEXTURE_2D, 0, gl.RGBA,
-      this.frameWidth, this.frameHeight, 0,
-      gl.RGBA, gl.UNSIGNED_BYTE, data,
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      this.frameWidth,
+      this.frameHeight,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      data,
     );
 
     const passes = this.compiledPasses;
@@ -127,7 +129,11 @@ export class WebGLRenderer {
         // passes the previous output size would be more accurate, but at
         // pre-allocation time we don't have the chain yet. Source-scaled
         // passes (the common case) always match the frame dimensions.
-        const { width: w, height: h } = this.computePassSize(def, this.frameWidth, this.frameHeight);
+        const { height: h, width: w } = this.computePassSize(
+          def,
+          this.frameWidth,
+          this.frameHeight,
+        );
         this.framebufferManager.getFeedbackPair(`feedback_${i}`, w, h, def.format);
       }
     }
@@ -142,7 +148,7 @@ export class WebGLRenderer {
       const isLastPass = i === passCount - 1;
 
       // Compute output dimensions based on scale config
-      const { width: outputWidth, height: outputHeight } = this.computePassSize(
+      const { height: outputHeight, width: outputWidth } = this.computePassSize(
         definition,
         previousWidth,
         previousHeight,
@@ -152,12 +158,15 @@ export class WebGLRenderer {
       // For feedback passes: always render to the feedback FBO first.
       // For the last pass: render to screen (or to feedback FBO then re-draw to screen).
       const hasFeedback = !!definition.feedback;
-      let feedbackPair: ReturnType<FramebufferManager['getFeedbackPair']> | null = null;
+      let feedbackPair: ReturnType<FramebufferManager["getFeedbackPair"]> | null = null;
 
       if (hasFeedback) {
         const feedbackKey = `feedback_${i}`;
         feedbackPair = this.framebufferManager.getFeedbackPair(
-          feedbackKey, outputWidth, outputHeight, definition.format,
+          feedbackKey,
+          outputWidth,
+          outputHeight,
+          definition.format,
         );
       }
 
@@ -172,7 +181,13 @@ export class WebGLRenderer {
         gl.viewport(0, 0, this.canvas.width, this.canvas.height);
       } else {
         const fboKey = `pass_${i}`;
-        const fbo = this.framebufferManager.getFramebuffer(fboKey, outputWidth, outputHeight, definition.format, !!definition.mipmap);
+        const fbo = this.framebufferManager.getFramebuffer(
+          fboKey,
+          outputWidth,
+          outputHeight,
+          definition.format,
+          !!definition.mipmap,
+        );
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.framebuffer);
         gl.viewport(0, 0, outputWidth, outputHeight);
       }
@@ -182,13 +197,15 @@ export class WebGLRenderer {
       // Use this pass's shader program
       this.shaderManager.useShader(programKey);
       const program = this.shaderManager.getCurrentShader();
-      if (!program) continue;
+      if (!program) {
+        continue;
+      }
 
       gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
 
       // Attributes
-      const positionLoc = gl.getAttribLocation(program, 'a_position');
-      const texCoordLoc = gl.getAttribLocation(program, 'a_texCoord');
+      const positionLoc = gl.getAttribLocation(program, "a_position");
+      const texCoordLoc = gl.getAttribLocation(program, "a_texCoord");
 
       gl.enableVertexAttribArray(positionLoc);
       gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 16, 0);
@@ -203,7 +220,7 @@ export class WebGLRenderer {
       gl.activeTexture(gl.TEXTURE0 + textureUnit);
       gl.bindTexture(gl.TEXTURE_2D, previousTexture);
       this.applyFilter(definition.filter);
-      gl.uniform1i(gl.getUniformLocation(program, 'u_texture'), textureUnit);
+      gl.uniform1i(gl.getUniformLocation(program, "u_texture"), textureUnit);
       textureUnit++;
 
       // Original texture (always the raw frame)
@@ -211,7 +228,7 @@ export class WebGLRenderer {
       gl.bindTexture(gl.TEXTURE_2D, this.originalTexture);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      gl.uniform1i(gl.getUniformLocation(program, 'u_original'), textureUnit);
+      gl.uniform1i(gl.getUniformLocation(program, "u_original"), textureUnit);
       textureUnit++;
 
       // Feedback texture (for ping-pong passes)
@@ -220,7 +237,7 @@ export class WebGLRenderer {
         gl.bindTexture(gl.TEXTURE_2D, feedbackPair!.previous.texture);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.uniform1i(gl.getUniformLocation(program, 'u_feedback'), textureUnit);
+        gl.uniform1i(gl.getUniformLocation(program, "u_feedback"), textureUnit);
         textureUnit++;
       }
 
@@ -242,9 +259,9 @@ export class WebGLRenderer {
         for (const [uniformName, ref] of Object.entries(definition.extraInputs)) {
           let tex: WebGLTexture | null = null;
 
-          if (ref.startsWith('feedback:')) {
+          if (ref.startsWith("feedback:")) {
             // Cross-pass feedback: read another pass's previous-frame output
-            const targetAlias = ref.slice('feedback:'.length);
+            const targetAlias = ref.slice("feedback:".length);
             const targetPassIndex = this.compiledPasses.findIndex(
               (p) => p.definition.alias === targetAlias,
             );
@@ -253,9 +270,7 @@ export class WebGLRenderer {
             }
           } else {
             // Regular alias: read another pass's current-frame output
-            const aliasPassIndex = this.compiledPasses.findIndex(
-              (p) => p.definition.alias === ref,
-            );
+            const aliasPassIndex = this.compiledPasses.findIndex((p) => p.definition.alias === ref);
             if (aliasPassIndex >= 0) {
               tex = this.framebufferManager.getTexture(`pass_${aliasPassIndex}`);
             }
@@ -273,11 +288,15 @@ export class WebGLRenderer {
       // Set standard uniforms
       const canvasWidth = isLastPass ? this.canvas.width : outputWidth;
       const canvasHeight = isLastPass ? this.canvas.height : outputHeight;
-      gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), canvasWidth, canvasHeight);
-      gl.uniform2f(gl.getUniformLocation(program, 'u_textureSize'), previousWidth, previousHeight);
-      gl.uniform2f(gl.getUniformLocation(program, 'u_originalSize'), this.frameWidth, this.frameHeight);
-      gl.uniform1f(gl.getUniformLocation(program, 'u_time'), performance.now() / 1000.0);
-      gl.uniform1i(gl.getUniformLocation(program, 'u_frameCount'), this.frameCount);
+      gl.uniform2f(gl.getUniformLocation(program, "u_resolution"), canvasWidth, canvasHeight);
+      gl.uniform2f(gl.getUniformLocation(program, "u_textureSize"), previousWidth, previousHeight);
+      gl.uniform2f(
+        gl.getUniformLocation(program, "u_originalSize"),
+        this.frameWidth,
+        this.frameHeight,
+      );
+      gl.uniform1f(gl.getUniformLocation(program, "u_time"), performance.now() / 1000.0);
+      gl.uniform1i(gl.getUniformLocation(program, "u_frameCount"), this.frameCount);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -294,7 +313,12 @@ export class WebGLRenderer {
       // can read this pass's output via getTexture().
       if (hasFeedback && !isLastPass) {
         const fboKey = `pass_${i}`;
-        const fbo = this.framebufferManager.getFramebuffer(fboKey, outputWidth, outputHeight, definition.format);
+        const fbo = this.framebufferManager.getFramebuffer(
+          fboKey,
+          outputWidth,
+          outputHeight,
+          definition.format,
+        );
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.framebuffer);
         gl.viewport(0, 0, outputWidth, outputHeight);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -322,14 +346,18 @@ export class WebGLRenderer {
   }
 
   resize(width: number, height: number): void {
-    if (!this.gl) return;
+    if (!this.gl) {
+      return;
+    }
     this.canvas.width = width;
     this.canvas.height = height;
     this.gl.viewport(0, 0, width, height);
   }
 
   setShader(presetId: string): void {
-    if (this.currentPresetId === presetId) return;
+    if (this.currentPresetId === presetId) {
+      return;
+    }
     this.applyPreset(presetId);
   }
 
@@ -339,10 +367,16 @@ export class WebGLRenderer {
 
   destroy(): void {
     const gl = this.gl;
-    if (!gl) return;
+    if (!gl) {
+      return;
+    }
 
-    if (this.originalTexture) gl.deleteTexture(this.originalTexture);
-    if (this.vertexBuffer) gl.deleteBuffer(this.vertexBuffer);
+    if (this.originalTexture) {
+      gl.deleteTexture(this.originalTexture);
+    }
+    if (this.vertexBuffer) {
+      gl.deleteBuffer(this.vertexBuffer);
+    }
 
     this.framebufferManager?.destroy();
     this.lutLoader?.destroy();
@@ -375,8 +409,8 @@ export class WebGLRenderer {
 
     // Load LUTs asynchronously (non-blocking — they'll be available next frame)
     if (preset.luts.length > 0 && this.lutLoader) {
-      this.lutLoader.loadAll(preset.luts).catch((err) => {
-        console.error('Failed to load LUT textures:', err);
+      this.lutLoader.loadAll(preset.luts).catch((error) => {
+        console.error("Failed to load LUT textures:", error);
       });
     }
 
@@ -387,30 +421,30 @@ export class WebGLRenderer {
     pass: ShaderPassDefinition,
     previousWidth: number,
     previousHeight: number,
-  ): { width: number; height: number } {
+  ): { height: number; width: number } {
     switch (pass.scale.type) {
-      case 'source':
+      case "source":
         return {
-          width: Math.round(previousWidth * pass.scale.x),
           height: Math.round(previousHeight * pass.scale.y),
+          width: Math.round(previousWidth * pass.scale.x),
         };
-      case 'absolute':
+      case "absolute":
         return {
-          width: Math.round(pass.scale.x),
           height: Math.round(pass.scale.y),
+          width: Math.round(pass.scale.x),
         };
-      case 'viewport':
+      case "viewport":
       default:
         return {
-          width: Math.round(this.canvas.width * pass.scale.x),
           height: Math.round(this.canvas.height * pass.scale.y),
+          width: Math.round(this.canvas.width * pass.scale.x),
         };
     }
   }
 
   private applyFilter(filter: FilterMode): void {
     const gl = this.gl!;
-    const glFilter = filter === 'linear' ? gl.LINEAR : gl.NEAREST;
+    const glFilter = filter === "linear" ? gl.LINEAR : gl.NEAREST;
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter);
   }
