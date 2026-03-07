@@ -642,7 +642,7 @@ export const LibraryView: React.FC<{
             setTimeout(() => {
               setIsRevealing(false)
               const root = document.getElementById('root')
-              if (root) root.style.willChange = 'auto'
+              if (root) { root.style.willChange = 'auto'; }
             }, 500)
           })
         })
@@ -698,7 +698,7 @@ export const LibraryView: React.FC<{
       <div
         className="h-full"
         style={{
-          opacity: contentRevealed ? 1 : 0,
+          opacity: shouldReveal ? 1 : 0,
           transition: 'opacity 250ms ease',
         }}
       >

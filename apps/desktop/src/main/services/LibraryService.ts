@@ -200,7 +200,7 @@ export class LibraryService extends EventEmitter {
     const bakPath = `${filePath}.bak`;
     const content = JSON.stringify(data, null, 2);
 
-    await fs.writeFile(tmpPath, content, 'utf-8');
+    await fs.writeFile(tmpPath, content, 'utf8');
 
     try {
       await fs.rename(filePath, bakPath);
@@ -219,12 +219,12 @@ export class LibraryService extends EventEmitter {
     let data: string | undefined;
 
     try {
-      data = await fs.readFile(this.libraryPath, "utf-8");
+      data = await fs.readFile(this.libraryPath, "utf8");
       JSON.parse(data); // Validate JSON before using
     } catch {
       // Primary file missing or corrupt — try backup
       try {
-        data = await fs.readFile(`${this.libraryPath}.bak`, "utf-8");
+        data = await fs.readFile(`${this.libraryPath}.bak`, "utf8");
         JSON.parse(data);
         libraryLog.warn("Primary library.json was corrupt/missing; loaded from backup");
       } catch {

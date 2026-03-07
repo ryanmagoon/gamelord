@@ -1208,11 +1208,11 @@ describe("LibraryService", () => {
       expect(fs.existsSync(bakPath)).toBe(true)
 
       // The backup should contain the first game but not the second
-      const bakData: Game[] = JSON.parse(fs.readFileSync(bakPath, 'utf-8'))
+      const bakData: Array<Game> = JSON.parse(fs.readFileSync(bakPath, 'utf8'))
       expect(bakData).toHaveLength(1)
 
       // The primary file should have both games
-      const primaryData: Game[] = JSON.parse(fs.readFileSync(path.join(USER_DATA_DIR, 'library.json'), 'utf-8'))
+      const primaryData: Array<Game> = JSON.parse(fs.readFileSync(path.join(USER_DATA_DIR, 'library.json'), 'utf8'))
       expect(primaryData).toHaveLength(2)
 
       fs.unlinkSync(romPath)

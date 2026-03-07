@@ -9,7 +9,7 @@ import path from 'node:path'
  */
 describe('graceful startup — index.html', () => {
   const htmlPath = path.resolve(__dirname, '../../index.html')
-  const html = fs.readFileSync(htmlPath, 'utf-8')
+  const html = fs.readFileSync(htmlPath, 'utf8')
 
   it('has an inline theme script that reads localStorage and sets colorScheme', () => {
     expect(html).toContain("localStorage.getItem('gamelord:theme')")
@@ -38,7 +38,7 @@ describe('graceful startup — index.html', () => {
  */
 describe('graceful startup — LibraryView', () => {
   const libraryViewPath = path.resolve(__dirname, '../renderer/components/LibraryView.tsx')
-  const source = fs.readFileSync(libraryViewPath, 'utf-8')
+  const source = fs.readFileSync(libraryViewPath, 'utf8')
 
   it('adds the mounted class to #root after library loads', () => {
     expect(source).toContain("classList.add('mounted')")
@@ -62,7 +62,7 @@ describe('graceful startup — LibraryView', () => {
  */
 describe('graceful startup — main process', () => {
   const mainPath = path.resolve(__dirname, '../main.ts')
-  const mainSource = fs.readFileSync(mainPath, 'utf-8')
+  const mainSource = fs.readFileSync(mainPath, 'utf8')
 
   it('creates BrowserWindow with show: false', () => {
     expect(mainSource).toMatch(/show:\s*false/)
@@ -90,7 +90,7 @@ describe('graceful startup — main process', () => {
  */
 describe('graceful startup — preload', () => {
   const preloadPath = path.resolve(__dirname, '../preload.ts')
-  const preloadSource = fs.readFileSync(preloadPath, 'utf-8')
+  const preloadSource = fs.readFileSync(preloadPath, 'utf8')
 
   it('exposes contentReady that sends the app:contentReady IPC signal', () => {
     expect(preloadSource).toContain("contentReady")
@@ -103,7 +103,7 @@ describe('graceful startup — preload', () => {
  */
 describe('graceful startup — LibraryView contentReady', () => {
   const libraryViewPath = path.resolve(__dirname, '../renderer/components/LibraryView.tsx')
-  const source = fs.readFileSync(libraryViewPath, 'utf-8')
+  const source = fs.readFileSync(libraryViewPath, 'utf8')
 
   it('calls api.contentReady() when library data finishes loading', () => {
     expect(source).toContain('api.contentReady()')
@@ -122,7 +122,7 @@ describe('graceful startup — LibraryView contentReady', () => {
  */
 describe('graceful startup — GameLibrary onReady', () => {
   const libraryPath = path.resolve(__dirname, '../../../../packages/ui/components/GameLibrary.tsx')
-  const source = fs.readFileSync(libraryPath, 'utf-8')
+  const source = fs.readFileSync(libraryPath, 'utf8')
 
   it('accepts an onReady callback prop', () => {
     expect(source).toContain('onReady')
