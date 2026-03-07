@@ -189,23 +189,56 @@ export class LibraryService extends EventEmitter {
     libraryLog.info(`Scaffolded ROM folders in ${basePath}`);
   }
 
+  /**
+   * Atomically write JSON data to a file with a `.bak` backup.
+   * Writes to a `.tmp` file first, renames the existing file to `.bak`,
+   * then renames `.tmp` to the final path. This ensures the file is
+   * never in a partially-written state.
+   */
+  private async atomicWriteJSON(filePath: string, data: unknown): Promise<void> {
+    const tmpPath = `${filePath}.tmp`;
+    const bakPath = `${filePath}.bak`;
+    const content = JSON.stringify(data, null, 2);
+
+    await fs.writeFile(tmpPath, content, 'utf-8');
+
+    try {
+      await fs.rename(filePath, bakPath);
+    } catch {
+      // First write ever — no existing file to back up
+    }
+
+    await fs.rename(tmpPath, filePath);
+  }
+
   private async saveConfig(): Promise<void> {
-    await fs.writeFile(this.configPath, JSON.stringify(this.config, null, 2));
+    await this.atomicWriteJSON(this.configPath, this.config);
   }
 
   private async loadLibrary(): Promise<void> {
+    let data: string | undefined;
+
     try {
-      const data = await fs.readFile(this.libraryPath, "utf8");
-      // Parse permissively — old library.json may have partial/missing romHashes
-      const games: Array<Game> = JSON.parse(data);
-      this.games = new Map(games.map((game) => [game.id, game]));
-      this.rebuildRomPathIndex();
-      await this.migrateGameIds();
-      await this.backfillRomHashes();
+      data = await fs.readFile(this.libraryPath, "utf-8");
+      JSON.parse(data); // Validate JSON before using
     } catch {
-      // No library file yet
-      this.games = new Map();
+      // Primary file missing or corrupt — try backup
+      try {
+        data = await fs.readFile(`${this.libraryPath}.bak`, "utf-8");
+        JSON.parse(data);
+        libraryLog.warn("Primary library.json was corrupt/missing; loaded from backup");
+      } catch {
+        // No backup either — start fresh
+        this.games = new Map();
+        return;
+      }
     }
+
+    const games: Array<Game> = JSON.parse(data);
+    this.games = new Map(games.map((game) => [game.id, game]));
+    this.rebuildRomPathIndex();
+    await this.migrateGameIds();
+    await this.backfillRomHashes();
   }
 
   /** Rebuild reverse indexes from the current games map. */
@@ -294,7 +327,7 @@ export class LibraryService extends EventEmitter {
 
   private async saveLibrary(): Promise<void> {
     const games = Array.from(this.games.values());
-    await fs.writeFile(this.libraryPath, JSON.stringify(games, null, 2));
+    await this.atomicWriteJSON(this.libraryPath, games);
   }
 
   public async addSystem(system: GameSystem): Promise<void> {

@@ -125,7 +125,10 @@ afterAll(() => {
 
 beforeEach(() => {
   // Clean userData files between tests so each test starts fresh
-  for (const file of ["library-config.json", "library.json"]) {
+  for (const file of [
+    "library-config.json", "library-config.json.bak", "library-config.json.tmp",
+    "library.json", "library.json.bak", "library.json.tmp",
+  ]) {
     const filePath = path.join(USER_DATA_DIR, file);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
@@ -1176,6 +1179,73 @@ describe("LibraryService", () => {
       fs.unlinkSync(romPath);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Atomic writes and backup fallback
+  // ---------------------------------------------------------------------------
+
+  describe('atomic writes and backup', () => {
+    it('creates a .bak backup of library.json on save', async () => {
+      const romPath = path.join(ROMS_DIR, 'backup_test.nes')
+      fs.writeFileSync(romPath, 'backup-test-data')
+
+      const service = await createService()
+      await service.addGame(romPath, 'nes')
+
+      // After addGame, saveLibrary should have been called, creating a .bak
+      // On first write there's no existing file to back up, so write a second time
+      const romPath2 = path.join(ROMS_DIR, 'backup_test2.nes')
+      fs.writeFileSync(romPath2, 'backup-test-data-2')
+      await service.addGame(romPath2, 'nes')
+
+      const bakPath = path.join(USER_DATA_DIR, 'library.json.bak')
+      expect(fs.existsSync(bakPath)).toBe(true)
+
+      // The backup should contain the first game but not the second
+      const bakData: Game[] = JSON.parse(fs.readFileSync(bakPath, 'utf-8'))
+      expect(bakData).toHaveLength(1)
+
+      // The primary file should have both games
+      const primaryData: Game[] = JSON.parse(fs.readFileSync(path.join(USER_DATA_DIR, 'library.json'), 'utf-8'))
+      expect(primaryData).toHaveLength(2)
+
+      fs.unlinkSync(romPath)
+      fs.unlinkSync(romPath2)
+    })
+
+    it('falls back to .bak when primary library.json is corrupt', async () => {
+      // Seed a valid backup
+      const validGames = [
+        {
+          id: sha256String('fallback-content'),
+          title: 'Fallback Game',
+          system: 'Nintendo Entertainment System',
+          systemId: 'nes',
+          romPath: '/test/fallback.nes',
+          romHashes: { crc32: '00000000', sha1: 'a'.repeat(40), md5: 'b'.repeat(32) },
+        },
+      ]
+      fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json.bak'), JSON.stringify(validGames, null, 2))
+
+      // Write corrupt primary
+      fs.writeFileSync(path.join(USER_DATA_DIR, 'library.json'), '{invalid json!!!}')
+
+      const service = await createService()
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const games = service.getGames()
+      expect(games).toHaveLength(1)
+      expect(games[0].title).toBe('Fallback Game')
+    })
+
+    it('starts fresh when both primary and backup are missing', async () => {
+      // No library.json or library.json.bak exist (cleaned by beforeEach)
+      const service = await createService()
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      expect(service.getGames()).toHaveLength(0)
+    })
+  })
 
   // ---------------------------------------------------------------------------
   // cleanGameTitle (tested indirectly through addGame)
