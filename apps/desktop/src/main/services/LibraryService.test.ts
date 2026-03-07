@@ -1254,6 +1254,73 @@ describe("LibraryService", () => {
   })
 
   // ---------------------------------------------------------------------------
+  // Artwork re-association
+  // ---------------------------------------------------------------------------
+
+  describe('artwork re-association', () => {
+    it('re-associates existing artwork file when a game is added via addGame', async () => {
+      const romPath = path.join(ROMS_DIR, 'artwork_reassoc.nes')
+      const content = 'artwork-reassoc-content'
+      fs.writeFileSync(romPath, content)
+
+      const gameId = sha256File(romPath)
+
+      // Pre-create an artwork file on disk as if a previous session downloaded it
+      const artworkDir = path.join(USER_DATA_DIR, 'artwork')
+      fs.mkdirSync(artworkDir, { recursive: true })
+      fs.writeFileSync(path.join(artworkDir, `${gameId}.png`), 'fake-png-data')
+
+      const service = await createService()
+      const game = await service.addGame(romPath, 'nes')
+
+      expect(game).not.toBeNull()
+      expect(game!.coverArt).toBe(`artwork://${gameId}.png`)
+
+      fs.unlinkSync(romPath)
+      fs.rmSync(artworkDir, { recursive: true, force: true })
+    })
+
+    it('does not set coverArt when no artwork file exists on disk', async () => {
+      const romPath = path.join(ROMS_DIR, 'no_artwork.nes')
+      fs.writeFileSync(romPath, 'no-artwork-content')
+
+      const service = await createService()
+      const game = await service.addGame(romPath, 'nes')
+
+      expect(game).not.toBeNull()
+      expect(game!.coverArt).toBeUndefined()
+
+      fs.unlinkSync(romPath)
+    })
+
+    it('re-associates artwork during scanDirectory for new games', async () => {
+      const scanDir = path.join(TEST_DIR, 'artwork-scan-test')
+      fs.mkdirSync(scanDir, { recursive: true })
+
+      const romPath = path.join(scanDir, 'scan_art_test.nes')
+      const content = 'scan-art-test-content'
+      fs.writeFileSync(romPath, content)
+
+      const gameId = sha256File(romPath)
+
+      // Pre-create artwork
+      const artworkDir = path.join(USER_DATA_DIR, 'artwork')
+      fs.mkdirSync(artworkDir, { recursive: true })
+      fs.writeFileSync(path.join(artworkDir, `${gameId}.png`), 'fake-png')
+
+      const service = await createService()
+      const games = await service.scanDirectory(scanDir, 'nes')
+
+      const game = games.find(g => g.id === gameId)
+      expect(game).toBeDefined()
+      expect(game!.coverArt).toBe(`artwork://${gameId}.png`)
+
+      fs.rmSync(scanDir, { recursive: true, force: true })
+      fs.rmSync(artworkDir, { recursive: true, force: true })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
   // cleanGameTitle (tested indirectly through addGame)
   // ---------------------------------------------------------------------------
 

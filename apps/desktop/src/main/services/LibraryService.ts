@@ -329,6 +329,29 @@ export class LibraryService extends EventEmitter {
     await this.atomicWriteJSON(this.libraryPath, games);
   }
 
+  /**
+   * Check if an artwork file already exists on disk for a game ID.
+   * Returns the `artwork://` URL if found, undefined otherwise.
+   * This handles re-association when a game was previously removed
+   * and later re-scanned — the artwork file survives on disk even
+   * though the game entry was deleted.
+   */
+  private async findExistingArtwork(gameId: string): Promise<string | undefined> {
+    const artworkDir = path.join(app.getPath('userData'), 'artwork');
+    const extensions = ['.png', '.jpg', '.jpeg', '.webp'];
+
+    for (const ext of extensions) {
+      const filePath = path.join(artworkDir, `${gameId}${ext}`);
+      try {
+        await fs.access(filePath);
+        return `artwork://${gameId}${ext}`;
+      } catch {
+        // File doesn't exist with this extension
+      }
+    }
+    return undefined;
+  }
+
   public async addSystem(system: GameSystem): Promise<void> {
     const existing = this.config.systems.find((s) => s.id === system.id);
     if (!existing) {
@@ -562,6 +585,15 @@ export class LibraryService extends EventEmitter {
             title,
           };
 
+      // Re-associate orphaned artwork from a previous library entry
+      if (isNew && !game.coverArt) {
+        const existingArtwork = await this.findExistingArtwork(gameId);
+        if (existingArtwork) {
+          game.coverArt = existingArtwork;
+          libraryLog.info(`Re-associated existing artwork for ${title}`);
+        }
+      }
+
       this.games.set(gameId, game);
       this.romPathIndex.set(fullPath, gameId);
       libraryLog.debug(`${isNew ? "Added" : "Updated"} ${title} (${system.id})`);
@@ -591,6 +623,16 @@ export class LibraryService extends EventEmitter {
       const game = await this.handleZipFile(fullPath, systemIdFilter);
       if (game) {
         game.romMtime = mtimeMs;
+
+        // Re-associate orphaned artwork from a previous library entry
+        if (!game.coverArt) {
+          const existingArtwork = await this.findExistingArtwork(game.id);
+          if (existingArtwork) {
+            game.coverArt = existingArtwork;
+            libraryLog.info(`Re-associated existing artwork for ${game.title}`);
+          }
+        }
+
         this.games.set(game.id, game);
         this.romPathIndex.set(game.romPath, game.id);
         if (game.sourceArchivePath) {
@@ -718,6 +760,15 @@ export class LibraryService extends EventEmitter {
     if (ext === ".zip" && systemId !== "arcade") {
       const game = await this.handleZipFile(romPath, systemId);
       if (game) {
+        // Re-associate orphaned artwork from a previous library entry
+        if (!game.coverArt) {
+          const existingArtwork = await this.findExistingArtwork(game.id);
+          if (existingArtwork) {
+            game.coverArt = existingArtwork;
+            libraryLog.info(`Re-associated existing artwork for ${game.title}`);
+          }
+        }
+
         this.games.set(game.id, game);
         this.romPathIndex.set(game.romPath, game.id);
         if (game.sourceArchivePath) {
@@ -751,6 +802,13 @@ export class LibraryService extends EventEmitter {
       systemId: system.id,
       title: this.cleanGameTitle(path.basename(romPath, ext)),
     };
+
+    // Re-associate orphaned artwork from a previous library entry
+    const existingArtwork = await this.findExistingArtwork(gameId);
+    if (existingArtwork) {
+      game.coverArt = existingArtwork;
+      libraryLog.info(`Re-associated existing artwork for ${game.title}`);
+    }
 
     this.games.set(gameId, game);
     this.romPathIndex.set(romPath, gameId);
