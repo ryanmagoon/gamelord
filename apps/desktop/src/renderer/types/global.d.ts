@@ -34,6 +34,7 @@ export interface GamelordAPI {
       outputPath?: string,
     ) => Promise<{ success: boolean; path?: string; error?: string }>
     setSpeed: (multiplier: number) => Promise<{ success: boolean; error?: string }>
+    setFastForwardAudio: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
   }
   saveState: {
     save: (slot: number) => Promise<{ success: boolean }>

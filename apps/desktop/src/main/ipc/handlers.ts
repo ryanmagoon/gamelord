@@ -195,6 +195,16 @@ export class IPCHandlers {
       }
     });
 
+    ipcMain.handle('emulation:setFastForwardAudio', (_event, enabled: boolean) => {
+      try {
+        this.emulatorManager.setFastForwardAudio(enabled);
+        return { success: true };
+      } catch (error) {
+        ipcLog.error('Failed to set fast-forward audio:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
     // Save states
     ipcMain.handle('savestate:save', async (event, slot: number) => {
       try {

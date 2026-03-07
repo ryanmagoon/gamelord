@@ -44,6 +44,7 @@ let screenshotDir = ''
 let targetFps = 60
 let speedMultiplier = 1
 let sampleRate = 44100
+let fastForwardAudio = false
 
 // Error tracking
 let consecutiveErrors = 0
@@ -397,7 +398,17 @@ function startEmulationLoop(): void {
       }
     }
 
-    // Audio is skipped during fast-forward (speedMultiplier > 1)
+    // Optionally send audio during fast-forward (plays at sped-up rate)
+    if (fastForwardAudio) {
+      const audio = native.getAudioBuffer()
+      if (audio && audio.length > 0) {
+        if (useSharedBuffers) {
+          writeAudioToSAB(audio)
+        } else {
+          sendAudioSamples(audio)
+        }
+      }
+    }
 
     // Drain buffered log messages from the native addon
     const logs = native.getLogMessages()
@@ -552,6 +563,10 @@ function handleMessage(command: WorkerCommand): void {
       }
       break
     }
+
+    case 'setFastForwardAudio':
+      fastForwardAudio = command.enabled
+      break
 
     case 'saveState':
       try {

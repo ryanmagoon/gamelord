@@ -486,6 +486,15 @@ export class EmulatorManager extends EventEmitter {
   }
 
   /**
+   * Enable or disable audio playback during fast-forward.
+   */
+  setFastForwardAudio(enabled: boolean): void {
+    if (this.workerClient?.isRunning()) {
+      this.workerClient.setFastForwardAudio(enabled);
+    }
+  }
+
+  /**
    * Reset the current emulator
    */
   async reset(): Promise<void> {
