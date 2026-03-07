@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-dmg:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build native addon
+        working-directory: apps/desktop/native
+        run: npx node-gyp rebuild
+
+      - name: Build app
+        working-directory: apps/desktop
+        run: npx electron-vite build
+
+      - name: Package DMG
+        working-directory: apps/desktop
+        run: npx electron-builder --mac --publish never
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apps/desktop/dist/*.dmg
+          draft: true
+          generate_release_notes: true
