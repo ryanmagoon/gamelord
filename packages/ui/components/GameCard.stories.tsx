@@ -76,7 +76,7 @@ export const RecentlyPlayed: Story = {
       genre: 'Platform',
       coverArt: superMarioBrosBox,
       romPath: '/roms/sonic.md',
-      lastPlayed: new Date(),
+      lastPlayed: new Date('2024-12-01'),
       playTime: 7200, // 2 hours
     },
     onPlay() { /* storybook action placeholder */ },

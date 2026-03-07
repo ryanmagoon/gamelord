@@ -60,6 +60,11 @@ class TVStaticManager {
     this.deterministic = enabled
   }
 
+  /** Whether deterministic mode is active (e.g. Chromatic snapshot). */
+  isDeterministic(): boolean {
+    return this.deterministic
+  }
+
   /**
    * Register a canvas to receive shared noise frames.
    * @returns An unregister function — call it in the useEffect cleanup.
