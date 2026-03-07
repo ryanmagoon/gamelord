@@ -306,7 +306,7 @@ export const GameWindow: React.FC = () => {
       // Fire-and-forget — the worker may not be ready yet, in which case
       // EmulatorManager silently ignores the call.
       const ffAudio = localStorage.getItem('gamelord:fastForwardAudio') === 'true'
-      api.emulation.setFastForwardAudio(ffAudio).catch(() => {})
+      void api.emulation.setFastForwardAudio(ffAudio)
     })
 
     // Sent by the main process after the hero transition animation completes
