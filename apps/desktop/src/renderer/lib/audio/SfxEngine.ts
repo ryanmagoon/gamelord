@@ -61,6 +61,17 @@ class SfxEngine {
     this.initialized = true;
   }
 
+  /**
+   * Pre-initialize AudioContext and render all sound buffers.
+   *
+   * Call this on the first user gesture (click/keydown) so the ~50-100ms of
+   * buffer synthesis happens on an innocuous interaction rather than blocking
+   * the first dialog/modal open.
+   */
+  warmup(): void {
+    this.ensureInitialized()
+  }
+
   /** Fire-and-forget sound playback. No-op when disabled. */
   play(id: SfxId): void {
     if (!this.preferences.enabled) {
