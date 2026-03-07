@@ -5,6 +5,7 @@
 GameLord is a native emulator frontend (OpenEmu-style) where Electron handles UI/library management and libretro cores are loaded directly via a native Node addon (`gamelord_libretro.node`) using dlopen. No external emulator processes.
 
 ### How It Works
+
 1. **Native addon** (`apps/desktop/native/src/libretro_core.cc`) loads libretro `.dylib` cores directly, implementing the full libretro frontend API (environment callbacks, video/audio/input)
 2. **Utility process** (`core-worker.ts`) runs the emulation loop in a dedicated Electron utility process with hybrid sleep+spin frame pacing (~0.1-0.5ms jitter), sending video frames and audio samples to the main process via `postMessage`
 3. **Main process** forwards frames/audio to the renderer via `webContents.send` with `Buffer`. `EmulationWorkerClient` manages the worker lifecycle and request/response protocol.
@@ -12,6 +13,7 @@ GameLord is a native emulator frontend (OpenEmu-style) where Electron handles UI
 5. **Input** is captured in the renderer (keyboard events) and forwarded through the main process to the utility process worker via IPC
 
 ### Key Files
+
 ```
 apps/desktop/native/src/
 ├── libretro_core.cc          - Native addon: dlopen, libretro API, frame/audio buffers
@@ -40,6 +42,7 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 ```
 
 ### Supported Cores
+
 - **NES:** fceumm (primary), nestopia, mesen
 - **Sega Saturn:** mednafen_saturn (Beetle Saturn, primary), yabause — requires BIOS files (`sega_101.bin`, `mpr-17933.bin`)
 - Cores located at: `~/Library/Application Support/GameLord/cores/`
@@ -298,15 +301,19 @@ Tracking issue for the first alpha release. All items below must be completed be
 ## Technical Notes
 
 ### Native Addon Build
+
 The bundled `node-gyp` is too old for Node 24. Use:
+
 ```bash
 cd apps/desktop/native && npx node-gyp rebuild
 ```
 
 ### Core Download
+
 ARM64 cores from: `https://buildbot.libretro.com/nightly/apple/osx/arm64/latest/`
 
 ### Known Issues
+
 - Mesen core fails to load games via the native addon (works in standalone C test). Use fceumm instead.
 - `node-gyp` v5.0.6 bundled with npm is incompatible with Node 24; must use `npx node-gyp` (v10+).
 - Hard-refreshing the game window causes the emulation to run at uncapped speed (the main-process emulation loop keeps pushing frames while the renderer resets its state).

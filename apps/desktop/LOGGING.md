@@ -4,11 +4,11 @@ GameLord uses [electron-log](https://github.com/nicedoc/electron-log) v5 for str
 
 ## Log file location
 
-| Platform | Path |
-|----------|------|
-| macOS | `~/Library/Logs/gamelord/main.log` |
-| Windows | `%USERPROFILE%\AppData\Roaming\gamelord\logs\main.log` |
-| Linux | `~/.config/gamelord/logs/main.log` |
+| Platform | Path                                                   |
+| -------- | ------------------------------------------------------ |
+| macOS    | `~/Library/Logs/gamelord/main.log`                     |
+| Windows  | `%USERPROFILE%\AppData\Roaming\gamelord\logs\main.log` |
+| Linux    | `~/.config/gamelord/logs/main.log`                     |
 
 Files rotate at **5 MB**.
 
@@ -16,15 +16,15 @@ Files rotate at **5 MB**.
 
 Each subsystem has a named scope so you can filter logs by source:
 
-| Scope | Import | Used in |
-|-------|--------|---------|
-| `ipc` | `ipcLog` | `ipc/handlers.ts` — IPC handler errors and warnings |
-| `emulator` | `emulatorLog` | `LibretroNativeCore.ts` — native addon loading, launch errors |
-| `library` | `libraryLog` | `LibraryService.ts` — ROM scanning, game ID hashing |
+| Scope        | Import          | Used in                                                          |
+| ------------ | --------------- | ---------------------------------------------------------------- |
+| `ipc`        | `ipcLog`        | `ipc/handlers.ts` — IPC handler errors and warnings              |
+| `emulator`   | `emulatorLog`   | `LibretroNativeCore.ts` — native addon loading, launch errors    |
+| `library`    | `libraryLog`    | `LibraryService.ts` — ROM scanning, game ID hashing              |
 | `gameWindow` | `gameWindowLog` | `GameWindowManager.ts` — window lifecycle, emulation loop errors |
-| `core` | `coreLog` | `CoreManager.ts` — utility process core errors |
-| `retroarch` | `retroArchLog` | `RetroArchCore.ts` — RetroArch process stderr and UDP errors |
-| `libretro` | `libretroLog` | `LibretroNativeCore.ts` — libretro core log callback messages |
+| `core`       | `coreLog`       | `CoreManager.ts` — utility process core errors                   |
+| `retroarch`  | `retroArchLog`  | `RetroArchCore.ts` — RetroArch process stderr and UDP errors     |
+| `libretro`   | `libretroLog`   | `LibretroNativeCore.ts` — libretro core log callback messages    |
 
 ## Log levels
 
@@ -36,10 +36,10 @@ File format: `[2025-01-15 14:30:00.123] [info] [emulator] Native addon loaded fr
 ## Usage
 
 ```typescript
-import { ipcLog } from '../logger'
+import { ipcLog } from "../logger";
 
-ipcLog.info('Handler registered')
-ipcLog.error('Failed to launch:', error)
+ipcLog.info("Handler registered");
+ipcLog.error("Failed to launch:", error);
 ```
 
 ## Native addon logs
@@ -48,12 +48,12 @@ Libretro cores emit log messages via the `retro_log_printf_t` callback. These ar
 
 Libretro log levels map to electron-log levels:
 
-| Libretro level | electron-log level |
-|---------------|-------------------|
-| `RETRO_LOG_DEBUG` (0) | `debug` |
-| `RETRO_LOG_INFO` (1) | `info` |
-| `RETRO_LOG_WARN` (2) | `warn` |
-| `RETRO_LOG_ERROR` (3) | `error` |
+| Libretro level        | electron-log level |
+| --------------------- | ------------------ |
+| `RETRO_LOG_DEBUG` (0) | `debug`            |
+| `RETRO_LOG_INFO` (1)  | `info`             |
+| `RETRO_LOG_WARN` (2)  | `warn`             |
+| `RETRO_LOG_ERROR` (3) | `error`            |
 
 ## Filtering logs
 

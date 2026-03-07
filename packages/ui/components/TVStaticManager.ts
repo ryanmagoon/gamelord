@@ -62,7 +62,7 @@ class TVStaticManager {
 
   /** Whether deterministic mode is active (e.g. Chromatic snapshot). */
   isDeterministic(): boolean {
-    return this.deterministic
+    return this.deterministic;
   }
 
   /**

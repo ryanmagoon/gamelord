@@ -74,21 +74,19 @@ export const TVStatic: React.FC<TVStaticProps> = ({
   if (tvStaticManager.isDeterministic()) {
     return (
       <div
-        className={cn('absolute inset-0 overflow-hidden', className)}
-        aria-label={statusText ?? 'Loading artwork'}
+        className={cn("absolute inset-0 overflow-hidden", className)}
+        aria-label={statusText ?? "Loading artwork"}
       >
-        <div className={cn(
-          'absolute inset-0',
-          isError ? 'bg-neutral-800' : isNotFound ? 'bg-neutral-800' : 'bg-neutral-900',
-        )} />
-        {isError && (
-          <div className="absolute inset-0 bg-red-500/15 pointer-events-none" />
-        )}
-        {isNotFound && (
-          <div className="absolute inset-0 bg-amber-500/15 pointer-events-none" />
-        )}
+        <div
+          className={cn(
+            "absolute inset-0",
+            isError ? "bg-neutral-800" : isNotFound ? "bg-neutral-800" : "bg-neutral-900",
+          )}
+        />
+        {isError && <div className="absolute inset-0 bg-red-500/15 pointer-events-none" />}
+        {isNotFound && <div className="absolute inset-0 bg-amber-500/15 pointer-events-none" />}
       </div>
-    )
+    );
   }
 
   return (
