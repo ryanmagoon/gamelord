@@ -247,6 +247,7 @@ const GeneralTab: React.FC<{
 const FAST_FORWARD_SPEEDS = [1.5, 2, 3, 4, 6, 8]
 
 const EmulationTab: React.FC = () => {
+  const api = (window as unknown as { gamelord: GamelordAPI }).gamelord
   const { play: playSfx } = useSfx()
 
   const [showFps, setShowFps] = useState(() => {
@@ -258,6 +259,10 @@ const EmulationTab: React.FC = () => {
     return saved !== null ? parseFloat(saved) : 2
   })
 
+  const [fastForwardAudio, setFastForwardAudio] = useState(() => {
+    return localStorage.getItem('gamelord:fastForwardAudio') === 'true'
+  })
+
   const [defaultShader, setDefaultShader] = useState(() => {
     return localStorage.getItem('gamelord:shader') ?? 'default'
   })
@@ -265,6 +270,13 @@ const EmulationTab: React.FC = () => {
   const handleShowFpsChange = (checked: boolean) => {
     setShowFps(checked)
     localStorage.setItem('gamelord:showFps', String(checked))
+    playSfx(checked ? 'toggleOn' : 'toggleOff')
+  }
+
+  const handleFastForwardAudioChange = (checked: boolean) => {
+    setFastForwardAudio(checked)
+    localStorage.setItem('gamelord:fastForwardAudio', String(checked))
+    api.emulation.setFastForwardAudio(checked)
     playSfx(checked ? 'toggleOn' : 'toggleOff')
   }
 
@@ -329,6 +341,16 @@ const EmulationTab: React.FC = () => {
               ))}
             </SelectContent>
           </Select>
+        </SettingRow>
+        <SettingRow
+          label="Audio while fast-forwarding"
+          description="Play game audio at accelerated speed during fast-forward"
+        >
+          <Toggle
+            checked={fastForwardAudio}
+            onChange={handleFastForwardAudioChange}
+            aria-label="Toggle audio during fast-forward"
+          />
         </SettingRow>
       </div>
     </div>
