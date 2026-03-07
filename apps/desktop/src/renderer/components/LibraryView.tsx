@@ -105,10 +105,14 @@ export const LibraryView: React.FC<{
   }, [artworkSyncStore])
 
   useEffect(() => {
-    loadLibrary().then(() => {
+    loadLibrary().then((loadedGames) => {
       // If the library already has games (returning user), no need to wait
-      // for homebrew import — it won't run anyway.
-      setIsImportingHomebrew(false)
+      // for homebrew import — it won't run anyway. For first-time users with
+      // empty libraries, wait for the homebrew import to complete via the
+      // library:homebrewImported event to avoid a flash of "empty library" UI.
+      if (loadedGames.length > 0) {
+        setIsImportingHomebrew(false)
+      }
     })
 
     // Reload library when bundled homebrew ROMs finish importing on first launch
@@ -264,7 +268,7 @@ export const LibraryView: React.FC<{
     }
   }, [])
 
-  const loadLibrary = async () => {
+  const loadLibrary = async (): Promise<AppGame[]> => {
     setLoading(true)
     try {
       const [loadedSystems, loadedGames] = await Promise.all([
@@ -273,8 +277,10 @@ export const LibraryView: React.FC<{
       ])
       setSystems(loadedSystems)
       setGames(loadedGames)
+      return loadedGames
     } catch (error) {
       console.error('Failed to load library:', error)
+      return []
     } finally {
       setLoading(false)
     }
