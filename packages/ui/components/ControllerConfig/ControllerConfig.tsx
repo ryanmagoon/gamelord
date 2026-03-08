@@ -152,75 +152,119 @@ const BindingRow: React.FC<{
   );
 };
 
-/** Live button tester showing pressed state. */
+/** Single button indicator in the tester. */
+const BtnPill: React.FC<{ label: string; pressed: boolean; className?: string }> = ({
+  label,
+  pressed,
+  className,
+}) => (
+  <div
+    className={cn(
+      "flex items-center justify-center rounded text-[10px] font-medium h-7 w-9 transition-all duration-75",
+      pressed ? "bg-primary text-primary-foreground scale-95" : "bg-muted/50 text-muted-foreground",
+      className,
+    )}
+  >
+    {label}
+  </div>
+);
+
+/** D-pad rendered as a cross pattern. */
+const DPadCluster: React.FC<{ buttonStates: Record<number, boolean> }> = ({ buttonStates }) => (
+  <div className="grid grid-cols-3 grid-rows-3 gap-0.5 w-[118px]">
+    <div />
+    <BtnPill label="Up" pressed={Boolean(buttonStates[12])} />
+    <div />
+    <BtnPill label="Left" pressed={Boolean(buttonStates[14])} />
+    <div />
+    <BtnPill label="Right" pressed={Boolean(buttonStates[15])} />
+    <div />
+    <BtnPill label="Down" pressed={Boolean(buttonStates[13])} />
+    <div />
+  </div>
+);
+
+/** Face buttons rendered as a diamond pattern. */
+const FaceButtonCluster: React.FC<{ buttonStates: Record<number, boolean> }> = ({
+  buttonStates,
+}) => (
+  <div className="grid grid-cols-3 grid-rows-3 gap-0.5 w-[118px]">
+    <div />
+    <BtnPill label="Y" pressed={Boolean(buttonStates[3])} />
+    <div />
+    <BtnPill label="X" pressed={Boolean(buttonStates[2])} />
+    <div />
+    <BtnPill label="B" pressed={Boolean(buttonStates[1])} />
+    <div />
+    <BtnPill label="A" pressed={Boolean(buttonStates[0])} />
+    <div />
+  </div>
+);
+
+/** Live button tester showing pressed state in a spatial controller layout. */
 const ButtonTester: React.FC<{
   buttonStates: Record<number, boolean>;
   axisValues: Array<number>;
 }> = ({ buttonStates, axisValues }) => {
-  const buttonLabels = [
-    "A",
-    "B",
-    "X",
-    "Y",
-    "LB",
-    "RB",
-    "LT",
-    "RT",
-    "Back",
-    "Start",
-    "L3",
-    "R3",
-    "Up",
-    "Down",
-    "Left",
-    "Right",
-  ];
-
   const hasInput =
     Object.values(buttonStates).some(Boolean) || axisValues.some((v) => Math.abs(v) > 0.1);
 
   return (
-    <div className="space-y-3">
-      {/* Button grid */}
-      <div className="grid grid-cols-8 gap-1">
-        {buttonLabels.map((label, index) => (
-          <div
-            key={label}
-            className={cn(
-              "flex items-center justify-center rounded text-[10px] font-medium h-7 transition-all duration-75",
-              buttonStates[index]
-                ? "bg-primary text-primary-foreground scale-95"
-                : "bg-muted/50 text-muted-foreground",
-            )}
-          >
-            {label}
-          </div>
-        ))}
+    <div className="space-y-2">
+      {/* Shoulders: LB / LT ... RT / RB */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1">
+          <BtnPill label="LB" pressed={Boolean(buttonStates[4])} />
+          <BtnPill label="LT" pressed={Boolean(buttonStates[6])} />
+        </div>
+        <div className="flex gap-1">
+          <BtnPill label="RT" pressed={Boolean(buttonStates[7])} />
+          <BtnPill label="RB" pressed={Boolean(buttonStates[5])} />
+        </div>
       </div>
 
-      {/* Analog sticks */}
-      {axisValues.length >= 2 && (
-        <div className="flex items-center gap-4">
-          <AnalogStickVisualization
-            label="Left Stick"
-            x={axisValues[0] ?? 0}
-            y={axisValues[1] ?? 0}
-          />
-          {axisValues.length >= 4 && (
-            <AnalogStickVisualization
-              label="Right Stick"
-              x={axisValues[2] ?? 0}
-              y={axisValues[3] ?? 0}
-            />
-          )}
-        </div>
-      )}
+      {/* Center row: Back / Start with L3 / R3 */}
+      <div className="flex items-center justify-center gap-2">
+        <BtnPill label="Back" pressed={Boolean(buttonStates[8])} className="w-11" />
+        <BtnPill label="L3" pressed={Boolean(buttonStates[10])} />
+        <BtnPill label="R3" pressed={Boolean(buttonStates[11])} />
+        <BtnPill label="Start" pressed={Boolean(buttonStates[9])} className="w-11" />
+      </div>
 
-      {!hasInput && (
-        <p className="text-xs text-muted-foreground text-center py-1">
-          Press buttons to test your controller
-        </p>
-      )}
+      {/* Main row: D-pad + sticks + face buttons */}
+      <div className="flex items-center justify-between">
+        <DPadCluster buttonStates={buttonStates} />
+
+        {/* Analog sticks between clusters */}
+        {axisValues.length >= 2 && (
+          <div className="flex items-center gap-3">
+            <AnalogStickVisualization
+              label="Left Stick"
+              x={axisValues[0] ?? 0}
+              y={axisValues[1] ?? 0}
+            />
+            {axisValues.length >= 4 && (
+              <AnalogStickVisualization
+                label="Right Stick"
+                x={axisValues[2] ?? 0}
+                y={axisValues[3] ?? 0}
+              />
+            )}
+          </div>
+        )}
+
+        <FaceButtonCluster buttonStates={buttonStates} />
+      </div>
+
+      {/* Hint — always rendered, fades out to avoid layout shift */}
+      <p
+        className={cn(
+          "text-xs text-muted-foreground text-center py-1 transition-opacity duration-150",
+          hasInput ? "opacity-0" : "opacity-100",
+        )}
+      >
+        Press buttons to test your controller
+      </p>
     </div>
   );
 };
