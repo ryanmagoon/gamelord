@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // We need to mock AudioContext and related APIs before importing SfxEngine,
-// since the module creates a singleton on import.
+// since the module creates a singleton on import that eagerly initializes.
 
 function createMockAudioBuffer(): AudioBuffer {
   return {
@@ -61,9 +61,7 @@ function setupGlobalMocks() {
 
 describe("SfxEngine", () => {
   beforeEach(() => {
-    // Clear localStorage
     localStorage.clear();
-    // Reset module registry so we get a fresh singleton each test
     vi.resetModules();
     setupGlobalMocks();
   });
@@ -89,10 +87,8 @@ describe("SfxEngine", () => {
     expect(prefs.volume).toBe(0.8);
   });
 
-  it("does not create AudioContext until first play()", async () => {
-    const engine = await importFreshEngine();
-    expect(AudioContext).not.toHaveBeenCalled();
-    engine.play("click");
+  it("creates AudioContext eagerly at construction", async () => {
+    await importFreshEngine();
     expect(AudioContext).toHaveBeenCalledTimes(1);
   });
 
@@ -100,7 +96,7 @@ describe("SfxEngine", () => {
     const engine = await importFreshEngine();
     engine.setEnabled(false);
     engine.play("click");
-    expect(AudioContext).not.toHaveBeenCalled();
+    expect(mockSourceNode.start).not.toHaveBeenCalled();
   });
 
   it("play() creates a buffer source and starts it", async () => {
@@ -126,7 +122,6 @@ describe("SfxEngine", () => {
 
   it("setVolume persists to localStorage and updates gain", async () => {
     const engine = await importFreshEngine();
-    engine.play("click"); // force initialization
     engine.setVolume(0.75);
     expect(localStorage.getItem("gamelord:sfx-volume")).toBe("0.75");
     expect(engine.getPreferences().volume).toBe(0.75);
@@ -157,34 +152,12 @@ describe("SfxEngine", () => {
     expect(listener).toHaveBeenCalledTimes(2); // no more calls after unsubscribe
   });
 
-  it("only initializes AudioContext once across multiple plays", async () => {
+  it("reuses the same AudioContext across multiple plays", async () => {
     const engine = await importFreshEngine();
     engine.play("click");
     engine.play("toggleOn");
     engine.play("saveState");
+    // Only the one from construction — play() doesn't create new ones
     expect(AudioContext).toHaveBeenCalledTimes(1);
-  });
-
-  it("warmup() pre-initializes AudioContext and buffers", async () => {
-    const engine = await importFreshEngine();
-    expect(AudioContext).not.toHaveBeenCalled();
-    engine.warmup();
-    expect(AudioContext).toHaveBeenCalledTimes(1);
-  });
-
-  it("warmup() is idempotent — subsequent calls are no-ops", async () => {
-    const engine = await importFreshEngine();
-    engine.warmup();
-    engine.warmup();
-    engine.warmup();
-    expect(AudioContext).toHaveBeenCalledTimes(1);
-  });
-
-  it("play() after warmup() reuses the existing AudioContext", async () => {
-    const engine = await importFreshEngine();
-    engine.warmup();
-    engine.play("click");
-    expect(AudioContext).toHaveBeenCalledTimes(1);
-    expect(mockSourceNode.start).toHaveBeenCalledWith(0);
   });
 });
