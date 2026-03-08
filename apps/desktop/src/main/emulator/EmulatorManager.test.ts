@@ -14,7 +14,7 @@ vi.mock('electron', () => ({
   },
 }))
 
-vi.mock('fs', () => ({
+vi.mock('node:fs', () => ({
   existsSync: vi.fn(() => false),
   readdirSync: vi.fn(() => []),
   mkdirSync: vi.fn(),
@@ -50,7 +50,7 @@ vi.mock('./LibretroNativeCore', async () => {
 vi.mock('./EmulationWorkerClient')
 
 import { powerSaveBlocker } from 'electron'
-import * as fs from 'fs'
+import * as fs from 'node:fs'
 import { EmulatorManager } from './EmulatorManager'
 
 // ---------------------------------------------------------------------------

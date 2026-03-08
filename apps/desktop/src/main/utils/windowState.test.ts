@@ -166,7 +166,7 @@ describe('getSavedWindowBounds', () => {
     // Verify it reads from the custom state file
     expect(mockReadFileSync).toHaveBeenCalledWith(
       `${MOCK_USER_DATA}/game-window-state.json`,
-      'utf-8'
+      'utf8'
     )
   })
 
@@ -348,7 +348,7 @@ describe('manageWindowState', () => {
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       `${MOCK_USER_DATA}/window-state.json`,
       expect.stringContaining('"width": 1024'),
-      'utf-8'
+      'utf8'
     )
   })
 
@@ -369,7 +369,7 @@ describe('manageWindowState', () => {
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       `${MOCK_USER_DATA}/window-state.json`,
       expect.stringContaining('"isMaximized": true'),
-      'utf-8'
+      'utf8'
     )
   })
 
@@ -455,7 +455,7 @@ describe('saveWindowStateNow', () => {
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       `${MOCK_USER_DATA}/game-window-state.json`,
       expect.stringContaining('"width": 1024'),
-      'utf-8'
+      'utf8'
     )
     const savedState = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
     expect(savedState.isFullScreen).toBe(false)

@@ -278,6 +278,7 @@ describe('IPCHandlers', () => {
         'emulation:resume',
         'emulation:reset',
         'emulation:setSpeed',
+        'emulation:setFastForwardAudio',
         'savestate:save',
         'savestate:load',
         'emulation:screenshot',
@@ -306,7 +307,7 @@ describe('IPCHandlers', () => {
 
     it('registers exactly the expected number of handle channels', () => {
       const handleCalls = vi.mocked(ipcMain.handle).mock.calls;
-      expect(handleCalls).toHaveLength(35);
+      expect(handleCalls).toHaveLength(36);
     });
   });
 
