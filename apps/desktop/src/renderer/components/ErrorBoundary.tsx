@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/electron/renderer";
 import React from "react";
 import { AlertTriangle, RotateCcw } from "lucide-react";
 
@@ -26,6 +27,9 @@ export class ErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     console.error("Uncaught error in React tree:", error, errorInfo);
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: errorInfo.componentStack ?? undefined } },
+    });
   }
 
   handleRestart = () => {

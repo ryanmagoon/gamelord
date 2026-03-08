@@ -4,6 +4,7 @@ import path from "node:path";
 import { setupAppMenu } from "./main/appMenu";
 import { IPCHandlers } from "./main/ipc/handlers";
 import { mainLog } from "./main/logger";
+import { initSentryMain } from "./main/sentry";
 import {
   getSavedWindowBounds,
   MAIN_WINDOW_CONFIG,
@@ -15,6 +16,10 @@ import { animateWindowClose } from "./main/windowCloseAnimation";
 // Load .env from the desktop app root (apps/desktop/.env) before anything
 // reads process.env. This provides SCREENSCRAPER_DEV_ID / DEV_PASSWORD, etc.
 loadDotenv({ path: path.join(__dirname, "../../.env") });
+
+// Initialize Sentry crash reporting as early as possible (after dotenv so
+// SENTRY_DSN is available). No-op when DSN is not configured.
+initSentryMain();
 
 // Set app name for macOS menu bar (must be called before app is ready)
 app.setName("GameLord");
