@@ -9,7 +9,7 @@ const { mockReadFileSync, mockWriteFileSync } = vi.hoisted(() => ({
   mockWriteFileSync: vi.fn(),
 }));
 
-const mockGetBounds = vi.fn().mockReturnValue({ height: 768, width: 1024, x: 100, y: 200 });
+const mockGetBounds = vi.fn().mockReturnValue({ x: 100, y: 200, width: 1024, height: 768 });
 const mockSetBounds = vi.fn();
 const mockSetSize = vi.fn();
 const mockCenter = vi.fn();
@@ -21,7 +21,7 @@ const mockIsDestroyed = vi.fn().mockReturnValue(false);
 const mockOn = vi.fn();
 
 const mockGetDisplayMatching = vi.fn().mockReturnValue({
-  workArea: { height: 1080, width: 1920, x: 0, y: 0 },
+  workArea: { x: 0, y: 0, width: 1920, height: 1080 },
 });
 
 vi.mock("electron", () => ({
@@ -37,7 +37,7 @@ vi.mock("electron", () => ({
   screen: {
     getAllDisplays: () => [
       {
-        workArea: { height: 1080, width: 1920, x: 0, y: 0 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1080 },
       },
     ],
     getDisplayMatching: (...args: Array<unknown>) => mockGetDisplayMatching(...args),
@@ -64,20 +64,21 @@ import type { BrowserWindow } from "electron";
 
 function createMockWindow(): BrowserWindow {
   return {
-    center: mockCenter,
     getBounds: mockGetBounds,
-    isDestroyed: mockIsDestroyed,
-    isFullScreen: mockIsFullScreen,
-    isMaximized: mockIsMaximized,
-    maximize: mockMaximize,
-    on: mockOn,
     setBounds: mockSetBounds,
-    setFullScreen: mockSetFullScreen,
     setSize: mockSetSize,
+    center: mockCenter,
+    maximize: mockMaximize,
+    setFullScreen: mockSetFullScreen,
+    isMaximized: mockIsMaximized,
+    isFullScreen: mockIsFullScreen,
+    isDestroyed: mockIsDestroyed,
+    on: mockOn,
   } as unknown as BrowserWindow;
 }
 
 const GAME_WINDOW_CONFIG: WindowStateConfig = {
+  stateFile: "game-window-state.json",
   defaults: {
     x: -1,
     y: -1,
@@ -86,9 +87,8 @@ const GAME_WINDOW_CONFIG: WindowStateConfig = {
     isMaximized: false,
     isFullScreen: false,
   },
-  manualCloseSave: true,
-  stateFile: "game-window-state.json",
   trackFullScreen: true,
+  manualCloseSave: true,
 };
 
 beforeEach(() => {
@@ -98,9 +98,9 @@ beforeEach(() => {
   mockIsMaximized.mockReturnValue(false);
   mockIsFullScreen.mockReturnValue(false);
   mockIsDestroyed.mockReturnValue(false);
-  mockGetBounds.mockReturnValue({ height: 768, width: 1024, x: 100, y: 200 });
+  mockGetBounds.mockReturnValue({ x: 100, y: 200, width: 1024, height: 768 });
   mockGetDisplayMatching.mockReturnValue({
-    workArea: { height: 1080, width: 1920, x: 0, y: 0 },
+    workArea: { x: 0, y: 0, width: 1920, height: 1080 },
   });
 });
 
@@ -111,27 +111,27 @@ describe("getSavedWindowBounds", () => {
     });
 
     const bounds = getSavedWindowBounds();
-    expect(bounds).toEqual({ height: 800, width: 1280 });
+    expect(bounds).toEqual({ width: 1280, height: 800 });
     expect(bounds).not.toHaveProperty("x");
     expect(bounds).not.toHaveProperty("y");
   });
 
   it("returns saved position and dimensions from disk", () => {
     mockReadFileSync.mockReturnValue(
-      JSON.stringify({ height: 900, isMaximized: false, width: 1400, x: 50, y: 75 }),
+      JSON.stringify({ x: 50, y: 75, width: 1400, height: 900, isMaximized: false }),
     );
 
     const bounds = getSavedWindowBounds();
-    expect(bounds).toEqual({ height: 900, width: 1400, x: 50, y: 75 });
+    expect(bounds).toEqual({ x: 50, y: 75, width: 1400, height: 900 });
   });
 
   it("returns only width/height when saved position is default (-1)", () => {
     mockReadFileSync.mockReturnValue(
-      JSON.stringify({ height: 700, isMaximized: false, width: 1000, x: -1, y: -1 }),
+      JSON.stringify({ x: -1, y: -1, width: 1000, height: 700, isMaximized: false }),
     );
 
     const bounds = getSavedWindowBounds();
-    expect(bounds).toEqual({ height: 700, width: 1000 });
+    expect(bounds).toEqual({ width: 1000, height: 700 });
     expect(bounds).not.toHaveProperty("x");
     expect(bounds).not.toHaveProperty("y");
   });
@@ -140,7 +140,7 @@ describe("getSavedWindowBounds", () => {
     mockReadFileSync.mockReturnValue("not json!!!");
 
     const bounds = getSavedWindowBounds();
-    expect(bounds).toEqual({ height: 800, width: 1280 });
+    expect(bounds).toEqual({ width: 1280, height: 800 });
   });
 
   it("uses default values for missing fields in saved state", () => {
@@ -148,18 +148,18 @@ describe("getSavedWindowBounds", () => {
 
     const bounds = getSavedWindowBounds();
     // x and y default to -1, so no position returned
-    expect(bounds).toEqual({ height: 800, width: 900 });
+    expect(bounds).toEqual({ width: 900, height: 800 });
   });
 
   it("clamps position when saved window is off-screen", () => {
     // Position far off-screen — getDisplayMatching returns nearest display
     mockReadFileSync.mockReturnValue(
-      JSON.stringify({ height: 768, isMaximized: false, width: 1024, x: 5000, y: 5000 }),
+      JSON.stringify({ x: 5000, y: 5000, width: 1024, height: 768, isMaximized: false }),
     );
 
     const bounds = getSavedWindowBounds();
     // Position should be clamped to fit within the 1920x1080 display
-    expect(bounds).toEqual({ height: 768, width: 1024, x: 896, y: 312 });
+    expect(bounds).toEqual({ x: 896, y: 312, width: 1024, height: 768 });
   });
 
   it("uses custom config defaults and file path", () => {
@@ -168,7 +168,7 @@ describe("getSavedWindowBounds", () => {
     });
 
     const bounds = getSavedWindowBounds(GAME_WINDOW_CONFIG);
-    expect(bounds).toEqual({ height: 720, width: 960 });
+    expect(bounds).toEqual({ width: 960, height: 720 });
 
     // Verify it reads from the custom state file
     expect(mockReadFileSync).toHaveBeenCalledWith(
@@ -180,112 +180,112 @@ describe("getSavedWindowBounds", () => {
   it("reads saved state from custom config file", () => {
     mockReadFileSync.mockReturnValue(
       JSON.stringify({
-        height: 600,
-        isFullScreen: true,
-        isMaximized: false,
-        width: 800,
         x: 300,
         y: 400,
+        width: 800,
+        height: 600,
+        isMaximized: false,
+        isFullScreen: true,
       }),
     );
 
     const bounds = getSavedWindowBounds(GAME_WINDOW_CONFIG);
-    expect(bounds).toEqual({ height: 600, width: 800, x: 300, y: 400 });
+    expect(bounds).toEqual({ x: 300, y: 400, width: 800, height: 600 });
   });
 
   describe("display clamping", () => {
     it("does not change position when window fits within display", () => {
       mockReadFileSync.mockReturnValue(
-        JSON.stringify({ height: 600, isMaximized: false, width: 800, x: 100, y: 100 }),
+        JSON.stringify({ x: 100, y: 100, width: 800, height: 600, isMaximized: false }),
       );
 
       const bounds = getSavedWindowBounds();
-      expect(bounds).toEqual({ height: 600, width: 800, x: 100, y: 100 });
+      expect(bounds).toEqual({ x: 100, y: 100, width: 800, height: 600 });
     });
 
     it("shifts window left when it extends past right edge", () => {
       mockReadFileSync.mockReturnValue(
-        JSON.stringify({ height: 600, isMaximized: false, width: 800, x: 1500, y: 100 }),
+        JSON.stringify({ x: 1500, y: 100, width: 800, height: 600, isMaximized: false }),
       );
 
       const bounds = getSavedWindowBounds();
       // x should be clamped to 1920 - 800 = 1120
-      expect(bounds).toEqual({ height: 600, width: 800, x: 1120, y: 100 });
+      expect(bounds).toEqual({ x: 1120, y: 100, width: 800, height: 600 });
     });
 
     it("shifts window up when it extends past bottom edge", () => {
       mockReadFileSync.mockReturnValue(
-        JSON.stringify({ height: 600, isMaximized: false, width: 800, x: 100, y: 800 }),
+        JSON.stringify({ x: 100, y: 800, width: 800, height: 600, isMaximized: false }),
       );
 
       const bounds = getSavedWindowBounds();
       // y should be clamped to 1080 - 600 = 480
-      expect(bounds).toEqual({ height: 600, width: 800, x: 100, y: 480 });
+      expect(bounds).toEqual({ x: 100, y: 480, width: 800, height: 600 });
     });
 
     it("shifts window right when x is before display left edge", () => {
       // Simulate a secondary display at negative x offset
       mockGetDisplayMatching.mockReturnValue({
-        workArea: { height: 1080, width: 1920, x: 0, y: 0 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1080 },
       });
       mockReadFileSync.mockReturnValue(
-        JSON.stringify({ height: 600, isMaximized: false, width: 800, x: -100, y: 100 }),
+        JSON.stringify({ x: -100, y: 100, width: 800, height: 600, isMaximized: false }),
       );
 
       const bounds = getSavedWindowBounds();
-      expect(bounds).toEqual({ height: 600, width: 800, x: 0, y: 100 });
+      expect(bounds).toEqual({ x: 0, y: 100, width: 800, height: 600 });
     });
 
     it("shrinks width when window is wider than display", () => {
       // Simulate a small laptop display
       mockGetDisplayMatching.mockReturnValue({
-        workArea: { height: 768, width: 1366, x: 0, y: 0 },
+        workArea: { x: 0, y: 0, width: 1366, height: 768 },
       });
       mockReadFileSync.mockReturnValue(
-        JSON.stringify({ height: 600, isMaximized: false, width: 2560, x: 100, y: 100 }),
+        JSON.stringify({ x: 100, y: 100, width: 2560, height: 600, isMaximized: false }),
       );
 
       const bounds = getSavedWindowBounds();
-      expect(bounds).toEqual({ height: 600, width: 1366, x: 0, y: 100 });
+      expect(bounds).toEqual({ x: 0, y: 100, width: 1366, height: 600 });
     });
 
     it("shrinks height when window is taller than display", () => {
       mockGetDisplayMatching.mockReturnValue({
-        workArea: { height: 768, width: 1920, x: 0, y: 0 },
+        workArea: { x: 0, y: 0, width: 1920, height: 768 },
       });
       mockReadFileSync.mockReturnValue(
-        JSON.stringify({ height: 1200, isMaximized: false, width: 800, x: 100, y: 100 }),
+        JSON.stringify({ x: 100, y: 100, width: 800, height: 1200, isMaximized: false }),
       );
 
       const bounds = getSavedWindowBounds();
-      expect(bounds).toEqual({ height: 768, width: 800, x: 100, y: 0 });
+      expect(bounds).toEqual({ x: 100, y: 0, width: 800, height: 768 });
     });
 
     it("shrinks both dimensions and clamps position for oversized window", () => {
       // Saved from a 4K display, now on a 720p laptop
       mockGetDisplayMatching.mockReturnValue({
-        workArea: { height: 720, width: 1280, x: 0, y: 0 },
+        workArea: { x: 0, y: 0, width: 1280, height: 720 },
       });
       mockReadFileSync.mockReturnValue(
-        JSON.stringify({ height: 1440, isMaximized: false, width: 2560, x: 500, y: 300 }),
+        JSON.stringify({ x: 500, y: 300, width: 2560, height: 1440, isMaximized: false }),
       );
 
       const bounds = getSavedWindowBounds();
-      expect(bounds).toEqual({ height: 720, width: 1280, x: 0, y: 0 });
+      expect(bounds).toEqual({ x: 0, y: 0, width: 1280, height: 720 });
     });
 
     it("clamps to secondary display work area with offset", () => {
       // Secondary display positioned to the right at x=1920
       mockGetDisplayMatching.mockReturnValue({
-        workArea: { height: 900, width: 1440, x: 1920, y: 0 },
+        workArea: { x: 1920, y: 0, width: 1440, height: 900 },
       });
       mockReadFileSync.mockReturnValue(
-        JSON.stringify({ height: 600, isMaximized: false, width: 800, x: 3000, y: 500 }),
+        JSON.stringify({ x: 3000, y: 500, width: 800, height: 600, isMaximized: false }),
       );
 
       const bounds = getSavedWindowBounds();
       // x clamped to 1920 + 1440 - 800 = 2560; y clamped to 0 + 900 - 600 = 300
-      expect(bounds).toEqual({ height: 600, width: 800, x: 2560, y: 300 });
+      expect(bounds).toEqual({ x: 2560, y: 300, width: 800, height: 600 });
     });
   });
 });
@@ -293,19 +293,19 @@ describe("getSavedWindowBounds", () => {
 describe("manageWindowState", () => {
   it("restores saved position and size to the window", () => {
     mockReadFileSync.mockReturnValue(
-      JSON.stringify({ height: 850, isMaximized: false, width: 1100, x: 200, y: 100 }),
+      JSON.stringify({ x: 200, y: 100, width: 1100, height: 850, isMaximized: false }),
     );
 
     const window = createMockWindow();
     manageWindowState(window);
 
-    expect(mockSetBounds).toHaveBeenCalledWith({ height: 850, width: 1100, x: 200, y: 100 });
+    expect(mockSetBounds).toHaveBeenCalledWith({ x: 200, y: 100, width: 1100, height: 850 });
     expect(mockCenter).not.toHaveBeenCalled();
   });
 
   it("centers the window when no saved position exists", () => {
     mockReadFileSync.mockReturnValue(
-      JSON.stringify({ height: 800, isMaximized: false, width: 1280, x: -1, y: -1 }),
+      JSON.stringify({ x: -1, y: -1, width: 1280, height: 800, isMaximized: false }),
     );
 
     const window = createMockWindow();
@@ -318,7 +318,7 @@ describe("manageWindowState", () => {
 
   it("maximizes the window when saved state was maximized", () => {
     mockReadFileSync.mockReturnValue(
-      JSON.stringify({ height: 768, isMaximized: true, width: 1024, x: 100, y: 100 }),
+      JSON.stringify({ x: 100, y: 100, width: 1024, height: 768, isMaximized: true }),
     );
 
     const window = createMockWindow();
@@ -355,7 +355,10 @@ describe("manageWindowState", () => {
     const closeCall = mockOn.mock.calls.find((call: Array<unknown>) => call[0] === "close");
     expect(closeCall).toBeDefined();
 
-    const closeHandler = closeCall![1] as () => void;
+    if (!closeCall) {
+      throw new Error("Expected close handler to be registered");
+    }
+    const closeHandler = closeCall[1] as () => void;
     closeHandler();
 
     expect(mockWriteFileSync).toHaveBeenCalledWith(
@@ -367,7 +370,7 @@ describe("manageWindowState", () => {
 
   it("saves maximized flag on close when maximized", () => {
     mockReadFileSync.mockReturnValue(
-      JSON.stringify({ height: 768, isMaximized: false, width: 1024, x: 100, y: 200 }),
+      JSON.stringify({ x: 100, y: 200, width: 1024, height: 768, isMaximized: false }),
     );
     mockIsMaximized.mockReturnValue(true);
 
@@ -375,7 +378,10 @@ describe("manageWindowState", () => {
     manageWindowState(window);
 
     const closeCall = mockOn.mock.calls.find((call: Array<unknown>) => call[0] === "close");
-    const closeHandler = closeCall![1] as () => void;
+    if (!closeCall) {
+      throw new Error("Expected close handler to be registered");
+    }
+    const closeHandler = closeCall[1] as () => void;
     closeHandler();
 
     expect(mockWriteFileSync).toHaveBeenCalledWith(
@@ -395,7 +401,10 @@ describe("manageWindowState", () => {
     manageWindowState(window);
 
     const closeCall = mockOn.mock.calls.find((call: Array<unknown>) => call[0] === "close");
-    const closeHandler = closeCall![1] as () => void;
+    if (!closeCall) {
+      throw new Error("Expected close handler to be registered");
+    }
+    const closeHandler = closeCall[1] as () => void;
     closeHandler();
 
     expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -405,12 +414,12 @@ describe("manageWindowState", () => {
     it("restores fullscreen state when saved", () => {
       mockReadFileSync.mockReturnValue(
         JSON.stringify({
-          height: 720,
-          isFullScreen: true,
-          isMaximized: false,
-          width: 960,
           x: 100,
           y: 100,
+          width: 960,
+          height: 720,
+          isMaximized: false,
+          isFullScreen: true,
         }),
       );
 
@@ -440,7 +449,7 @@ describe("manageWindowState", () => {
 
     it("defaults isFullScreen to false when missing from saved state", () => {
       mockReadFileSync.mockReturnValue(
-        JSON.stringify({ height: 720, isMaximized: false, width: 960, x: 100, y: 100 }),
+        JSON.stringify({ x: 100, y: 100, width: 960, height: 720, isMaximized: false }),
       );
 
       const window = createMockWindow();
@@ -484,12 +493,12 @@ describe("saveWindowStateNow", () => {
     mockIsFullScreen.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(
       JSON.stringify({
-        height: 720,
-        isFullScreen: false,
-        isMaximized: false,
-        width: 960,
         x: 300,
         y: 400,
+        width: 960,
+        height: 720,
+        isMaximized: false,
+        isFullScreen: false,
       }),
     );
 

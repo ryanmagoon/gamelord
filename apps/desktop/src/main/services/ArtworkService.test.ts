@@ -19,22 +19,20 @@ const {
   mockCreateWriteStream,
   mockExistsSync,
   mockMkdirSync,
-  mockReadFile,
   mockUnlink,
+  mockReadFile,
   mockWriteFile,
 } = vi.hoisted(() => ({
   mockCreateReadStream: vi.fn(),
   mockCreateWriteStream: vi.fn(),
   mockExistsSync: vi.fn().mockReturnValue(true),
   mockMkdirSync: vi.fn(),
-  mockReadFile: vi.fn().mockResolvedValue("{}"),
   mockUnlink: vi.fn(),
+  mockReadFile: vi.fn().mockResolvedValue("{}"),
   mockWriteFile: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("fs", () => ({
-  createReadStream: mockCreateReadStream,
-  createWriteStream: mockCreateWriteStream,
   default: {
     existsSync: mockExistsSync,
     mkdirSync: mockMkdirSync,
@@ -44,11 +42,13 @@ vi.mock("fs", () => ({
   },
   existsSync: mockExistsSync,
   mkdirSync: mockMkdirSync,
+  createReadStream: mockCreateReadStream,
+  createWriteStream: mockCreateWriteStream,
+  unlink: mockUnlink,
   promises: {
     readFile: mockReadFile,
     writeFile: mockWriteFile,
   },
-  unlink: mockUnlink,
 }));
 
 // vi.hoisted mock for ScreenScraperClient — lets us control API responses per test
@@ -97,15 +97,15 @@ function createMockLibraryService(games: Array<Game> = []): LibraryService {
 function makeGame(overrides: Partial<Game> = {}): Game {
   return {
     id: "game1",
+    title: "Super Mario Bros.",
+    system: "Nintendo Entertainment System",
+    systemId: "nes",
+    romPath: "/roms/smb.nes",
     romHashes: {
       crc32: "deadbeef",
       sha1: "da39a3ee5e6b4b0d3255bfef95601890afd80709",
       md5: "d41d8cd98f00b204e9800998ecf8427e",
     },
-    romPath: "/roms/smb.nes",
-    system: "Nintendo Entertainment System",
-    systemId: "nes",
-    title: "Super Mario Bros.",
     ...overrides,
   };
 }
@@ -134,8 +134,14 @@ describe("ArtworkService", () => {
 
     // Stub the internal sleep/rate-limit to avoid real delays in tests.
     // The prototype methods are patched so every ArtworkService instance is fast.
-    vi.spyOn(ArtworkService.prototype as any, "sleep").mockResolvedValue(undefined);
-    vi.spyOn(ArtworkService.prototype as any, "waitForRateLimit").mockResolvedValue(undefined);
+    vi.spyOn(
+      ArtworkService.prototype as unknown as Record<string, () => Promise<void>>,
+      "sleep",
+    ).mockResolvedValue(undefined);
+    vi.spyOn(
+      ArtworkService.prototype as unknown as Record<string, () => Promise<void>>,
+      "waitForRateLimit",
+    ).mockResolvedValue(undefined);
   });
 
   describe("credentials management", () => {
@@ -181,7 +187,7 @@ describe("ArtworkService", () => {
       const service = new ArtworkService(createMockLibraryService([game]));
       await flushPromises();
 
-      (service as any).syncing = true;
+      (service as unknown as Record<string, boolean>).syncing = true;
 
       const status = await service.syncAllGames();
       expect(status.inProgress).toBe(true);
@@ -202,7 +208,7 @@ describe("ArtworkService", () => {
       const service = new ArtworkService(createMockLibraryService([]));
       await flushPromises();
 
-      const syncCompletePromise = new Promise<any>((resolve) => {
+      const syncCompletePromise = new Promise<{ inProgress: boolean }>((resolve) => {
         service.on("syncComplete", resolve);
       });
 
@@ -248,25 +254,33 @@ describe("ArtworkService", () => {
   describe("getImageExtension", () => {
     it("extracts .png extension from URL", async () => {
       const service = new ArtworkService(createMockLibraryService());
-      const ext = (service as any).getImageExtension("https://example.com/image.png");
+      const ext = (service as unknown as Record<string, (url: string) => string>).getImageExtension(
+        "https://example.com/image.png",
+      );
       expect(ext).toBe(".png");
     });
 
     it("extracts .jpg extension from URL", async () => {
       const service = new ArtworkService(createMockLibraryService());
-      const ext = (service as any).getImageExtension("https://example.com/image.jpg");
+      const ext = (service as unknown as Record<string, (url: string) => string>).getImageExtension(
+        "https://example.com/image.jpg",
+      );
       expect(ext).toBe(".jpg");
     });
 
     it("defaults to .png for unknown extensions", async () => {
       const service = new ArtworkService(createMockLibraryService());
-      const ext = (service as any).getImageExtension("https://example.com/image.bmp");
+      const ext = (service as unknown as Record<string, (url: string) => string>).getImageExtension(
+        "https://example.com/image.bmp",
+      );
       expect(ext).toBe(".png");
     });
 
     it("handles URLs with query parameters", async () => {
       const service = new ArtworkService(createMockLibraryService());
-      const ext = (service as any).getImageExtension("https://example.com/image.jpeg?quality=80");
+      const ext = (service as unknown as Record<string, (url: string) => string>).getImageExtension(
+        "https://example.com/image.jpeg?quality=80",
+      );
       expect(ext).toBe(".jpeg");
     });
   });
@@ -332,9 +346,9 @@ describe("ArtworkService", () => {
     it("updates system to regional name when ScreenScraper returns JP region for SNES game", async () => {
       const game = makeGame({
         id: "jp-snes-game",
+        title: "Some Japanese Game",
         system: "Super Nintendo Entertainment System",
         systemId: "snes",
-        title: "Some Japanese Game",
       });
       const libraryService = createMockLibraryService([game]);
       const service = new ArtworkService(libraryService);
@@ -342,15 +356,15 @@ describe("ArtworkService", () => {
       await service.setCredentials("user", "pass");
 
       mockFetchByHash.mockResolvedValue({
-        developer: "Nintendo",
-        genre: "Platform",
-        media: {},
-        players: 1,
-        publisher: "Nintendo",
-        rating: 0.9,
-        region: "jp",
-        releaseDate: "1990-11-21",
         title: "スーパーマリオワールド",
+        region: "jp",
+        developer: "Nintendo",
+        publisher: "Nintendo",
+        genre: "Platform",
+        players: 1,
+        rating: 0.9,
+        releaseDate: "1990-11-21",
+        media: {},
       });
 
       await service.syncGame("jp-snes-game");
@@ -364,9 +378,9 @@ describe("ArtworkService", () => {
     it("updates system to Mega Drive for Genesis game with EU region", async () => {
       const game = makeGame({
         id: "eu-genesis-game",
+        title: "Sonic The Hedgehog",
         system: "Sega Genesis",
         systemId: "genesis",
-        title: "Sonic The Hedgehog",
       });
       const libraryService = createMockLibraryService([game]);
       const service = new ArtworkService(libraryService);
@@ -374,15 +388,15 @@ describe("ArtworkService", () => {
       await service.setCredentials("user", "pass");
 
       mockFetchByHash.mockResolvedValue({
-        developer: "Sonic Team",
-        genre: "Platform",
-        media: {},
-        players: 1,
-        publisher: "Sega",
-        rating: 0.85,
-        region: "eu",
-        releaseDate: "1991-06-23",
         title: "Sonic The Hedgehog",
+        region: "eu",
+        developer: "Sonic Team",
+        publisher: "Sega",
+        genre: "Platform",
+        players: 1,
+        rating: 0.85,
+        releaseDate: "1991-06-23",
+        media: {},
       });
 
       await service.syncGame("eu-genesis-game");
@@ -396,9 +410,9 @@ describe("ArtworkService", () => {
     it("does not set system field when region has no variant for that system", async () => {
       const game = makeGame({
         id: "jp-gb-game",
+        title: "Pokemon Red",
         system: "Game Boy",
         systemId: "gb",
-        title: "Pokemon Red",
       });
       const libraryService = createMockLibraryService([game]);
       const service = new ArtworkService(libraryService);
@@ -406,21 +420,21 @@ describe("ArtworkService", () => {
       await service.setCredentials("user", "pass");
 
       mockFetchByHash.mockResolvedValue({
-        developer: "Game Freak",
-        genre: "RPG",
-        media: {},
-        players: 1,
-        publisher: "Nintendo",
-        rating: 0.9,
-        region: "jp",
-        releaseDate: "1996-02-27",
         title: "Pocket Monsters Red",
+        region: "jp",
+        developer: "Game Freak",
+        publisher: "Nintendo",
+        genre: "RPG",
+        players: 1,
+        rating: 0.9,
+        releaseDate: "1996-02-27",
+        media: {},
       });
 
       await service.syncGame("jp-gb-game");
 
       // updateGame should NOT contain a 'system' key since Game Boy has no regional variants
-      const updateCall = (libraryService.updateGame as any).mock.calls[0][1];
+      const updateCall = vi.mocked(libraryService.updateGame).mock.calls[0][1];
       expect(updateCall).not.toHaveProperty("system");
     });
 
@@ -516,7 +530,7 @@ describe("ArtworkService", () => {
 
     it("skips games that already have cover art", async () => {
       const games = [
-        makeGame({ coverArt: "artwork://game1.png", id: "game1", title: "Game 1" }),
+        makeGame({ id: "game1", title: "Game 1", coverArt: "artwork://game1.png" }),
         makeGame({ id: "game2", title: "Game 2" }),
       ];
       const service = new ArtworkService(createMockLibraryService(games));
@@ -530,7 +544,7 @@ describe("ArtworkService", () => {
     it("returns immediately if already syncing", async () => {
       const service = new ArtworkService(createMockLibraryService([]));
       await flushPromises();
-      (service as any).syncing = true;
+      (service as unknown as Record<string, boolean>).syncing = true;
 
       const status = await service.syncGames(["game1"]);
       expect(status.inProgress).toBe(true);
@@ -564,8 +578,10 @@ describe("ArtworkService", () => {
 
       // Verify the error event has the correct errorCode
       const errorEvent = progressEvents.find((p) => p.phase === "error");
-      expect(errorEvent).toBeDefined();
-      expect(errorEvent!.errorCode).toBe("auth-failed");
+      if (!errorEvent) {
+        throw new Error("Expected an error progress event");
+      }
+      expect(errorEvent.errorCode).toBe("auth-failed");
     });
 
     it("continues batch on non-auth errors", async () => {
@@ -604,8 +620,9 @@ describe("ArtworkService", () => {
       await service.syncAllGames();
 
       // Game should show as not-found since both lookups failed non-fatally
-      const lastEvent = progressEvents.at(-1)!;
-      expect(lastEvent.phase).toBe("not-found");
+      const lastEvent = progressEvents.at(-1);
+      expect(lastEvent).toBeDefined();
+      expect(lastEvent?.phase).toBe("not-found");
     });
   });
 });

@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { app, powerSaveBlocker } from "electron";
-import { EmulatorCore, EmulatorInfo } from "./EmulatorCore";
+import { EmulatorCore, EmulatorInfo, EmulatorLaunchOptions } from "./EmulatorCore";
 import { RetroArchCore } from "./RetroArchCore";
 import { LibretroNativeCore } from "./LibretroNativeCore";
 import { EmulationWorkerClient } from "./EmulationWorkerClient";
@@ -224,16 +224,16 @@ export class EmulatorManager extends EventEmitter {
     this.setupEventForwarding(this.currentEmulator);
 
     // Get core path for the system (RetroArch or native libretro)
-    const options: any = {};
+    const options: EmulatorLaunchOptions = {};
     if (emulatorInfo.type === "retroarch" || emulatorInfo.type === "libretro-native") {
       if (coreName) {
         // Use the specific core requested by the user
-        options.corePath = this.coreDownloader.getCorePath(coreName);
+        options.corePath = this.coreDownloader.getCorePath(coreName) ?? undefined;
         if (!options.corePath) {
           options.corePath = await this.coreDownloader.downloadCore(coreName, systemId);
         }
       } else {
-        options.corePath = this.getCorePathForSystem(systemId);
+        options.corePath = this.getCorePathForSystem(systemId) ?? undefined;
         if (!options.corePath) {
           // Auto-download the preferred core
           options.corePath = await this.coreDownloader.downloadCoreForSystem(systemId);

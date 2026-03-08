@@ -18,7 +18,7 @@ export interface GamelordAPI {
       cardBounds?: { x: number; y: number; width: number; height: number },
     ) => Promise<{ success: boolean; error?: string }>;
     stop: () => Promise<{ success: boolean; error?: string }>;
-    getAvailable: () => Promise<any>;
+    getAvailable: () => Promise<Array<unknown>>;
     isRunning: () => Promise<boolean>;
     getCoresForSystem: (systemId: string) => Promise<Array<CoreInfo>>;
     downloadCore: (
@@ -43,20 +43,20 @@ export interface GamelordAPI {
   // Library management (matches preload API)
   library: {
     getSystems: () => Promise<Array<GameSystem>>;
-    addSystem: (system: GameSystem) => Promise<any>;
-    removeSystem: (systemId: string) => Promise<any>;
-    updateSystemPath: (systemId: string, romsPath: string) => Promise<any>;
+    addSystem: (system: GameSystem) => Promise<{ success: boolean }>;
+    removeSystem: (systemId: string) => Promise<{ success: boolean }>;
+    updateSystemPath: (systemId: string, romsPath: string) => Promise<{ success: boolean }>;
 
     getGames: (systemId?: string) => Promise<Array<Game>>;
     addGame: (romPath: string, systemId: string) => Promise<Game | null>;
-    removeGame: (gameId: string) => Promise<any>;
-    updateGame: (gameId: string, updates: Partial<Game>) => Promise<any>;
+    removeGame: (gameId: string) => Promise<{ success: boolean }>;
+    updateGame: (gameId: string, updates: Partial<Game>) => Promise<{ success: boolean }>;
 
     scanDirectory: (directoryPath: string, systemId?: string) => Promise<Array<Game>>;
-    scanSystemFolders: () => Promise<any>;
+    scanSystemFolders: () => Promise<Array<Game>>;
 
     getConfig: () => Promise<LibraryConfig>;
-    setRomsBasePath: (basePath: string) => Promise<any>;
+    setRomsBasePath: (basePath: string) => Promise<{ success: boolean }>;
   };
 
   // Artwork & metadata
@@ -103,7 +103,7 @@ export interface GamelordAPI {
   // Signal to the main process that the renderer has loaded and is ready to show.
   contentReady: () => void;
 
-  on: (channel: string, callback: (...args: Array<any>) => void) => void;
+  on: (channel: string, callback: (...args: Array<unknown>) => void) => void;
   removeAllListeners: (channel: string) => void;
 }
 

@@ -10,19 +10,29 @@ const mockPostMessage = vi.fn();
 const mockKill = vi.fn();
 const mockRemoveListener = vi.fn();
 
+/** Return the payload of the most recent postMessage call, throwing if none exists. */
+function lastPostedMessage(): { type: string; requestId: string; [key: string]: unknown } {
+  const calls = mockPostMessage.mock.calls;
+  const last = calls.at(-1);
+  if (!last) {
+    throw new Error("Expected at least one postMessage call");
+  }
+  return last[0] as { type: string; requestId: string; [key: string]: unknown };
+}
+
 /** Listeners registered via mockProcess.on() */
 let processListeners: Record<string, Array<(...args: Array<unknown>) => void>> = {};
 
 const mockProcess = {
+  postMessage: mockPostMessage,
   kill: mockKill,
+  removeListener: mockRemoveListener,
   on: vi.fn((event: string, listener: (...args: Array<unknown>) => void) => {
     if (!processListeners[event]) {
       processListeners[event] = [];
     }
     processListeners[event].push(listener);
   }),
-  postMessage: mockPostMessage,
-  removeListener: mockRemoveListener,
 };
 
 vi.mock("electron", () => ({
@@ -33,8 +43,8 @@ vi.mock("electron", () => ({
 
 vi.mock("electron-log/main", () => ({
   default: {
-    scope: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
     transports: { file: {}, console: {} },
+    scope: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
   },
 }));
 
@@ -44,11 +54,11 @@ vi.mock("electron-log/main", () => ({
 
 const TEST_AV_INFO: AVInfo = {
   geometry: {
-    aspectRatio: 1.333,
-    baseHeight: 240,
     baseWidth: 256,
-    maxHeight: 240,
+    baseHeight: 240,
     maxWidth: 256,
+    maxHeight: 240,
+    aspectRatio: 1.333,
   },
   timing: {
     fps: 60.0988,
@@ -57,13 +67,13 @@ const TEST_AV_INFO: AVInfo = {
 };
 
 const TEST_INIT_OPTIONS = {
-  addonPath: "/native/gamelord_libretro.node",
   corePath: "/cores/fceumm.dylib",
   romPath: "/roms/zelda.nes",
-  saveDir: "/saves",
-  saveStatesDir: "/savestates",
-  sramDir: "/saves",
   systemDir: "/bios",
+  saveDir: "/saves",
+  sramDir: "/saves",
+  saveStatesDir: "/savestates",
+  addonPath: "/native/gamelord_libretro.node",
 };
 
 /** Simulate the worker sending a message to the main process. */
@@ -100,7 +110,7 @@ describe("EmulationWorkerClient", () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
 
       // Worker responds with ready
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
 
       const avInfo = await initPromise;
 
@@ -114,9 +124,9 @@ describe("EmulationWorkerClient", () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
 
       emitWorkerMessage({
-        fatal: true,
-        message: "Failed to load core",
         type: "error",
+        message: "Failed to load core",
+        fatal: true,
       });
 
       await expect(initPromise).rejects.toThrow("Failed to load core");
@@ -133,14 +143,16 @@ describe("EmulationWorkerClient", () => {
 
       await initPromise;
       expect(caughtError).toBeInstanceOf(Error);
-      expect((caughtError as Error).message).toMatch("did not become ready");
+      expect(caughtError instanceof Error ? caughtError.message : "").toMatch(
+        "did not become ready",
+      );
     });
   });
 
   describe("fire-and-forget commands", () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
       await initPromise;
     });
 
@@ -148,8 +160,8 @@ describe("EmulationWorkerClient", () => {
       client.setInput(0, 3, true);
       expect(mockPostMessage).toHaveBeenCalledWith({
         action: "input",
-        id: 3,
         port: 0,
+        id: 3,
         pressed: true,
       });
     });
@@ -173,7 +185,7 @@ describe("EmulationWorkerClient", () => {
   describe("request/response commands", () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
       await initPromise;
     });
 
@@ -181,14 +193,14 @@ describe("EmulationWorkerClient", () => {
       const savePromise = client.saveState(1);
 
       // Extract the requestId from the postMessage call
-      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
+      const lastCall = lastPostedMessage();
       expect(lastCall.action).toBe("saveState");
       expect(lastCall.slot).toBe(1);
 
       emitWorkerMessage({
+        type: "response",
         requestId: lastCall.requestId,
         success: true,
-        type: "response",
       });
 
       await expect(savePromise).resolves.toBeUndefined();
@@ -197,12 +209,12 @@ describe("EmulationWorkerClient", () => {
     it("loadState rejects on error response", async () => {
       const loadPromise = client.loadState(3);
 
-      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
+      const lastCall = lastPostedMessage();
       emitWorkerMessage({
-        error: "No save state in slot 3",
+        type: "response",
         requestId: lastCall.requestId,
         success: false,
-        type: "response",
+        error: "No save state in slot 3",
       });
 
       await expect(loadPromise).rejects.toThrow("No save state in slot 3");
@@ -211,11 +223,11 @@ describe("EmulationWorkerClient", () => {
     it("saveSram resolves on success", async () => {
       const sramPromise = client.saveSram();
 
-      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
+      const lastCall = lastPostedMessage();
       emitWorkerMessage({
+        type: "response",
         requestId: lastCall.requestId,
         success: true,
-        type: "response",
       });
 
       await expect(sramPromise).resolves.toBeUndefined();
@@ -224,15 +236,15 @@ describe("EmulationWorkerClient", () => {
     it("screenshot returns the file path", async () => {
       const screenshotPromise = client.screenshot("/tmp/shot.raw");
 
-      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
+      const lastCall = lastPostedMessage();
       expect(lastCall.action).toBe("screenshot");
       expect(lastCall.outputPath).toBe("/tmp/shot.raw");
 
       emitWorkerMessage({
-        data: { path: "/tmp/shot.raw" },
+        type: "response",
         requestId: lastCall.requestId,
         success: true,
-        type: "response",
+        data: { path: "/tmp/shot.raw" },
       });
 
       await expect(screenshotPromise).resolves.toBe("/tmp/shot.raw");
@@ -249,14 +261,14 @@ describe("EmulationWorkerClient", () => {
 
       await savePromise;
       expect(caughtError).toBeInstanceOf(Error);
-      expect((caughtError as Error).message).toMatch("timed out");
+      expect(caughtError instanceof Error ? caughtError.message : "").toMatch("timed out");
     });
   });
 
   describe("event forwarding", () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
       await initPromise;
     });
 
@@ -266,16 +278,16 @@ describe("EmulationWorkerClient", () => {
 
       const frameData = Buffer.alloc(256 * 240 * 4);
       emitWorkerMessage({
-        data: frameData,
-        height: 240,
         type: "videoFrame",
+        data: frameData,
         width: 256,
+        height: 240,
       });
 
       expect(handler).toHaveBeenCalledWith({
         data: frameData,
-        height: 240,
         width: 256,
+        height: 240,
       });
     });
 
@@ -285,14 +297,14 @@ describe("EmulationWorkerClient", () => {
 
       const samples = Buffer.alloc(1470);
       emitWorkerMessage({
-        sampleRate: 44_100,
-        samples,
         type: "audioSamples",
+        samples,
+        sampleRate: 44_100,
       });
 
       expect(handler).toHaveBeenCalledWith({
-        sampleRate: 44_100,
         samples,
+        sampleRate: 44_100,
       });
     });
 
@@ -301,14 +313,14 @@ describe("EmulationWorkerClient", () => {
       client.on("error", handler);
 
       emitWorkerMessage({
-        fatal: true,
-        message: "Emulation crashed",
         type: "error",
+        message: "Emulation crashed",
+        fatal: true,
       });
 
       expect(handler).toHaveBeenCalledWith({
-        fatal: true,
         message: "Emulation crashed",
+        fatal: true,
       });
     });
   });
@@ -316,20 +328,20 @@ describe("EmulationWorkerClient", () => {
   describe("shutdown", () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
       await initPromise;
     });
 
     it("sends shutdown command and resolves on response", async () => {
       const shutdownPromise = client.shutdown();
 
-      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
+      const lastCall = lastPostedMessage();
       expect(lastCall.action).toBe("shutdown");
 
       emitWorkerMessage({
+        type: "response",
         requestId: lastCall.requestId,
         success: true,
-        type: "response",
       });
 
       await shutdownPromise;
@@ -353,11 +365,11 @@ describe("EmulationWorkerClient", () => {
       // Shutdown before save completes
       const shutdownPromise = client.shutdown();
 
-      const shutdownCall = mockPostMessage.mock.calls.at(-1)![0];
+      const shutdownCall = lastPostedMessage();
       emitWorkerMessage({
+        type: "response",
         requestId: shutdownCall.requestId,
         success: true,
-        type: "response",
       });
 
       await shutdownPromise;
@@ -370,7 +382,7 @@ describe("EmulationWorkerClient", () => {
   describe("unexpected exit", () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
       await initPromise;
     });
 
@@ -385,8 +397,8 @@ describe("EmulationWorkerClient", () => {
       }
 
       expect(handler).toHaveBeenCalledWith({
-        fatal: true,
         message: "Emulation worker exited unexpectedly (code 0)",
+        fatal: true,
       });
       expect(client.isRunning()).toBe(false);
     });
@@ -397,11 +409,11 @@ describe("EmulationWorkerClient", () => {
 
       // Graceful shutdown first
       const shutdownPromise = client.shutdown();
-      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
+      const lastCall = lastPostedMessage();
       emitWorkerMessage({
+        type: "response",
         requestId: lastCall.requestId,
         success: true,
-        type: "response",
       });
       await shutdownPromise;
 
@@ -435,32 +447,39 @@ describe("EmulationWorkerClient", () => {
   describe("SharedArrayBuffer allocation", () => {
     it("allocates SABs and sends setupSharedBuffers command after init", async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
       await initPromise;
 
       const bufs = client.getSharedBuffers();
-      expect(bufs).not.toBeNull();
-      expect(bufs!.control).toBeInstanceOf(SharedArrayBuffer);
-      expect(bufs!.video).toBeInstanceOf(SharedArrayBuffer);
-      expect(bufs!.audio).toBeInstanceOf(SharedArrayBuffer);
+      if (!bufs) {
+        throw new Error("Expected shared buffers to be allocated");
+      }
+      expect(bufs.control).toBeInstanceOf(SharedArrayBuffer);
+      expect(bufs.video).toBeInstanceOf(SharedArrayBuffer);
+      expect(bufs.audio).toBeInstanceOf(SharedArrayBuffer);
 
       // Verify setupSharedBuffers command was sent to the worker
       const setupCall = mockPostMessage.mock.calls.find(
         (call) => call[0].action === "setupSharedBuffers",
       );
-      expect(setupCall).toBeDefined();
-      expect(setupCall![0].controlSAB).toBe(bufs!.control);
-      expect(setupCall![0].videoSAB).toBe(bufs!.video);
-      expect(setupCall![0].audioSAB).toBe(bufs!.audio);
-      expect(setupCall![0].videoBufferSize).toBeGreaterThan(0);
+      if (!setupCall) {
+        throw new Error("Expected setupSharedBuffers command to be sent");
+      }
+      expect(setupCall[0].controlSAB).toBe(bufs.control);
+      expect(setupCall[0].videoSAB).toBe(bufs.video);
+      expect(setupCall[0].audioSAB).toBe(bufs.audio);
+      expect(setupCall[0].videoBufferSize).toBeGreaterThan(0);
     });
 
     it("initializes audio sample rate in control buffer", async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
       await initPromise;
 
-      const bufs = client.getSharedBuffers()!;
+      const bufs = client.getSharedBuffers();
+      if (!bufs) {
+        throw new Error("Expected shared buffers to be allocated");
+      }
       const ctrl = new Int32Array(bufs.control);
       // CTRL_AUDIO_SAMPLE_RATE is at index 6
       expect(Atomics.load(ctrl, 6)).toBe(TEST_AV_INFO.timing.sampleRate);
@@ -468,17 +487,17 @@ describe("EmulationWorkerClient", () => {
 
     it("clears shared buffers on shutdown", async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
       await initPromise;
 
       expect(client.getSharedBuffers()).not.toBeNull();
 
       const shutdownPromise = client.shutdown();
-      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
+      const lastCall = lastPostedMessage();
       emitWorkerMessage({
+        type: "response",
         requestId: lastCall.requestId,
         success: true,
-        type: "response",
       });
       await shutdownPromise;
 
@@ -497,7 +516,7 @@ describe("EmulationWorkerClient", () => {
 
     it("returns true after init", async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
       await initPromise;
 
       expect(client.isRunning()).toBe(true);
@@ -505,15 +524,15 @@ describe("EmulationWorkerClient", () => {
 
     it("returns false after shutdown", async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ avInfo: TEST_AV_INFO, type: "ready" });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
       await initPromise;
 
       const shutdownPromise = client.shutdown();
-      const lastCall = mockPostMessage.mock.calls.at(-1)![0];
+      const lastCall = lastPostedMessage();
       emitWorkerMessage({
+        type: "response",
         requestId: lastCall.requestId,
         success: true,
-        type: "response",
       });
       await shutdownPromise;
 
