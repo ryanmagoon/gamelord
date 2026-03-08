@@ -177,7 +177,9 @@ contextBridge.exposeInMainWorld("gamelord", {
   dialog: {
     selectDirectory: () => ipcRenderer.invoke("dialog:selectDirectory"),
     selectRomFile: (systemId: string) => ipcRenderer.invoke("dialog:selectRomFile", systemId),
-    respondResumeGame: (requestId: string, shouldResume: boolean) =>
-      ipcRenderer.send("dialog:resumeGameResponse", requestId, shouldResume),
+    respondResumeGame: (
+      requestId: string,
+      response: { action: "resume" | "start-fresh" | "cancel"; remember: boolean },
+    ) => ipcRenderer.send("dialog:resumeGameResponse", requestId, response),
   },
 });
