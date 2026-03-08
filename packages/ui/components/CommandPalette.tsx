@@ -51,6 +51,9 @@ function countByPlatform(games: Array<Game>): Map<string, number> {
   return counts;
 }
 
+/** Delay (ms) to keep the DOM mounted after close so exit animations play. */
+const UNMOUNT_DELAY = 220;
+
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
   open,
   onOpenChange,
@@ -62,6 +65,32 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const prevOpenRef = useRef(false);
+
+  // Delayed unmount: keep the DOM alive while exit animations play.
+  const [mounted, setMounted] = useState(open);
+  const unmountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      if (unmountTimerRef.current) {
+        clearTimeout(unmountTimerRef.current);
+        unmountTimerRef.current = null;
+      }
+      setMounted(true);
+    } else if (mounted) {
+      unmountTimerRef.current = setTimeout(() => {
+        setMounted(false);
+        unmountTimerRef.current = null;
+      }, UNMOUNT_DELAY);
+    }
+
+    return () => {
+      if (unmountTimerRef.current) {
+        clearTimeout(unmountTimerRef.current);
+        unmountTimerRef.current = null;
+      }
+    };
+  }, [open, mounted]);
 
   // Reset search and focus input when palette opens
   useEffect(() => {
@@ -151,26 +180,25 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     [onOpenChange],
   );
 
-  // Keep the palette mounted (hidden) to avoid re-mount cost on every open.
-  // Visibility is controlled via CSS, not by unmounting.
-  if (!open) {
-    return <div className="hidden" aria-hidden />;
-  }
+  if (!open && !mounted) return null;
+
+  const closing = !open && mounted;
 
   return (
-    <div className="fixed inset-0 z-50" data-state="open">
+    <div className="fixed inset-0 z-50" data-state={open ? "open" : "closed"}>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 animate-overlay-fade-in"
-        onClick={() => onOpenChange(false)}
+        className={`fixed inset-0 bg-black/50 ${closing ? "animate-overlay-fade-out pointer-events-none" : "animate-overlay-fade-in"}`}
+        onClick={closing ? undefined : () => onOpenChange(false)}
         aria-hidden
       />
 
       {/* Command palette container */}
-      <div className="fixed inset-0 flex items-start justify-center pt-[20vh]">
+      <div className={`fixed inset-0 flex items-start justify-center pt-[20vh] ${closing ? "pointer-events-none" : ""}`}>
         <Command
           className={cn(
-            "w-full max-w-lg rounded-lg border bg-popover text-popover-foreground shadow-2xl animate-dialog-scan-in",
+            "w-full max-w-lg rounded-lg border bg-popover text-popover-foreground shadow-2xl",
+            closing ? "animate-dialog-scan-out" : "animate-dialog-scan-in",
             className,
           )}
           shouldFilter={false}
