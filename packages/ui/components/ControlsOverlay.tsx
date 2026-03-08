@@ -1,28 +1,49 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 
 export interface ControlsOverlayProps {
   open: boolean;
   onClose: () => void;
+  /** When provided, only shows buttons that exist on this system's controller. */
+  systemId?: string;
 }
 
 interface ControlMapping {
+  /** Unique identifier for filtering by system. */
+  id: "dpad" | "a" | "b" | "x" | "y" | "l" | "r" | "select" | "start";
   key: string;
   label: string;
 }
 
-const GAME_CONTROLS: Array<ControlMapping> = [
-  { key: "Arrow Keys", label: "D-Pad" },
-  { key: "Z", label: "A" },
-  { key: "X", label: "B" },
-  { key: "A", label: "X" },
-  { key: "S", label: "Y" },
-  { key: "Q", label: "L" },
-  { key: "W", label: "R" },
-  { key: "Shift", label: "Select" },
-  { key: "Enter", label: "Start" },
+const ALL_GAME_CONTROLS: Array<ControlMapping> = [
+  { id: "dpad", key: "Arrow Keys", label: "D-Pad" },
+  { id: "a", key: "Z", label: "A" },
+  { id: "b", key: "X", label: "B" },
+  { id: "x", key: "A", label: "X" },
+  { id: "y", key: "S", label: "Y" },
+  { id: "l", key: "Q", label: "L" },
+  { id: "r", key: "W", label: "R" },
+  { id: "select", key: "Shift", label: "Select" },
+  { id: "start", key: "Enter", label: "Start" },
 ];
 
-const SHORTCUTS: Array<ControlMapping> = [
+/**
+ * Maps system IDs to the set of button IDs present on that system's controller.
+ * Systems not listed here show all buttons (safest default for unknown systems).
+ */
+const SYSTEM_BUTTONS: Record<string, Set<ControlMapping["id"]>> = {
+  nes: new Set(["dpad", "a", "b", "select", "start"]),
+  gb: new Set(["dpad", "a", "b", "select", "start"]),
+  gba: new Set(["dpad", "a", "b", "l", "r", "select", "start"]),
+  genesis: new Set(["dpad", "a", "b", "x", "y", "start"]),
+  arcade: new Set(["dpad", "a", "b", "x", "y", "l", "r", "select", "start"]),
+};
+
+interface ShortcutMapping {
+  key: string;
+  label: string;
+}
+
+const SHORTCUTS: Array<ShortcutMapping> = [
   { key: "Space", label: "Pause" },
   { key: "Tab", label: "Fast-forward" },
   { key: "F5", label: "Save State" },
@@ -37,7 +58,7 @@ function KeyBadge({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ControlRow({ mapping }: { mapping: ControlMapping }) {
+function ControlRow({ mapping }: { mapping: { key: string; label: string } }) {
   return (
     <div className="flex items-center justify-between py-1.5">
       <KeyBadge>{mapping.key}</KeyBadge>
@@ -46,7 +67,7 @@ function ControlRow({ mapping }: { mapping: ControlMapping }) {
   );
 }
 
-function Section({ title, mappings }: { title: string; mappings: Array<ControlMapping> }) {
+function Section({ title, mappings }: { title: string; mappings: Array<{ key: string; label: string }> }) {
   return (
     <div>
       <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">{title}</h3>
@@ -59,7 +80,7 @@ function Section({ title, mappings }: { title: string; mappings: Array<ControlMa
   );
 }
 
-export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose }) => {
+export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose, systemId }) => {
   useEffect(() => {
     if (!open) return;
 
@@ -75,11 +96,18 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose 
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [open, onClose]);
 
+  const gameControls = useMemo(() => {
+    if (!systemId) return ALL_GAME_CONTROLS;
+    const allowedButtons = SYSTEM_BUTTONS[systemId];
+    if (!allowedButtons) return ALL_GAME_CONTROLS;
+    return ALL_GAME_CONTROLS.filter((c) => allowedButtons.has(c.id));
+  }, [systemId]);
+
   if (!open) return null;
 
   return (
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center animate-[fade-in_200ms_ease-out]"
+      className="absolute inset-0 z-50 flex items-center justify-center animate-overlay-fade-in"
       role="dialog"
       aria-label="Keyboard Controls"
     >
@@ -92,11 +120,11 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose 
 
       {/* Panel */}
       <div
-        className="relative z-10 bg-black/90 border border-white/10 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl animate-[scale-in_200ms_cubic-bezier(0.16,1,0.3,1)]"
+        className="relative z-10 bg-black/90 border border-white/10 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl animate-dialog-scan-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="space-y-5">
-          <Section title="Game Controls" mappings={GAME_CONTROLS} />
+          <Section title="Game Controls" mappings={gameControls} />
           <div className="border-t border-white/10" />
           <Section title="Shortcuts" mappings={SHORTCUTS} />
         </div>

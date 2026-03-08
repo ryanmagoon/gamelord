@@ -39,3 +39,15 @@ export const Closed: Story = {
     open: false,
   },
 };
+
+export const NES: Story = {
+  args: {
+    systemId: "nes",
+  },
+};
+
+export const GBA: Story = {
+  args: {
+    systemId: "gba",
+  },
+};

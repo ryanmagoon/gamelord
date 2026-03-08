@@ -1276,6 +1276,7 @@ export const GameWindow: React.FC = () => {
       <ControlsOverlay
         open={showControlsOverlay}
         onClose={() => setShowControlsOverlay(false)}
+        systemId={game?.systemId}
       />
 
       {/* First-launch controls hint */}

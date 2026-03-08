@@ -86,4 +86,51 @@ describe("ControlsOverlay", () => {
       expect(onClose).not.toHaveBeenCalled();
     });
   });
+
+  describe("system-aware filtering", () => {
+    it("shows all buttons when no systemId is provided", () => {
+      renderOverlay();
+      // All 9 controls should be present (D-Pad, A, B, X, Y, L, R, Select, Start)
+      const buttonLabels = ["D-Pad", "A", "B", "X", "Y", "L", "R", "Select", "Start"];
+      for (const label of buttonLabels) {
+        expect(screen.getAllByText(label).length).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it("hides X, Y, L, R for NES", () => {
+      renderOverlay({ systemId: "nes" });
+      expect(screen.getByText("D-Pad")).toBeInTheDocument();
+      // "A" and "B" are both key badges and labels, so they'll always exist
+      expect(screen.getAllByText("A").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText("Select")).toBeInTheDocument();
+      expect(screen.getByText("Start")).toBeInTheDocument();
+      // X, Y as button labels should not appear; but "X" also appears as a key badge
+      // for the B button. Check that the label-only ones are gone.
+      expect(screen.queryByText("Y")).toBeNull();
+      expect(screen.queryByText("L")).toBeNull();
+      expect(screen.queryByText("R")).toBeNull();
+    });
+
+    it("hides X, Y, L, R for Game Boy", () => {
+      renderOverlay({ systemId: "gb" });
+      expect(screen.queryByText("Y")).toBeNull();
+      expect(screen.queryByText("L")).toBeNull();
+      expect(screen.queryByText("R")).toBeNull();
+    });
+
+    it("shows L, R but hides X, Y for GBA", () => {
+      renderOverlay({ systemId: "gba" });
+      expect(screen.getByText("L")).toBeInTheDocument();
+      expect(screen.getByText("R")).toBeInTheDocument();
+      expect(screen.queryByText("Y")).toBeNull();
+    });
+
+    it("shows all buttons for SNES (unknown to filter map, falls through to all)", () => {
+      renderOverlay({ systemId: "snes" });
+      const buttonLabels = ["D-Pad", "A", "B", "X", "Y", "L", "R", "Select", "Start"];
+      for (const label of buttonLabels) {
+        expect(screen.getAllByText(label).length).toBeGreaterThanOrEqual(1);
+      }
+    });
+  });
 });
