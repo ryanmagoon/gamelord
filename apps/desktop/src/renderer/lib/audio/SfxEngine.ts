@@ -2,8 +2,13 @@
  * Singleton sound effects engine.
  *
  * Manages a dedicated AudioContext (separate from the emulation audio),
- * pre-renders all UI sounds into AudioBuffers on first use, and exposes
+ * pre-renders all UI sounds into AudioBuffers at startup, and exposes
  * a fire-and-forget `play()` method.
+ *
+ * The AudioContext is created eagerly during app load (before the user
+ * interacts) so the ~500ms OS audio subsystem init doesn't block any
+ * UI interaction. The context starts suspended per autoplay policy and
+ * is resumed on the first `play()` call.
  *
  * Preferences (enabled, volume) are persisted to localStorage and
  * exposed via a subscribe/getSnapshot pattern for useSyncExternalStore.
@@ -24,12 +29,11 @@ const STORAGE_KEY_ENABLED = "gamelord:sfx-enabled";
 const STORAGE_KEY_VOLUME = "gamelord:sfx-volume";
 
 class SfxEngine {
-  private ctx: AudioContext | null = null;
-  private gainNode: GainNode | null = null;
-  private buffers = new Map<SfxId, AudioBuffer>();
+  private readonly ctx: AudioContext;
+  private readonly gainNode: GainNode;
+  private readonly buffers = new Map<SfxId, AudioBuffer>();
   private preferences: SfxPreferences;
   private listeners = new Set<Listener>();
-  private initialized = false;
 
   constructor() {
     const storedEnabled = localStorage.getItem(STORAGE_KEY_ENABLED);
@@ -38,17 +42,11 @@ class SfxEngine {
       enabled: storedEnabled !== "false", // default true
       volume: storedVolume !== null ? Number.parseFloat(storedVolume) : 0.5,
     };
-  }
 
-  /**
-   * Lazily initialize AudioContext and pre-render all sound buffers.
-   * Called on first play() — guaranteed to be inside a user gesture.
-   */
-  private ensureInitialized(): void {
-    if (this.initialized) {
-      return;
-    }
-
+    // Initialize everything at startup. `new AudioContext()` takes ~500ms in
+    // Electron (OS audio subsystem init), but this runs during app load when
+    // the user isn't interacting, so there's nothing to hitch. The context
+    // starts suspended (autoplay policy) and is resumed on first play().
     this.ctx = new AudioContext();
     this.gainNode = this.ctx.createGain();
     this.gainNode.gain.value = this.preferences.volume;
@@ -57,19 +55,6 @@ class SfxEngine {
     for (const [id, generator] of Object.entries(soundGenerators)) {
       this.buffers.set(id as SfxId, generator(this.ctx));
     }
-
-    this.initialized = true;
-  }
-
-  /**
-   * Pre-initialize AudioContext and render all sound buffers.
-   *
-   * Call this on the first user gesture (click/keydown) so the ~50-100ms of
-   * buffer synthesis happens on an innocuous interaction rather than blocking
-   * the first dialog/modal open.
-   */
-  warmup(): void {
-    this.ensureInitialized();
   }
 
   /** Fire-and-forget sound playback. No-op when disabled. */
@@ -77,11 +62,9 @@ class SfxEngine {
     if (!this.preferences.enabled) {
       return;
     }
-    this.ensureInitialized();
-    const ctx = this.ctx!;
 
-    if (ctx.state === "suspended") {
-      void ctx.resume();
+    if (this.ctx.state === "suspended") {
+      void this.ctx.resume();
     }
 
     const buffer = this.buffers.get(id);
@@ -89,9 +72,9 @@ class SfxEngine {
       return;
     }
 
-    const source = ctx.createBufferSource();
+    const source = this.ctx.createBufferSource();
     source.buffer = buffer;
-    source.connect(this.gainNode!);
+    source.connect(this.gainNode);
     source.start(0);
   }
 
@@ -116,9 +99,7 @@ class SfxEngine {
     const clamped = Math.max(0, Math.min(1, volume));
     this.preferences = { ...this.preferences, volume: clamped };
     localStorage.setItem(STORAGE_KEY_VOLUME, String(clamped));
-    if (this.gainNode) {
-      this.gainNode.gain.value = clamped;
-    }
+    this.gainNode.gain.value = clamped;
     this.notify();
   }
 
