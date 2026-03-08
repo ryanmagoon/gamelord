@@ -227,7 +227,9 @@ export const GameWindow: React.FC = () => {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     const gainNode = gainNodeRef.current;
-    if (!gainNode) return;
+    if (!gainNode) {
+      return;
+    }
     source.connect(gainNode);
 
     const PRE_BUFFER_S = 0.06;

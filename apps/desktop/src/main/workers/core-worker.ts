@@ -247,7 +247,9 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
 
 /** Write a video frame into the inactive double-buffer and swap the active flag. */
 function writeVideoToSAB(frame: { data: Uint8Array; width: number; height: number }): void {
-  if (!controlView || !videoView) return;
+  if (!controlView || !videoView) {
+    return;
+  }
   const ctrl = controlView;
   const video = videoView;
 
@@ -272,7 +274,9 @@ function writeVideoToSAB(frame: { data: Uint8Array; width: number; height: numbe
 
 /** Write audio samples into the SPSC ring buffer. */
 function writeAudioToSAB(samples: Int16Array): void {
-  if (!controlView || !audioView) return;
+  if (!controlView || !audioView) {
+    return;
+  }
   const ctrl = controlView;
   const ring = audioView;
   const ringLen = ring.length;

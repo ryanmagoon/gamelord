@@ -164,34 +164,31 @@ export const LibraryView: React.FC<{
       loadLibrary();
     });
 
-    api.on(
-      "library:scanProgress",
-      (raw: unknown) => {
-        const progress = raw as {
-          game: AppGame;
-          isNew: boolean;
-          processed: number;
-          total: number;
-          skipped: number;
-        };
-        setScanProgress({
-          processed: progress.processed,
-          total: progress.total,
-          skipped: progress.skipped,
-        });
+    api.on("library:scanProgress", (raw: unknown) => {
+      const progress = raw as {
+        game: AppGame;
+        isNew: boolean;
+        processed: number;
+        total: number;
+        skipped: number;
+      };
+      setScanProgress({
+        processed: progress.processed,
+        total: progress.total,
+        skipped: progress.skipped,
+      });
 
-        if (progress.isNew) {
-          // Incrementally add the new game to the list without waiting for the full scan
-          setGames((prev) => {
-            // Avoid duplicates — the scan may re-emit known games
-            if (prev.some((g) => g.id === progress.game.id)) {
-              return prev;
-            }
-            return [...prev, progress.game];
-          });
-        }
-      },
-    );
+      if (progress.isNew) {
+        // Incrementally add the new game to the list without waiting for the full scan
+        setGames((prev) => {
+          // Avoid duplicates — the scan may re-emit known games
+          if (prev.some((g) => g.id === progress.game.id)) {
+            return prev;
+          }
+          return [...prev, progress.game];
+        });
+      }
+    });
 
     api.on("core:downloadProgress", (raw: unknown) => {
       const progress = raw as CoreDownloadProgress;

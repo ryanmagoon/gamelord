@@ -14,7 +14,9 @@ const shouldBeDark = savedTheme === "dark" || (savedTheme !== "light" && prefers
 document.documentElement.classList.toggle("dark", shouldBeDark);
 
 const rootElement = document.getElementById("root");
-if (!rootElement) throw new Error("Root element #root not found");
+if (!rootElement) {
+  throw new Error("Root element #root not found");
+}
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
