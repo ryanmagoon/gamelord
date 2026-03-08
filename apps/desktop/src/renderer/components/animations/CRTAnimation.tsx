@@ -220,21 +220,16 @@ const CRTPowerOff: React.FC<{ duration: number; onComplete: () => void }> = ({
 
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
-      {/* Black background — stays opaque through 'done' so the game canvas
-          never flashes through while the OS window fade plays */}
-      <div
-        className="absolute inset-0 bg-black"
-        style={{
-          opacity: phase === "shrink" ? 0.85 : 1,
-          transition: "opacity 80ms ease-out",
-        }}
-      />
+      {/* Black background — stays fully opaque throughout all phases so the
+          game canvas never shows through */}
+      <div className="absolute inset-0 bg-black" />
 
-      {/* Screen shrinking to a horizontal line */}
+      {/* Screen shrinking to a horizontal line — a bright phosphor glow strip
+          collapses on top of the solid black background */}
       {phase === "shrink" && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div
-            className="relative bg-black overflow-hidden"
+            className="relative overflow-hidden"
             style={{
               animation: `crt-screen-shrink ${duration * 0.35}ms ease-in forwards`,
             }}
@@ -244,7 +239,7 @@ const CRTPowerOff: React.FC<{ duration: number; onComplete: () => void }> = ({
               className="absolute inset-0"
               style={{
                 background:
-                  "radial-gradient(ellipse at center, rgba(100, 200, 255, 0.25) 0%, transparent 70%)",
+                  "radial-gradient(ellipse at center, rgba(100, 200, 255, 0.25) 0%, rgba(60, 140, 200, 0.1) 40%, transparent 70%)",
               }}
             />
             {/* Scanlines */}
@@ -294,9 +289,9 @@ const CRTPowerOff: React.FC<{ duration: number; onComplete: () => void }> = ({
 
       <style>{`
         @keyframes crt-screen-shrink {
-          0% { width: 100%; height: 100%; }
-          60% { width: 100%; height: 8px; }
-          100% { width: 100%; height: 2px; }
+          0% { width: 100%; height: 100%; box-shadow: 0 0 30px 5px rgba(100, 200, 255, 0.1); }
+          60% { width: 100%; height: 8px; box-shadow: 0 0 20px 4px rgba(255, 255, 255, 0.5), 0 0 40px 8px rgba(100, 200, 255, 0.3); }
+          100% { width: 100%; height: 2px; box-shadow: 0 0 15px 4px rgba(255, 255, 255, 0.7), 0 0 30px 8px rgba(100, 200, 255, 0.4); }
         }
         @keyframes crt-line-collapse {
           0% { width: 100%; opacity: 1; }
