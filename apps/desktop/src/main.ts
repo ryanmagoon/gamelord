@@ -80,7 +80,7 @@ const createWindow = () => {
     event.preventDefault();
     saveWindowStateNow(mainWindow, MAIN_WINDOW_CONFIG);
 
-    animateWindowClose(mainWindow).then(() => {
+    animateWindowClose(mainWindow, { shrink: false }).then(() => {
       readyToClose = true;
       mainWindow.close();
     });

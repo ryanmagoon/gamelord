@@ -126,6 +126,21 @@ describe("animateWindowClose", () => {
     expect(window.setBounds).not.toHaveBeenCalled();
   });
 
+  it("skips bounds animation when shrink option is false", async () => {
+    const window = createMockWindow();
+    const promise = animateWindowClose(window, { shrink: false });
+
+    await vi.advanceTimersByTimeAsync(WINDOW_CLOSE_ANIMATION_DURATION + 50);
+    await promise;
+
+    // Opacity should still animate
+    expect(window.setOpacity).toHaveBeenCalled();
+    // Bounds should NOT be set
+    expect(window.setBounds).not.toHaveBeenCalled();
+    // getBounds should not even be called since we don't need initial bounds
+    expect(window.getBounds).not.toHaveBeenCalled();
+  });
+
   it("calls setOpacity exactly WINDOW_CLOSE_ANIMATION_STEPS times", async () => {
     const window = createMockWindow();
     const promise = animateWindowClose(window);
