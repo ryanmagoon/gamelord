@@ -3,24 +3,24 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // --- Module mocks (hoisted before imports) ---
 
 vi.mock("electron", () => ({
-  app: {
-    getPath: vi.fn(() => "/tmp/test"),
-    getAppPath: vi.fn(() => "/tmp/test-app"),
-  },
   powerSaveBlocker: {
     start: vi.fn(() => 42),
     stop: vi.fn(),
     isStarted: vi.fn(() => true),
   },
+  app: {
+    getPath: vi.fn(() => "/tmp/test"),
+    getAppPath: vi.fn(() => "/tmp/test-app"),
+  },
 }));
 
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(() => false),
-  mkdirSync: vi.fn(),
   readdirSync: vi.fn(() => []),
+  mkdirSync: vi.fn(),
 }));
 
-vi.mock("node:os", () => ({
+vi.mock("os", () => ({
   homedir: vi.fn(() => "/home/test"),
 }));
 
@@ -183,7 +183,9 @@ describe("EmulatorManager — BIOS validation", () => {
   });
 
   it("detects partial BIOS files", () => {
-    vi.mocked(fs.existsSync).mockImplementation((p: any) => String(p).endsWith("sega_101.bin"));
+    vi.mocked(fs.existsSync).mockImplementation((p: fs.PathLike) =>
+      String(p).endsWith("sega_101.bin"),
+    );
     const result = manager.validateBios("saturn");
     expect(result.valid).toBe(false);
     expect(result.missingFiles).toEqual(["mpr-17933.bin"]);
