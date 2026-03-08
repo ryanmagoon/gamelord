@@ -1098,7 +1098,9 @@ describe("IPCHandlers", () => {
 
     it("does not throw when called with an unknown requestId", () => {
       const listener = getOnListener("dialog:resumeGameResponse");
-      expect(() => listener(fakeEvent, "unknown-id", true)).not.toThrow();
+      expect(() =>
+        listener(fakeEvent, "unknown-id", { action: "resume", remember: false }),
+      ).not.toThrow();
     });
   });
 });

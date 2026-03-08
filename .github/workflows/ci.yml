@@ -126,6 +126,7 @@ jobs:
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
           workingDir: packages/ui
           exitZeroOnChanges: true
+          autoAcceptChanges: main
 
   chromatic-skip:
     name: Visual Regression (Chromatic)
