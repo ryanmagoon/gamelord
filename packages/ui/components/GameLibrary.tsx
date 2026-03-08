@@ -285,8 +285,12 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   });
 
   return (
-    <div className={cn("space-y-6", className)}>
-      {/* Header Controls */}
+    <div className={cn(className)}>
+      {/* Header Controls — sticky so they stay visible while scrolling.
+         Negative margins extend the opaque bg to the scroll container edges.
+         The parent scroll container needs `relative z-0` to contain card
+         z-indices so they don't escape above the header/system tabs. */}
+      <div className="sticky -top-4 z-20 bg-background -mx-4 px-4 pt-4 pb-4 space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Search — either inline input or Cmd+K trigger */}
         {onSearchClick ? (
@@ -401,13 +405,14 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
           )}
         </div>
       </div>
+      </div>
 
       {/* Games Grid/List */}
       {viewMode === "grid" ? (
         isLargeList ? (
           /* ---- Virtualized path (>100 items) ---- */
           <div
-            className="relative"
+            className="relative mt-6"
             ref={gridRef}
             style={{ height: totalHeight > 0 ? totalHeight : undefined }}
           >
@@ -450,7 +455,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
           </div>
         ) : (
           /* ---- Small-list path (<=100 items, with FLIP animations) ---- */
-          <div className="relative flex flex-wrap" ref={gridRef} style={{ gap: `${MOSAIC_GAP}px` }}>
+          <div className="relative flex flex-wrap mt-6" ref={gridRef} style={{ gap: `${MOSAIC_GAP}px` }}>
             {flipItems.map((flipItem) => {
               const layoutIndex = filteredGames.indexOf(flipItem.item);
               const pos = layoutIndex >= 0 ? layout.items[layoutIndex] : undefined;
@@ -486,7 +491,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
           </div>
         )
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 mt-6">
           {/* List view implementation would go here */}
           <p className="text-muted-foreground">List view coming soon...</p>
         </div>
