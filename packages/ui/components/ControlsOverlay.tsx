@@ -115,7 +115,9 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose,
   }, [open, mounted]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -130,13 +132,19 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose,
   }, [open, onClose]);
 
   const gameControls = useMemo(() => {
-    if (!systemId) return ALL_GAME_CONTROLS;
+    if (!systemId) {
+      return ALL_GAME_CONTROLS;
+    }
     const allowedButtons = SYSTEM_BUTTONS[systemId];
-    if (!allowedButtons) return ALL_GAME_CONTROLS;
+    if (!allowedButtons) {
+      return ALL_GAME_CONTROLS;
+    }
     return ALL_GAME_CONTROLS.filter((c) => allowedButtons.has(c.id));
   }, [systemId]);
 
-  if (!open && !mounted) return null;
+  if (!open && !mounted) {
+    return null;
+  }
 
   const closing = !open && mounted;
 

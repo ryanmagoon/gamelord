@@ -180,7 +180,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     [onOpenChange],
   );
 
-  if (!open && !mounted) return null;
+  if (!open && !mounted) {
+    return null;
+  }
 
   const closing = !open && mounted;
 
