@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export interface ControlsOverlayProps {
   open: boolean;
@@ -80,7 +80,40 @@ function Section({ title, mappings }: { title: string; mappings: Array<{ key: st
   );
 }
 
+/**
+ * Delay (ms) to keep the DOM mounted after `open` goes false so exit
+ * animations have time to play. Matches the longest close animation
+ * (dialog-scan-out at 200ms) plus a small buffer.
+ */
+const UNMOUNT_DELAY = 220;
+
 export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose, systemId }) => {
+  // Delayed unmount: keep the DOM alive while exit animations play.
+  const [mounted, setMounted] = useState(open);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setMounted(true);
+    } else if (mounted) {
+      timerRef.current = setTimeout(() => {
+        setMounted(false);
+        timerRef.current = null;
+      }, UNMOUNT_DELAY);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [open, mounted]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -103,11 +136,13 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose,
     return ALL_GAME_CONTROLS.filter((c) => allowedButtons.has(c.id));
   }, [systemId]);
 
-  if (!open) return null;
+  if (!open && !mounted) return null;
+
+  const closing = !open && mounted;
 
   return (
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center animate-overlay-fade-in"
+      className={`absolute inset-0 z-50 flex items-center justify-center ${closing ? "animate-overlay-fade-out pointer-events-none" : "animate-overlay-fade-in"}`}
       role="dialog"
       aria-label="Keyboard Controls"
     >
@@ -115,12 +150,12 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose,
       <div
         className="absolute inset-0 bg-black/60"
         data-testid="controls-overlay-backdrop"
-        onClick={onClose}
+        onClick={closing ? undefined : onClose}
       />
 
       {/* Panel */}
       <div
-        className="relative z-10 bg-black/90 border border-white/10 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl animate-dialog-scan-in"
+        className={`relative z-10 bg-black/90 border border-white/10 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl ${closing ? "animate-dialog-scan-out" : "animate-dialog-scan-in"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="space-y-5">
