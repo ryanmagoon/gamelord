@@ -15,13 +15,26 @@ function makeGameResponseFixture(overrides?: Record<string, unknown>) {
     header: { APIversion: "2", success: "true" },
     response: {
       jeu: {
+        id: "12345",
+        noms: [
+          { region: "jp", text: "Super Mario Bros." },
+          { region: "us", text: "Super Mario Bros." },
+          { region: "eu", text: "Super Mario Bros." },
+        ],
+        synopsis: [
+          { langue: "fr", text: "Un jeu de plateforme classique." },
+          { langue: "en", text: "A classic platform game featuring Mario." },
+          { langue: "de", text: "Ein klassisches Plattformspiel." },
+        ],
+        developpeur: { text: "Nintendo R&D4" },
+        editeur: { text: "Nintendo" },
+        joueurs: { text: "2" },
+        note: { text: "18" },
         dates: [
           { region: "jp", text: "1985-09-13" },
           { region: "us", text: "1985-10-18" },
           { region: "eu", text: "1987-05-15" },
         ],
-        developpeur: { text: "Nintendo R&D4" },
-        editeur: { text: "Nintendo" },
         genres: [
           {
             noms: [
@@ -36,8 +49,6 @@ function makeGameResponseFixture(overrides?: Record<string, unknown>) {
             ],
           },
         ],
-        id: "12345",
-        joueurs: { text: "2" },
         medias: [
           {
             type: "box-2D",
@@ -76,17 +87,6 @@ function makeGameResponseFixture(overrides?: Record<string, unknown>) {
             format: "png",
           },
         ],
-        noms: [
-          { region: "jp", text: "Super Mario Bros." },
-          { region: "us", text: "Super Mario Bros." },
-          { region: "eu", text: "Super Mario Bros." },
-        ],
-        note: { text: "18" },
-        synopsis: [
-          { langue: "fr", text: "Un jeu de plateforme classique." },
-          { langue: "en", text: "A classic platform game featuring Mario." },
-          { langue: "de", text: "Ein klassisches Plattformspiel." },
-        ],
         ...overrides,
       },
     },
@@ -99,12 +99,15 @@ function makeSearchResponseFixture() {
     response: {
       jeux: [
         {
-          dates: [{ region: "us", text: "1985-10-18" }],
+          id: "12345",
+          noms: [{ region: "us", text: "Super Mario Bros." }],
           developpeur: { text: "Nintendo R&D4" },
           editeur: { text: "Nintendo" },
-          genres: [{ noms: [{ langue: "en", text: "Platform" }] }],
-          id: "12345",
           joueurs: { text: "2" },
+          note: { text: "18" },
+          dates: [{ region: "us", text: "1985-10-18" }],
+          genres: [{ noms: [{ langue: "en", text: "Platform" }] }],
+          synopsis: [{ langue: "en", text: "A classic platformer." }],
           medias: [
             {
               type: "box-2D",
@@ -113,13 +116,21 @@ function makeSearchResponseFixture() {
               format: "png",
             },
           ],
-          noms: [{ region: "us", text: "Super Mario Bros." }],
-          note: { text: "18" },
-          synopsis: [{ langue: "en", text: "A classic platformer." }],
         },
       ],
     },
   };
+}
+
+/** Assert a value is non-null and return it with narrowed type. */
+function assertDefined<T>(
+  value: T | null | undefined,
+  message = "Expected value to be defined",
+): T {
+  if (value === null || value === undefined) {
+    throw new Error(message);
+  }
+  return value;
 }
 
 describe("ScreenScraperClient", () => {
@@ -130,15 +141,15 @@ describe("ScreenScraperClient", () => {
       const result = client.parseGameResponse(fixture);
 
       expect(result).not.toBeNull();
-      expect(result!.title).toBe("Super Mario Bros.");
-      expect(result!.region).toBe("us");
-      expect(result!.developer).toBe("Nintendo R&D4");
-      expect(result!.publisher).toBe("Nintendo");
-      expect(result!.genre).toBe("Platform");
-      expect(result!.synopsis).toBe("A classic platform game featuring Mario.");
-      expect(result!.players).toBe(2);
-      expect(result!.rating).toBeCloseTo(0.9); // 18/20
-      expect(result!.releaseDate).toBe("1985-10-18"); // US preferred
+      expect(assertDefined(result).title).toBe("Super Mario Bros.");
+      expect(assertDefined(result).region).toBe("us");
+      expect(assertDefined(result).developer).toBe("Nintendo R&D4");
+      expect(assertDefined(result).publisher).toBe("Nintendo");
+      expect(assertDefined(result).genre).toBe("Platform");
+      expect(assertDefined(result).synopsis).toBe("A classic platform game featuring Mario.");
+      expect(assertDefined(result).players).toBe(2);
+      expect(assertDefined(result).rating).toBeCloseTo(0.9); // 18/20
+      expect(assertDefined(result).releaseDate).toBe("1985-10-18"); // US preferred
     });
 
     it("selects US region for box art and screenshots", () => {
@@ -146,9 +157,15 @@ describe("ScreenScraperClient", () => {
       const fixture = makeGameResponseFixture();
       const result = client.parseGameResponse(fixture);
 
-      expect(result!.media.boxArt2d).toBe("https://screenscraper.fr/medias/box2d-us.png");
-      expect(result!.media.boxArt3d).toBe("https://screenscraper.fr/medias/box3d-us.png");
-      expect(result!.media.screenshot).toBe("https://screenscraper.fr/medias/ss-us.png");
+      expect(assertDefined(result).media.boxArt2d).toBe(
+        "https://screenscraper.fr/medias/box2d-us.png",
+      );
+      expect(assertDefined(result).media.boxArt3d).toBe(
+        "https://screenscraper.fr/medias/box3d-us.png",
+      );
+      expect(assertDefined(result).media.screenshot).toBe(
+        "https://screenscraper.fr/medias/ss-us.png",
+      );
     });
 
     it("falls back to world region when US is not available", () => {
@@ -157,7 +174,9 @@ describe("ScreenScraperClient", () => {
       const result = client.parseGameResponse(fixture);
 
       // fanart only has 'wor' region in fixture
-      expect(result!.media.fanart).toBe("https://screenscraper.fr/medias/fanart-wor.png");
+      expect(assertDefined(result).media.fanart).toBe(
+        "https://screenscraper.fr/medias/fanart-wor.png",
+      );
     });
 
     it("prefers English synopsis over other languages", () => {
@@ -165,7 +184,7 @@ describe("ScreenScraperClient", () => {
       const fixture = makeGameResponseFixture();
       const result = client.parseGameResponse(fixture);
 
-      expect(result!.synopsis).toBe("A classic platform game featuring Mario.");
+      expect(assertDefined(result).synopsis).toBe("A classic platform game featuring Mario.");
     });
 
     it("falls back to French synopsis when English is unavailable", () => {
@@ -178,7 +197,7 @@ describe("ScreenScraperClient", () => {
       });
       const result = client.parseGameResponse(fixture);
 
-      expect(result!.synopsis).toBe("Un jeu de plateforme.");
+      expect(assertDefined(result).synopsis).toBe("Un jeu de plateforme.");
     });
 
     it("returns null for empty response", () => {
@@ -196,25 +215,25 @@ describe("ScreenScraperClient", () => {
     it("handles missing optional fields gracefully", () => {
       const client = new ScreenScraperClient(dummyCredentials);
       const fixture = makeGameResponseFixture({
+        synopsis: undefined,
         developpeur: undefined,
         editeur: undefined,
-        genres: undefined,
         joueurs: undefined,
-        medias: undefined,
         note: undefined,
-        synopsis: undefined,
+        genres: undefined,
+        medias: undefined,
       });
       const result = client.parseGameResponse(fixture);
 
       expect(result).not.toBeNull();
-      expect(result!.title).toBe("Super Mario Bros.");
-      expect(result!.synopsis).toBeUndefined();
-      expect(result!.developer).toBeUndefined();
-      expect(result!.publisher).toBeUndefined();
-      expect(result!.players).toBeUndefined();
-      expect(result!.rating).toBeUndefined();
-      expect(result!.genre).toBeUndefined();
-      expect(result!.media.boxArt2d).toBeUndefined();
+      expect(assertDefined(result).title).toBe("Super Mario Bros.");
+      expect(assertDefined(result).synopsis).toBeUndefined();
+      expect(assertDefined(result).developer).toBeUndefined();
+      expect(assertDefined(result).publisher).toBeUndefined();
+      expect(assertDefined(result).players).toBeUndefined();
+      expect(assertDefined(result).rating).toBeUndefined();
+      expect(assertDefined(result).genre).toBeUndefined();
+      expect(assertDefined(result).media.boxArt2d).toBeUndefined();
     });
 
     it("normalizes rating from 0-20 scale to 0-1", () => {
@@ -222,7 +241,7 @@ describe("ScreenScraperClient", () => {
       const fixture = makeGameResponseFixture({ note: { text: "10" } });
       const result = client.parseGameResponse(fixture);
 
-      expect(result!.rating).toBeCloseTo(0.5);
+      expect(assertDefined(result).rating).toBeCloseTo(0.5);
     });
 
     it("handles non-numeric players text", () => {
@@ -230,7 +249,7 @@ describe("ScreenScraperClient", () => {
       const fixture = makeGameResponseFixture({ joueurs: { text: "N/A" } });
       const result = client.parseGameResponse(fixture);
 
-      expect(result!.players).toBeUndefined();
+      expect(assertDefined(result).players).toBeUndefined();
     });
   });
 
@@ -241,8 +260,10 @@ describe("ScreenScraperClient", () => {
       const result = client.parseSearchResponse(fixture);
 
       expect(result).not.toBeNull();
-      expect(result!.title).toBe("Super Mario Bros.");
-      expect(result!.media.boxArt2d).toBe("https://screenscraper.fr/medias/box2d-us.png");
+      expect(assertDefined(result).title).toBe("Super Mario Bros.");
+      expect(assertDefined(result).media.boxArt2d).toBe(
+        "https://screenscraper.fr/medias/box2d-us.png",
+      );
     });
 
     it("returns null for empty search results", () => {
@@ -272,7 +293,7 @@ describe("ScreenScraperClient", () => {
         ],
       });
       const result = client.parseGameResponse(fixture);
-      expect(result!.title).toBe("US Title");
+      expect(assertDefined(result).title).toBe("US Title");
     });
 
     it("falls back through region priority when preferred region is missing", () => {
@@ -285,7 +306,7 @@ describe("ScreenScraperClient", () => {
       });
       const result = client.parseGameResponse(fixture);
       // 'wor' is second priority, not present, then 'eu' is third
-      expect(result!.title).toBe("EU Title");
+      expect(assertDefined(result).title).toBe("EU Title");
     });
 
     it("falls back to first available entry when no preferred region matches", () => {
@@ -294,8 +315,8 @@ describe("ScreenScraperClient", () => {
         noms: [{ region: "br", text: "BR Title" }],
       });
       const result = client.parseGameResponse(fixture);
-      expect(result!.title).toBe("BR Title");
-      expect(result!.region).toBe("br");
+      expect(assertDefined(result).title).toBe("BR Title");
+      expect(assertDefined(result).region).toBe("br");
     });
 
     it("returns jp region when only Japanese title is available", () => {
@@ -304,8 +325,8 @@ describe("ScreenScraperClient", () => {
         noms: [{ region: "jp", text: "スーパーマリオブラザーズ" }],
       });
       const result = client.parseGameResponse(fixture);
-      expect(result!.title).toBe("スーパーマリオブラザーズ");
-      expect(result!.region).toBe("jp");
+      expect(assertDefined(result).title).toBe("スーパーマリオブラザーズ");
+      expect(assertDefined(result).region).toBe("jp");
     });
 
     it("returns eu region when EU is the best match", () => {
@@ -317,8 +338,8 @@ describe("ScreenScraperClient", () => {
         ],
       });
       const result = client.parseGameResponse(fixture);
-      expect(result!.title).toBe("EU Title");
-      expect(result!.region).toBe("eu");
+      expect(assertDefined(result).title).toBe("EU Title");
+      expect(assertDefined(result).region).toBe("eu");
     });
   });
 
@@ -326,21 +347,21 @@ describe("ScreenScraperClient", () => {
     it("returns undefined when no media of requested type exists", () => {
       const client = new ScreenScraperClient(dummyCredentials);
       const fixture = makeGameResponseFixture({
-        medias: [{ region: "us", type: "box-2D", url: "https://example.com/box.png" }],
+        medias: [{ type: "box-2D", region: "us", url: "https://example.com/box.png" }],
       });
       const result = client.parseGameResponse(fixture);
 
-      expect(result!.media.boxArt2d).toBe("https://example.com/box.png");
-      expect(result!.media.fanart).toBeUndefined();
+      expect(assertDefined(result).media.boxArt2d).toBe("https://example.com/box.png");
+      expect(assertDefined(result).media.fanart).toBeUndefined();
     });
 
     it("selects media with region fallback", () => {
       const client = new ScreenScraperClient(dummyCredentials);
       const fixture = makeGameResponseFixture({
-        medias: [{ region: "eu", type: "box-2D", url: "https://example.com/box-eu.png" }],
+        medias: [{ type: "box-2D", region: "eu", url: "https://example.com/box-eu.png" }],
       });
       const result = client.parseGameResponse(fixture);
-      expect(result!.media.boxArt2d).toBe("https://example.com/box-eu.png");
+      expect(assertDefined(result).media.boxArt2d).toBe("https://example.com/box-eu.png");
     });
   });
 

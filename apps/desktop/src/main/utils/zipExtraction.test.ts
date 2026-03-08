@@ -62,7 +62,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  fs.rmSync(TEST_DIR, { force: true, recursive: true });
+  fs.rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
 describe("listZipContents", () => {
@@ -89,19 +89,30 @@ describe("listZipContents", () => {
   });
 });
 
+/** Assert a value is non-null and return it with narrowed type. */
+function assertDefined<T>(
+  value: T | null | undefined,
+  message = "Expected value to be defined",
+): T {
+  if (value === null || value === undefined) {
+    throw new Error(message);
+  }
+  return value;
+}
+
 describe("findRomInZip", () => {
   it("finds .gb file when matching extensions are provided", async () => {
     const result = await findRomInZip(path.join(ZIPS_DIR, "single-gb.zip"), [".gb", ".gbc"]);
     expect(result).not.toBeNull();
-    expect(result!.entryName).toBe("game.gb");
-    expect(result!.extension).toBe(".gb");
+    expect(assertDefined(result).entryName).toBe("game.gb");
+    expect(assertDefined(result).extension).toBe(".gb");
   });
 
   it("finds .nes file and ignores non-matching .txt", async () => {
     const result = await findRomInZip(path.join(ZIPS_DIR, "nes-with-txt.zip"), [".nes"]);
     expect(result).not.toBeNull();
-    expect(result!.entryName).toBe("game.nes");
-    expect(result!.extension).toBe(".nes");
+    expect(assertDefined(result).entryName).toBe("game.nes");
+    expect(assertDefined(result).extension).toBe(".nes");
   });
 
   it("returns null when no matching extension exists", async () => {
@@ -112,21 +123,21 @@ describe("findRomInZip", () => {
   it("ignores __MACOSX/ resource fork entries", async () => {
     const result = await findRomInZip(path.join(ZIPS_DIR, "macosx-junk.zip"), [".gb"]);
     expect(result).not.toBeNull();
-    expect(result!.entryName).toBe("game.gb");
+    expect(assertDefined(result).entryName).toBe("game.gb");
   });
 
   it("matches extensions case-insensitively", async () => {
     const result = await findRomInZip(path.join(ZIPS_DIR, "uppercase-ext.zip"), [".gbc"]);
     expect(result).not.toBeNull();
-    expect(result!.entryName).toBe("game.GBC");
-    expect(result!.extension).toBe(".gbc");
+    expect(assertDefined(result).entryName).toBe("game.GBC");
+    expect(assertDefined(result).extension).toBe(".gbc");
   });
 
   it("finds ROM in nested directory inside zip", async () => {
     const result = await findRomInZip(path.join(ZIPS_DIR, "nested.zip"), [".sfc"]);
     expect(result).not.toBeNull();
-    expect(result!.entryName).toBe("subdir/nested.sfc");
-    expect(result!.extension).toBe(".sfc");
+    expect(assertDefined(result).entryName).toBe("subdir/nested.sfc");
+    expect(assertDefined(result).extension).toBe(".sfc");
   });
 });
 
