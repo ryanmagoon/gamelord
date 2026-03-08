@@ -15,13 +15,18 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+interface ResumeDialogResponse {
+  action: "resume" | "start-fresh" | "cancel";
+  remember: boolean;
+}
+
 export class IPCHandlers {
   private emulatorManager: EmulatorManager;
   private libraryService: LibraryService;
   private artworkService: ArtworkService;
   private homebrewService: HomebrewService;
   private gameWindowManager: GameWindowManager;
-  private pendingResumeDialogs = new Map<string, (shouldResume: boolean) => void>();
+  private pendingResumeDialogs = new Map<string, (response: ResumeDialogResponse) => void>();
 
   constructor(preloadPath: string) {
     this.emulatorManager = new EmulatorManager();
@@ -132,10 +137,22 @@ export class IPCHandlers {
             if (nativeCore.hasAutoSave()) {
               const mainWindow = BrowserWindow.getFocusedWindow();
               if (mainWindow) {
-                shouldResume = await this.showResumeGameDialog(mainWindow, game.title);
+                const response = await this.showResumeGameDialog(mainWindow, game.id, game.title);
+
+                if (response.action === "cancel") {
+                  await this.emulatorManager.stopEmulator();
+                  return { success: false, error: "cancelled" };
+                }
+
+                shouldResume = response.action === "resume";
                 if (!shouldResume) {
                   nativeCore.deleteAutoSave();
                 }
+
+                // If remember was true, the renderer saves the preference to
+                // localStorage before sending the IPC response (same pattern
+                // as core-preference). On subsequent launches the renderer
+                // auto-responds without showing the dialog.
               }
             }
 
@@ -524,13 +541,16 @@ export class IPCHandlers {
 
   private setupDialogHandlers(): void {
     // Handle resume game dialog response from renderer
-    ipcMain.on("dialog:resumeGameResponse", (event, requestId: string, shouldResume: boolean) => {
-      const resolver = this.pendingResumeDialogs.get(requestId);
-      if (resolver) {
-        resolver(shouldResume);
-        this.pendingResumeDialogs.delete(requestId);
-      }
-    });
+    ipcMain.on(
+      "dialog:resumeGameResponse",
+      (event, requestId: string, response: ResumeDialogResponse) => {
+        const resolver = this.pendingResumeDialogs.get(requestId);
+        if (resolver) {
+          resolver(response);
+          this.pendingResumeDialogs.delete(requestId);
+        }
+      },
+    );
   }
 
   /**
@@ -548,21 +568,26 @@ export class IPCHandlers {
   /**
    * Show a custom resume game dialog in the renderer and wait for response.
    */
-  private showResumeGameDialog(window: BrowserWindow, gameTitle: string): Promise<boolean> {
+  private showResumeGameDialog(
+    window: BrowserWindow,
+    gameId: string,
+    gameTitle: string,
+  ): Promise<ResumeDialogResponse> {
     return new Promise((resolve) => {
       const requestId = `resume-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       this.pendingResumeDialogs.set(requestId, resolve);
 
       window.webContents.send("dialog:showResumeGame", {
         requestId,
+        gameId,
         gameTitle,
       });
 
-      // Timeout fallback: if no response after 30 seconds, default to not resuming
+      // Timeout fallback: if no response after 30 seconds, default to cancel
       setTimeout(() => {
         if (this.pendingResumeDialogs.has(requestId)) {
           this.pendingResumeDialogs.delete(requestId);
-          resolve(false);
+          resolve({ action: "cancel", remember: false });
         }
       }, 30_000);
     });

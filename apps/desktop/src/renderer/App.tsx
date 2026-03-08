@@ -28,6 +28,7 @@ import type { GamelordAPI, CoreInfo } from "./types/global";
 interface ResumeDialogState {
   open: boolean;
   requestId: string;
+  gameId: string;
   gameTitle: string;
 }
 
@@ -80,6 +81,7 @@ function App() {
   const [resumeDialog, setResumeDialog] = useState<ResumeDialogState>({
     open: false,
     requestId: "",
+    gameId: "",
     gameTitle: "",
   });
   const [coreSelectDialog, setCoreSelectDialog] = useState<CoreSelectDialogState>({
@@ -114,11 +116,20 @@ function App() {
   // Listen for resume game dialog requests from main process
   useEffect(() => {
     const handleShowResumeDialog = (raw: unknown) => {
-      const data = raw as { requestId: string; gameTitle: string };
+      const data = raw as { requestId: string; gameId: string; gameTitle: string };
+
+      // Check for a saved resume preference (skip dialog if found)
+      const saved = localStorage.getItem(`gamelord:resume-preference:${data.gameId}`);
+      if (saved === "resume" || saved === "start-fresh") {
+        api.dialog.respondResumeGame(data.requestId, { action: saved, remember: true });
+        return;
+      }
+
       playSfxRef.current("dialogOpen");
       setResumeDialog({
         open: true,
         requestId: data.requestId,
+        gameId: data.gameId,
         gameTitle: data.gameTitle,
       });
     };
@@ -131,14 +142,24 @@ function App() {
   }, [api]);
 
   const handleResumeDialogResponse = useCallback(
-    (shouldResume: boolean) => {
+    (action: "resume" | "start-fresh" | "cancel", remember: boolean) => {
       playSfx("dialogClose");
-      api.dialog.respondResumeGame(resumeDialog.requestId, shouldResume);
+
+      if (remember && action !== "cancel") {
+        localStorage.setItem(`gamelord:resume-preference:${resumeDialog.gameId}`, action);
+      }
+
+      api.dialog.respondResumeGame(resumeDialog.requestId, { action, remember });
+
+      if (action === "cancel") {
+        setLaunchingGameId(null);
+      }
+
       // Only set open to false — keep data intact so the close animation
       // doesn't show blank content. Data is overwritten on next open.
       setResumeDialog((previous) => ({ ...previous, open: false }));
     },
-    [api, resumeDialog.requestId, playSfx],
+    [api, resumeDialog.requestId, resumeDialog.gameId, playSfx],
   );
 
   /** Applies the dark class to <html> with a smooth crossfade transition. */
@@ -215,7 +236,7 @@ function App() {
         cardBounds ?? undefined,
       );
 
-      if (!result.success) {
+      if (!result.success && result.error !== "cancelled") {
         console.error("Failed to launch emulator:", result.error);
         setLaunchError(result.error ?? "Failed to launch game");
       }
@@ -457,8 +478,9 @@ function App() {
           <ResumeGameDialog
             open={resumeDialog.open}
             gameTitle={resumeDialog.gameTitle}
-            onResume={() => handleResumeDialogResponse(true)}
-            onStartFresh={() => handleResumeDialogResponse(false)}
+            onResume={(remember) => handleResumeDialogResponse("resume", remember)}
+            onStartFresh={(remember) => handleResumeDialogResponse("start-fresh", remember)}
+            onCancel={() => handleResumeDialogResponse("cancel", false)}
           />
 
           {/* Core selection dialog */}

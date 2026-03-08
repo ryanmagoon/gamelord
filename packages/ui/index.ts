@@ -14,6 +14,7 @@ export * from "./components/CommandPalette";
 export * from "./components/GameLibrary";
 export * from "./components/ScrollLetterIndicator";
 export * from "./components/GameDetails";
+export * from "./components/ResumeGameDialog";
 export * from "./components/TVStatic";
 export * from "./components/PlatformIcon";
 export * from "./components/WebGLRenderer";
