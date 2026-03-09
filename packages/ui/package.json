@@ -8,7 +8,7 @@
     "build": "tsgo --noEmit",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "lint": "oxlint",
+    "lint": "oxlint -c ../../oxlint.config.ts",
     "typecheck": "tsgo --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
