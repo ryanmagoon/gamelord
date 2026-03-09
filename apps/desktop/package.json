@@ -6,7 +6,8 @@
   "main": "./out/main/index.js",
   "scripts": {
     "build:native": "cd native && node-gyp rebuild",
-    "build": "npm run build:native && electron-vite build",
+    "clean": "rm -rf out dist",
+    "build": "npm run clean && npm run build:native && electron-vite build",
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
     "package": "npm run build && electron-builder --dir",
