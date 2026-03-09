@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Button, WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from "@gamelord/ui";
+import {
+  Button,
+  ControlsOverlay,
+  WebGLRenderer,
+  SHADER_PRESETS,
+  SHADER_LABELS,
+} from "@gamelord/ui";
 import {
   Play,
   Pause,
@@ -15,6 +21,7 @@ import {
   Gamepad2,
   FastForward,
   ChevronDown,
+  Keyboard,
 } from "lucide-react";
 import type { Game } from "../../types/library";
 import type { GamelordAPI, VideoFrame } from "../types/global";
@@ -90,6 +97,23 @@ export const GameWindow: React.FC = () => {
     const saved = localStorage.getItem("gamelord:fastForwardSpeed");
     return saved !== null ? Number.parseFloat(saved) : 2;
   });
+
+  const [showControlsOverlay, setShowControlsOverlay] = useState(false);
+  const [showControlsHint, setShowControlsHint] = useState(() => {
+    return localStorage.getItem("gamelord:controlsHintDismissed") !== "true";
+  });
+
+  // Auto-dismiss the controls hint after 8 seconds and persist the dismissal
+  useEffect(() => {
+    if (!showControlsHint) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setShowControlsHint(false);
+      localStorage.setItem("gamelord:controlsHintDismissed", "true");
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [showControlsHint]);
 
   // Memoize power animation callbacks so they have stable references.
   // CRTAnimation's useEffect depends on `onComplete` — an inline arrow
@@ -715,11 +739,19 @@ export const GameWindow: React.FC = () => {
         e.preventDefault();
         void handleToggleFastForward();
       }
+      if (e.key === "?" || e.key === "F1") {
+        e.preventDefault();
+        setShowControlsOverlay((v) => !v);
+        if (showControlsHint) {
+          setShowControlsHint(false);
+          localStorage.setItem("gamelord:controlsHintDismissed", "true");
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPaused, selectedSlot, speedMultiplier, preferredFastForwardSpeed]);
+  }, [isPaused, selectedSlot, speedMultiplier, preferredFastForwardSpeed, showControlsHint]);
 
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOverControlsRef = useRef(false);
@@ -1175,6 +1207,19 @@ export const GameWindow: React.FC = () => {
                 <div className="absolute bottom-full right-0 mb-2 bg-black/95 rounded-lg shadow-lg py-1 min-w-[160px]">
                   <button
                     onClick={() => {
+                      playSfx("click");
+                      setShowControlsOverlay(true);
+                      setShowSettingsMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                  >
+                    <Keyboard className="h-3.5 w-3.5" />
+                    <span>Controls</span>
+                    <span className="ml-auto text-xs text-white/30">?</span>
+                  </button>
+                  <div className="border-t border-white/10 my-1" />
+                  <button
+                    onClick={() => {
                       playSfx(showFps ? "toggleOff" : "toggleOn");
                       setShowFps((v) => !v);
                     }}
@@ -1234,6 +1279,34 @@ export const GameWindow: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Controls reference overlay */}
+      <ControlsOverlay
+        open={showControlsOverlay}
+        onClose={() => setShowControlsOverlay(false)}
+        systemId={game?.systemId}
+      />
+
+      {/* First-launch controls hint */}
+      {showControlsHint && !showControlsOverlay && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-40 animate-[fade-in_500ms_ease-out_1s_both]">
+          <button
+            onClick={() => {
+              setShowControlsHint(false);
+              localStorage.setItem("gamelord:controlsHintDismissed", "true");
+              setShowControlsOverlay(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-black/80 border border-white/15 rounded-lg text-sm text-white/70 hover:text-white/90 hover:bg-black/90 transition-colors cursor-pointer"
+          >
+            <Keyboard className="h-4 w-4" />
+            Press{" "}
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/20 text-xs font-mono">
+              ?
+            </kbd>{" "}
+            for controls
+          </button>
+        </div>
+      )}
 
       {/* Fatal emulation error dialog */}
       <EmulationErrorDialog

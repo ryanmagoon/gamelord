@@ -30,11 +30,9 @@ function renderPalette(props: Partial<Parameters<typeof CommandPalette>[0]> = {}
 
 describe("CommandPalette", () => {
   describe("rendering", () => {
-    it("renders a hidden element when closed", () => {
+    it("renders nothing when closed", () => {
       const { container } = renderPalette({ open: false });
-      const hidden = container.querySelector("[aria-hidden]");
-      expect(hidden).toBeTruthy();
-      expect(hidden?.classList.contains("hidden")).toBe(true);
+      expect(container.innerHTML).toBe("");
     });
 
     it("renders the search input when open", () => {
