@@ -99,7 +99,9 @@ export const GameWindow: React.FC = () => {
 
   // Auto-dismiss the controls hint after 8 seconds and persist the dismissal
   useEffect(() => {
-    if (!showControlsHint) return;
+    if (!showControlsHint) {
+      return;
+    }
     const timer = setTimeout(() => {
       setShowControlsHint(false);
       localStorage.setItem("gamelord:controlsHintDismissed", "true");
