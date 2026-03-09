@@ -1,5 +1,14 @@
 import { config as loadDotenv } from "dotenv";
-import { app, BrowserWindow, ipcMain, nativeTheme, net, protocol, session } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  nativeImage,
+  nativeTheme,
+  net,
+  protocol,
+  session,
+} from "electron";
 import path from "node:path";
 import { setupAppMenu } from "./main/appMenu";
 import { IPCHandlers } from "./main/ipc/handlers";
@@ -107,6 +116,17 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on("ready", () => {
+  // Set the Dock icon in dev mode. In production, electron-builder embeds icon.icns
+  // in the app bundle automatically. In dev mode, Electron shows its default icon
+  // unless we set it explicitly.
+  if (!app.isPackaged && process.platform === "darwin") {
+    const iconPath = path.join(__dirname, "../../build/icon.png");
+    const icon = nativeImage.createFromPath(iconPath);
+    if (!icon.isEmpty()) {
+      app.dock?.setIcon(icon);
+    }
+  }
+
   // Enable SharedArrayBuffer by setting cross-origin isolation headers.
   // Required for zero-copy frame transfer between the emulation worker
   // and the renderer. Only affects local responses (file:// and dev server).
