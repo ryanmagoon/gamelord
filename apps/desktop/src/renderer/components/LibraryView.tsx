@@ -883,7 +883,7 @@ export const LibraryView: React.FC<{
       {/* Game library */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-auto overscroll-contain p-4"
+        className="relative z-0 flex-1 overflow-auto overscroll-contain p-4"
         style={{ scrollbarGutter: "stable" }}
       >
         {filteredGames.length > 0 ? (
