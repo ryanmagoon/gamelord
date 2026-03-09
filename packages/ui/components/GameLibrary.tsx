@@ -285,120 +285,125 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   });
 
   return (
-    <div className={cn("space-y-6", className)}>
-      {/* Header Controls */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        {/* Search — either inline input or Cmd+K trigger */}
-        {onSearchClick ? (
-          <button
-            type="button"
-            onClick={onSearchClick}
-            className="relative flex-1 flex items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
-          >
-            <Search className="h-4 w-4 shrink-0" />
-            <span>Search games...</span>
-            <kbd className="ml-auto hidden shrink-0 select-none rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium sm:inline-block">
-              ⌘K
-            </kbd>
-          </button>
-        ) : (
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-10"
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search games..."
-              value={searchQuery}
-            />
-          </div>
-        )}
-
-        {/* Filters */}
-        <div className="flex gap-2">
-          <Select onValueChange={setSelectedPlatform} value={selectedPlatform}>
-            <SelectTrigger className="w-[140px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Platform" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Platforms</SelectItem>
-              {platforms.map((platform) => (
-                <SelectItem key={platform} value={platform}>
-                  {platform}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select onValueChange={(value) => setSortBy(value as SortBy)} value={sortBy}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="title">Title</SelectItem>
-              <SelectItem value="platform">Platform</SelectItem>
-              <SelectItem value="lastPlayed">Last Played</SelectItem>
-              <SelectItem value="recent">Recently Added</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Favorites filter toggle */}
-          <Button
-            aria-label={showFavoritesOnly ? "Show all games" : "Show favorites only"}
-            onClick={() => setShowFavoritesOnly((prev) => !prev)}
-            size="icon"
-            title={showFavoritesOnly ? "Show all games" : "Show favorites only"}
-            variant={showFavoritesOnly ? "default" : "ghost"}
-          >
-            <Heart className={cn("h-4 w-4", showFavoritesOnly && "fill-current")} />
-          </Button>
-
-          {/* View mode toggle */}
-          <div className="flex border rounded-md">
-            <Button
-              className="rounded-r-none"
-              onClick={() => setViewMode("grid")}
-              size="icon"
-              variant={viewMode === "grid" ? "default" : "ghost"}
+    <div className={cn(className)}>
+      {/* Header Controls — sticky so they stay visible while scrolling.
+         Negative margins extend the opaque bg to the scroll container edges.
+         The parent scroll container needs `relative z-0` to contain card
+         z-indices so they don't escape above the header/system tabs. */}
+      <div className="sticky -top-4 z-20 bg-background -mx-4 px-4 pt-4 pb-4 space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Search — either inline input or Cmd+K trigger */}
+          {onSearchClick ? (
+            <button
+              type="button"
+              onClick={onSearchClick}
+              className="relative flex-1 flex items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
             >
-              <Grid className="h-4 w-4" />
-            </Button>
+              <Search className="h-4 w-4 shrink-0" />
+              <span>Search games...</span>
+              <kbd className="ml-auto hidden shrink-0 select-none rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium sm:inline-block">
+                ⌘K
+              </kbd>
+            </button>
+          ) : (
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-10"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search games..."
+                value={searchQuery}
+              />
+            </div>
+          )}
+
+          {/* Filters */}
+          <div className="flex gap-2">
+            <Select onValueChange={setSelectedPlatform} value={selectedPlatform}>
+              <SelectTrigger className="w-[140px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Platform" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Platforms</SelectItem>
+                {platforms.map((platform) => (
+                  <SelectItem key={platform} value={platform}>
+                    {platform}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select onValueChange={(value) => setSortBy(value as SortBy)} value={sortBy}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="title">Title</SelectItem>
+                <SelectItem value="platform">Platform</SelectItem>
+                <SelectItem value="lastPlayed">Last Played</SelectItem>
+                <SelectItem value="recent">Recently Added</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Favorites filter toggle */}
             <Button
-              className="rounded-l-none"
-              onClick={() => setViewMode("list")}
+              aria-label={showFavoritesOnly ? "Show all games" : "Show favorites only"}
+              onClick={() => setShowFavoritesOnly((prev) => !prev)}
               size="icon"
-              variant={viewMode === "list" ? "default" : "ghost"}
+              title={showFavoritesOnly ? "Show all games" : "Show favorites only"}
+              variant={showFavoritesOnly ? "default" : "ghost"}
             >
-              <List className="h-4 w-4" />
+              <Heart className={cn("h-4 w-4", showFavoritesOnly && "fill-current")} />
             </Button>
+
+            {/* View mode toggle */}
+            <div className="flex border rounded-md">
+              <Button
+                className="rounded-r-none"
+                onClick={() => setViewMode("grid")}
+                size="icon"
+                variant={viewMode === "grid" ? "default" : "ghost"}
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+              <Button
+                className="rounded-l-none"
+                onClick={() => setViewMode("list")}
+                size="icon"
+                variant={viewMode === "list" ? "default" : "ghost"}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Results count */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {filteredGames.length} {filteredGames.length === 1 ? "game" : "games"}
-        </p>
-        <div className="flex items-center gap-2">
-          {selectedPlatform !== "all" && (
-            <Badge
-              className="cursor-pointer"
-              onClick={() => setSelectedPlatform("all")}
-              variant="secondary"
-            >
-              {selectedPlatform} ✕
-            </Badge>
-          )}
-          {showFavoritesOnly && (
-            <Badge
-              className="cursor-pointer"
-              onClick={() => setShowFavoritesOnly(false)}
-              variant="secondary"
-            >
-              Favorites ✕
-            </Badge>
-          )}
+        {/* Results count */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {filteredGames.length} {filteredGames.length === 1 ? "game" : "games"}
+          </p>
+          <div className="flex items-center gap-2">
+            {selectedPlatform !== "all" && (
+              <Badge
+                className="cursor-pointer"
+                onClick={() => setSelectedPlatform("all")}
+                variant="secondary"
+              >
+                {selectedPlatform} ✕
+              </Badge>
+            )}
+            {showFavoritesOnly && (
+              <Badge
+                className="cursor-pointer"
+                onClick={() => setShowFavoritesOnly(false)}
+                variant="secondary"
+              >
+                Favorites ✕
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
@@ -407,7 +412,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
         isLargeList ? (
           /* ---- Virtualized path (>100 items) ---- */
           <div
-            className="relative"
+            className="relative mt-6"
             ref={gridRef}
             style={{ height: totalHeight > 0 ? totalHeight : undefined }}
           >
@@ -450,7 +455,11 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
           </div>
         ) : (
           /* ---- Small-list path (<=100 items, with FLIP animations) ---- */
-          <div className="relative flex flex-wrap" ref={gridRef} style={{ gap: `${MOSAIC_GAP}px` }}>
+          <div
+            className="relative flex flex-wrap mt-6"
+            ref={gridRef}
+            style={{ gap: `${MOSAIC_GAP}px` }}
+          >
             {flipItems.map((flipItem) => {
               const layoutIndex = filteredGames.indexOf(flipItem.item);
               const pos = layoutIndex >= 0 ? layout.items[layoutIndex] : undefined;
@@ -486,7 +495,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
           </div>
         )
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 mt-6">
           {/* List view implementation would go here */}
           <p className="text-muted-foreground">List view coming soon...</p>
         </div>
