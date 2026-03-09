@@ -18,21 +18,29 @@ extraResources:
   - from: resources/homebrew
     to: homebrew
 
+afterPack: build/afterPack.js
+
 mac:
   category: public.app-category.games
   target:
     - dmg
-  # No code signing yet — deferred until Apple Developer cert is obtained
-  identity: null
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: entitlements.plist
+  entitlementsInherit: entitlements.inherit.plist
+  notarize: true
 
 dmg:
   title: GameLord
   iconSize: 100
+  window:
+    width: 540
+    height: 380
   contents:
     - x: 130
-      y: 220
+      y: 210
     - x: 410
-      y: 220
+      y: 210
       type: link
       path: /Applications
 
@@ -46,6 +54,3 @@ linux:
     - deb
     - rpm
     - AppImage
-
-# electronFuses — not supported by electron-builder v25; configure via
-# @electron/fuses afterPack hook when code signing is added.
