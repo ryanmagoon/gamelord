@@ -96,7 +96,7 @@ export function getControllerDisplayName(gamepadId: string): string {
   // Try to extract the human-readable part
   const parenIndex = gamepadId.indexOf("(");
   if (parenIndex > 0) {
-    return gamepadId.substring(0, parenIndex).trim();
+    return gamepadId.slice(0, parenIndex).trim();
   }
 
   // Firefox format: strip leading vendor-product prefix
@@ -175,7 +175,7 @@ export function getGamepadButtonLabel(buttonIndex: number): string {
 export function getDefaultMapping(): ControllerMapping {
   const bindings: Array<ButtonBinding> = BUTTON_ORDER.map(({ retroId, label }) => {
     // Find which gamepad button maps to this retroId in the standard mapping
-    const gamepadButtonIndex = STANDARD_GAMEPAD_MAPPING.findIndex((id) => id === retroId);
+    const gamepadButtonIndex = STANDARD_GAMEPAD_MAPPING.indexOf(retroId);
     return {
       retroId,
       label,

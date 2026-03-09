@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useEffect } from "react";
 import { Gamepad2, RotateCcw, Usb, Unplug, CircleDot } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "../../utils";
@@ -8,7 +8,6 @@ import {
   type ButtonBinding,
   getButtonLabel,
   getGamepadButtonLabel,
-  getDefaultMapping,
 } from "./controller-mappings";
 
 // ---------------------------------------------------------------------------

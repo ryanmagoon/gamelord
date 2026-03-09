@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { ControllerConfig } from "./ControllerConfig";
-import type { ConnectedController, ControllerMapping } from "./controller-mappings";
+import type { ConnectedController } from "./controller-mappings";
 import { getDefaultMapping } from "./controller-mappings";
 
 const defaultMapping = getDefaultMapping();
