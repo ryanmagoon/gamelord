@@ -112,6 +112,12 @@ function App() {
 
   // Listen for auto-update events from the main process
   useEffect(() => {
+    // api.on is only available when running inside Electron (preload bridge).
+    // In the Vite dev server (browser), skip IPC event registration.
+    if (!api?.on) {
+      return undefined;
+    }
+
     const onChecking = () => {
       setUpdateStatus("checking");
     };
