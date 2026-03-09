@@ -1,7 +1,4 @@
-import {
-  LIBRETRO_BUTTON,
-  STANDARD_GAMEPAD_MAPPING,
-} from "../../gamepad/mappings";
+import { LIBRETRO_BUTTON, STANDARD_GAMEPAD_MAPPING } from "../../gamepad/mappings";
 
 /**
  * Controller type detected from the Gamepad API `id` string.

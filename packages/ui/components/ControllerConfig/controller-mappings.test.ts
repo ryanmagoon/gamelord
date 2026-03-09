@@ -27,9 +27,9 @@ describe("detectControllerType", () => {
   });
 
   it("detects Xbox controllers by vendor ID", () => {
-    expect(
-      detectControllerType("Controller (STANDARD GAMEPAD Vendor: 045e Product: 0000)"),
-    ).toBe("xbox");
+    expect(detectControllerType("Controller (STANDARD GAMEPAD Vendor: 045e Product: 0000)")).toBe(
+      "xbox",
+    );
   });
 
   it("detects PlayStation controllers by name", () => {
@@ -45,9 +45,9 @@ describe("detectControllerType", () => {
   });
 
   it("detects PlayStation controllers by vendor ID", () => {
-    expect(
-      detectControllerType("Controller (STANDARD GAMEPAD Vendor: 054c Product: 0000)"),
-    ).toBe("playstation");
+    expect(detectControllerType("Controller (STANDARD GAMEPAD Vendor: 054c Product: 0000)")).toBe(
+      "playstation",
+    );
   });
 
   it("returns generic for unknown controllers", () => {

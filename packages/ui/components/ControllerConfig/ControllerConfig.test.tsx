@@ -74,12 +74,7 @@ describe("ControllerConfig", () => {
   });
 
   it("renders multiple controllers", () => {
-    render(
-      <ControllerConfig
-        {...defaultProps}
-        controllers={[xboxController, psController]}
-      />,
-    );
+    render(<ControllerConfig {...defaultProps} controllers={[xboxController, psController]} />);
     expect(screen.getByText("Xbox Wireless Controller")).toBeInTheDocument();
     expect(screen.getByText("DualSense")).toBeInTheDocument();
   });
@@ -141,23 +136,13 @@ describe("ControllerConfig", () => {
 
   it("does not show button tester when controller is disconnected", () => {
     const disconnected: ConnectedController = { ...xboxController, connected: false };
-    render(
-      <ControllerConfig
-        {...defaultProps}
-        controllers={[disconnected]}
-      />,
-    );
+    render(<ControllerConfig {...defaultProps} controllers={[disconnected]} />);
     expect(screen.queryByText("Button Tester")).not.toBeInTheDocument();
   });
 
   it("shows Disconnected status for disconnected controller", () => {
     const disconnected: ConnectedController = { ...xboxController, connected: false };
-    render(
-      <ControllerConfig
-        {...defaultProps}
-        controllers={[disconnected]}
-      />,
-    );
+    render(<ControllerConfig {...defaultProps} controllers={[disconnected]} />);
     expect(screen.getByText("Disconnected")).toBeInTheDocument();
   });
 });
