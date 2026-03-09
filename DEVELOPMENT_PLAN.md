@@ -185,6 +185,7 @@ Items are grouped by priority. Work top-down within each tier.
   - [ ] Click-to-assign flow: highlighted button pulses/glows, user presses physical input to bind it
   - [ ] Support for multiple controller types (Xbox, PlayStation, generic) with matching 3D models
 - [x] Gamepad API support in renderer — detect connected controllers, read input state
+- [x] Basic controller configuration UI — Controllers tab in Settings with type detection, live button tester, click-to-remap flow, localStorage persistence — [#188](https://github.com/ryanmagoon/gamelord/issues/188)
 - [ ] Per-game input mappings — override default bindings on a per-game or per-system basis — [#82](https://github.com/ryanmagoon/gamelord/issues/82)
 - [ ] **Remap UI navigation buttons** — Let users customize which controller buttons map to UI actions (select, back, menu, etc.) separately from in-game bindings. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
 
