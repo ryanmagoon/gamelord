@@ -13,6 +13,7 @@ import {
   cn,
   SHADER_LABELS,
   SHADER_PRESETS,
+  ControllerConfig,
 } from "@gamelord/ui";
 import {
   Settings,
@@ -29,14 +30,16 @@ import {
   ExternalLink,
   Check,
   FolderSearch,
+  Joystick,
 } from "lucide-react";
 import { useSfx } from "../../hooks/useSfx";
+import { useControllerConfig } from "../../hooks/useControllerConfig";
 import type { GamelordAPI } from "../../types/global";
 import type { GameSystem } from "../../../types/library";
 
 type ThemeMode = "system" | "dark" | "light";
 
-type SettingsTab = "general" | "emulation" | "library" | "about";
+type SettingsTab = "general" | "emulation" | "controllers" | "library" | "about";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -48,6 +51,7 @@ interface SettingsDialogProps {
 const TAB_CONFIG: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
   { id: "general", label: "General", icon: <Settings className="h-4 w-4" /> },
   { id: "emulation", label: "Emulation", icon: <Gamepad2 className="h-4 w-4" /> },
+  { id: "controllers", label: "Controllers", icon: <Joystick className="h-4 w-4" /> },
   { id: "library", label: "Library", icon: <FolderOpen className="h-4 w-4" /> },
   { id: "about", label: "About", icon: <Info className="h-4 w-4" /> },
 ];
@@ -98,6 +102,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
               <GeneralTab themeMode={themeMode} onThemeChange={onThemeChange} />
             )}
             {activeTab === "emulation" && <EmulationTab />}
+            {activeTab === "controllers" && <ControllersTab />}
             {activeTab === "library" && <LibraryTab />}
             {activeTab === "about" && <AboutTab />}
           </div>
@@ -237,6 +242,42 @@ const GeneralTab: React.FC<{
         )}
       </div>
     </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Controllers Tab
+// ---------------------------------------------------------------------------
+
+const ControllersTab: React.FC = () => {
+  const {
+    controllers,
+    mapping,
+    selectedControllerIndex,
+    selectController,
+    buttonStates,
+    axisValues,
+    remappingButton,
+    startRemap,
+    cancelRemap,
+    changeBinding,
+    resetDefaults,
+  } = useControllerConfig();
+
+  return (
+    <ControllerConfig
+      controllers={controllers}
+      mapping={mapping}
+      onBindingChange={changeBinding}
+      onResetDefaults={resetDefaults}
+      selectedControllerIndex={selectedControllerIndex}
+      onSelectController={selectController}
+      buttonStates={buttonStates}
+      axisValues={axisValues}
+      remappingButton={remappingButton}
+      onStartRemap={startRemap}
+      onCancelRemap={cancelRemap}
+    />
   );
 };
 

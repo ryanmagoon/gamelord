@@ -4,6 +4,7 @@ import {
   ANALOG_DEADZONE,
   LIBRETRO_BUTTON,
 } from "../lib/gamepad/mappings";
+import { loadMapping, mappingToArray } from "@gamelord/ui";
 
 interface UseGamepadOptions {
   /** Function to send input state to the main process via IPC. */
@@ -27,12 +28,26 @@ const DPAD_RETRO_IDS = [
 ] as const;
 
 /**
+ * Get the effective button mapping for a controller.
+ * Checks localStorage for a user-customized mapping, falls back to the standard mapping.
+ */
+function getEffectiveMapping(gamepadId: string): Array<number | null> {
+  const saved = loadMapping(gamepadId);
+  if (saved) {
+    return mappingToArray(saved);
+  }
+  return STANDARD_GAMEPAD_MAPPING;
+}
+
+/**
  * Polls connected gamepads via the browser Gamepad API and forwards button
  * state changes through the existing `gameInput()` IPC pipeline.
  *
  * Only processes gamepads with `mapping === "standard"` (W3C standard layout).
  * Gamepad index maps directly to libretro port (0 or 1, max 2 players).
  * Left analog stick is converted to digital d-pad input using a deadzone.
+ *
+ * Respects user-customized button mappings saved from the Settings > Controllers panel.
  *
  * @returns The number of currently connected gamepads for UI display.
  */
@@ -43,6 +58,8 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
   const previousStatesRef = useRef<Map<number, GamepadButtonState>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
   const enabledRef = useRef(enabled);
+  /** Cached mappings per gamepad index to avoid reading localStorage every frame. */
+  const mappingCacheRef = useRef<Map<number, Array<number | null>>>(new Map());
 
   // Keep ref in sync so the rAF loop reads the latest value without restarting
   useEffect(() => {
@@ -61,12 +78,14 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
       return;
     }
 
+    const mapping = mappingCacheRef.current.get(port) ?? STANDARD_GAMEPAD_MAPPING;
+
     for (
       let buttonIndex = 0;
-      buttonIndex < previousState.buttons.length && buttonIndex < STANDARD_GAMEPAD_MAPPING.length;
+      buttonIndex < previousState.buttons.length && buttonIndex < mapping.length;
       buttonIndex++
     ) {
-      const retroId = STANDARD_GAMEPAD_MAPPING[buttonIndex];
+      const retroId = mapping[buttonIndex];
       if (retroId !== null && previousState.buttons[buttonIndex]) {
         gameInputRef.current(port, retroId, false);
       }
@@ -99,6 +118,13 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
         }
 
         const port = gamepadIndex;
+
+        // Load/cache effective mapping for this controller
+        if (!mappingCacheRef.current.has(gamepadIndex)) {
+          mappingCacheRef.current.set(gamepadIndex, getEffectiveMapping(gamepad.id));
+        }
+        const mapping = mappingCacheRef.current.get(gamepadIndex) ?? STANDARD_GAMEPAD_MAPPING;
+
         let previousState = previousStatesRef.current.get(gamepadIndex);
         if (!previousState) {
           previousState = {
@@ -111,10 +137,10 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
         // Poll digital buttons
         for (
           let buttonIndex = 0;
-          buttonIndex < gamepad.buttons.length && buttonIndex < STANDARD_GAMEPAD_MAPPING.length;
+          buttonIndex < gamepad.buttons.length && buttonIndex < mapping.length;
           buttonIndex++
         ) {
-          const retroId = STANDARD_GAMEPAD_MAPPING[buttonIndex];
+          const retroId = mapping[buttonIndex];
           if (retroId === null) {
             continue;
           }
@@ -164,7 +190,9 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
   }, []);
 
   useEffect(() => {
-    const handleConnect = (_event: GamepadEvent) => {
+    const handleConnect = (event: GamepadEvent) => {
+      // Invalidate mapping cache so new mapping is loaded for this controller
+      mappingCacheRef.current.delete(event.gamepad.index);
       setConnectedCount((count) => count + 1);
     };
 
@@ -173,6 +201,7 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
       if (port < 2) {
         releaseAllButtons(port);
       }
+      mappingCacheRef.current.delete(port);
       setConnectedCount((count) => Math.max(0, count - 1));
     };
 
@@ -205,6 +234,7 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
         releaseAllButtons(port);
       }
       previousStatesRef.current.clear();
+      mappingCacheRef.current.clear();
     };
   }, [pollGamepads, releaseAllButtons]);
 
