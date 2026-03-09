@@ -67,7 +67,13 @@ function ControlRow({ mapping }: { mapping: { key: string; label: string } }) {
   );
 }
 
-function Section({ title, mappings }: { title: string; mappings: Array<{ key: string; label: string }> }) {
+function Section({
+  title,
+  mappings,
+}: {
+  title: string;
+  mappings: Array<{ key: string; label: string }>;
+}) {
   return (
     <div>
       <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">{title}</h3>

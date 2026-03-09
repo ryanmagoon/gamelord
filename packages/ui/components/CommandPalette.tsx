@@ -196,7 +196,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       />
 
       {/* Command palette container */}
-      <div className={`fixed inset-0 flex items-start justify-center pt-[20vh] ${closing ? "pointer-events-none" : ""}`}>
+      <div
+        className={`fixed inset-0 flex items-start justify-center pt-[20vh] ${closing ? "pointer-events-none" : ""}`}
+      >
         <Command
           className={cn(
             "w-full max-w-lg rounded-lg border bg-popover text-popover-foreground shadow-2xl",

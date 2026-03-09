@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Button, ControlsOverlay, WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from "@gamelord/ui";
+import {
+  Button,
+  ControlsOverlay,
+  WebGLRenderer,
+  SHADER_PRESETS,
+  SHADER_LABELS,
+} from "@gamelord/ui";
 import {
   Play,
   Pause,
@@ -1293,7 +1299,11 @@ export const GameWindow: React.FC = () => {
             className="flex items-center gap-2 px-4 py-2 bg-black/80 border border-white/15 rounded-lg text-sm text-white/70 hover:text-white/90 hover:bg-black/90 transition-colors cursor-pointer"
           >
             <Keyboard className="h-4 w-4" />
-            Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/20 text-xs font-mono">?</kbd> for controls
+            Press{" "}
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/20 text-xs font-mono">
+              ?
+            </kbd>{" "}
+            for controls
           </button>
         </div>
       )}
