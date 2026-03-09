@@ -45,7 +45,7 @@
   "packageManager": "pnpm@10.15.0",
   "pnpm": {
     "overrides": {
-      "@types/node": "^22"
+      "@types/node": "^24"
     }
   }
 }
