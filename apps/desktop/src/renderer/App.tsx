@@ -9,10 +9,13 @@ import {
   AlertDialogTitle,
   Button,
   WebGLRendererComponent,
+  UpdateNotification,
   Game as UiGame,
   cn,
   type GameCardMenuItem,
   type CommandAction,
+  type UpdateStatus,
+  type UpdateProgress,
 } from "@gamelord/ui";
 import { useWebGLRenderer } from "./hooks/useWebGLRenderer";
 import { useSfx } from "./hooks/useSfx";
@@ -100,6 +103,59 @@ function App() {
   const [launchError, setLaunchError] = useState<string | null>(null);
   /** Settings dialog state. */
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  /** Auto-update notification state. */
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>("idle");
+  const [updateVersion, setUpdateVersion] = useState<string | undefined>();
+  const [updateProgress, setUpdateProgress] = useState<UpdateProgress | undefined>();
+  const [updateError, setUpdateError] = useState<string | undefined>();
+
+  // Listen for auto-update events from the main process
+  useEffect(() => {
+    const onChecking = () => {
+      setUpdateStatus("checking");
+    };
+    const onAvailable = (raw: unknown) => {
+      const data = raw as { version: string };
+      setUpdateStatus("available");
+      setUpdateVersion(data.version);
+    };
+    const onNotAvailable = () => {
+      setUpdateStatus("idle");
+    };
+    const onProgress = (raw: unknown) => {
+      const data = raw as UpdateProgress;
+      setUpdateStatus("downloading");
+      setUpdateProgress(data);
+    };
+    const onDownloaded = (raw: unknown) => {
+      const data = raw as { version: string };
+      setUpdateStatus("downloaded");
+      setUpdateVersion(data.version);
+      setUpdateProgress(undefined);
+    };
+    const onError = (raw: unknown) => {
+      const data = raw as { message: string };
+      setUpdateStatus("error");
+      setUpdateError(data.message);
+    };
+
+    api.on("updates:checking", onChecking);
+    api.on("updates:available", onAvailable);
+    api.on("updates:not-available", onNotAvailable);
+    api.on("updates:download-progress", onProgress);
+    api.on("updates:downloaded", onDownloaded);
+    api.on("updates:error", onError);
+
+    return () => {
+      api.removeAllListeners("updates:checking");
+      api.removeAllListeners("updates:available");
+      api.removeAllListeners("updates:not-available");
+      api.removeAllListeners("updates:download-progress");
+      api.removeAllListeners("updates:downloaded");
+      api.removeAllListeners("updates:error");
+    };
+  }, [api]);
 
   // Cmd+, / Ctrl+, keyboard shortcut for settings
   useEffect(() => {
@@ -467,6 +523,14 @@ function App() {
               <Settings className="h-4 w-4" />
             </Button>
           </div>
+          <UpdateNotification
+            status={updateStatus}
+            version={updateVersion}
+            progress={updateProgress}
+            error={updateError}
+            onRestart={() => api.updates.quitAndInstall()}
+            onDismiss={() => setUpdateStatus("idle")}
+          />
           <div className="flex-1 overflow-hidden">
             <LibraryView
               onPlayGame={handlePlayGame}
