@@ -29,10 +29,7 @@ describe("initSentryRenderer", () => {
     initSentryRenderer();
 
     expect(mockElectronInit).toHaveBeenCalledOnce();
-    expect(mockElectronInit).toHaveBeenCalledWith(
-      expect.any(Object),
-      mockReactInit,
-    );
+    expect(mockElectronInit).toHaveBeenCalledWith(expect.any(Object), mockReactInit);
   });
 
   it("configures replay to only record on errors", async () => {

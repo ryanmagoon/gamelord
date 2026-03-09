@@ -60,14 +60,10 @@ describe("logger → Sentry breadcrumb bridge", () => {
     const hook = hooks[0];
 
     hook({ data: ["failed"], level: "error", scope: "ipc", date: new Date() });
-    expect(mockAddBreadcrumb).toHaveBeenCalledWith(
-      expect.objectContaining({ level: "error" }),
-    );
+    expect(mockAddBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "error" }));
 
     hook({ data: ["caution"], level: "warn", scope: "ipc", date: new Date() });
-    expect(mockAddBreadcrumb).toHaveBeenCalledWith(
-      expect.objectContaining({ level: "warning" }),
-    );
+    expect(mockAddBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "warning" }));
   });
 
   it("uses 'default' category when scope is undefined", async () => {

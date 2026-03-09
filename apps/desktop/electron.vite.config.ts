@@ -30,7 +30,7 @@ const worktreeInfo = isDev ? getWorktreeInfo() : null;
  * are available (CI release builds). Returns an empty array otherwise so the
  * spread in plugin lists is a no-op during local development.
  */
-function sentryPlugins(): Plugin[] {
+function sentryPlugins(): Array<Plugin> {
   if (!process.env.SENTRY_AUTH_TOKEN) {
     return [];
   }
