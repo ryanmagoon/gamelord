@@ -19,7 +19,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -28,9 +28,13 @@ jobs:
         working-directory: apps/desktop/native
         run: npx node-gyp rebuild
 
-      - name: Build app
+      - name: Build app and upload source maps to Sentry
         working-directory: apps/desktop
         run: npx electron-vite build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: Package DMG
         working-directory: apps/desktop

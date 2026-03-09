@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { execSync } from "node:child_process";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 import type { Plugin } from "vite";
 
 function getGitBranch(): string | null {
@@ -23,6 +24,28 @@ function getWorktreeInfo(): { name: string; path: string } | null {
 const isDev = process.env.NODE_ENV !== "production";
 const gitBranch = isDev ? getGitBranch() : null;
 const worktreeInfo = isDev ? getWorktreeInfo() : null;
+
+/**
+ * Returns the Sentry Vite plugin for source map uploads when auth credentials
+ * are available (CI release builds). Returns an empty array otherwise so the
+ * spread in plugin lists is a no-op during local development.
+ */
+function sentryPlugins(): Array<Plugin> {
+  if (!process.env.SENTRY_AUTH_TOKEN) {
+    return [];
+  }
+  return [
+    sentryVitePlugin({
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      release: { name: process.env.npm_package_version },
+      sourcemaps: {
+        filesToDeleteAfterUpload: ["./out/**/*.map"],
+      },
+    }),
+  ];
+}
 
 /** Vite plugin that injects dev-time git info as compile-time constants. */
 function devGitInfoPlugin(): Plugin {
@@ -52,6 +75,7 @@ function devGitInfoPlugin(): Plugin {
 export default defineConfig({
   main: {
     build: {
+      sourcemap: process.env.SENTRY_AUTH_TOKEN ? "hidden" : undefined,
       rollupOptions: {
         input: {
           index: resolve(__dirname, "src/main.ts"),
@@ -60,20 +84,22 @@ export default defineConfig({
         external: [/\.node$/],
       },
     },
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin(), ...sentryPlugins()],
   },
   preload: {
     build: {
+      sourcemap: process.env.SENTRY_AUTH_TOKEN ? "hidden" : undefined,
       rollupOptions: {
         input: {
           index: resolve(__dirname, "src/preload.ts"),
         },
       },
     },
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin(), ...sentryPlugins()],
   },
   renderer: {
     build: {
+      sourcemap: process.env.SENTRY_AUTH_TOKEN ? "hidden" : undefined,
       rollupOptions: {
         input: {
           index: resolve(__dirname, "index.html"),
@@ -84,7 +110,7 @@ export default defineConfig({
     optimizeDeps: {
       exclude: ["@gamelord/ui"],
     },
-    plugins: [react(), devGitInfoPlugin()],
+    plugins: [react(), devGitInfoPlugin(), ...sentryPlugins()],
     resolve: {
       // Ensure pnpm workspace symlinks (e.g. @gamelord/ui → packages/ui)
       // resolve to their real paths, so Node module resolution walks up from

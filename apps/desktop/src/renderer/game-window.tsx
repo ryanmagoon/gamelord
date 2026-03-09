@@ -1,3 +1,8 @@
+import { initSentryRenderer } from "./sentry";
+
+// Initialize Sentry before React mounts so it captures all errors.
+initSentryRenderer();
+
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";

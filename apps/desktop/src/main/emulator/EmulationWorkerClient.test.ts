@@ -44,6 +44,7 @@ vi.mock("electron", () => ({
 vi.mock("electron-log/main", () => ({
   default: {
     transports: { file: {}, console: {} },
+    hooks: [],
     scope: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
   },
 }));
