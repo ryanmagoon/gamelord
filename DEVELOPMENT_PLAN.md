@@ -281,7 +281,9 @@ Tracking issue for the first alpha release. All items below must be completed be
 
 - [ ] Bundle libretro cores with the app — [#98](https://github.com/ryanmagoon/gamelord/issues/98)
 - [x] **Bundled homebrew ROMs** — Initial implementation ships 3 NES homebrew ROMs (Lawn Mower, NESert Golfing, 8-Bit Table Tennis) with permissive licenses. Auto-imported via HomebrewService on first launch when library is empty. Future work: expand to additional systems (SNES, GB, GBA, Genesis). — [#139](https://github.com/ryanmagoon/gamelord/issues/139)
-- [ ] **DMG packaging + auto-updates** — electron-builder DMG with code signing, notarization, custom background. Auto-updates via electron-updater + GitHub Releases. — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
+- [x] **Code signing + notarization** — Developer ID Application cert, hardened runtime, entitlements (JIT, unsigned memory, library validation for libretro dlopen), notarization via App Store Connect API Key (`notarize: true` in electron-builder), Electron fuses (`afterPack.js`), custom DMG background, CI workflow with cert import and API key secrets. Verified with `spctl --assess` and `stapler validate`. — [#184](https://github.com/ryanmagoon/gamelord/issues/184)
+- [ ] **Auto-updates** — electron-updater + GitHub Releases for automatic update checks and installation. — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
+- [ ] **Polished DMG installer experience** — Custom high-fidelity DMG background design (Raycast/Comet-tier visual polish), Retina `background@2x.png`, branded drag-to-Applications visual.
 - [ ] **Cross-platform support (Windows & Linux)** — Abstract `dlopen` → `LoadLibrary` for Windows, platform-detect core/config paths, download cores from correct buildbot URL per OS, electron-builder configs for NSIS/MSI (Windows) and AppImage/deb (Linux), CI matrix for all three platforms. The emulation pipeline is already OS-agnostic; the work is in native addon portability, path conventions, and packaging. — [#118](https://github.com/ryanmagoon/gamelord/issues/118)
 
 ### P10 — Web Presence (Vercel)
