@@ -102,6 +102,7 @@ export const GameWindow: React.FC = () => {
   });
 
   const [showControlsOverlay, setShowControlsOverlay] = useState(false);
+  const pausedByOverlayRef = useRef(false);
   const [showControlsHint, setShowControlsHint] = useState(() => {
     return localStorage.getItem("gamelord:controlsHintDismissed") !== "true";
   });
@@ -759,6 +760,8 @@ export const GameWindow: React.FC = () => {
       }
       if (e.key === " " && e.target === document.body) {
         e.preventDefault();
+        // If user manually toggles pause, the overlay no longer owns the pause state
+        pausedByOverlayRef.current = false;
         void handlePauseResume();
       }
       if (e.key === "Tab") {
@@ -767,7 +770,17 @@ export const GameWindow: React.FC = () => {
       }
       if (e.key === "?" || e.key === "F1") {
         e.preventDefault();
-        setShowControlsOverlay((v) => !v);
+        setShowControlsOverlay((prev) => {
+          const willOpen = !prev;
+          if (willOpen && !isPaused) {
+            pausedByOverlayRef.current = true;
+            api.emulation.pause().catch(console.error);
+          } else if (!willOpen && pausedByOverlayRef.current) {
+            pausedByOverlayRef.current = false;
+            api.emulation.resume().catch(console.error);
+          }
+          return willOpen;
+        });
         if (showControlsHint) {
           setShowControlsHint(false);
           localStorage.setItem("gamelord:controlsHintDismissed", "true");
@@ -1342,7 +1355,13 @@ export const GameWindow: React.FC = () => {
       {/* Controls reference overlay */}
       <ControlsOverlay
         open={showControlsOverlay}
-        onClose={() => setShowControlsOverlay(false)}
+        onClose={() => {
+          setShowControlsOverlay(false);
+          if (pausedByOverlayRef.current) {
+            pausedByOverlayRef.current = false;
+            api.emulation.resume().catch(console.error);
+          }
+        }}
         systemId={game?.systemId}
       />
 
