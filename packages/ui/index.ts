@@ -38,5 +38,8 @@ export {
 } from "./hooks/useEdgeAwareHover";
 export type { UseEdgeAwareHoverOptions, UseEdgeAwareHoverResult } from "./hooks/useEdgeAwareHover";
 
+// Platform
+export { isMacPlatform, modifierKey } from "./hooks/usePlatform";
+
 // Utils
 export * from "./utils";

@@ -12,6 +12,7 @@ import { useMosaicVirtualizer } from "../hooks/useMosaicVirtualizer";
 import { useScrollLetterIndicator } from "../hooks/useScrollLetterIndicator";
 import { ScrollLetterIndicator } from "./ScrollLetterIndicator";
 import type { ArtworkSyncStore } from "../hooks/useArtworkSyncStore";
+import { modifierKey } from "../hooks/usePlatform";
 import { ROW_HEIGHT, MOSAIC_GAP, computeCardWidth } from "../utils/mosaicGrid";
 import { computeRowLayout } from "../utils/mosaicLayout";
 
@@ -302,7 +303,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
               <Search className="h-4 w-4 shrink-0" />
               <span>Search games...</span>
               <kbd className="ml-auto hidden shrink-0 select-none rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium sm:inline-block">
-                ⌘K
+                {modifierKey()}K
               </kbd>
             </button>
           ) : (
