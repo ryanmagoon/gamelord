@@ -25,7 +25,7 @@ function createZipSync(destPath: string, entries: Array<{ name: string; data: Bu
 
     // Local file header
     const local = Buffer.alloc(30 + nameBytes.length);
-    local.writeUInt32LE(0x0403_4b50, 0); // signature
+    local.writeUInt32LE(0x04_03_4b_50, 0); // signature
     local.writeUInt16LE(20, 4); // version needed
     local.writeUInt16LE(0, 6); // flags
     local.writeUInt16LE(8, 8); // compression method (deflate)
@@ -42,7 +42,7 @@ function createZipSync(destPath: string, entries: Array<{ name: string; data: Bu
 
     // Central directory entry
     const central = Buffer.alloc(46 + nameBytes.length);
-    central.writeUInt32LE(0x0201_4b50, 0); // signature
+    central.writeUInt32LE(0x02_01_4b_50, 0); // signature
     central.writeUInt16LE(20, 4); // version made by
     central.writeUInt16LE(20, 6); // version needed
     central.writeUInt16LE(0, 8); // flags
@@ -73,7 +73,7 @@ function createZipSync(destPath: string, entries: Array<{ name: string; data: Bu
 
   // End of central directory record
   const eocd = Buffer.alloc(22);
-  eocd.writeUInt32LE(0x0605_4b50, 0); // signature
+  eocd.writeUInt32LE(0x06_05_4b_50, 0); // signature
   eocd.writeUInt16LE(0, 4); // disk number
   eocd.writeUInt16LE(0, 6); // disk with central dir
   eocd.writeUInt16LE(entries.length, 8); // entries on this disk
@@ -87,14 +87,14 @@ function createZipSync(destPath: string, entries: Array<{ name: string; data: Bu
 
 /** CRC-32 implementation for zip file creation. */
 function crc32(buf: Buffer): number {
-  let crc = 0xffff_ffff;
+  let crc = 0xff_ff_ff_ff;
   for (let i = 0; i < buf.length; i++) {
     crc ^= buf[i]!;
     for (let j = 0; j < 8; j++) {
-      crc = crc & 1 ? (crc >>> 1) ^ 0xedb8_8320 : crc >>> 1;
+      crc = crc & 1 ? (crc >>> 1) ^ 0xed_b8_83_20 : crc >>> 1;
     }
   }
-  return (crc ^ 0xffff_ffff) >>> 0;
+  return (crc ^ 0xff_ff_ff_ff) >>> 0;
 }
 
 beforeAll(() => {

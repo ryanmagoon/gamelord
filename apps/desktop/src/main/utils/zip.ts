@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInflateRaw } from "node:zlib";
 import { pipeline } from "node:stream/promises";
-import { Readable, Writable } from "node:stream";
+import { Readable } from "node:stream";
 
 /** Central directory entry parsed from a zip file. */
 interface ZipEntry {
@@ -13,9 +13,9 @@ interface ZipEntry {
   uncompressedSize: number;
 }
 
-const EOCD_SIGNATURE = 0x0605_4b50;
-const CENTRAL_DIR_SIGNATURE = 0x0201_4b50;
-const LOCAL_HEADER_SIGNATURE = 0x0403_4b50;
+const EOCD_SIGNATURE = 0x06_05_4b_50;
+const CENTRAL_DIR_SIGNATURE = 0x02_01_4b_50;
+const LOCAL_HEADER_SIGNATURE = 0x04_03_4b_50;
 
 /** Parse the central directory of a zip file to list entries. */
 function parseZipEntries(buf: Buffer): Array<ZipEntry> {
