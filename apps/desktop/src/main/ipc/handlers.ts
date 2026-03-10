@@ -8,6 +8,7 @@ import { ArtworkService } from "../services/ArtworkService";
 import { HomebrewService } from "../services/HomebrewService";
 import { ScreenScraperError } from "../services/ScreenScraperClient";
 import { GameWindowManager } from "../GameWindowManager";
+import type { AutoUpdaterService } from "../services/AutoUpdaterService";
 import { Game, GameSystem } from "../../types/library";
 import { ipcLog } from "../logger";
 
@@ -26,6 +27,7 @@ export class IPCHandlers {
   private artworkService: ArtworkService;
   private homebrewService: HomebrewService;
   private gameWindowManager: GameWindowManager;
+  private autoUpdater: AutoUpdaterService | null = null;
   private pendingResumeDialogs = new Map<string, (response: ResumeDialogResponse) => void>();
 
   constructor(preloadPath: string) {
@@ -551,6 +553,25 @@ export class IPCHandlers {
         }
       },
     );
+  }
+
+  /**
+   * Connect the auto-updater service so IPC handlers can trigger
+   * manual update checks and quit-and-install from the renderer.
+   */
+  setAutoUpdater(service: AutoUpdaterService): void {
+    this.autoUpdater = service;
+    this.setupAutoUpdateHandlers();
+  }
+
+  private setupAutoUpdateHandlers(): void {
+    ipcMain.handle("updates:checkNow", async () => {
+      await this.autoUpdater?.checkForUpdates();
+    });
+
+    ipcMain.handle("updates:quitAndInstall", () => {
+      this.autoUpdater?.quitAndInstall();
+    });
   }
 
   /**

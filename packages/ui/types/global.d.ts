@@ -45,6 +45,10 @@ export interface GamelordAPI {
     getConfig: () => Promise<any>;
     setRomsBasePath: (basePath: string) => Promise<any>;
   };
+  updates?: {
+    checkNow: () => Promise<void>;
+    quitAndInstall: () => Promise<void>;
+  };
   dialog?: {
     selectDirectory: () => Promise<string | null>;
     selectRomFile: (systemId: string) => Promise<string | null>;

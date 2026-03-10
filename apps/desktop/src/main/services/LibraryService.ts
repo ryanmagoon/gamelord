@@ -72,8 +72,14 @@ export class LibraryService extends EventEmitter {
       scanRecursive: true,
       systems: [],
     };
-    this.loadConfig();
-    this.loadLibrary();
+    // Fire-and-forget — errors are logged, not thrown, so the constructor
+    // doesn't produce unhandled promise rejections when the app starts.
+    this.loadConfig().catch((error: unknown) => {
+      libraryLog.error("Failed to load config:", error);
+    });
+    this.loadLibrary().catch((error: unknown) => {
+      libraryLog.error("Failed to load library:", error);
+    });
   }
 
   private async loadConfig(): Promise<void> {

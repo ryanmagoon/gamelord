@@ -74,6 +74,12 @@ export interface GamelordAPI {
     clearCredentials: () => Promise<{ success: boolean; error?: string }>;
   };
 
+  // Auto-updates
+  updates: {
+    checkNow: () => Promise<void>;
+    quitAndInstall: () => Promise<void>;
+  };
+
   // Dialog helpers (matches preload API)
   dialog: {
     selectDirectory: () => Promise<string | null>;

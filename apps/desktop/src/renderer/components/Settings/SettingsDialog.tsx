@@ -31,6 +31,7 @@ import {
   Check,
   FolderSearch,
   Joystick,
+  RefreshCw,
 } from "lucide-react";
 import { useSfx } from "../../hooks/useSfx";
 import { useControllerConfig } from "../../hooks/useControllerConfig";
@@ -605,53 +606,80 @@ const LibraryTab: React.FC = () => {
 // About Tab
 // ---------------------------------------------------------------------------
 
-const AboutTab: React.FC = () => (
-  <div className="space-y-6">
-    <div className="text-center space-y-3">
-      <h2 className="text-2xl font-bold tracking-tight">GameLord</h2>
-      <p className="text-sm text-muted-foreground">v0.1.0-alpha</p>
-    </div>
+const AboutTab: React.FC = () => {
+  const api = (window as unknown as { gamelord: GamelordAPI }).gamelord;
+  const { play: playSfx } = useSfx();
+  const [checking, setChecking] = useState(false);
 
-    <div>
-      <SectionHeading>Links</SectionHeading>
-      <div className="space-y-1">
-        <a
-          href="https://github.com/ryanmagoon/gamelord"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+  const handleCheckForUpdates = async () => {
+    playSfx("click");
+    setChecking(true);
+    try {
+      await api.updates.checkNow();
+    } finally {
+      // Reset after a short delay so the user sees feedback
+      setTimeout(() => setChecking(false), 2000);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center space-y-3">
+        <h2 className="text-2xl font-bold tracking-tight">GameLord</h2>
+        <p className="text-sm text-muted-foreground">v0.1.0-alpha</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void handleCheckForUpdates()}
+          disabled={checking}
+          className="h-8 text-xs gap-1.5"
         >
-          <ExternalLink className="h-4 w-4" />
-          GitHub Repository
-        </a>
-        <a
-          href="https://github.com/ryanmagoon/gamelord/issues"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Report an Issue
-        </a>
+          <RefreshCw className={cn("h-3.5 w-3.5", checking && "animate-spin")} />
+          {checking ? "Checking..." : "Check for Updates"}
+        </Button>
       </div>
-    </div>
 
-    <div>
-      <SectionHeading>Credits</SectionHeading>
-      <div className="text-xs text-muted-foreground space-y-1.5">
-        <p>Built with Electron, React, and libretro.</p>
-        <p>Cover art and metadata provided by ScreenScraper.</p>
-        <p>Shader effects ported from the libretro slang-shaders collection.</p>
+      <div>
+        <SectionHeading>Links</SectionHeading>
+        <div className="space-y-1">
+          <a
+            href="https://github.com/ryanmagoon/gamelord"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="h-4 w-4" />
+            GitHub Repository
+          </a>
+          <a
+            href="https://github.com/ryanmagoon/gamelord/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Report an Issue
+          </a>
+        </div>
       </div>
-    </div>
 
-    <div>
-      <SectionHeading>Acknowledgements</SectionHeading>
-      <div className="text-xs text-muted-foreground space-y-1">
-        <p>libretro / RetroArch &mdash; emulation cores and shader ecosystem</p>
-        <p>ScreenScraper &mdash; game metadata database</p>
-        <p>Geist Pixel &mdash; typeface by Vercel</p>
+      <div>
+        <SectionHeading>Credits</SectionHeading>
+        <div className="text-xs text-muted-foreground space-y-1.5">
+          <p>Built with Electron, React, and libretro.</p>
+          <p>Cover art and metadata provided by ScreenScraper.</p>
+          <p>Shader effects ported from the libretro slang-shaders collection.</p>
+        </div>
+      </div>
+
+      <div>
+        <SectionHeading>Acknowledgements</SectionHeading>
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p>libretro / RetroArch &mdash; emulation cores and shader ecosystem</p>
+          <p>ScreenScraper &mdash; game metadata database</p>
+          <p>Geist Pixel &mdash; typeface by Vercel</p>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
