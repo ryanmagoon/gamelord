@@ -47,11 +47,19 @@ const createWindow = () => {
   // the window isn't revealed until that script has run.
   const isMac = process.platform === "darwin";
 
+  // In dev mode, Electron uses its default icon. Set the app icon explicitly
+  // so the taskbar/title bar show the correct icon during development.
+  // In production, electron-builder embeds the icon in the binary.
+  const devIcon = !app.isPackaged
+    ? nativeImage.createFromPath(path.join(__dirname, "../../build/icon.png"))
+    : undefined;
+
   const mainWindow = new BrowserWindow({
     ...savedBounds,
     show: false,
     minWidth: 800,
     minHeight: 600,
+    ...(devIcon && !devIcon.isEmpty() ? { icon: devIcon } : {}),
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
     ...(isMac
       ? {}
