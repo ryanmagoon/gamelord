@@ -289,9 +289,9 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [ ] **Polished DMG installer experience** — Custom high-fidelity DMG background design (Raycast/Comet-tier visual polish), Retina `background@2x.png`, branded drag-to-Applications visual.
 - [ ] **Cross-platform support (Windows & Linux)** — Abstract `dlopen` → `LoadLibrary` for Windows, platform-detect core/config paths, download cores from correct buildbot URL per OS, electron-builder configs for NSIS/MSI (Windows) and AppImage/deb (Linux), CI matrix for all three platforms. The emulation pipeline is already OS-agnostic; the work is in native addon portability, path conventions, and packaging. — [#118](https://github.com/ryanmagoon/gamelord/issues/118)
   - [x] Windows initial support: cross-platform zip extraction (pure Node zlib), platform-aware buildbot core downloads, macOS-only API guards (`setWindowButtonVisibility`, `trafficLightPosition`), Windows `titleBarOverlay` + game window control buttons, cross-platform build scripts, native addon compiles on MSVC
-  - [ ] **Windows ARM64 support** — CoreDownloader already serves x86_64 cores; add `windows/arm64` buildbot path for `process.arch === "arm64"`, ensure native addon compiles for ARM64 target, add electron-builder `--arm64` target. High priority — Snapdragon is a primary dev device.
-  - [ ] **Windows code signing (Authenticode)** — EV or OV code signing certificate, `signtool.exe` integration in electron-builder, CI workflow with cert import and signing secrets (mirrors macOS notarization flow).
-  - [ ] **Windows release packaging + CI** — Windows runner in CI matrix, NSIS/zip build targets, GitHub Releases artifacts for Windows
+  - [ ] **Windows ARM64 support** — CoreDownloader already serves x86_64 cores; add `windows/arm64` buildbot path for `process.arch === "arm64"`, ensure native addon compiles for ARM64 target, add electron-builder `--arm64` target. High priority — Snapdragon is a primary dev device. — [#203](https://github.com/ryanmagoon/gamelord/issues/203)
+  - [ ] **Windows code signing (Authenticode)** — EV or OV code signing certificate, `signtool.exe` integration in electron-builder, CI workflow with cert import and signing secrets (mirrors macOS notarization flow). — [#204](https://github.com/ryanmagoon/gamelord/issues/204)
+  - [ ] **Windows release packaging + CI** — Windows runner in CI matrix, NSIS/zip build targets, GitHub Releases artifacts for Windows. — [#205](https://github.com/ryanmagoon/gamelord/issues/205)
 
 ### P10 — Web Presence (Vercel)
 
