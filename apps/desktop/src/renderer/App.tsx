@@ -453,7 +453,7 @@ function App() {
             pointerEvents: viewState === "library" ? "auto" : "none",
           }}
         >
-          <div className="drag-region titlebar-inset h-10 border-b flex items-center justify-end gap-2 px-4">
+          <div className={`drag-region h-10 border-b flex items-center justify-end gap-2 px-4 ${api.platform === "darwin" ? "titlebar-inset" : "pr-36"}`}>
             <DevBranchBadge />
             <Button
               variant="ghost"

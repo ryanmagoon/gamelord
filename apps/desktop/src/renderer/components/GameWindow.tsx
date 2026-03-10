@@ -564,13 +564,30 @@ export const GameWindow: React.FC = () => {
     // Dependencies intentionally limited to [api] (stable singleton).
   }, [api]);
 
-  // Handle canvas resize for WebGL viewport
+  // Handle canvas resize for WebGL viewport.
+  // ResizeObserver on the container is more reliable than window "resize"
+  // because it fires after maximize/unmaximize animations settle (the
+  // container may briefly have 0 dimensions during the transition, and a
+  // single window "resize" event can miss the final size).
   useEffect(() => {
+    const container = containerRef.current;
+
+    const observer = new ResizeObserver(() => {
+      updateCanvasSize();
+    });
+
+    if (container) {
+      observer.observe(container);
+    }
+
+    // Also listen to window resize as a fallback (e.g. dev tools toggle)
     window.addEventListener("resize", updateCanvasSize);
+
     // Run immediately and also after a brief delay to ensure layout is complete
     updateCanvasSize();
     const timeoutId = setTimeout(updateCanvasSize, 50);
     return () => {
+      observer.disconnect();
       window.removeEventListener("resize", updateCanvasSize);
       clearTimeout(timeoutId);
     };
