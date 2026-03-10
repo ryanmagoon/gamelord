@@ -6,7 +6,7 @@
   "main": "./out/main/index.js",
   "scripts": {
     "build:native": "cd native && node-gyp rebuild",
-    "clean": "rm -rf out dist",
+    "clean": "node -e \"const fs=require('fs');['out','dist'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true})}catch{}})\"",
     "build": "npm run clean && npm run build:native && electron-vite build",
     "dev": "electron-vite dev",
     "start": "electron-vite preview",

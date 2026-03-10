@@ -3,62 +3,135 @@ import { listZipContents, findRomInZip, extractFileFromZip } from "./zipExtracti
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { execFileSync } from "node:child_process";
+import { deflateRawSync } from "node:zlib";
 
 const TEST_DIR = path.join(os.tmpdir(), "gamelord-zip-extraction-test");
 const ZIPS_DIR = path.join(TEST_DIR, "zips");
-const ROMS_DIR = path.join(TEST_DIR, "roms");
 const EXTRACT_DIR = path.join(TEST_DIR, "extract");
+
+/**
+ * Creates a zip file programmatically using Node's built-in zlib.
+ * Each entry is { name: string, data: Buffer }.
+ * This avoids depending on the system `zip` CLI (not available on Windows).
+ */
+function createZipSync(destPath: string, entries: Array<{ name: string; data: Buffer }>) {
+  const parts: Array<Buffer> = [];
+  const centralDir: Array<Buffer> = [];
+  let offset = 0;
+
+  for (const entry of entries) {
+    const nameBytes = Buffer.from(entry.name, "utf8");
+    const compressed = deflateRawSync(entry.data);
+
+    // Local file header
+    const local = Buffer.alloc(30 + nameBytes.length);
+    local.writeUInt32LE(0x04_03_4b_50, 0); // signature
+    local.writeUInt16LE(20, 4); // version needed
+    local.writeUInt16LE(0, 6); // flags
+    local.writeUInt16LE(8, 8); // compression method (deflate)
+    local.writeUInt16LE(0, 10); // mod time
+    local.writeUInt16LE(0, 12); // mod date
+    local.writeUInt32LE(crc32(entry.data), 14); // crc-32
+    local.writeUInt32LE(compressed.length, 18); // compressed size
+    local.writeUInt32LE(entry.data.length, 22); // uncompressed size
+    local.writeUInt16LE(nameBytes.length, 26); // file name length
+    local.writeUInt16LE(0, 28); // extra field length
+    nameBytes.copy(local, 30);
+
+    parts.push(local, compressed);
+
+    // Central directory entry
+    const central = Buffer.alloc(46 + nameBytes.length);
+    central.writeUInt32LE(0x02_01_4b_50, 0); // signature
+    central.writeUInt16LE(20, 4); // version made by
+    central.writeUInt16LE(20, 6); // version needed
+    central.writeUInt16LE(0, 8); // flags
+    central.writeUInt16LE(8, 10); // compression method
+    central.writeUInt16LE(0, 12); // mod time
+    central.writeUInt16LE(0, 14); // mod date
+    central.writeUInt32LE(crc32(entry.data), 16); // crc-32
+    central.writeUInt32LE(compressed.length, 20); // compressed size
+    central.writeUInt32LE(entry.data.length, 24); // uncompressed size
+    central.writeUInt16LE(nameBytes.length, 28); // file name length
+    central.writeUInt16LE(0, 30); // extra field length
+    central.writeUInt16LE(0, 32); // comment length
+    central.writeUInt16LE(0, 34); // disk number start
+    central.writeUInt16LE(0, 36); // internal file attributes
+    central.writeUInt32LE(0, 38); // external file attributes
+    central.writeUInt32LE(offset, 42); // local header offset
+    nameBytes.copy(central, 46);
+
+    centralDir.push(central);
+    offset += local.length + compressed.length;
+  }
+
+  const centralDirOffset = offset;
+  let centralDirSize = 0;
+  for (const cd of centralDir) {
+    centralDirSize += cd.length;
+  }
+
+  // End of central directory record
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06_05_4b_50, 0); // signature
+  eocd.writeUInt16LE(0, 4); // disk number
+  eocd.writeUInt16LE(0, 6); // disk with central dir
+  eocd.writeUInt16LE(entries.length, 8); // entries on this disk
+  eocd.writeUInt16LE(entries.length, 10); // total entries
+  eocd.writeUInt32LE(centralDirSize, 12); // central dir size
+  eocd.writeUInt32LE(centralDirOffset, 16); // central dir offset
+  eocd.writeUInt16LE(0, 20); // comment length
+
+  fs.writeFileSync(destPath, Buffer.concat([...parts, ...centralDir, eocd]));
+}
+
+/** CRC-32 implementation for zip file creation. */
+function crc32(buf: Buffer): number {
+  let crc = 0xff_ff_ff_ff;
+  for (let i = 0; i < buf.length; i++) {
+    crc ^= buf[i]!;
+    for (let j = 0; j < 8; j++) {
+      crc = crc & 1 ? (crc >>> 1) ^ 0xed_b8_83_20 : crc >>> 1;
+    }
+  }
+  return (crc ^ 0xff_ff_ff_ff) >>> 0;
+}
 
 beforeAll(() => {
   fs.mkdirSync(ZIPS_DIR, { recursive: true });
-  fs.mkdirSync(ROMS_DIR, { recursive: true });
   fs.mkdirSync(EXTRACT_DIR, { recursive: true });
 
-  // Create fake ROM files to zip
-  fs.writeFileSync(path.join(ROMS_DIR, "game.gb"), "fake gb rom data");
-  fs.writeFileSync(path.join(ROMS_DIR, "game.nes"), "fake nes rom data");
-  fs.writeFileSync(path.join(ROMS_DIR, "readme.txt"), "not a rom");
-  fs.writeFileSync(path.join(ROMS_DIR, "game.GBC"), "fake gbc rom uppercase");
-
-  // Create a subdirectory with a ROM (to test nested entries)
-  fs.mkdirSync(path.join(ROMS_DIR, "subdir"), { recursive: true });
-  fs.writeFileSync(path.join(ROMS_DIR, "subdir", "nested.sfc"), "fake snes rom");
-
-  // Create __MACOSX junk
-  fs.mkdirSync(path.join(ROMS_DIR, "__MACOSX"), { recursive: true });
-  fs.writeFileSync(path.join(ROMS_DIR, "__MACOSX", "._game.gb"), "macos resource fork");
-
   // zip containing a single .gb ROM
-  execFileSync("zip", ["-j", path.join(ZIPS_DIR, "single-gb.zip"), path.join(ROMS_DIR, "game.gb")]);
+  createZipSync(path.join(ZIPS_DIR, "single-gb.zip"), [
+    { name: "game.gb", data: Buffer.from("fake gb rom data") },
+  ]);
 
   // zip containing a .nes ROM and a .txt (non-ROM)
-  execFileSync("zip", [
-    "-j",
-    path.join(ZIPS_DIR, "nes-with-txt.zip"),
-    path.join(ROMS_DIR, "game.nes"),
-    path.join(ROMS_DIR, "readme.txt"),
+  createZipSync(path.join(ZIPS_DIR, "nes-with-txt.zip"), [
+    { name: "game.nes", data: Buffer.from("fake nes rom data") },
+    { name: "readme.txt", data: Buffer.from("not a rom") },
   ]);
 
   // zip containing only a .txt (no ROM)
-  execFileSync("zip", ["-j", path.join(ZIPS_DIR, "no-rom.zip"), path.join(ROMS_DIR, "readme.txt")]);
+  createZipSync(path.join(ZIPS_DIR, "no-rom.zip"), [
+    { name: "readme.txt", data: Buffer.from("not a rom") },
+  ]);
 
   // zip with uppercase extension ROM
-  execFileSync("zip", [
-    "-j",
-    path.join(ZIPS_DIR, "uppercase-ext.zip"),
-    path.join(ROMS_DIR, "game.GBC"),
+  createZipSync(path.join(ZIPS_DIR, "uppercase-ext.zip"), [
+    { name: "game.GBC", data: Buffer.from("fake gbc rom uppercase") },
   ]);
 
   // zip with __MACOSX junk and a real ROM
-  execFileSync("zip", ["-r", path.join(ZIPS_DIR, "macosx-junk.zip"), "game.gb", "__MACOSX"], {
-    cwd: ROMS_DIR,
-  });
+  createZipSync(path.join(ZIPS_DIR, "macosx-junk.zip"), [
+    { name: "game.gb", data: Buffer.from("fake gb rom data") },
+    { name: "__MACOSX/._game.gb", data: Buffer.from("macos resource fork") },
+  ]);
 
   // zip with nested directory structure
-  execFileSync("zip", ["-r", path.join(ZIPS_DIR, "nested.zip"), "subdir/nested.sfc"], {
-    cwd: ROMS_DIR,
-  });
+  createZipSync(path.join(ZIPS_DIR, "nested.zip"), [
+    { name: "subdir/nested.sfc", data: Buffer.from("fake snes rom") },
+  ]);
 });
 
 afterAll(() => {

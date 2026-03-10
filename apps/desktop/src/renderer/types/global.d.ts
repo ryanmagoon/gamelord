@@ -95,6 +95,9 @@ export interface GamelordAPI {
     readyToClose: () => void;
   };
 
+  // Platform info for conditional UI (e.g. window controls on non-macOS)
+  platform: "darwin" | "win32" | "linux";
+
   // Game input (native mode)
   gameInput: (port: number, id: number, pressed: boolean) => void;
 
