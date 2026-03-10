@@ -13,9 +13,9 @@ interface ZipEntry {
   uncompressedSize: number;
 }
 
-const EOCD_SIGNATURE = 0x06054b50;
-const CENTRAL_DIR_SIGNATURE = 0x02014b50;
-const LOCAL_HEADER_SIGNATURE = 0x04034b50;
+const EOCD_SIGNATURE = 0x0605_4b50;
+const CENTRAL_DIR_SIGNATURE = 0x0201_4b50;
+const LOCAL_HEADER_SIGNATURE = 0x0403_4b50;
 
 /** Parse the central directory of a zip file to list entries. */
 function parseZipEntries(buf: Buffer): Array<ZipEntry> {
