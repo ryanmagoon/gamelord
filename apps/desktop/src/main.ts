@@ -13,6 +13,7 @@ import path from "node:path";
 import { setupAppMenu } from "./main/appMenu";
 import { IPCHandlers } from "./main/ipc/handlers";
 import { mainLog } from "./main/logger";
+import { AutoUpdaterService } from "./main/services/AutoUpdaterService";
 import { initSentryMain } from "./main/sentry";
 import {
   getSavedWindowBounds,
@@ -35,6 +36,7 @@ app.setName("GameLord");
 
 // Initialize IPC handlers
 let ipcHandlers: IPCHandlers;
+let autoUpdaterService: AutoUpdaterService | null = null;
 
 const createWindow = () => {
   const savedBounds = getSavedWindowBounds();
@@ -197,6 +199,14 @@ app.on("ready", () => {
   setupAppMenu();
   createWindow();
 
+  // Start auto-updater in production builds only. In dev mode the
+  // updater has no packaged app to diff against and would error.
+  if (app.isPackaged) {
+    autoUpdaterService = new AutoUpdaterService();
+    ipcHandlers.setAutoUpdater(autoUpdaterService);
+    autoUpdaterService.start();
+  }
+
   // Forward OS theme changes to the renderer so "system" mode updates live.
   // Electron's Chromium doesn't reliably fire matchMedia change events for
   // prefers-color-scheme, so we use nativeTheme as the source of truth.
@@ -224,6 +234,7 @@ app.on("before-quit", async (event) => {
   }
   event.preventDefault();
   isCleaningUp = true;
+  autoUpdaterService?.cleanup();
   await ipcHandlers.cleanup();
   app.quit();
 });
