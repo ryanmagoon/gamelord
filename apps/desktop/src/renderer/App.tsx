@@ -101,10 +101,10 @@ function App() {
   /** Settings dialog state. */
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Cmd+, keyboard shortcut for settings
+  // Cmd+, / Ctrl+, keyboard shortcut for settings
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === ",") {
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
         e.preventDefault();
         setSettingsOpen((prev) => !prev);
       }
