@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, MessageChannelMain, screen } from "electron";
+import { app, BrowserWindow, ipcMain, MessageChannelMain, nativeImage, screen } from "electron";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -91,6 +91,13 @@ export class GameWindowManager {
 
     const hasHeroTransition = !!cardScreenBounds;
 
+    const isMac = process.platform === "darwin";
+
+    // Dev-mode icon for taskbar/title bar (production embeds via electron-builder)
+    const devIcon = !app.isPackaged
+      ? nativeImage.createFromPath(path.join(__dirname, "../../../build/icon.png"))
+      : undefined;
+
     const gameWindow = new BrowserWindow({
       width: defaultWidth,
       height: defaultHeight,
@@ -98,8 +105,9 @@ export class GameWindowManager {
       minHeight: baseHeight * 2,
       useContentSize: true, // Ensure width/height refer to content area, not window frame
       title: `GameLord - ${game.title}`,
+      ...(devIcon && !devIcon.isEmpty() ? { icon: devIcon } : {}),
       titleBarStyle: "hidden",
-      trafficLightPosition: { x: 10, y: 10 },
+      ...(isMac ? { trafficLightPosition: { x: 10, y: 10 } } : {}),
       backgroundColor: "#000000",
       show: !hasHeroTransition, // Hide initially if hero transition will animate it
       webPreferences: {
@@ -519,7 +527,8 @@ export class GameWindowManager {
 
     ipcMain.on("game-window:set-traffic-light-visible", (event, visible: boolean) => {
       const window = BrowserWindow.fromWebContents(event.sender);
-      if (window) {
+      // setWindowButtonVisibility is macOS-only (controls traffic light buttons)
+      if (window && process.platform === "darwin") {
         window.setWindowButtonVisibility(visible);
       }
     });

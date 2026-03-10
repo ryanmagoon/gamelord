@@ -168,6 +168,9 @@ contextBridge.exposeInMainWorld("gamelord", {
     },
   },
 
+  // Platform info for conditional UI (e.g. window controls on non-macOS)
+  platform: process.platform as "darwin" | "win32" | "linux",
+
   // Signal that the renderer has loaded content and is ready to be shown.
   // The main process keeps the window hidden until this fires, so the CSS
   // opacity transition (0 → 1) plays visibly on cold launch.

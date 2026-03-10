@@ -3,11 +3,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { app } from "electron";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import https from "node:https";
 
-const execFileAsync = promisify(execFile);
+import { extractAllFromZip } from "../utils/zip";
 
 /**
  * Map of system IDs to their preferred libretro core name.
@@ -130,10 +128,23 @@ export class CoreDownloader extends EventEmitter {
     return ".so";
   }
 
+  /** Returns the buildbot platform string for the current OS and architecture. */
+  private getBuildBotPlatform(): string {
+    switch (process.platform) {
+      case "darwin":
+        return process.arch === "arm64" ? "apple/osx/arm64" : "apple/osx/x86_64";
+      case "win32":
+        return "windows/x86_64";
+      case "linux":
+        return process.arch === "arm64" ? "linux/aarch64" : "linux/x86_64";
+      default:
+        throw new Error(`Unsupported platform: ${process.platform}`);
+    }
+  }
+
   /** Returns the buildbot URL for the given core name. */
   private getBuildBotUrl(coreName: string): string {
-    // Currently only macOS ARM64 is supported
-    const platform = "apple/osx/arm64";
+    const platform = this.getBuildBotPlatform();
     return `https://buildbot.libretro.com/nightly/${platform}/latest/${coreName}${this.getLibExtension()}.zip`;
   }
 
@@ -243,7 +254,7 @@ export class CoreDownloader extends EventEmitter {
 
       // Extract
       this.emitProgress(coreName, systemId, "extracting", 90);
-      await execFileAsync("unzip", ["-o", zipPath, "-d", coresDir]);
+      await extractAllFromZip(zipPath, coresDir);
 
       // Clean up zip
       fs.unlinkSync(zipPath);
