@@ -4,6 +4,7 @@ import { Settings, RefreshCw, Sun, Moon } from "lucide-react";
 import { CommandPalette, type CommandAction } from "./CommandPalette";
 import { Button } from "./ui/button";
 import type { Game } from "./GameCard";
+import { modifierKey } from "../hooks/usePlatform";
 
 const sampleGames: Array<Game> = [
   { id: "1", title: "Super Mario Bros.", platform: "NES", romPath: "/roms/smb.nes" },
@@ -84,7 +85,7 @@ function InteractivePalette({
       <Button onClick={() => setOpen(true)}>
         Open Command Palette
         <kbd className="ml-2 rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-          ⌘K
+          {modifierKey()}K
         </kbd>
       </Button>
 
