@@ -45,12 +45,23 @@ const createWindow = () => {
   // No `backgroundColor` — the inline theme script in index.html sets the correct
   // background (light or dark) before first paint, and `ready-to-show` ensures
   // the window isn't revealed until that script has run.
+  const isMac = process.platform === "darwin";
+
   const mainWindow = new BrowserWindow({
     ...savedBounds,
     show: false,
     minWidth: 800,
     minHeight: 600,
-    titleBarStyle: "hiddenInset",
+    titleBarStyle: isMac ? "hiddenInset" : "hidden",
+    ...(isMac
+      ? {}
+      : {
+          titleBarOverlay: {
+            color: "rgba(0,0,0,0)",
+            symbolColor: "#999999",
+            height: 36,
+          },
+        }),
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       nodeIntegration: false,

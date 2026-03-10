@@ -91,6 +91,8 @@ export class GameWindowManager {
 
     const hasHeroTransition = !!cardScreenBounds;
 
+    const isMac = process.platform === "darwin";
+
     const gameWindow = new BrowserWindow({
       width: defaultWidth,
       height: defaultHeight,
@@ -99,7 +101,7 @@ export class GameWindowManager {
       useContentSize: true, // Ensure width/height refer to content area, not window frame
       title: `GameLord - ${game.title}`,
       titleBarStyle: "hidden",
-      trafficLightPosition: { x: 10, y: 10 },
+      ...(isMac ? { trafficLightPosition: { x: 10, y: 10 } } : {}),
       backgroundColor: "#000000",
       show: !hasHeroTransition, // Hide initially if hero transition will animate it
       webPreferences: {
@@ -519,7 +521,8 @@ export class GameWindowManager {
 
     ipcMain.on("game-window:set-traffic-light-visible", (event, visible: boolean) => {
       const window = BrowserWindow.fromWebContents(event.sender);
-      if (window) {
+      // setWindowButtonVisibility is macOS-only (controls traffic light buttons)
+      if (window && process.platform === "darwin") {
         window.setWindowButtonVisibility(visible);
       }
     });

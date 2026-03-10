@@ -22,6 +22,9 @@ import {
   FastForward,
   ChevronDown,
   Keyboard,
+  Minus,
+  Square,
+  X,
 } from "lucide-react";
 import type { Game } from "../../types/library";
 import type { GamelordAPI, VideoFrame } from "../types/global";
@@ -971,7 +974,9 @@ export const GameWindow: React.FC = () => {
         }`}
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
       >
-        <div className="flex items-center justify-center px-4 py-2 bg-black/80 shadow-lg select-none">
+        <div className="flex items-center justify-between px-4 py-2 bg-black/80 shadow-lg select-none">
+          {/* Spacer for macOS traffic lights, or empty on other platforms */}
+          <div className="w-16" />
           <div className="flex items-center gap-3">
             <h1 className="text-white font-semibold">{game.title}</h1>
             <span className="text-gray-400 text-sm">{game.system}</span>
@@ -979,6 +984,37 @@ export const GameWindow: React.FC = () => {
               <DevBranchBadge variant="overlay" />
             </div>
           </div>
+          {/* Window controls for non-macOS (Windows/Linux) */}
+          {api.platform !== "darwin" ? (
+            <div
+              className="flex items-center gap-1"
+              style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+            >
+              <button
+                onClick={() => api.gameWindow.minimize()}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                title="Minimize"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => api.gameWindow.maximize()}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                title="Maximize"
+              >
+                <Square className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => api.gameWindow.close()}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-red-500/80 rounded transition-colors"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="w-16" />
+          )}
         </div>
       </div>
 

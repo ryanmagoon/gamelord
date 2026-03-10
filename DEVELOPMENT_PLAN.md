@@ -288,6 +288,7 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [ ] **Auto-updates** — electron-updater + GitHub Releases for automatic update checks and installation. — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
 - [ ] **Polished DMG installer experience** — Custom high-fidelity DMG background design (Raycast/Comet-tier visual polish), Retina `background@2x.png`, branded drag-to-Applications visual.
 - [ ] **Cross-platform support (Windows & Linux)** — Abstract `dlopen` → `LoadLibrary` for Windows, platform-detect core/config paths, download cores from correct buildbot URL per OS, electron-builder configs for NSIS/MSI (Windows) and AppImage/deb (Linux), CI matrix for all three platforms. The emulation pipeline is already OS-agnostic; the work is in native addon portability, path conventions, and packaging. — [#118](https://github.com/ryanmagoon/gamelord/issues/118)
+  - [x] Windows initial support: cross-platform zip extraction (pure Node zlib), platform-aware buildbot core downloads, macOS-only API guards (`setWindowButtonVisibility`, `trafficLightPosition`), Windows `titleBarOverlay` + game window control buttons, cross-platform build scripts, native addon compiles on MSVC
 
 ### P10 — Web Presence (Vercel)
 
