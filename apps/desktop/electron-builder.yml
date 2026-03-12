@@ -20,11 +20,17 @@ extraResources:
 
 afterPack: build/afterPack.js
 
+publish:
+  provider: github
+  owner: ryanmagoon
+  repo: gamelord
+
 mac:
   category: public.app-category.games
   icon: build/icon.icns
   target:
     - dmg
+    - zip
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: entitlements.plist
