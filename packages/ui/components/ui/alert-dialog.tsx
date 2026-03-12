@@ -95,7 +95,7 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogOverlay className={overlayClassName} />
     <AlertDialogPrimitive.Content
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg data-[state=open]:animate-dialog-scan-in data-[state=closed]:animate-dialog-scan-out data-[state=closed]:pointer-events-none sm:rounded-lg",
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-hidden border bg-background p-6 shadow-lg data-[state=open]:animate-dialog-scan-in data-[state=closed]:animate-dialog-scan-out data-[state=closed]:pointer-events-none sm:rounded-lg",
         className,
       )}
       ref={ref}
@@ -135,7 +135,7 @@ const AlertDialogDescription = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Description
-    className={cn("text-sm text-muted-foreground", className)}
+    className={cn("text-sm text-muted-foreground [overflow-wrap:anywhere]", className)}
     ref={ref}
     {...props}
   />

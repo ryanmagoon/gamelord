@@ -205,7 +205,7 @@ function App() {
 
   const handleResumeDialogResponse = useCallback(
     (action: "resume" | "start-fresh" | "cancel", remember: boolean) => {
-      playSfx("dialogClose");
+      playSfx(action === "cancel" ? "dialogClose" : "confirm");
 
       if (remember && action !== "cancel") {
         localStorage.setItem(`gamelord:resume-preference:${resumeDialog.gameId}`, action);
@@ -368,7 +368,7 @@ function App() {
     const { pendingGame, systemId } = coreSelectDialog;
 
     // Close the dialog immediately
-    playSfx("dialogClose");
+    playSfx("confirm");
     setCoreSelectDialog((previous) => ({ ...previous, open: false }));
 
     if (remember) {
@@ -523,7 +523,10 @@ function App() {
               variant="ghost"
               size="icon"
               className="no-drag h-7 w-7"
-              onClick={() => setSettingsOpen(true)}
+              onClick={() => {
+                playSfx("dialogOpen");
+                setSettingsOpen(true);
+              }}
               aria-label="Settings"
             >
               <Settings className="h-4 w-4" />
@@ -628,7 +631,12 @@ function App() {
       {/* Settings dialog */}
       <SettingsDialog
         open={settingsOpen}
-        onOpenChange={setSettingsOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            playSfx("dialogClose");
+          }
+          setSettingsOpen(open);
+        }}
         themeMode={themeMode}
         onThemeChange={setTheme}
       />

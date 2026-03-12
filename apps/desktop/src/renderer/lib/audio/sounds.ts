@@ -272,6 +272,35 @@ export function fastForward(ctx: BaseAudioContext): AudioBuffer {
   });
 }
 
+/** Bright affirming blip — triangle wave resolving on a major third. */
+export function confirm(ctx: BaseAudioContext): AudioBuffer {
+  const dur = 0.09;
+  return renderBuffer(ctx, dur, (t) => {
+    // C6 (1047 Hz) → E6 (1319 Hz) — major third, feels conclusive
+    const freq = t < 0.04 ? 1047 : 1319;
+    const localT = t < 0.04 ? t : t - 0.04;
+    return triangleWave(t, freq) * expDecay(localT, 0.025) * 0.25;
+  });
+}
+
+/** Subtle rising tick — lightweight popup/menu appearance. */
+export function menuOpen(ctx: BaseAudioContext): AudioBuffer {
+  const dur = 0.04;
+  return renderBuffer(ctx, dur, (t) => {
+    const freq = 800 + (400 * t) / dur;
+    return squareWave(t, freq) * expDecay(t, 0.015) * 0.12;
+  });
+}
+
+/** Subtle falling tick — lightweight popup/menu dismissal. */
+export function menuClose(ctx: BaseAudioContext): AudioBuffer {
+  const dur = 0.035;
+  return renderBuffer(ctx, dur, (t) => {
+    const freq = 1000 - (300 * t) / dur;
+    return squareWave(t, freq) * expDecay(t, 0.012) * 0.1;
+  });
+}
+
 /** Ascending sweep + sustain — "powering up" feel. */
 export function cardLaunch(ctx: BaseAudioContext): AudioBuffer {
   const dur = 0.2;
@@ -292,12 +321,15 @@ export function cardLaunch(ctx: BaseAudioContext): AudioBuffer {
 export const soundGenerators = {
   cardLaunch,
   click,
+  confirm,
   dialogClose,
   dialogOpen,
   error,
   fastForward,
   favoritePop,
   loadState,
+  menuClose,
+  menuOpen,
   pause,
   powerOff,
   powerOn,
