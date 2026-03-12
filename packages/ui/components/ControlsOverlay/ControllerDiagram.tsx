@@ -1,77 +1,67 @@
 import React from "react";
 import { DPadCluster } from "./DPadCluster";
 import { KeyBadge } from "./KeyBadge";
-import { type ControlButtonId, getControllerLayout, KEYBOARD_KEYS } from "./controller-layouts";
+import { getControllerLayout, KEYBOARD_KEYS } from "./controller-layouts";
 
 interface ControllerDiagramProps {
   systemId?: string;
   className?: string;
 }
 
-/** Human-readable button labels for display beneath each key badge. */
-const BUTTON_LABELS: Record<Exclude<ControlButtonId, "dpad">, string> = {
+/** Human-readable button labels for each face button. */
+const BUTTON_LABELS: Record<string, string> = {
   a: "A",
   b: "B",
   x: "X",
   y: "Y",
-  l: "L",
-  r: "R",
-  select: "Select",
-  start: "Start",
 };
 
 export function ControllerDiagram({ systemId, className }: ControllerDiagramProps) {
   const layout = getControllerLayout(systemId);
-  const { viewBox, silhouettePath, buttons, dpadCenter } = layout;
-
-  const buttonEntries = Object.entries(buttons) as Array<
-    [Exclude<ControlButtonId, "dpad">, { top: number; left: number }]
-  >;
+  const { faceButtons, hasShoulders, hasSelect } = layout;
 
   return (
-    <div
-      className={`relative w-full ${className ?? ""}`}
-      style={{ aspectRatio: `${viewBox.width} / ${viewBox.height}` }}
-    >
-      {/* SVG silhouette */}
-      <svg
-        viewBox={`0 0 ${viewBox.width} ${viewBox.height}`}
-        className="absolute inset-0 w-full h-full"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <path
-          d={silhouettePath}
-          stroke="white"
-          strokeOpacity={0.12}
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-          fill="white"
-          fillOpacity={0.02}
-        />
-      </svg>
+    <div className={`flex flex-col items-center gap-5 ${className ?? ""}`}>
+      {/* Shoulder buttons */}
+      {hasShoulders && (
+        <div className="flex items-center justify-between w-full max-w-xs" data-row="shoulders">
+          <div data-button-id="l">
+            <KeyBadge label="L">{KEYBOARD_KEYS.l}</KeyBadge>
+          </div>
+          <div data-button-id="r">
+            <KeyBadge label="R">{KEYBOARD_KEYS.r}</KeyBadge>
+          </div>
+        </div>
+      )}
 
-      {/* D-pad cluster */}
-      <div
-        className="absolute -translate-x-1/2 -translate-y-1/2"
-        style={{ top: `${dpadCenter.top}%`, left: `${dpadCenter.left}%` }}
-        data-button-id="dpad"
-      >
-        <DPadCluster />
+      {/* Main row: D-pad + Face buttons */}
+      <div className="flex items-center justify-between w-full max-w-xs">
+        {/* D-pad */}
+        <div data-button-id="dpad">
+          <DPadCluster />
+        </div>
+
+        {/* Face buttons */}
+        <div className="flex items-center gap-2">
+          {faceButtons.map((id) => (
+            <div key={id} data-button-id={id}>
+              <KeyBadge label={BUTTON_LABELS[id]}>{KEYBOARD_KEYS[id]}</KeyBadge>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Button badges */}
-      {buttonEntries.map(([id, pos]) => (
-        <div
-          key={id}
-          className="absolute -translate-x-1/2 -translate-y-1/2"
-          style={{ top: `${pos.top}%`, left: `${pos.left}%` }}
-          data-button-id={id}
-        >
-          <KeyBadge label={BUTTON_LABELS[id]}>{KEYBOARD_KEYS[id]}</KeyBadge>
+      {/* Center buttons: Select + Start */}
+      <div className="flex items-center justify-center gap-4">
+        {hasSelect && (
+          <div data-button-id="select">
+            <KeyBadge label="Select">{KEYBOARD_KEYS.select}</KeyBadge>
+          </div>
+        )}
+        <div data-button-id="start">
+          <KeyBadge label="Start">{KEYBOARD_KEYS.start}</KeyBadge>
         </div>
-      ))}
+      </div>
     </div>
   );
 }

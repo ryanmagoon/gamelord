@@ -93,7 +93,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose,
 
       {/* Panel */}
       <div
-        className={`relative z-10 bg-black/90 border border-white/10 rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl ${closing ? "animate-dialog-scan-out" : "animate-dialog-scan-in"}`}
+        className={`relative z-10 bg-black/90 border border-white/10 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl ${closing ? "animate-dialog-scan-out" : "animate-dialog-scan-in"}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Controller diagram */}

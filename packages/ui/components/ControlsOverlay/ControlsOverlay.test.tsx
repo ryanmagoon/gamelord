@@ -30,9 +30,10 @@ describe("ControlsOverlay", () => {
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
 
-    it("renders controller diagram with SVG silhouette", () => {
+    it("renders controller diagram with D-pad and face buttons", () => {
       const { container } = renderOverlay();
-      expect(container.querySelector("svg")).not.toBeNull();
+      expect(container.querySelector("[data-button-id='dpad']")).not.toBeNull();
+      expect(container.querySelector("[data-button-id='a']")).not.toBeNull();
     });
 
     it("renders shortcuts section", () => {
@@ -202,7 +203,7 @@ describe("ControlsOverlay", () => {
     it("returns a layout for known systems", () => {
       const layout = getControllerLayout("nes");
       expect(layout.name).toBe("NES");
-      expect(layout.silhouettePath).toBeTruthy();
+      expect(layout.faceButtons.length).toBeGreaterThan(0);
     });
 
     it("falls back to SNES for unknown systems", () => {
