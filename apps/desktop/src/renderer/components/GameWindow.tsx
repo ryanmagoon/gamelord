@@ -708,6 +708,7 @@ export const GameWindow: React.FC = () => {
 
   const handleReset = async () => {
     try {
+      playSfx("click");
       await api.emulation.reset();
     } catch (error) {
       console.error("Reset failed:", error);
@@ -1094,7 +1095,10 @@ export const GameWindow: React.FC = () => {
               </Button>
               <button
                 onClick={() => {
-                  setShowSpeedMenu((v) => !v);
+                  setShowSpeedMenu((v) => {
+                    playSfx(v ? "menuClose" : "menuOpen");
+                    return !v;
+                  });
                   setShowShaderMenu(false);
                   setShowSettingsMenu(false);
                 }}
@@ -1209,7 +1213,10 @@ export const GameWindow: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setShowShaderMenu((v) => !v);
+                  setShowShaderMenu((v) => {
+                    playSfx(v ? "menuClose" : "menuOpen");
+                    return !v;
+                  });
                   setShowSettingsMenu(false);
                   setShowSpeedMenu(false);
                 }}
@@ -1253,7 +1260,10 @@ export const GameWindow: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setShowSettingsMenu((v) => !v);
+                  setShowSettingsMenu((v) => {
+                    playSfx(v ? "menuClose" : "menuOpen");
+                    return !v;
+                  });
                   setShowShaderMenu(false);
                   setShowSpeedMenu(false);
                 }}
