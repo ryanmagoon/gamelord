@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ControllerDiagram } from "./ControllerDiagram";
 import { KeyBadge } from "./KeyBadge";
+import type { KeyboardBinding } from "./controller-layouts";
 
 export interface ControlsOverlayProps {
   open: boolean;
   onClose: () => void;
-  /** When provided, shows the controller layout for this system. */
-  systemId?: string;
+  /** Keyboard-to-button bindings to display. Derived from the emulator's actual KEY_MAP. */
+  bindings: ReadonlyArray<KeyboardBinding>;
 }
 
 interface ShortcutMapping {
@@ -28,7 +29,7 @@ const SHORTCUTS: Array<ShortcutMapping> = [
  */
 const UNMOUNT_DELAY = 220;
 
-export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose, systemId }) => {
+export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose, bindings }) => {
   // Delayed unmount: keep the DOM alive while exit animations play.
   const [mounted, setMounted] = useState(open);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -96,8 +97,8 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({ open, onClose,
         className={`relative z-10 bg-black/90 border border-white/10 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl ${closing ? "animate-dialog-scan-out" : "animate-dialog-scan-in"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Controller diagram */}
-        <ControllerDiagram systemId={systemId} />
+        {/* Controller bindings */}
+        <ControllerDiagram bindings={bindings} />
 
         {/* Shortcuts */}
         <div className="border-t border-white/10 mt-4 pt-3">

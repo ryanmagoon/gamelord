@@ -2,20 +2,32 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ControlsOverlay } from "./ControlsOverlay";
-import { getControllerLayout } from "./controller-layouts";
+import type { KeyboardBinding } from "./controller-layouts";
+import { formatKeyLabel, isDPadBinding } from "./controller-layouts";
+
+/** Standard bindings matching the actual KEY_MAP from GameWindow. */
+const STANDARD_BINDINGS: ReadonlyArray<KeyboardBinding> = [
+  { key: "ArrowUp", label: "D-Pad Up" },
+  { key: "ArrowDown", label: "D-Pad Down" },
+  { key: "ArrowLeft", label: "D-Pad Left" },
+  { key: "ArrowRight", label: "D-Pad Right" },
+  { key: "z", label: "A" },
+  { key: "x", label: "B" },
+  { key: "a", label: "X" },
+  { key: "s", label: "Y" },
+  { key: "q", label: "L" },
+  { key: "w", label: "R" },
+  { key: "Shift", label: "Select" },
+  { key: "Enter", label: "Start" },
+];
 
 function renderOverlay(props: Partial<Parameters<typeof ControlsOverlay>[0]> = {}) {
   const defaultProps = {
     open: true,
     onClose: vi.fn(),
+    bindings: STANDARD_BINDINGS,
   };
   return { ...render(<ControlsOverlay {...defaultProps} {...props} />), ...defaultProps };
-}
-
-/** Returns button IDs of all rendered badge elements. */
-function getRenderedButtonIds(container: HTMLElement): Array<string> {
-  const elements = container.querySelectorAll("[data-button-id]");
-  return Array.from(elements).map((el) => el.getAttribute("data-button-id") ?? "");
 }
 
 describe("ControlsOverlay", () => {
@@ -30,10 +42,17 @@ describe("ControlsOverlay", () => {
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
 
-    it("renders controller diagram with D-pad and face buttons", () => {
+    it("renders D-pad cluster when d-pad bindings are provided", () => {
       const { container } = renderOverlay();
-      expect(container.querySelector("[data-button-id='dpad']")).not.toBeNull();
-      expect(container.querySelector("[data-button-id='a']")).not.toBeNull();
+      expect(container.querySelector("[data-testid='dpad-cluster']")).not.toBeNull();
+    });
+
+    it("renders button bindings with labels", () => {
+      const { container } = renderOverlay();
+      // Check that binding test IDs are present for non-d-pad buttons
+      expect(container.querySelector("[data-testid='binding-A']")).not.toBeNull();
+      expect(container.querySelector("[data-testid='binding-B']")).not.toBeNull();
+      expect(container.querySelector("[data-testid='binding-Start']")).not.toBeNull();
     });
 
     it("renders shortcuts section", () => {
@@ -48,6 +67,22 @@ describe("ControlsOverlay", () => {
       renderOverlay();
       const dialog = screen.getByRole("dialog");
       expect(dialog).toHaveAttribute("aria-label", "Keyboard Controls");
+    });
+
+    it("renders no d-pad when no d-pad bindings are provided", () => {
+      const bindings: ReadonlyArray<KeyboardBinding> = [
+        { key: "z", label: "A" },
+        { key: "x", label: "B" },
+      ];
+      const { container } = renderOverlay({ bindings });
+      expect(container.querySelector("[data-testid='dpad-cluster']")).toBeNull();
+    });
+
+    it("handles empty bindings gracefully", () => {
+      renderOverlay({ bindings: [] });
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      // Shortcuts should still render
+      expect(screen.getByText("Pause")).toBeInTheDocument();
     });
   });
 
@@ -79,141 +114,40 @@ describe("ControlsOverlay", () => {
     });
   });
 
-  describe("system-aware layouts", () => {
-    it("shows all SNES buttons when no systemId is provided (fallback)", () => {
-      const { container } = renderOverlay();
-      const ids = getRenderedButtonIds(container);
-      expect(ids).toContain("dpad");
-      expect(ids).toContain("a");
-      expect(ids).toContain("b");
-      expect(ids).toContain("x");
-      expect(ids).toContain("y");
-      expect(ids).toContain("l");
-      expect(ids).toContain("r");
-      expect(ids).toContain("select");
-      expect(ids).toContain("start");
+  describe("formatKeyLabel", () => {
+    it("converts arrow keys to unicode symbols", () => {
+      expect(formatKeyLabel("ArrowUp")).toBe("↑");
+      expect(formatKeyLabel("ArrowDown")).toBe("↓");
+      expect(formatKeyLabel("ArrowLeft")).toBe("←");
+      expect(formatKeyLabel("ArrowRight")).toBe("→");
     });
 
-    it("shows only NES buttons for NES system", () => {
-      const { container } = renderOverlay({ systemId: "nes" });
-      const ids = getRenderedButtonIds(container);
-      expect(ids).toContain("dpad");
-      expect(ids).toContain("a");
-      expect(ids).toContain("b");
-      expect(ids).toContain("select");
-      expect(ids).toContain("start");
-      expect(ids).not.toContain("x");
-      expect(ids).not.toContain("y");
-      expect(ids).not.toContain("l");
-      expect(ids).not.toContain("r");
+    it("uppercases single-character keys", () => {
+      expect(formatKeyLabel("z")).toBe("Z");
+      expect(formatKeyLabel("a")).toBe("A");
     });
 
-    it("shows L and R but not X/Y for GBA", () => {
-      const { container } = renderOverlay({ systemId: "gba" });
-      const ids = getRenderedButtonIds(container);
-      expect(ids).toContain("l");
-      expect(ids).toContain("r");
-      expect(ids).not.toContain("x");
-      expect(ids).not.toContain("y");
+    it("passes through multi-character keys unchanged", () => {
+      expect(formatKeyLabel("Shift")).toBe("Shift");
+      expect(formatKeyLabel("Enter")).toBe("Enter");
     });
 
-    it("shows only NES buttons for Game Boy", () => {
-      const { container } = renderOverlay({ systemId: "gb" });
-      const ids = getRenderedButtonIds(container);
-      expect(ids).toContain("dpad");
-      expect(ids).toContain("a");
-      expect(ids).toContain("b");
-      expect(ids).toContain("select");
-      expect(ids).toContain("start");
-      expect(ids).not.toContain("x");
-      expect(ids).not.toContain("y");
-      expect(ids).not.toContain("l");
-      expect(ids).not.toContain("r");
-    });
-
-    it("shows all buttons for SNES", () => {
-      const { container } = renderOverlay({ systemId: "snes" });
-      const ids = getRenderedButtonIds(container);
-      expect(ids).toContain("dpad");
-      expect(ids).toContain("a");
-      expect(ids).toContain("b");
-      expect(ids).toContain("x");
-      expect(ids).toContain("y");
-      expect(ids).toContain("l");
-      expect(ids).toContain("r");
-      expect(ids).toContain("select");
-      expect(ids).toContain("start");
-    });
-
-    it("shows Genesis buttons (no select)", () => {
-      const { container } = renderOverlay({ systemId: "genesis" });
-      const ids = getRenderedButtonIds(container);
-      expect(ids).toContain("dpad");
-      expect(ids).toContain("a");
-      expect(ids).toContain("b");
-      expect(ids).toContain("x");
-      expect(ids).toContain("start");
-      expect(ids).not.toContain("select");
-      expect(ids).not.toContain("y");
-      expect(ids).not.toContain("l");
-      expect(ids).not.toContain("r");
-    });
-
-    it("shows N64 buttons (no select, no x/y)", () => {
-      const { container } = renderOverlay({ systemId: "n64" });
-      const ids = getRenderedButtonIds(container);
-      expect(ids).toContain("dpad");
-      expect(ids).toContain("a");
-      expect(ids).toContain("b");
-      expect(ids).toContain("l");
-      expect(ids).toContain("r");
-      expect(ids).toContain("start");
-      expect(ids).not.toContain("select");
-      expect(ids).not.toContain("x");
-      expect(ids).not.toContain("y");
-    });
-
-    it("renders a layout for every known system", () => {
-      const systemIds = [
-        "nes",
-        "snes",
-        "genesis",
-        "gb",
-        "gba",
-        "n64",
-        "psx",
-        "psp",
-        "nds",
-        "saturn",
-        "arcade",
-      ];
-      for (const id of systemIds) {
-        const { container, unmount } = renderOverlay({ systemId: id });
-        const ids = getRenderedButtonIds(container);
-        // Every system has a D-pad and at least A + B
-        expect(ids).toContain("dpad");
-        expect(ids).toContain("a");
-        expect(ids).toContain("b");
-        unmount();
-      }
+    it("converts space to readable label", () => {
+      expect(formatKeyLabel(" ")).toBe("Space");
     });
   });
 
-  describe("getControllerLayout", () => {
-    it("returns a layout for known systems", () => {
-      const layout = getControllerLayout("nes");
-      expect(layout.name).toBe("NES");
-      expect(layout.faceButtons.length).toBeGreaterThan(0);
+  describe("isDPadBinding", () => {
+    it("returns true for d-pad bindings", () => {
+      expect(isDPadBinding({ key: "ArrowUp", label: "D-Pad Up" })).toBe(true);
+      expect(isDPadBinding({ key: "ArrowDown", label: "D-Pad Down" })).toBe(true);
+      expect(isDPadBinding({ key: "ArrowLeft", label: "D-Pad Left" })).toBe(true);
+      expect(isDPadBinding({ key: "ArrowRight", label: "D-Pad Right" })).toBe(true);
     });
 
-    it("falls back to SNES for unknown systems", () => {
-      const layout = getControllerLayout("unknown-system-xyz");
-      expect(layout.name).toBe("SNES");
-    });
-
-    it("falls back to SNES when systemId is undefined", () => {
-      const layout = getControllerLayout(undefined);
-      expect(layout.name).toBe("SNES");
+    it("returns false for non-d-pad bindings", () => {
+      expect(isDPadBinding({ key: "z", label: "A" })).toBe(false);
+      expect(isDPadBinding({ key: "Enter", label: "Start" })).toBe(false);
     });
   });
 });

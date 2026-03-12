@@ -1,6 +1,34 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { ControlsOverlay } from "./ControlsOverlay";
+import type { KeyboardBinding } from "./controller-layouts";
+
+/** Default bindings matching the actual KEY_MAP from GameWindow. */
+const DEFAULT_BINDINGS: ReadonlyArray<KeyboardBinding> = [
+  { key: "ArrowUp", label: "D-Pad Up" },
+  { key: "ArrowDown", label: "D-Pad Down" },
+  { key: "ArrowLeft", label: "D-Pad Left" },
+  { key: "ArrowRight", label: "D-Pad Right" },
+  { key: "z", label: "A" },
+  { key: "x", label: "B" },
+  { key: "a", label: "X" },
+  { key: "s", label: "Y" },
+  { key: "q", label: "L" },
+  { key: "w", label: "R" },
+  { key: "Shift", label: "Select" },
+  { key: "Enter", label: "Start" },
+];
+
+/** Minimal bindings (e.g. a system that only uses a few buttons). */
+const MINIMAL_BINDINGS: ReadonlyArray<KeyboardBinding> = [
+  { key: "ArrowUp", label: "D-Pad Up" },
+  { key: "ArrowDown", label: "D-Pad Down" },
+  { key: "ArrowLeft", label: "D-Pad Left" },
+  { key: "ArrowRight", label: "D-Pad Right" },
+  { key: "z", label: "A" },
+  { key: "x", label: "B" },
+  { key: "Enter", label: "Start" },
+];
 
 const meta: Meta<typeof ControlsOverlay> = {
   component: ControlsOverlay,
@@ -12,6 +40,7 @@ const meta: Meta<typeof ControlsOverlay> = {
   args: {
     onClose: fn(),
     open: true,
+    bindings: DEFAULT_BINDINGS,
   },
   decorators: [
     (Story) => (
@@ -40,46 +69,10 @@ export const Closed: Story = {
   },
 };
 
-export const NES: Story = {
-  args: { systemId: "nes" },
+export const MinimalBindings: Story = {
+  args: { bindings: MINIMAL_BINDINGS },
 };
 
-export const SNES: Story = {
-  args: { systemId: "snes" },
-};
-
-export const Genesis: Story = {
-  args: { systemId: "genesis" },
-};
-
-export const GameBoy: Story = {
-  args: { systemId: "gb" },
-};
-
-export const GBA: Story = {
-  args: { systemId: "gba" },
-};
-
-export const N64: Story = {
-  args: { systemId: "n64" },
-};
-
-export const PS1: Story = {
-  args: { systemId: "psx" },
-};
-
-export const PSP: Story = {
-  args: { systemId: "psp" },
-};
-
-export const NDS: Story = {
-  args: { systemId: "nds" },
-};
-
-export const Saturn: Story = {
-  args: { systemId: "saturn" },
-};
-
-export const Arcade: Story = {
-  args: { systemId: "arcade" },
+export const NoBindings: Story = {
+  args: { bindings: [] },
 };

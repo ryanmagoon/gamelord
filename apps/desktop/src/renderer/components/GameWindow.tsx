@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Button,
   ControlsOverlay,
+  type KeyboardBinding,
   WebGLRenderer,
   SHADER_PRESETS,
   SHADER_LABELS,
@@ -60,6 +61,30 @@ const KEY_MAP: Record<string, number> = {
   q: 10, // L
   w: 11, // R
 };
+
+/** Libretro button index → human-readable label for the controls overlay. */
+const RETRO_BUTTON_LABELS: Record<number, string> = {
+  0: "B",
+  1: "Y",
+  2: "Select",
+  3: "Start",
+  4: "D-Pad Up",
+  5: "D-Pad Down",
+  6: "D-Pad Left",
+  7: "D-Pad Right",
+  8: "A",
+  9: "X",
+  10: "L",
+  11: "R",
+};
+
+/** Derive overlay bindings directly from KEY_MAP — single source of truth. */
+const KEYBOARD_BINDINGS: ReadonlyArray<KeyboardBinding> = Object.entries(KEY_MAP).map(
+  ([key, retroId]) => ({
+    key,
+    label: RETRO_BUTTON_LABELS[retroId] ?? `Button ${retroId}`,
+  }),
+);
 
 export const GameWindow: React.FC = () => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord;
@@ -1362,7 +1387,7 @@ export const GameWindow: React.FC = () => {
             api.emulation.resume().catch(console.error);
           }
         }}
-        systemId={game?.systemId}
+        bindings={KEYBOARD_BINDINGS}
       />
 
       {/* First-launch controls hint */}

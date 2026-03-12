@@ -1,66 +1,39 @@
 import React from "react";
 import { DPadCluster } from "./DPadCluster";
 import { KeyBadge } from "./KeyBadge";
-import { getControllerLayout, KEYBOARD_KEYS } from "./controller-layouts";
+import { type KeyboardBinding, formatKeyLabel, isDPadBinding } from "./controller-layouts";
 
 interface ControllerDiagramProps {
-  systemId?: string;
+  /** All keyboard bindings to display. */
+  bindings: ReadonlyArray<KeyboardBinding>;
   className?: string;
 }
 
-/** Human-readable button labels for each face button. */
-const BUTTON_LABELS: Record<string, string> = {
-  a: "A",
-  b: "B",
-  x: "X",
-  y: "Y",
-};
-
-export function ControllerDiagram({ systemId, className }: ControllerDiagramProps) {
-  const layout = getControllerLayout(systemId);
-  const { faceButtons, hasShoulders, hasSelect } = layout;
+export function ControllerDiagram({ bindings, className }: ControllerDiagramProps) {
+  const dpadBindings = bindings.filter(isDPadBinding);
+  const buttonBindings = bindings.filter((b) => !isDPadBinding(b));
 
   return (
     <div className={`flex flex-col items-center gap-5 ${className ?? ""}`}>
-      {/* Shoulder buttons */}
-      {hasShoulders && (
-        <div className="flex items-center justify-between w-full max-w-xs" data-row="shoulders">
-          <div data-button-id="l">
-            <KeyBadge label="L">{KEYBOARD_KEYS.l}</KeyBadge>
-          </div>
-          <div data-button-id="r">
-            <KeyBadge label="R">{KEYBOARD_KEYS.r}</KeyBadge>
-          </div>
-        </div>
-      )}
-
-      {/* Main row: D-pad + Face buttons */}
-      <div className="flex items-center justify-between w-full max-w-xs">
-        {/* D-pad */}
-        <div data-button-id="dpad">
-          <DPadCluster />
-        </div>
-
-        {/* Face buttons */}
-        <div className="flex items-center gap-2">
-          {faceButtons.map((id) => (
-            <div key={id} data-button-id={id}>
-              <KeyBadge label={BUTTON_LABELS[id]}>{KEYBOARD_KEYS[id]}</KeyBadge>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Center buttons: Select + Start */}
-      <div className="flex items-center justify-center gap-4">
-        {hasSelect && (
-          <div data-button-id="select">
-            <KeyBadge label="Select">{KEYBOARD_KEYS.select}</KeyBadge>
+      {/* Main row: D-pad + button bindings */}
+      <div className="flex items-start justify-between w-full gap-6">
+        {/* D-pad cluster (if any d-pad bindings exist) */}
+        {dpadBindings.length > 0 && (
+          <div data-testid="dpad-cluster">
+            <DPadCluster />
           </div>
         )}
-        <div data-button-id="start">
-          <KeyBadge label="Start">{KEYBOARD_KEYS.start}</KeyBadge>
-        </div>
+
+        {/* Button bindings in a grid */}
+        {buttonBindings.length > 0 && (
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {buttonBindings.map((binding) => (
+              <div key={binding.label} data-testid={`binding-${binding.label}`}>
+                <KeyBadge label={binding.label}>{formatKeyLabel(binding.key)}</KeyBadge>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
