@@ -432,7 +432,7 @@ const LibraryTab: React.FC = () => {
     if (selected) {
       await api.library.setRomsBasePath(selected);
       setRomsBasePath(selected);
-      playSfx("toggleOn");
+      playSfx("confirm");
     }
   };
 
@@ -441,7 +441,7 @@ const LibraryTab: React.FC = () => {
     const selected = await api.dialog.selectDirectory();
     if (selected) {
       await api.library.scanDirectory(selected);
-      playSfx("toggleOn");
+      playSfx("confirm");
     }
   };
 
@@ -481,7 +481,7 @@ const LibraryTab: React.FC = () => {
     await api.artwork.clearCredentials();
     setHasCredentials(false);
     setCredentialSuccess(false);
-    playSfx("toggleOff");
+    playSfx("confirm");
   };
 
   return (
