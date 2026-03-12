@@ -383,6 +383,9 @@ export const GameWindow: React.FC = () => {
     api.on("emulator:resumed", () => setIsPaused(false));
     api.on("emulator:speedChanged", (raw: unknown) => {
       setSpeedMultiplier((raw as { multiplier: number }).multiplier);
+      // Reset audio scheduling anchor so leftover scheduling offsets from the
+      // previous speed don't cause buffer overlap during the transition.
+      audioNextTimeRef.current = 0;
     });
 
     api.on("game:emulation-error", (raw: unknown) => {
@@ -602,14 +605,17 @@ export const GameWindow: React.FC = () => {
     }
   }, [shader, game]);
 
-  // Sync gain node with volume/mute state and persist
+  // Sync gain node with volume/mute state and persist.
+  // During fast-forward, multiple frames' audio samples overlap additively —
+  // divide gain by the speed multiplier to normalize perceived volume.
   useEffect(() => {
     if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = isMuted ? 0 : volume;
+      const baseGain = isMuted ? 0 : volume;
+      gainNodeRef.current.gain.value = speedMultiplier > 1 ? baseGain / speedMultiplier : baseGain;
     }
     localStorage.setItem("gamelord:volume", String(volume));
     localStorage.setItem("gamelord:muted", String(isMuted));
-  }, [volume, isMuted]);
+  }, [volume, isMuted, speedMultiplier]);
 
   // Persist FPS overlay preference
   useEffect(() => {
