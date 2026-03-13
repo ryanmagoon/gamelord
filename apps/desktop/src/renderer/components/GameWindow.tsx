@@ -3,6 +3,7 @@ import {
   Button,
   ControlsOverlay,
   type KeyboardBinding,
+  filterBindingsForSystem,
   WebGLRenderer,
   SHADER_PRESETS,
   SHADER_LABELS,
@@ -83,6 +84,7 @@ const KEYBOARD_BINDINGS: ReadonlyArray<KeyboardBinding> = Object.entries(KEY_MAP
   ([key, retroId]) => ({
     key,
     label: RETRO_BUTTON_LABELS[retroId] ?? `Button ${retroId}`,
+    retroId,
   }),
 );
 
@@ -1387,7 +1389,7 @@ export const GameWindow: React.FC = () => {
             api.emulation.resume().catch(console.error);
           }
         }}
-        bindings={KEYBOARD_BINDINGS}
+        bindings={filterBindingsForSystem(KEYBOARD_BINDINGS, game?.systemId)}
       />
 
       {/* First-launch controls hint */}
