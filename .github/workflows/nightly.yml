@@ -1,0 +1,189 @@
+name: Nightly Build
+
+on:
+  schedule:
+    # Daily at 6:00 AM UTC (10 PM PT / 1 AM ET)
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      skip_no_changes_check:
+        description: "Build even if no new commits since last nightly"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-build
+  cancel-in-progress: true
+
+jobs:
+  check-changes:
+    name: Check for new commits
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      tag_name: ${{ steps.check.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes since last nightly
+        id: check
+        run: |
+          TAG_NAME="nightly-$(date -u +%Y-%m-%d)"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ github.event.inputs.skip_no_changes_check }}" == "true" ]]; then
+            echo "Manual dispatch with skip_no_changes_check — building unconditionally"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Find the most recent nightly tag
+          LAST_NIGHTLY=$(git tag --list 'nightly-*' --sort=-creatordate | head -n 1)
+
+          if [[ -z "$LAST_NIGHTLY" ]]; then
+            echo "No previous nightly tag found — building"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if there are new commits on main since the last nightly
+          NEW_COMMITS=$(git rev-list "$LAST_NIGHTLY"..HEAD --count)
+          echo "Commits since $LAST_NIGHTLY: $NEW_COMMITS"
+
+          if [[ "$NEW_COMMITS" -eq 0 ]]; then
+            echo "No new commits — skipping build"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found $NEW_COMMITS new commit(s) — building"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build macOS DMG (Nightly)
+    needs: check-changes
+    if: needs.check-changes.outputs.should_build == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Import signing certificate
+        env:
+          MAC_CERTIFICATE_P12: ${{ secrets.MAC_CERTIFICATE_P12 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+          echo "$MAC_CERTIFICATE_P12" | base64 --decode > "$CERT_PATH"
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security import "$CERT_PATH" \
+            -P "$MAC_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          rm "$CERT_PATH"
+
+      - name: Write App Store Connect API key
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          KEY_DIR="$HOME/.private_keys"
+          mkdir -p "$KEY_DIR"
+          echo "$APPLE_API_KEY_P8" > "$KEY_DIR/AuthKey_${APPLE_API_KEY_ID}.p8"
+          chmod 600 "$KEY_DIR/AuthKey_${APPLE_API_KEY_ID}.p8"
+
+      - name: Build native addon
+        working-directory: apps/desktop/native
+        run: npx node-gyp rebuild
+
+      - name: Build app and upload source maps to Sentry
+        working-directory: apps/desktop
+        run: npx electron-vite build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: Package, sign, and notarize
+        working-directory: apps/desktop
+        run: npx electron-builder --mac
+        env:
+          CSC_KEYCHAIN: ${{ runner.temp }}/signing.keychain-db
+          APPLE_API_KEY: ~/.private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
+
+      - name: Create nightly release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.check-changes.outputs.tag_name }}
+        run: |
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          DATE=$(date -u +"%B %d, %Y")
+
+          # Delete existing tag/release with same name (re-run on same day)
+          gh release delete "$TAG_NAME" --yes --cleanup-tag 2>/dev/null || true
+
+          # Create tag and release
+          gh release create "$TAG_NAME" \
+            --target main \
+            --title "Nightly Build — $DATE" \
+            --notes "$(cat <<EOF
+          Automated nightly build from \`main\` at [$COMMIT_SHA](https://github.com/${{ github.repository }}/commit/$(git rev-parse HEAD)).
+
+          > $COMMIT_MSG
+
+          **This is a pre-release build for testing.** It may contain incomplete features or known issues. For stable releases, see the [latest release](https://github.com/${{ github.repository }}/releases/latest).
+          EOF
+          )" \
+            --prerelease \
+            apps/desktop/dist/*.dmg apps/desktop/dist/*.zip apps/desktop/dist/latest-mac.yml
+
+  cleanup:
+    name: Prune old nightlies
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Delete old nightly releases (keep last 7)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # List nightly releases sorted newest-first, skip the 7 most recent
+          gh release list --limit 100 --json tagName,isPrerelease \
+            --jq '[.[] | select(.isPrerelease and (.tagName | startswith("nightly-")))] | .[7:] | .[].tagName' \
+          | while read -r tag; do
+            echo "Deleting old nightly: $tag"
+            gh release delete "$tag" --yes --cleanup-tag
+          done
