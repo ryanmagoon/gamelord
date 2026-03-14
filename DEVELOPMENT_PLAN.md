@@ -232,6 +232,7 @@ Items are grouped by priority. Work top-down within each tier.
 
 ### Telemetry & Analytics
 
+- [ ] **Add Sentry secrets to GitHub Actions** — `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` not configured yet. Nightly builds skip source map uploads gracefully, but release builds should have them for production debugging. — [#216](https://github.com/ryanmagoon/gamelord/issues/216)
 - [ ] **PostHog product analytics** — Integrate `posthog-js` in the renderer for product analytics, feature flags, and A/B testing. Track which games/systems get played, feature usage, funnel analysis. Session replay for UX understanding (distinct from Sentry's error-context replay). Free tier: 1M events, 5K replays, 1M feature flag requests. Note: no offline event queuing (open issue) — events captured while offline are lost. No main-process instrumentation. Use the PostHog-Sentry connector to link errors to user profiles.
 - [ ] **Vercel Analytics for web properties** — Enable Vercel Analytics and Speed Insights on gamelord.app and docs site once deployed. Privacy-friendly (no cookies), Core Web Vitals tracking, per-deployment performance. Not applicable to the Electron app — only Vercel-deployed web properties.
 
