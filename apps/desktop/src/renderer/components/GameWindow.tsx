@@ -7,6 +7,7 @@ import {
   WebGLRenderer,
   SHADER_PRESETS,
   SHADER_LABELS,
+  isHdrCapable,
 } from "@gamelord/ui";
 import {
   Play,
@@ -116,6 +117,11 @@ export const GameWindow: React.FC = () => {
     return localStorage.getItem("gamelord:showAgentation") === "true";
   });
   const [fps, setFps] = useState(0);
+  const [hdrEnabled, setHdrEnabled] = useState(() => {
+    const mode = localStorage.getItem("gamelord:hdrMode") ?? "auto";
+    return mode === "on" || (mode === "auto" && isHdrCapable());
+  });
+  const [hdrFlash, setHdrFlash] = useState<string | null>(null);
   const [isPoweringOn, setIsPoweringOn] = useState(false);
   const [isPoweringOff, setIsPoweringOff] = useState(false);
   const [emulationError, setEmulationError] = useState<string | null>(null);
@@ -464,7 +470,9 @@ export const GameWindow: React.FC = () => {
           // Set initial canvas size based on container
           updateCanvasSizeRef.current();
 
-          const renderer = new WebGLRenderer(canvas);
+          const hdrMode = localStorage.getItem("gamelord:hdrMode") ?? "auto";
+          const hdrEnabled = hdrMode === "on" || (hdrMode === "auto" && isHdrCapable());
+          const renderer = new WebGLRenderer(canvas, { hdr: hdrEnabled });
           renderer.initialize();
           const savedShader = (localStorage.getItem("gamelord:shader") as string) || "default";
           renderer.setShader(savedShader);
@@ -1010,7 +1018,14 @@ export const GameWindow: React.FC = () => {
       {/* FPS overlay */}
       {isNative && showFps && (
         <div className="absolute top-2 left-2 z-40 px-2 py-1 bg-black/60 rounded text-xs font-mono text-green-400 pointer-events-none select-none">
-          {fps} FPS
+          {fps} FPS{rendererRef.current?.isHdrActive ? " · HDR" : ""}
+        </div>
+      )}
+
+      {/* HDR toggle flash */}
+      {hdrFlash && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 px-4 py-2 bg-black/80 rounded-lg text-sm font-medium text-white pointer-events-none select-none animate-overlay-fade-in">
+          {hdrFlash}
         </div>
       )}
 
@@ -1339,6 +1354,39 @@ export const GameWindow: React.FC = () => {
                       className={`ml-3 text-xs font-medium ${showFps ? "text-green-400" : "text-white/40"}`}
                     >
                       {showFps ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const next = !hdrEnabled;
+                      playSfx(next ? "toggleOn" : "toggleOff");
+                      setHdrEnabled(next);
+                      localStorage.setItem("gamelord:hdrMode", next ? "on" : "off");
+                      // Recreate the renderer with the new HDR setting
+                      if (rendererRef.current) {
+                        const currentShader = rendererRef.current.getShader();
+                        rendererRef.current.destroy();
+                        rendererRef.current = null;
+                        const canvas = canvasRef.current;
+                        if (canvas) {
+                          const renderer = new WebGLRenderer(canvas, { hdr: next });
+                          renderer.initialize();
+                          renderer.setShader(currentShader);
+                          rendererRef.current = renderer;
+                          // Show brief status flash confirming actual HDR state
+                          const active = renderer.isHdrActive;
+                          setHdrFlash(active ? "HDR Active" : next ? "HDR Unavailable" : "HDR Off");
+                          setTimeout(() => setHdrFlash(null), 1500);
+                        }
+                      }
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                  >
+                    <span>HDR</span>
+                    <span
+                      className={`ml-3 text-xs font-medium ${hdrEnabled ? "text-green-400" : "text-white/40"}`}
+                    >
+                      {hdrEnabled ? "ON" : "OFF"}
                     </span>
                   </button>
                   <button
