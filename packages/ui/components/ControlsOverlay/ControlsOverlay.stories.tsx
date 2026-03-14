@@ -78,7 +78,7 @@ export const Genesis: Story = {
   args: { bindings: filterBindingsForSystem(ALL_BINDINGS, "genesis") },
 };
 
-/** N64 — D-pad, A, B, L, R, Start (no X/Y, no Select). */
+/** N64 — D-pad, A, B, C←, C↓, L, R, Start (no Select). */
 export const N64: Story = {
   args: { bindings: filterBindingsForSystem(ALL_BINDINGS, "n64") },
 };

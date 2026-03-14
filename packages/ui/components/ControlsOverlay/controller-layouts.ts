@@ -82,8 +82,8 @@ export const SYSTEM_BUTTONS: Record<string, ReadonlySet<number>> = {
   genesis: new Set([0, 3, 4, 5, 6, 7, 8, 9]),
   /* Saturn: D-pad, A, B, X, Y, L, R, Start (no Select) */
   saturn: new Set([0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-  /* N64: D-pad, A, B, L, R, Start (no X/Y, no Select) */
-  n64: new Set([0, 3, 4, 5, 6, 7, 8, 10, 11]),
+  /* N64: D-pad, A, B, C↓(→X), C←(→Y), L, R, Start */
+  n64: new Set([0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
   /* PS1: all standard buttons */
   psx: new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
   /* PSP: all standard buttons */
@@ -104,8 +104,8 @@ const ALL_STANDARD_BUTTONS = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 const SYSTEM_LABEL_OVERRIDES: Record<string, Record<number, string>> = {
   /* Genesis 3-button: A, B, C (C is mapped to libretro X=9) */
   genesis: { 9: "C" },
-  /* Genesis 6-button would add X, Y, Z — handle when supported */
-  /* N64: A, B, plus C-buttons and Z trigger — labels match SNES defaults for now */
+  /* N64: mupen64plus-next maps retropad Y→C-Left, X→C-Down */
+  n64: { 1: "C←", 9: "C↓" },
 };
 
 /**

@@ -276,7 +276,7 @@ describe("ControlsOverlay", () => {
       expect(labels).not.toContain("Y");
     });
 
-    it("N64 excludes X, Y, Select", () => {
+    it("N64 relabels X/Y as C-buttons and excludes Select", () => {
       const result = filterBindingsForSystem(STANDARD_BINDINGS, "n64");
       const labels = result.map((b) => b.label);
       expect(labels).toContain("A");
@@ -284,6 +284,8 @@ describe("ControlsOverlay", () => {
       expect(labels).toContain("L");
       expect(labels).toContain("R");
       expect(labels).toContain("Start");
+      expect(labels).toContain("C←");
+      expect(labels).toContain("C↓");
       expect(labels).not.toContain("X");
       expect(labels).not.toContain("Y");
       expect(labels).not.toContain("Select");
