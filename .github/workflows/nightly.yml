@@ -140,6 +140,7 @@ jobs:
         working-directory: apps/desktop
         run: npx electron-builder --mac
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEYCHAIN: ${{ runner.temp }}/signing.keychain-db
           APPLE_API_KEY: ~/.private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
