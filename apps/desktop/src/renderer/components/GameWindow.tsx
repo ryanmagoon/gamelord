@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Button,
   ControlsOverlay,
+  type KeyboardBinding,
+  filterBindingsForSystem,
   WebGLRenderer,
   SHADER_PRESETS,
   SHADER_LABELS,
@@ -61,6 +63,31 @@ const KEY_MAP: Record<string, number> = {
   w: 11, // R
 };
 
+/** Libretro button index → human-readable label for the controls overlay. */
+const RETRO_BUTTON_LABELS: Record<number, string> = {
+  0: "B",
+  1: "Y",
+  2: "Select",
+  3: "Start",
+  4: "D-Pad Up",
+  5: "D-Pad Down",
+  6: "D-Pad Left",
+  7: "D-Pad Right",
+  8: "A",
+  9: "X",
+  10: "L",
+  11: "R",
+};
+
+/** Derive overlay bindings directly from KEY_MAP — single source of truth. */
+const KEYBOARD_BINDINGS: ReadonlyArray<KeyboardBinding> = Object.entries(KEY_MAP).map(
+  ([key, retroId]) => ({
+    key,
+    label: RETRO_BUTTON_LABELS[retroId] ?? `Button ${retroId}`,
+    retroId,
+  }),
+);
+
 export const GameWindow: React.FC = () => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord;
   const [game, setGame] = useState<Game | null>(null);
@@ -102,6 +129,7 @@ export const GameWindow: React.FC = () => {
   });
 
   const [showControlsOverlay, setShowControlsOverlay] = useState(false);
+  const pausedByOverlayRef = useRef(false);
   const [showControlsHint, setShowControlsHint] = useState(() => {
     return localStorage.getItem("gamelord:controlsHintDismissed") !== "true";
   });
@@ -760,6 +788,8 @@ export const GameWindow: React.FC = () => {
       }
       if (e.key === " " && e.target === document.body) {
         e.preventDefault();
+        // If user manually toggles pause, the overlay no longer owns the pause state
+        pausedByOverlayRef.current = false;
         void handlePauseResume();
       }
       if (e.key === "Tab") {
@@ -768,7 +798,17 @@ export const GameWindow: React.FC = () => {
       }
       if (e.key === "?" || e.key === "F1") {
         e.preventDefault();
-        setShowControlsOverlay((v) => !v);
+        setShowControlsOverlay((prev) => {
+          const willOpen = !prev;
+          if (willOpen && !isPaused) {
+            pausedByOverlayRef.current = true;
+            api.emulation.pause().catch(console.error);
+          } else if (!willOpen && pausedByOverlayRef.current) {
+            pausedByOverlayRef.current = false;
+            api.emulation.resume().catch(console.error);
+          }
+          return willOpen;
+        });
         if (showControlsHint) {
           setShowControlsHint(false);
           localStorage.setItem("gamelord:controlsHintDismissed", "true");
@@ -1352,8 +1392,14 @@ export const GameWindow: React.FC = () => {
       {/* Controls reference overlay */}
       <ControlsOverlay
         open={showControlsOverlay}
-        onClose={() => setShowControlsOverlay(false)}
-        systemId={game?.systemId}
+        onClose={() => {
+          setShowControlsOverlay(false);
+          if (pausedByOverlayRef.current) {
+            pausedByOverlayRef.current = false;
+            api.emulation.resume().catch(console.error);
+          }
+        }}
+        bindings={filterBindingsForSystem(KEYBOARD_BINDINGS, game?.systemId)}
       />
 
       {/* First-launch controls hint */}
