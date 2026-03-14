@@ -219,7 +219,7 @@ Sync SRAM/battery saves (.srm) across GameLord desktop instances, Android retro 
 **Phase 3a — Handheld Sync (Zero Install)**
 
 - [ ] **WebDAV bridge for RetroArch** — Expose cloud saves as WebDAV endpoint (`saves.gamelord.app/webdav/{userId}/`). RetroArch's built-in cloud sync connects directly — no app install needed. Works on any platform RetroArch supports (Android, Linux handhelds, Steam Deck). — [#225](https://github.com/ryanmagoon/gamelord/issues/225)
-- [ ] **CLI sync tool (`gamelord-sync`)** — Go binary, cross-compiles to ARM Linux. Commands: login, status, push, pull, sync, history. Interactive conflict prompts + non-interactive `--strategy` flag for scripted use. Distributed via GitHub Releases. — [#227](https://github.com/ryanmagoon/gamelord/issues/227)
+- [ ] **CLI sync tool (`gamelord-sync`)** — Cross-platform binary (tech stack TBD). Commands: login, status, push, pull, sync, history. Interactive conflict prompts + non-interactive `--strategy` flag for scripted use. Must cross-compile to Linux ARM64 for handhelds. Distributed via GitHub Releases. — [#227](https://github.com/ryanmagoon/gamelord/issues/227)
 
 **Phase 3b — Android Companion App (Polished Handheld UX)**
 
