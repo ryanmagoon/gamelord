@@ -125,13 +125,13 @@ jobs:
         working-directory: apps/desktop/native
         run: npx node-gyp rebuild
 
-      - name: Build app and upload source maps to Sentry
+      - name: Build app
         working-directory: apps/desktop
         run: npx electron-vite build
         env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN || '' }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG || '' }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT || '' }}
 
       - name: Package, sign, and notarize
         working-directory: apps/desktop
