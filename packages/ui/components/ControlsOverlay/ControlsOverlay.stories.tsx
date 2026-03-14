@@ -73,7 +73,7 @@ export const GBA: Story = {
   args: { bindings: filterBindingsForSystem(ALL_BINDINGS, "gba") },
 };
 
-/** Genesis — D-pad, A, B, X(C), Start (no L/R, no Select, no Y). */
+/** Genesis — D-pad, A, B, C, Start (no L/R, no Select, no Y). */
 export const Genesis: Story = {
   args: { bindings: filterBindingsForSystem(ALL_BINDINGS, "genesis") },
 };

@@ -262,12 +262,13 @@ describe("ControlsOverlay", () => {
       expect(labels).not.toContain("Y");
     });
 
-    it("Genesis excludes L, R, Select, Y", () => {
+    it("Genesis excludes L, R, Select, Y and relabels X as C", () => {
       const result = filterBindingsForSystem(STANDARD_BINDINGS, "genesis");
       const labels = result.map((b) => b.label);
       expect(labels).toContain("A");
       expect(labels).toContain("B");
-      expect(labels).toContain("X");
+      expect(labels).toContain("C");
+      expect(labels).not.toContain("X");
       expect(labels).toContain("Start");
       expect(labels).not.toContain("L");
       expect(labels).not.toContain("R");

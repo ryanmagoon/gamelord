@@ -98,7 +98,19 @@ export const SYSTEM_BUTTONS: Record<string, ReadonlySet<number>> = {
 const ALL_STANDARD_BUTTONS = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
 /**
- * Filter bindings to only include buttons that exist on the given system's controller.
+ * Per-system label overrides for buttons that have different names than SNES defaults.
+ * Maps retroId → display label. Only entries that differ from the SNES defaults need to be listed.
+ */
+const SYSTEM_LABEL_OVERRIDES: Record<string, Record<number, string>> = {
+  /* Genesis 3-button: A, B, C (C is mapped to libretro X=9) */
+  genesis: { 9: "C" },
+  /* Genesis 6-button would add X, Y, Z — handle when supported */
+  /* N64: A, B, plus C-buttons and Z trigger — labels match SNES defaults for now */
+};
+
+/**
+ * Filter bindings to only include buttons that exist on the given system's controller,
+ * and remap labels for systems with different button names (e.g. Genesis C instead of X).
  * Falls back to showing all standard buttons for unknown systems or when systemId is undefined.
  */
 export function filterBindingsForSystem(
@@ -109,5 +121,13 @@ export function filterBindingsForSystem(
     return bindings;
   }
   const allowed = SYSTEM_BUTTONS[systemId] ?? ALL_STANDARD_BUTTONS;
-  return bindings.filter((b) => allowed.has(b.retroId));
+  const labelOverrides = SYSTEM_LABEL_OVERRIDES[systemId];
+  const filtered = bindings.filter((b) => allowed.has(b.retroId));
+  if (!labelOverrides) {
+    return filtered;
+  }
+  return filtered.map((b) => {
+    const override = labelOverrides[b.retroId];
+    return override ? { ...b, label: override } : b;
+  });
 }
