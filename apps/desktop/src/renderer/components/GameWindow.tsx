@@ -7,6 +7,7 @@ import {
   WebGLRenderer,
   SHADER_PRESETS,
   SHADER_LABELS,
+  isHdrCapable,
 } from "@gamelord/ui";
 import {
   Play,
@@ -464,7 +465,9 @@ export const GameWindow: React.FC = () => {
           // Set initial canvas size based on container
           updateCanvasSizeRef.current();
 
-          const renderer = new WebGLRenderer(canvas);
+          const hdrMode = localStorage.getItem("gamelord:hdrMode") ?? "auto";
+          const hdrEnabled = hdrMode === "on" || (hdrMode === "auto" && isHdrCapable());
+          const renderer = new WebGLRenderer(canvas, { hdr: hdrEnabled });
           renderer.initialize();
           const savedShader = (localStorage.getItem("gamelord:shader") as string) || "default";
           renderer.setShader(savedShader);

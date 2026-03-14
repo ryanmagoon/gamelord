@@ -19,6 +19,11 @@ interface CompiledPass {
   programKey: string;
 }
 
+export interface WebGLRendererOptions {
+  /** Enable HDR output (Display P3 color space + float16 backbuffer). */
+  hdr?: boolean;
+}
+
 export class WebGLRenderer {
   private canvas: HTMLCanvasElement;
   private gl: WebGL2RenderingContext | null = null;
@@ -33,9 +38,12 @@ export class WebGLRenderer {
   private frameWidth = 256;
   private frameHeight = 240;
   private frameCount = 0;
+  private hdrRequested: boolean;
+  private hdrActive = false;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, options?: WebGLRendererOptions) {
     this.canvas = canvas;
+    this.hdrRequested = options?.hdr ?? false;
   }
 
   initialize(): void {
@@ -59,6 +67,11 @@ export class WebGLRenderer {
     // Enable float texture rendering if available
     gl.getExtension("EXT_color_buffer_float");
     gl.getExtension("EXT_color_buffer_half_float");
+
+    // Configure HDR output when requested
+    if (this.hdrRequested) {
+      this.setupHdr(gl);
+    }
 
     // Full-screen quad: position (x,y) + texCoord (u,v)
     // Standard OpenGL tex coords: (0,0) at bottom-left, (1,1) at top-right.
@@ -351,6 +364,14 @@ export class WebGLRenderer {
     }
     this.canvas.width = width;
     this.canvas.height = height;
+    // Re-allocate the float16 backbuffer at the new dimensions
+    if (this.hdrActive && "drawingBufferStorage" in this.gl) {
+      (
+        this.gl as WebGL2RenderingContext & {
+          drawingBufferStorage: (format: number, w: number, h: number) => void;
+        }
+      ).drawingBufferStorage(this.gl.RGBA16F, width, height);
+    }
     this.gl.viewport(0, 0, width, height);
   }
 
@@ -363,6 +384,11 @@ export class WebGLRenderer {
 
   getShader(): string {
     return this.currentPresetId;
+  }
+
+  /** Whether HDR output is currently active on the canvas backbuffer. */
+  get isHdrActive(): boolean {
+    return this.hdrActive;
   }
 
   destroy(): void {
@@ -382,6 +408,50 @@ export class WebGLRenderer {
     this.lutLoader?.destroy();
     this.shaderManager?.destroy();
     this.gl = null;
+  }
+
+  /**
+   * Configure the WebGL2 context for HDR output: Display P3 color space,
+   * float16 backbuffer, and extended tone mapping (EDR) when available.
+   * Fails gracefully — if any API is missing, HDR stays inactive.
+   */
+  private setupHdr(gl: WebGL2RenderingContext): void {
+    try {
+      // Set wide gamut color space (available since Chrome 104)
+      if ("drawingBufferColorSpace" in gl) {
+        (
+          gl as WebGL2RenderingContext & { drawingBufferColorSpace: string }
+        ).drawingBufferColorSpace = "display-p3";
+      } else {
+        return;
+      }
+
+      // Allocate float16 backbuffer (available since Chrome 122)
+      if ("drawingBufferStorage" in gl) {
+        (
+          gl as WebGL2RenderingContext & {
+            drawingBufferStorage: (format: number, w: number, h: number) => void;
+          }
+        ).drawingBufferStorage(gl.RGBA16F, this.canvas.width, this.canvas.height);
+      }
+
+      // Enable extended tone mapping for EDR (>1.0 luminance on XDR displays).
+      // Requires experimentalFeatures: true in Electron webPreferences.
+      if ("drawingBufferToneMapping" in gl) {
+        (
+          gl as WebGL2RenderingContext & {
+            drawingBufferToneMapping: (opts: { mode: string }) => void;
+          }
+        ).drawingBufferToneMapping({
+          mode: "extended",
+        });
+      }
+
+      this.hdrActive = true;
+    } catch {
+      // API threw — fall back to SDR silently
+      this.hdrActive = false;
+    }
   }
 
   private applyPreset(presetId: string): void {
