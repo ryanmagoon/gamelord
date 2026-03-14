@@ -71,6 +71,25 @@ export const Destructive: Story = {
   ),
 };
 
+export const LongErrorMessage: Story = {
+  render: () => (
+    <AlertDialog open>
+      <AlertDialogContent className="sm:max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Launch Failed</AlertDialogTitle>
+          <AlertDialogDescription className="pt-2">
+            Download failed with status 404 for
+            https://buildbot.libretro.com/nightly/apple/osx/arm64/latest/beetle_psx_libretro.dylib.zip
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction>OK</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  ),
+};
+
 export const ConfirmAction: Story = {
   render: () => (
     <AlertDialog>

@@ -569,9 +569,13 @@ export const LibraryView: React.FC<{
   };
 
   /** Switches the active system filter. The FLIP hook in GameLibrary handles animation. */
-  const switchSystem = useCallback((nextSystem: string | null) => {
-    setSelectedSystem(nextSystem);
-  }, []);
+  const switchSystem = useCallback(
+    (nextSystem: string | null) => {
+      playSfx("click");
+      setSelectedSystem(nextSystem);
+    },
+    [playSfx],
+  );
 
   const idToGame = useMemo(() => new Map(games.map((g) => [g.id, g])), [games]);
 
@@ -581,6 +585,7 @@ export const LibraryView: React.FC<{
   };
 
   const handleGameOptions = (game: AppGame) => {
+    playSfx("dialogOpen");
     setOptionsMenuGame(game);
     setOptionsMenuOpen(true);
   };
@@ -794,7 +799,10 @@ export const LibraryView: React.FC<{
               <ImageDown className="h-3 w-3 animate-pulse" />
               Syncing {syncCounter.current}/{syncCounter.total}
               <button
-                onClick={handleCancelArtworkSync}
+                onClick={() => {
+                  playSfx("click");
+                  void handleCancelArtworkSync();
+                }}
                 className="ml-1 hover:text-destructive transition-colors"
                 aria-label="Cancel artwork sync"
               >
@@ -802,15 +810,37 @@ export const LibraryView: React.FC<{
               </button>
             </Badge>
           )}
-          <Button variant="outline" size="sm" onClick={handleDownloadArtwork} disabled={isSyncing}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              playSfx("click");
+              void handleDownloadArtwork();
+            }}
+            disabled={isSyncing}
+          >
             <ImageDown className="h-4 w-4 mr-2" />
             Download Artwork
           </Button>
-          <Button variant="outline" size="sm" onClick={handleSelectDirectory}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              playSfx("click");
+              void handleSelectDirectory();
+            }}
+          >
             <FolderOpen className="h-4 w-4 mr-2" />
             Add Folder
           </Button>
-          <Button variant="outline" size="sm" onClick={handleScanSystemFolders}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              playSfx("click");
+              void handleScanSystemFolders();
+            }}
+          >
             <RefreshCw className="h-4 w-4 mr-2" />
             Rescan
           </Button>
@@ -831,7 +861,10 @@ export const LibraryView: React.FC<{
         >
           <span className="flex-1">{syncNotification.message}</span>
           <button
-            onClick={() => setSyncNotification(null)}
+            onClick={() => {
+              playSfx("click");
+              setSyncNotification(null);
+            }}
             className="hover:opacity-70 transition-opacity"
             aria-label="Dismiss notification"
           >
@@ -920,6 +953,7 @@ export const LibraryView: React.FC<{
         open={optionsMenuOpen}
         onOpenChange={(open) => {
           if (!open) {
+            playSfx("dialogClose");
             setOptionsMenuOpen(false);
           }
         }}
@@ -933,6 +967,7 @@ export const LibraryView: React.FC<{
               variant="ghost"
               className="justify-start"
               onClick={() => {
+                playSfx("click");
                 const gameId = optionsMenuGame?.id;
                 setOptionsMenuOpen(false);
                 if (gameId) {
@@ -947,6 +982,7 @@ export const LibraryView: React.FC<{
               variant="ghost"
               className="justify-start text-destructive hover:text-destructive"
               onClick={() => {
+                playSfx("click");
                 if (optionsMenuGame) {
                   handleRemoveGame(optionsMenuGame.id);
                 }
@@ -967,7 +1003,10 @@ export const LibraryView: React.FC<{
         open={commandPaletteOpen}
         onOpenChange={handleCommandPaletteOpenChange}
         games={uiGames}
-        onSelectGame={(game) => void handlePlayUiGame(game)}
+        onSelectGame={(game) => {
+          playSfx("confirm");
+          void handlePlayUiGame(game);
+        }}
         actions={allPaletteActions}
       />
 
@@ -1008,6 +1047,7 @@ export const LibraryView: React.FC<{
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => {
+                playSfx("dialogClose");
                 setCredentialUserId("");
                 setCredentialPassword("");
                 setCredentialError("");
@@ -1017,7 +1057,13 @@ export const LibraryView: React.FC<{
             </AlertDialogCancel>
             {/* Use a regular Button instead of AlertDialogAction to prevent
                 the dialog from auto-closing when validation fails. */}
-            <Button onClick={handleSaveCredentials} disabled={isValidatingCredentials}>
+            <Button
+              onClick={() => {
+                playSfx("click");
+                void handleSaveCredentials();
+              }}
+              disabled={isValidatingCredentials}
+            >
               {isValidatingCredentials ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
