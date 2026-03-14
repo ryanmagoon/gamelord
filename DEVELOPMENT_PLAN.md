@@ -264,6 +264,7 @@ Sync SRAM/battery saves (.srm) across GameLord desktop instances, Android retro 
 
 ### Telemetry & Analytics
 
+- [ ] **Add Sentry secrets to GitHub Actions** — `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` not configured yet. Nightly builds skip source map uploads gracefully, but release builds should have them for production debugging. — [#216](https://github.com/ryanmagoon/gamelord/issues/216)
 - [ ] **PostHog product analytics** — Integrate `posthog-js` in the renderer for product analytics, feature flags, and A/B testing. Track which games/systems get played, feature usage, funnel analysis. Session replay for UX understanding (distinct from Sentry's error-context replay). Free tier: 1M events, 5K replays, 1M feature flag requests. Note: no offline event queuing (open issue) — events captured while offline are lost. No main-process instrumentation. Use the PostHog-Sentry connector to link errors to user profiles.
 - [ ] **Vercel Analytics for web properties** — Enable Vercel Analytics and Speed Insights on gamelord.app and docs site once deployed. Privacy-friendly (no cookies), Core Web Vitals tracking, per-deployment performance. Not applicable to the Electron app — only Vercel-deployed web properties.
 
@@ -282,9 +283,10 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [x] **DMG packaging** — Unsigned DMG via electron-builder (`identity: null`), GitHub Actions release workflow on `v*` tags uploads `.dmg` to GitHub Releases as draft — [#59](https://github.com/ryanmagoon/gamelord/issues/59)
 - [x] **Keyboard controls reference overlay** — Semi-transparent overlay showing game controls (keyboard-to-joypad mappings) and shortcuts (pause, save, load, fast-forward). Triggered by `?`/`F1` hotkey or "Controls" settings menu entry. First-launch hint auto-dismisses after 8s, persisted in localStorage. Presentational component in `packages/ui/` with Storybook stories. — [#187](https://github.com/ryanmagoon/gamelord/issues/187)
 - [x] **Sentry crash & error reporting** — Integrated `@sentry/electron` in main + renderer processes with native minidump capture, offline event queuing, Session Replay (error-only), electron-log → Sentry breadcrumb bridge, `@sentry/vite-plugin` for source map uploads in CI, and ErrorBoundary integration. DSN configured via `.env`. — [#186](https://github.com/ryanmagoon/gamelord/issues/186)
-- [ ] **Basic controller configuration UI** — Detected controller display, live button tester, click-to-remap UI, per-system defaults, mapping persistence. Alpha-scoped version of the full 3D controller config (#81). Accessible from Settings panel as a "Controllers" tab. — [#188](https://github.com/ryanmagoon/gamelord/issues/188)
-- [ ] **Code signing + notarization** — Apple Developer cert, `electron-builder` signing config, notarization via `afterSign` hook, CI secrets. Required for public alpha (Gatekeeper blocks unsigned apps). — [#184](https://github.com/ryanmagoon/gamelord/issues/184)
-- [ ] **Auto-updates** — `electron-updater` + GitHub Releases. Check on launch + periodic. Non-intrusive "Update available — restart to install" notification. Depends on signed builds (#184). — [#185](https://github.com/ryanmagoon/gamelord/issues/185)
+- [x] **Basic controller configuration UI** — Controllers tab in Settings with type detection, live button tester, click-to-remap flow, localStorage persistence. — [#188](https://github.com/ryanmagoon/gamelord/issues/188), PR [#194](https://github.com/ryanmagoon/gamelord/pull/194)
+- [x] **Code signing + notarization** — Apple Developer cert, `electron-builder` signing config, notarization via App Store Connect API Key, CI secrets, Electron fuses. — [#184](https://github.com/ryanmagoon/gamelord/issues/184)
+- [x] **Auto-updates** — `electron-updater` + GitHub Releases. Check on launch + every 6 hours. Non-intrusive update notification with progress bar. — [#185](https://github.com/ryanmagoon/gamelord/issues/185)
+- [x] **Nightly builds** — Scheduled GitHub Actions workflow (daily + manual dispatch). Auto-tags `nightly-YYYY-MM-DD`, publishes as pre-release, skips if no new commits, prunes old nightlies (keeps last 7).
 
 ### P8 — UI Polish
 
