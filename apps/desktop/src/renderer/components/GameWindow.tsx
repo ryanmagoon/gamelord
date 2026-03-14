@@ -121,6 +121,7 @@ export const GameWindow: React.FC = () => {
     const mode = localStorage.getItem("gamelord:hdrMode") ?? "auto";
     return mode === "on" || (mode === "auto" && isHdrCapable());
   });
+  const [hdrFlash, setHdrFlash] = useState<string | null>(null);
   const [isPoweringOn, setIsPoweringOn] = useState(false);
   const [isPoweringOff, setIsPoweringOff] = useState(false);
   const [emulationError, setEmulationError] = useState<string | null>(null);
@@ -1017,7 +1018,14 @@ export const GameWindow: React.FC = () => {
       {/* FPS overlay */}
       {isNative && showFps && (
         <div className="absolute top-2 left-2 z-40 px-2 py-1 bg-black/60 rounded text-xs font-mono text-green-400 pointer-events-none select-none">
-          {fps} FPS
+          {fps} FPS{rendererRef.current?.isHdrActive ? " · HDR" : ""}
+        </div>
+      )}
+
+      {/* HDR toggle flash */}
+      {hdrFlash && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 px-4 py-2 bg-black/80 rounded-lg text-sm font-medium text-white pointer-events-none select-none animate-overlay-fade-in">
+          {hdrFlash}
         </div>
       )}
 
@@ -1365,6 +1373,10 @@ export const GameWindow: React.FC = () => {
                           renderer.initialize();
                           renderer.setShader(currentShader);
                           rendererRef.current = renderer;
+                          // Show brief status flash confirming actual HDR state
+                          const active = renderer.isHdrActive;
+                          setHdrFlash(active ? "HDR Active" : next ? "HDR Unavailable" : "HDR Off");
+                          setTimeout(() => setHdrFlash(null), 1500);
                         }
                       }
                     }}

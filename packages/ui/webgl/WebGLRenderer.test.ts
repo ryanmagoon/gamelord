@@ -176,6 +176,37 @@ describe("WebGLRenderer — HDR", () => {
     });
   });
 
+  describe("HDR output pass", () => {
+    it("compiles the HDR output shader when HDR is active", () => {
+      const { canvas, gl } = createCanvasWithMockGL({ hasDrawingBufferStorage: true });
+      const renderer = new WebGLRenderer(canvas, { hdr: true });
+      renderer.initialize();
+
+      // The HDR output pass shader should be compiled in addition to the
+      // default preset shader — so createShader is called for both.
+      // Default preset = 1 shader program, HDR output = 1 more.
+      const shaderSourceCalls = (gl.shaderSource as ReturnType<typeof vi.fn>).mock.calls;
+      const hasHdrShader = shaderSourceCalls.some(
+        (call: Array<unknown>) =>
+          typeof call[1] === "string" && (call[1] as string).includes("u_hdrHeadroom"),
+      );
+      expect(hasHdrShader).toBe(true);
+    });
+
+    it("does not compile HDR output shader when HDR is off", () => {
+      const { canvas, gl } = createCanvasWithMockGL({ hasDrawingBufferStorage: true });
+      const renderer = new WebGLRenderer(canvas);
+      renderer.initialize();
+
+      const shaderSourceCalls = (gl.shaderSource as ReturnType<typeof vi.fn>).mock.calls;
+      const hasHdrShader = shaderSourceCalls.some(
+        (call: Array<unknown>) =>
+          typeof call[1] === "string" && (call[1] as string).includes("u_hdrHeadroom"),
+      );
+      expect(hasHdrShader).toBe(false);
+    });
+  });
+
   describe("resize with HDR", () => {
     it("re-calls drawingBufferStorage at new dimensions when HDR is active", () => {
       const { canvas, gl } = createCanvasWithMockGL({ hasDrawingBufferStorage: true });
