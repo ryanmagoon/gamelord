@@ -114,6 +114,9 @@ export class GameWindowManager {
         preload: this.preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
+        // Required for WebGL drawingBufferToneMapping({ mode: 'extended' })
+        // which enables EDR (>1.0 luminance) on HDR displays.
+        experimentalFeatures: true,
       },
     });
 
