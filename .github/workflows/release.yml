@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to create (e.g. v1.0.0-alpha.1)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -14,6 +20,19 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Create and push tag (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if ! [[ "$TAG" =~ ^v[0-9] ]]; then
+            echo "::error::Tag must start with 'v' followed by a version number (e.g. v1.0.0-alpha.1)"
+            exit 1
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
 
       - uses: pnpm/action-setup@v4
 
