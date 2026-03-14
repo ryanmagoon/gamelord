@@ -117,6 +117,10 @@ export const GameWindow: React.FC = () => {
     return localStorage.getItem("gamelord:showAgentation") === "true";
   });
   const [fps, setFps] = useState(0);
+  const [hdrEnabled, setHdrEnabled] = useState(() => {
+    const mode = localStorage.getItem("gamelord:hdrMode") ?? "auto";
+    return mode === "on" || (mode === "auto" && isHdrCapable());
+  });
   const [isPoweringOn, setIsPoweringOn] = useState(false);
   const [isPoweringOff, setIsPoweringOff] = useState(false);
   const [emulationError, setEmulationError] = useState<string | null>(null);
@@ -1342,6 +1346,35 @@ export const GameWindow: React.FC = () => {
                       className={`ml-3 text-xs font-medium ${showFps ? "text-green-400" : "text-white/40"}`}
                     >
                       {showFps ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const next = !hdrEnabled;
+                      playSfx(next ? "toggleOn" : "toggleOff");
+                      setHdrEnabled(next);
+                      localStorage.setItem("gamelord:hdrMode", next ? "on" : "off");
+                      // Recreate the renderer with the new HDR setting
+                      if (rendererRef.current) {
+                        const currentShader = rendererRef.current.getShader();
+                        rendererRef.current.destroy();
+                        rendererRef.current = null;
+                        const canvas = canvasRef.current;
+                        if (canvas) {
+                          const renderer = new WebGLRenderer(canvas, { hdr: next });
+                          renderer.initialize();
+                          renderer.setShader(currentShader);
+                          rendererRef.current = renderer;
+                        }
+                      }
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                  >
+                    <span>HDR</span>
+                    <span
+                      className={`ml-3 text-xs font-medium ${hdrEnabled ? "text-green-400" : "text-white/40"}`}
+                    >
+                      {hdrEnabled ? "ON" : "OFF"}
                     </span>
                   </button>
                   <button
