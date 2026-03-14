@@ -1,4 +1,3 @@
-import { config as loadDotenv } from "dotenv";
 import {
   app,
   BrowserWindow,
@@ -23,12 +22,8 @@ import {
 } from "./main/utils/windowState";
 import { animateWindowClose } from "./main/windowCloseAnimation";
 
-// Load .env from the desktop app root (apps/desktop/.env) before anything
-// reads process.env. This provides SCREENSCRAPER_DEV_ID / DEV_PASSWORD, etc.
-loadDotenv({ path: path.join(__dirname, "../../.env") });
-
-// Initialize Sentry crash reporting as early as possible (after dotenv so
-// SENTRY_DSN is available). No-op when DSN is not configured.
+// Initialize Sentry crash reporting as early as possible.
+// SENTRY_DSN is injected at build time via electron.vite.config.ts `define`.
 initSentryMain();
 
 // Set app name for macOS menu bar (must be called before app is ready)

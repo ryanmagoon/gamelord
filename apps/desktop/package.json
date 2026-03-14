@@ -22,11 +22,11 @@
   "dependencies": {
     "@sentry/electron": "^7.9.0",
     "@sentry/react": "^10.40.0",
-    "dotenv": "^17.2.4",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3"
   },
   "devDependencies": {
+    "dotenv": "^17.2.4",
     "@electron/fuses": "^1.8.0",
     "@gamelord/ui": "workspace:*",
     "@sentry/vite-plugin": "^5.1.1",

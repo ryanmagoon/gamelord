@@ -1,9 +1,14 @@
 import { resolve } from "node:path";
 import { execSync } from "node:child_process";
+import { config as loadDotenv } from "dotenv";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import type { Plugin } from "vite";
+
+// Load .env at config time so values are available for build-time injection.
+// In CI, these come from GitHub Actions secrets instead.
+loadDotenv({ path: resolve(__dirname, ".env") });
 
 function getGitBranch(): string | null {
   try {
@@ -83,6 +88,13 @@ export default defineConfig({
         },
         external: [/\.node$/],
       },
+    },
+    define: {
+      "process.env.SCREENSCRAPER_DEV_ID": JSON.stringify(process.env.SCREENSCRAPER_DEV_ID ?? ""),
+      "process.env.SCREENSCRAPER_DEV_PASSWORD": JSON.stringify(
+        process.env.SCREENSCRAPER_DEV_PASSWORD ?? "",
+      ),
+      "process.env.SENTRY_DSN": JSON.stringify(process.env.SENTRY_DSN ?? ""),
     },
     plugins: [externalizeDepsPlugin(), ...sentryPlugins()],
   },
