@@ -110,7 +110,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] **Native audio sample conversion** — Move Int16 → Float32 stereo deinterleaving from JavaScript (`GameWindow.tsx`) into the native addon so frames arrive renderer-ready, eliminating ~42K JS loop iterations/sec — [#64](https://github.com/ryanmagoon/gamelord/issues/64)
 - [ ] **Audio resampling** — Handle cases where core sample rate differs from `AudioContext.sampleRate` — [#65](https://github.com/ryanmagoon/gamelord/issues/65)
 - [ ] **Frame skipping / frame pacing** — Catch-up mechanism when rendering lags; handle display refresh != core FPS — [#66](https://github.com/ryanmagoon/gamelord/issues/66)
-- [ ] **HDR display support** — Wide gamut (Display P3) canvas color space, EDR on macOS for >1.0 luminance in shader bloom/glow, half-float WebGL framebuffers for HDR intermediate passes, runtime HDR detection, user toggle in settings. Graceful SDR fallback. — [#209](https://github.com/ryanmagoon/gamelord/issues/209)
+- [x] **HDR display support** — Display P3 wide gamut, float16 backbuffer, EDR tone mapping, runtime detection, Auto/On/Off settings toggle with graceful SDR fallback. — [#209](https://github.com/ryanmagoon/gamelord/issues/209)
 
 ### P3 — Multi-System Support
 
