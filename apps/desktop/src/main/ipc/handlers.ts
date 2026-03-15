@@ -43,19 +43,28 @@ export class IPCHandlers {
     this.setupDialogHandlers();
 
     // Import bundled homebrew ROMs on first launch (async, non-blocking).
-    // Notifies the renderer when done so it can reload the library.
+    // Always notifies the renderer when done — even if no import was needed —
+    // so the "Setting up your library" screen is dismissed. Without this the
+    // renderer can get stuck indefinitely when importIfNeeded() returns false
+    // (e.g. marker file exists but library is empty after a crash).
     this.homebrewService
       .importIfNeeded()
       .then((imported) => {
         if (imported) {
-          const windows = BrowserWindow.getAllWindows();
-          for (const window of windows) {
-            window.webContents.send("library:homebrewImported");
-          }
+          ipcLog.info("Homebrew ROMs imported, notifying renderer");
+        }
+        const windows = BrowserWindow.getAllWindows();
+        for (const window of windows) {
+          window.webContents.send("library:homebrewImported");
         }
       })
       .catch((error) => {
         ipcLog.error("Homebrew import failed:", error);
+        // Still dismiss the setup screen so the user isn't stuck
+        const windows = BrowserWindow.getAllWindows();
+        for (const window of windows) {
+          window.webContents.send("library:homebrewImported");
+        }
       });
   }
 
