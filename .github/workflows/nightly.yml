@@ -86,7 +86,7 @@ jobs:
           MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
         run: |
           CERT_PATH="$RUNNER_TEMP/certificate.p12"
-          echo "$MAC_CERTIFICATE_P12" | base64 --decode > "$CERT_PATH"
+          printf '%s' "$MAC_CERTIFICATE_P12" | base64 --decode > "$CERT_PATH"
 
           KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
           KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
@@ -138,7 +138,7 @@ jobs:
 
       - name: Package, sign, and notarize
         working-directory: apps/desktop
-        run: npx electron-builder --mac
+        run: npx electron-builder --mac --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEYCHAIN: ${{ runner.temp }}/signing.keychain-db
