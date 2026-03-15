@@ -285,6 +285,24 @@ describe("ArtworkService", () => {
     });
   });
 
+  describe("withMaxWidth", () => {
+    it("appends maxwidth param to URL without query string", async () => {
+      const service = new ArtworkService(createMockLibraryService());
+      const result = (
+        service as unknown as Record<string, (url: string) => string>
+      ).withMaxWidth("https://screenscraper.fr/medias/box2d.png");
+      expect(result).toBe("https://screenscraper.fr/medias/box2d.png?maxwidth=640");
+    });
+
+    it("appends maxwidth param to URL with existing query string", async () => {
+      const service = new ArtworkService(createMockLibraryService());
+      const result = (
+        service as unknown as Record<string, (url: string) => string>
+      ).withMaxWidth("https://screenscraper.fr/medias/box2d.png?format=png");
+      expect(result).toBe("https://screenscraper.fr/medias/box2d.png?format=png&maxwidth=640");
+    });
+  });
+
   describe("syncGame", () => {
     it("skips game that already has cover art when force is false", async () => {
       const game = makeGame({ coverArt: "artwork://game1.png" });

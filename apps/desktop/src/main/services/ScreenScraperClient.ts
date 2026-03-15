@@ -5,6 +5,17 @@ import {
   SYSTEM_ID_MAP,
 } from "../../types/artwork";
 
+/**
+ * Persistent HTTPS agent with keep-alive for connection reuse.
+ * Avoids TCP+TLS handshake overhead (~200-400ms) on every request
+ * to the ScreenScraper API during batch operations.
+ */
+const keepAliveAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 4,
+  keepAliveMsecs: 30_000,
+});
+
 /** Region preference order for selecting localized content. */
 const REGION_PRIORITY = ["us", "wor", "eu", "ss", "jp"];
 
@@ -311,7 +322,7 @@ export class ScreenScraperClient {
           return;
         }
 
-        const request = https.get(targetUrl, (response) => {
+        const request = https.get(targetUrl, { agent: keepAliveAgent }, (response) => {
           if (
             response.statusCode &&
             response.statusCode >= 300 &&
