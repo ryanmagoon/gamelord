@@ -87,6 +87,7 @@ contextBridge.exposeInMainWorld("gamelord", {
       "overlay:show-controls",
       "core:downloadProgress",
       "library:scanProgress",
+      "library:scanAmbiguous",
       "library:homebrewImported",
       "artwork:progress",
       "artwork:syncComplete",
@@ -196,5 +197,9 @@ contextBridge.exposeInMainWorld("gamelord", {
       requestId: string,
       response: { action: "resume" | "start-fresh" | "cancel"; remember: boolean },
     ) => ipcRenderer.send("dialog:resumeGameResponse", requestId, response),
+    respondDisambiguate: (
+      requestId: string,
+      resolved: Array<{ fullPath: string; systemId: string; mtimeMs: number }>,
+    ) => ipcRenderer.send("dialog:disambiguateResponse", requestId, resolved),
   },
 });

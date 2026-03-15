@@ -88,6 +88,10 @@ export interface GamelordAPI {
       requestId: string,
       response: { action: "resume" | "start-fresh" | "cancel"; remember: boolean },
     ) => void;
+    respondDisambiguate: (
+      requestId: string,
+      resolved: Array<{ fullPath: string; systemId: string; mtimeMs: number }>,
+    ) => void;
   };
 
   // Game window controls
