@@ -148,7 +148,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest]
+        os: [macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -166,9 +166,12 @@ jobs:
         run: npx node-gyp rebuild
 
   native-addon-skip:
-    name: Native Addon Build (macos-latest)
+    name: Native Addon Build (${{ matrix.os }})
     needs: changes
     if: needs.changes.outputs.code != 'true'
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
     steps:
       - run: echo "No code changes detected — skipping"

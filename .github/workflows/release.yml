@@ -108,3 +108,55 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and push tag (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if ! [[ "$TAG" =~ ^v[0-9] ]]; then
+            echo "::error::Tag must start with 'v' followed by a version number (e.g. v1.0.0-alpha.1)"
+            exit 1
+          fi
+          # Tag may already exist from the macOS job — skip if so
+          git tag "$TAG" 2>/dev/null || true
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build native addon
+        working-directory: apps/desktop/native
+        run: npx node-gyp rebuild
+
+      - name: Build app
+        working-directory: apps/desktop
+        shell: bash
+        run: npx electron-vite build
+        env:
+          SCREENSCRAPER_DEV_ID: ${{ secrets.SCREENSCRAPER_DEV_ID }}
+          SCREENSCRAPER_DEV_PASSWORD: ${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+
+      - name: Package and publish
+        working-directory: apps/desktop
+        shell: bash
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
