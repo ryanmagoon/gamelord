@@ -10,6 +10,7 @@ import { ScreenScraperError } from "../services/ScreenScraperClient";
 import { GameWindowManager } from "../GameWindowManager";
 import type { AutoUpdaterService } from "../services/AutoUpdaterService";
 import { Game, GameSystem } from "../../types/library";
+import type { AmbiguousRomFile } from "../services/LibraryService";
 import { ipcLog } from "../logger";
 
 function errorMessage(error: unknown): string {
@@ -31,6 +32,10 @@ export class IPCHandlers {
   private pendingResumeDialogs = new Map<string, (response: ResumeDialogResponse) => void>();
   /** Whether the homebrew import check has finished (imported, skipped, or errored). */
   private homebrewDone = false;
+  private pendingDisambiguations = new Map<
+    string,
+    (response: Array<{ fullPath: string; systemId: string; mtimeMs: number }>) => void
+  >();
 
   constructor(preloadPath: string) {
     this.emulatorManager = new EmulatorManager();
@@ -364,6 +369,63 @@ export class IPCHandlers {
       return this.homebrewDone;
     });
 
+    // Forward ambiguous file events — the renderer shows a disambiguation dialog
+    this.libraryService.on("scanAmbiguous", (files: Array<AmbiguousRomFile>) => {
+      const requestId = `disambiguate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      // Serialize system data for IPC (strip non-serializable fields)
+      const serializedFiles = files.map((f) => ({
+        ext: f.ext,
+        fullPath: f.fullPath,
+        matchingSystems: f.matchingSystems.map((s) => ({
+          id: s.id,
+          name: s.name,
+          shortName: s.shortName,
+        })),
+        mtimeMs: f.mtimeMs,
+      }));
+
+      // Set up a promise that resolves when the renderer responds
+      const responsePromise = new Promise<
+        Array<{ fullPath: string; systemId: string; mtimeMs: number }>
+      >((resolve) => {
+        this.pendingDisambiguations.set(requestId, resolve);
+
+        // Timeout: if no response in 60 seconds, skip all ambiguous files
+        setTimeout(() => {
+          if (this.pendingDisambiguations.has(requestId)) {
+            this.pendingDisambiguations.delete(requestId);
+            resolve([]);
+          }
+        }, 60_000);
+      });
+
+      const windows = BrowserWindow.getAllWindows();
+      windows.forEach((window: BrowserWindow) => {
+        window.webContents.send("library:scanAmbiguous", { requestId, files: serializedFiles });
+      });
+
+      // Process resolved files when the renderer responds
+      responsePromise.then(async (resolved) => {
+        if (resolved.length === 0) {
+          return;
+        }
+        const games = await this.libraryService.processResolvedFiles(resolved);
+        if (games.length > 0) {
+          // Emit progress events for newly added games so the library grid updates
+          for (const game of games) {
+            this.libraryService.emit("scanProgress", {
+              game,
+              isNew: true,
+              processed: 1,
+              skipped: 0,
+              total: 1,
+            } satisfies import("../services/LibraryService").ScanProgressEvent);
+          }
+        }
+      });
+    });
+
     // System management
     ipcMain.handle("library:getSystems", () => {
       return this.libraryService.getSystems();
@@ -568,6 +630,22 @@ export class IPCHandlers {
         if (resolver) {
           resolver(response);
           this.pendingResumeDialogs.delete(requestId);
+        }
+      },
+    );
+
+    // Handle system disambiguation dialog response from renderer
+    ipcMain.on(
+      "dialog:disambiguateResponse",
+      (
+        _event: Electron.IpcMainEvent,
+        requestId: string,
+        resolved: Array<{ fullPath: string; systemId: string; mtimeMs: number }>,
+      ) => {
+        const resolver = this.pendingDisambiguations.get(requestId);
+        if (resolver) {
+          resolver(resolved);
+          this.pendingDisambiguations.delete(requestId);
         }
       },
     );
