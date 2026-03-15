@@ -1170,3 +1170,45 @@ void main() {
   vec4 previous = texture(u_feedback, v_texCoord);
   fragColor = mix(current, previous, BLEND_FACTOR);
 }`;
+
+/**
+ * HDR Output Pass — lifts bright pixels above 1.0 for extended dynamic range.
+ *
+ * On HDR/XDR displays with `drawingBufferToneMapping({ mode: 'extended' })`,
+ * values above 1.0 produce physically brighter output. This pass applies a
+ * smooth power curve to the luminance channel: pixels below the knee threshold
+ * pass through unchanged, while brighter pixels are boosted into the
+ * 1.0–headroom range. The result is that CRT bloom, scanline highlights, and
+ * phosphor glow effects physically glow on capable displays.
+ *
+ * Uniforms:
+ *   u_hdrHeadroom — maximum output brightness (e.g. 2.0 = 2× SDR white)
+ */
+export const hdrOutputFragmentShader = `#version 300 es
+precision highp float;
+
+uniform sampler2D u_texture;
+uniform float u_hdrHeadroom;
+
+in vec2 v_texCoord;
+out vec4 fragColor;
+
+void main() {
+  vec3 color = texture(u_texture, v_texCoord).rgb;
+
+  // Luminance (Rec. 709)
+  float lum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+
+  // Knee: start boosting at 70% brightness. Below this, output = input.
+  const float knee = 0.7;
+
+  if (lum > knee) {
+    // Normalized position above the knee (0..1 for lum in knee..1)
+    float t = clamp((lum - knee) / (1.0 - knee), 0.0, 1.0);
+    // Smooth ease-in curve — stronger boost for brighter pixels
+    float boost = 1.0 + (u_hdrHeadroom - 1.0) * t * t;
+    color *= boost;
+  }
+
+  fragColor = vec4(color, 1.0);
+}`;

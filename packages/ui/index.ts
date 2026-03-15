@@ -22,6 +22,9 @@ export * from "./components/TVStatic";
 export * from "./components/PlatformIcon";
 export * from "./components/WebGLRenderer";
 export { WebGLRenderer, SHADER_PRESETS, SHADER_LABELS } from "./webgl/WebGLRenderer";
+export type { WebGLRendererOptions } from "./webgl/WebGLRenderer";
+export { detectHdrCapabilities, isHdrCapable } from "./webgl/hdrCapabilities";
+export type { HdrCapabilities } from "./webgl/hdrCapabilities";
 export type { ShaderPresetDefinition } from "./webgl/types";
 
 // Hooks

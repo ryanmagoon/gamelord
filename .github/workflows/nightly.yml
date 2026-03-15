@@ -129,14 +129,18 @@ jobs:
         working-directory: apps/desktop
         run: npx electron-vite build
         env:
+          SCREENSCRAPER_DEV_ID: ${{ secrets.SCREENSCRAPER_DEV_ID }}
+          SCREENSCRAPER_DEV_PASSWORD: ${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN || '' }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG || '' }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT || '' }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN || '' }}
 
       - name: Package, sign, and notarize
         working-directory: apps/desktop
         run: npx electron-builder --mac --publish never
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEYCHAIN: ${{ runner.temp }}/signing.keychain-db
           APPLE_API_KEY: ~/.private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
