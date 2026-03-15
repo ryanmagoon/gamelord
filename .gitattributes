@@ -1,0 +1,27 @@
+# Enforce LF line endings in the repo regardless of OS.
+# Prevents CRLF/LF mismatches between Windows dev machines and Linux CI.
+* text=auto eol=lf
+
+# Ensure these are always treated as binary (no line-ending conversion).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.dylib binary
+*.node binary
+*.dll binary
+*.so binary
+*.exe binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.7z binary
+*.chd binary
+*.cue binary

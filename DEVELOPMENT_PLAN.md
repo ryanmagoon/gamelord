@@ -133,8 +133,8 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] **Scan-time zip extraction** — Library scanner extracts ROMs from `.zip` archives at scan time for all non-arcade systems. Extracted ROMs cached in `<userData>/roms-cache/` with hash-prefixed filenames. Arcade `.zip` files are passed through natively (MAME expects zips). Cache cleaned up on game removal.
 - [x] **Library data protection** — Atomic writes with `.bak` backups for `library.json` and `library-config.json` (crash-safe with auto-recovery). Startup migrations (`migrateGameIds`, `backfillRomHashes`) skip unreadable ROMs instead of deleting them. `removeSystem()` preserves game data (coverArt, metadata, favorites, play history) instead of cascading delete. Orphaned artwork files are auto-reassociated when games are re-scanned.
 - [ ] **Artwork sync performance** — Current implementation downloads full-resolution images serially with a new TCP connection per request, taking several seconds per game. Improvements ordered by impact:
-  - [ ] Request smaller images via `maxwidth`/`maxheight` params (2–3x faster downloads) — [#37](https://github.com/ryanmagoon/gamelord/issues/37)
-  - [ ] Persistent HTTP Agent with keep-alive (~15% faster) — [#38](https://github.com/ryanmagoon/gamelord/issues/38)
+  - [x] Request smaller images via `maxwidth`/`maxheight` params (2–3x faster downloads) — [#37](https://github.com/ryanmagoon/gamelord/issues/37) — appends `maxwidth=640` to all artwork download URLs
+  - [x] Persistent HTTP Agent with keep-alive (~15% faster) — [#38](https://github.com/ryanmagoon/gamelord/issues/38) — persistent `https.Agent({keepAlive: true})` for both API requests and image downloads
   - [ ] Pipeline image downloads with next API query (~30–40% faster) — [#39](https://github.com/ryanmagoon/gamelord/issues/39)
   - [ ] Pre-hash all ROMs in parallel before sync — [#40](https://github.com/ryanmagoon/gamelord/issues/40)
   - [ ] Progressive artwork loading UX (show art as each game resolves) — [#41](https://github.com/ryanmagoon/gamelord/issues/41)
