@@ -57,6 +57,7 @@ export interface GamelordAPI {
 
     getConfig: () => Promise<LibraryConfig>;
     setRomsBasePath: (basePath: string) => Promise<{ success: boolean }>;
+    isHomebrewDone: () => Promise<boolean>;
   };
 
   // Artwork & metadata
