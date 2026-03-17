@@ -148,13 +148,19 @@ export const LibraryView: React.FC<{
   );
 
   useEffect(() => {
-    loadLibrary().then((loadedGames) => {
-      // If the library already has games (returning user), no need to wait
-      // for homebrew import — it won't run anyway. For first-time users with
-      // empty libraries, wait for the homebrew import to complete via the
-      // library:homebrewImported event to avoid a flash of "empty library" UI.
+    loadLibrary().then(async (loadedGames) => {
       if (loadedGames.length > 0) {
+        // Library has games — no need to wait for homebrew import.
         setIsImportingHomebrew(false);
+      } else {
+        // Library is empty. Check if the homebrew import check already
+        // completed (the event may have fired before we registered our
+        // listener). If so, dismiss the setup screen immediately.
+        const done = await api.library.isHomebrewDone();
+        if (done) {
+          setIsImportingHomebrew(false);
+        }
+        // Otherwise, the event listener below will catch it when it fires.
       }
     });
 
