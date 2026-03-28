@@ -63,7 +63,7 @@ jobs:
             echo "should_build=true" >> "$GITHUB_OUTPUT"
           fi
 
-  build:
+  build-mac:
     name: Build macOS DMG (Nightly)
     needs: check-changes
     if: needs.check-changes.outputs.should_build == 'true'
@@ -86,7 +86,7 @@ jobs:
           MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
         run: |
           CERT_PATH="$RUNNER_TEMP/certificate.p12"
-          echo "$MAC_CERTIFICATE_P12" | base64 --decode > "$CERT_PATH"
+          printf '%s' "$MAC_CERTIFICATE_P12" | base64 --decode > "$CERT_PATH"
 
           KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
           KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
@@ -138,12 +138,91 @@ jobs:
 
       - name: Package, sign, and notarize
         working-directory: apps/desktop
-        run: npx electron-builder --mac
+        run: npx electron-builder --mac --publish never
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEYCHAIN: ${{ runner.temp }}/signing.keychain-db
           APPLE_API_KEY: ~/.private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-mac
+          path: |
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*.zip
+            apps/desktop/dist/latest-mac.yml
+
+  build-windows:
+    name: Build Windows Installer (Nightly)
+    needs: check-changes
+    if: needs.check-changes.outputs.should_build == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build native addon
+        working-directory: apps/desktop/native
+        run: npx node-gyp rebuild
+
+      - name: Build app
+        working-directory: apps/desktop
+        shell: bash
+        run: npx electron-vite build
+        env:
+          SCREENSCRAPER_DEV_ID: ${{ secrets.SCREENSCRAPER_DEV_ID }}
+          SCREENSCRAPER_DEV_PASSWORD: ${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN || '' }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG || '' }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT || '' }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN || '' }}
+
+      - name: Package
+        working-directory: apps/desktop
+        shell: bash
+        run: npx electron-builder --win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows
+          path: |
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.zip
+            apps/desktop/dist/latest.yml
+
+  publish-nightly:
+    name: Create nightly release
+    needs: [check-changes, build-mac, build-windows]
+    if: needs.check-changes.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-mac
+          path: dist/
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-windows
+          path: dist/
 
       - name: Create nightly release
         env:
@@ -170,11 +249,11 @@ jobs:
           EOF
           )" \
             --prerelease \
-            apps/desktop/dist/*.dmg apps/desktop/dist/*.zip apps/desktop/dist/latest-mac.yml
+            dist/*
 
   cleanup:
     name: Prune old nightlies
-    needs: build
+    needs: publish-nightly
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

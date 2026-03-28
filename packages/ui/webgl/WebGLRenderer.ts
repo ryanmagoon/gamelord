@@ -2,9 +2,19 @@ import { VideoFrame } from "../types/global";
 import { ShaderManager } from "./ShaderManager";
 import { FramebufferManager } from "./FramebufferManager";
 import { LutLoader } from "./LutLoader";
-import { defaultVertexShader } from "./shaders";
+import { defaultVertexShader, hdrOutputFragmentShader } from "./shaders";
 import { PRESET_LIST, PRESET_MAP } from "./presets";
 import type { ShaderPresetDefinition, ShaderPassDefinition, FilterMode } from "./types";
+
+/** Internal shader key for the HDR highlight expansion output pass. */
+const HDR_OUTPUT_PASS_KEY = "__hdr_output";
+
+/**
+ * Maximum brightness multiplier for HDR output. 2.0 means the brightest
+ * pixels can reach twice SDR white — enough to make CRT bloom physically
+ * glow on XDR displays without washing out the image.
+ */
+const HDR_HEADROOM = 2.0;
 
 /** Preset ids for the shader menu. */
 export const SHADER_PRESETS: Array<string> = PRESET_LIST.map((p) => p.id);
@@ -17,6 +27,11 @@ export const SHADER_LABELS: Record<string, string> = Object.fromEntries(
 interface CompiledPass {
   definition: ShaderPassDefinition;
   programKey: string;
+}
+
+export interface WebGLRendererOptions {
+  /** Enable HDR output (Display P3 color space + float16 backbuffer). */
+  hdr?: boolean;
 }
 
 export class WebGLRenderer {
@@ -33,9 +48,12 @@ export class WebGLRenderer {
   private frameWidth = 256;
   private frameHeight = 240;
   private frameCount = 0;
+  private hdrRequested: boolean;
+  private hdrActive = false;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, options?: WebGLRendererOptions) {
     this.canvas = canvas;
+    this.hdrRequested = options?.hdr ?? false;
   }
 
   initialize(): void {
@@ -59,6 +77,20 @@ export class WebGLRenderer {
     // Enable float texture rendering if available
     gl.getExtension("EXT_color_buffer_float");
     gl.getExtension("EXT_color_buffer_half_float");
+
+    // Configure HDR output when requested
+    if (this.hdrRequested) {
+      this.setupHdr(gl);
+    }
+
+    // Pre-compile the HDR output pass shader (used when HDR is active)
+    if (this.hdrActive) {
+      this.shaderManager.createShader(
+        HDR_OUTPUT_PASS_KEY,
+        defaultVertexShader,
+        hdrOutputFragmentShader,
+      );
+    }
 
     // Full-screen quad: position (x,y) + texCoord (u,v)
     // Standard OpenGL tex coords: (0,0) at bottom-left, (1,1) at top-right.
@@ -145,7 +177,9 @@ export class WebGLRenderer {
 
     for (let i = 0; i < passCount; i++) {
       const { definition, programKey } = passes[i];
-      const isLastPass = i === passCount - 1;
+      // When HDR is active, the last shader pass must render to an FBO so
+      // the HDR output pass can read it and apply highlight expansion.
+      const isLastPass = i === passCount - 1 && !this.hdrActive;
 
       // Compute output dimensions based on scale config
       const { height: outputHeight, width: outputWidth } = this.computePassSize(
@@ -342,6 +376,39 @@ export class WebGLRenderer {
       }
     }
 
+    // HDR output pass: read the last shader pass's FBO and draw to the screen
+    // with highlight expansion that lifts bright pixels above 1.0.
+    if (this.hdrActive && passCount > 0) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      this.shaderManager.useShader(HDR_OUTPUT_PASS_KEY);
+      const hdrProgram = this.shaderManager.getCurrentShader();
+      if (hdrProgram) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+
+        const posLoc = gl.getAttribLocation(hdrProgram, "a_position");
+        const texLoc = gl.getAttribLocation(hdrProgram, "a_texCoord");
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 16, 0);
+        gl.enableVertexAttribArray(texLoc);
+        gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 16, 8);
+
+        // Bind the last shader pass's output
+        const lastPassTexture = this.framebufferManager.getTexture(`pass_${passCount - 1}`);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, lastPassTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.uniform1i(gl.getUniformLocation(hdrProgram, "u_texture"), 0);
+
+        gl.uniform1f(gl.getUniformLocation(hdrProgram, "u_hdrHeadroom"), HDR_HEADROOM);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+    }
+
     this.frameCount++;
   }
 
@@ -351,6 +418,14 @@ export class WebGLRenderer {
     }
     this.canvas.width = width;
     this.canvas.height = height;
+    // Re-allocate the float16 backbuffer at the new dimensions
+    if (this.hdrActive && "drawingBufferStorage" in this.gl) {
+      (
+        this.gl as WebGL2RenderingContext & {
+          drawingBufferStorage: (format: number, w: number, h: number) => void;
+        }
+      ).drawingBufferStorage(this.gl.RGBA16F, width, height);
+    }
     this.gl.viewport(0, 0, width, height);
   }
 
@@ -363,6 +438,11 @@ export class WebGLRenderer {
 
   getShader(): string {
     return this.currentPresetId;
+  }
+
+  /** Whether HDR output is currently active on the canvas backbuffer. */
+  get isHdrActive(): boolean {
+    return this.hdrActive;
   }
 
   destroy(): void {
@@ -382,6 +462,50 @@ export class WebGLRenderer {
     this.lutLoader?.destroy();
     this.shaderManager?.destroy();
     this.gl = null;
+  }
+
+  /**
+   * Configure the WebGL2 context for HDR output: Display P3 color space,
+   * float16 backbuffer, and extended tone mapping (EDR) when available.
+   * Fails gracefully — if any API is missing, HDR stays inactive.
+   */
+  private setupHdr(gl: WebGL2RenderingContext): void {
+    try {
+      // Set wide gamut color space (available since Chrome 104)
+      if ("drawingBufferColorSpace" in gl) {
+        (
+          gl as WebGL2RenderingContext & { drawingBufferColorSpace: string }
+        ).drawingBufferColorSpace = "display-p3";
+      } else {
+        return;
+      }
+
+      // Allocate float16 backbuffer (available since Chrome 122)
+      if ("drawingBufferStorage" in gl) {
+        (
+          gl as WebGL2RenderingContext & {
+            drawingBufferStorage: (format: number, w: number, h: number) => void;
+          }
+        ).drawingBufferStorage(gl.RGBA16F, this.canvas.width, this.canvas.height);
+      }
+
+      // Enable extended tone mapping for EDR (>1.0 luminance on XDR displays).
+      // Requires experimentalFeatures: true in Electron webPreferences.
+      if ("drawingBufferToneMapping" in gl) {
+        (
+          gl as WebGL2RenderingContext & {
+            drawingBufferToneMapping: (opts: { mode: string }) => void;
+          }
+        ).drawingBufferToneMapping({
+          mode: "extended",
+        });
+      }
+
+      this.hdrActive = true;
+    } catch {
+      // API threw — fall back to SDR silently
+      this.hdrActive = false;
+    }
   }
 
   private applyPreset(presetId: string): void {

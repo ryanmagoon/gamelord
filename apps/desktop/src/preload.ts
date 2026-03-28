@@ -152,6 +152,7 @@ contextBridge.exposeInMainWorld("gamelord", {
 
     getConfig: () => ipcRenderer.invoke("library:getConfig"),
     setRomsBasePath: (basePath: string) => ipcRenderer.invoke("library:setRomsBasePath", basePath),
+    isHomebrewDone: () => ipcRenderer.invoke("library:isHomebrewDone") as Promise<boolean>,
   },
 
   // Artwork & metadata

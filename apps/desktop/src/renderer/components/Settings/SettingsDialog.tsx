@@ -14,6 +14,7 @@ import {
   SHADER_LABELS,
   SHADER_PRESETS,
   ControllerConfig,
+  detectHdrCapabilities,
 } from "@gamelord/ui";
 import {
   Settings,
@@ -309,6 +310,12 @@ const EmulationTab: React.FC = () => {
     return localStorage.getItem("gamelord:shader") ?? "default";
   });
 
+  const [hdrMode, setHdrMode] = useState(() => {
+    return localStorage.getItem("gamelord:hdrMode") ?? "auto";
+  });
+
+  const [hdrCaps] = useState(() => detectHdrCapabilities());
+
   const handleShowFpsChange = (checked: boolean) => {
     setShowFps(checked);
     localStorage.setItem("gamelord:showFps", String(checked));
@@ -335,6 +342,14 @@ const EmulationTab: React.FC = () => {
     playSfx("click");
   };
 
+  const handleHdrModeChange = (value: string) => {
+    setHdrMode(value);
+    localStorage.setItem("gamelord:hdrMode", value);
+    playSfx("click");
+  };
+
+  const hdrSupported = hdrCaps.hdrDisplay && hdrCaps.p3Gamut;
+
   return (
     <div className="space-y-6">
       <div>
@@ -360,6 +375,24 @@ const EmulationTab: React.FC = () => {
             </SelectContent>
           </Select>
         </SettingRow>
+        <SettingRow
+          label="HDR output"
+          description="Wide gamut color and extended brightness on HDR displays"
+        >
+          <Select value={hdrMode} onValueChange={handleHdrModeChange}>
+            <SelectTrigger className="w-28 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">Auto</SelectItem>
+              <SelectItem value="on">On</SelectItem>
+              <SelectItem value="off">Off</SelectItem>
+            </SelectContent>
+          </Select>
+        </SettingRow>
+        <div className="text-xs text-muted-foreground mt-1">
+          {hdrSupported ? "HDR: Supported on this display" : "HDR: Not available on this display"}
+        </div>
       </div>
 
       <div>

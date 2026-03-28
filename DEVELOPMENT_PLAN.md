@@ -110,6 +110,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] **Native audio sample conversion** — Move Int16 → Float32 stereo deinterleaving from JavaScript (`GameWindow.tsx`) into the native addon so frames arrive renderer-ready, eliminating ~42K JS loop iterations/sec — [#64](https://github.com/ryanmagoon/gamelord/issues/64)
 - [ ] **Audio resampling** — Handle cases where core sample rate differs from `AudioContext.sampleRate` — [#65](https://github.com/ryanmagoon/gamelord/issues/65)
 - [ ] **Frame skipping / frame pacing** — Catch-up mechanism when rendering lags; handle display refresh != core FPS — [#66](https://github.com/ryanmagoon/gamelord/issues/66)
+- [x] **HDR display support** — Display P3 wide gamut, float16 backbuffer, EDR tone mapping, runtime detection, Auto/On/Off settings toggle with graceful SDR fallback. — [#209](https://github.com/ryanmagoon/gamelord/issues/209)
 
 ### P3 — Multi-System Support
 
@@ -132,8 +133,8 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] **Scan-time zip extraction** — Library scanner extracts ROMs from `.zip` archives at scan time for all non-arcade systems. Extracted ROMs cached in `<userData>/roms-cache/` with hash-prefixed filenames. Arcade `.zip` files are passed through natively (MAME expects zips). Cache cleaned up on game removal.
 - [x] **Library data protection** — Atomic writes with `.bak` backups for `library.json` and `library-config.json` (crash-safe with auto-recovery). Startup migrations (`migrateGameIds`, `backfillRomHashes`) skip unreadable ROMs instead of deleting them. `removeSystem()` preserves game data (coverArt, metadata, favorites, play history) instead of cascading delete. Orphaned artwork files are auto-reassociated when games are re-scanned.
 - [ ] **Artwork sync performance** — Current implementation downloads full-resolution images serially with a new TCP connection per request, taking several seconds per game. Improvements ordered by impact:
-  - [ ] Request smaller images via `maxwidth`/`maxheight` params (2–3x faster downloads) — [#37](https://github.com/ryanmagoon/gamelord/issues/37)
-  - [ ] Persistent HTTP Agent with keep-alive (~15% faster) — [#38](https://github.com/ryanmagoon/gamelord/issues/38)
+  - [x] Request smaller images via `maxwidth`/`maxheight` params (2–3x faster downloads) — [#37](https://github.com/ryanmagoon/gamelord/issues/37) — appends `maxwidth=640` to all artwork download URLs
+  - [x] Persistent HTTP Agent with keep-alive (~15% faster) — [#38](https://github.com/ryanmagoon/gamelord/issues/38) — persistent `https.Agent({keepAlive: true})` for both API requests and image downloads
   - [ ] Pipeline image downloads with next API query (~30–40% faster) — [#39](https://github.com/ryanmagoon/gamelord/issues/39)
   - [ ] Pre-hash all ROMs in parallel before sync — [#40](https://github.com/ryanmagoon/gamelord/issues/40)
   - [ ] Progressive artwork loading UX (show art as each game resolves) — [#41](https://github.com/ryanmagoon/gamelord/issues/41)
@@ -196,12 +197,44 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Configurable rewind buffer duration and granularity — [#83](https://github.com/ryanmagoon/gamelord/issues/83)
 - [ ] Visual rewind indicator in the game window overlay — [#83](https://github.com/ryanmagoon/gamelord/issues/83)
 
+### Cloud Saves — Cross-Device Save Sync
+
+Sync SRAM/battery saves (.srm) across GameLord desktop instances, Android retro handhelds (Retroid Pocket, AYN Odin, Anbernic), Linux handhelds, and Steam Deck. Save states (.state) are core-specific and not portable — deferred.
+
+**Stack:** Vercel Functions + Vercel Blob + Neon Postgres + Auth.js v5 + Drizzle ORM
+
+**Phase 1 — Foundation (Backend)**
+
+- [ ] **User accounts + auth** — Auth.js v5, OAuth via GitHub/Discord, Electron deep link callback (`gamelord://auth/callback`), refresh tokens in OS keychain via `safeStorage`, JWT access tokens (15min) + refresh tokens (30 days). — [#47](https://github.com/ryanmagoon/gamelord/issues/47)
+- [ ] **PostgreSQL for user data and save metadata** — Neon Postgres, Drizzle ORM, tables: `users`, `saves`, `save_versions`, `devices`. Connection pooling via Neon's built-in pooler. pgvector extension for future AI search. — [#49](https://github.com/ryanmagoon/gamelord/issues/49)
+- [ ] **Cloud saves API** — Vercel Functions (Next.js Route Handlers) + Vercel Blob. REST endpoints for upload/download/list/delete saves. Signed upload URLs, gzip compression, monotonic version counter for conflict detection. — [#46](https://github.com/ryanmagoon/gamelord/issues/46)
+
+**Phase 2 — Desktop Integration**
+
+- [ ] **Save watcher service** — Electron main-process service that watches local `.srm` files, detects changes, queues uploads, checks for newer cloud versions on game launch. Auto-sync and manual sync modes. — [#221](https://github.com/ryanmagoon/gamelord/issues/221)
+- [ ] **Conflict resolution dialog** — Shown on game launch when local and cloud saves diverge. Shows timestamps, device names, file sizes. Options: Use Local / Use Cloud / Keep Both. Presentational component in `packages/ui/` with Storybook stories. — [#222](https://github.com/ryanmagoon/gamelord/issues/222)
+- [ ] **Cloud saves Settings UI** — New tab in Settings: sign in/out, sync mode toggle, device name, storage usage, sync status. — [#223](https://github.com/ryanmagoon/gamelord/issues/223)
+- [ ] **Library cloud save indicators** — Per-game sync status icons on game cards, right-click context menu (Sync Save, View Save History, Resolve Conflict), save history panel with one-click restore. — [#224](https://github.com/ryanmagoon/gamelord/issues/224)
+- [ ] **Save format compatibility layer** — Extension normalization (.srm/.sav/.mcr), RetroArch SaveRAM Compression detection, "Sort Saves by Core Name" handling, save size metadata. — [#229](https://github.com/ryanmagoon/gamelord/issues/229)
+
+**Phase 3a — Handheld Sync (Zero Install)**
+
+- [ ] **WebDAV bridge for RetroArch** — Expose cloud saves as WebDAV endpoint (`saves.gamelord.app/webdav/{userId}/`). RetroArch's built-in cloud sync connects directly — no app install needed. Works on any platform RetroArch supports (Android, Linux handhelds, Steam Deck). — [#225](https://github.com/ryanmagoon/gamelord/issues/225)
+- [ ] **CLI sync tool (`gamelord-sync`)** — Cross-platform binary (tech stack TBD). Commands: login, status, push, pull, sync, history. Interactive conflict prompts + non-interactive `--strategy` flag for scripted use. Must cross-compile to Linux ARM64 for handhelds. Distributed via GitHub Releases. — [#227](https://github.com/ryanmagoon/gamelord/issues/227)
+
+**Phase 3b — Android Companion App (Polished Handheld UX)**
+
+- [ ] **Android companion app** — Visual game matching with cover art, on-device conflict resolution, selective per-game sync, push notifications, background sync, ROM hash matching. RetroArch only for MVP. Ships after Phase 3a validates the sync model. Tech stack decision deferred (Kotlin vs React Native). — [#228](https://github.com/ryanmagoon/gamelord/issues/228)
+
+**Phase 4 — Advanced Conflict Resolution**
+
+- [ ] **Cloud save sync with conflict resolution** — Vector clocks for multi-device causal ordering, auto-resolution heuristics ("newest wins"), save version retention policy, save version diffing. — [#53](https://github.com/ryanmagoon/gamelord/issues/53)
+
 ### P7 — Online Multiplayer
 
 - [ ] **Relay server for input synchronization** — persistent WebSocket connections on Fly.io/Railway (not serverless). Binary protocol for input frames, room-based routing, sub-5ms relay latency target. — [#50](https://github.com/ryanmagoon/gamelord/issues/50)
 - [ ] **Rollback-based netcode** — latency hiding via save state serialization: roll back to last confirmed state, replay with correct inputs, snap forward. State ring buffer, input history buffer, configurable rollback window (~7 frames / 117ms). — [#51](https://github.com/ryanmagoon/gamelord/issues/51)
 - [ ] **Lobby system with room codes** — session management, matchmaking, friend lists + invites. Short room codes for sharing, public lobby browser, room settings (game, core, input delay, max players). — [#52](https://github.com/ryanmagoon/gamelord/issues/52)
-- [ ] **Cloud save sync with conflict resolution** — extend cloud saves API with last-write-wins vs version vectors vs vector clocks. Server-side conflict detection, client-side resolution UI. — [#53](https://github.com/ryanmagoon/gamelord/issues/53)
 - [ ] **Friends + activity feed** — fan-out problem, presence detection (WebSocket heartbeat → online/in-game status), real-time activity timeline. Hybrid fan-out strategy, Redis for ephemeral presence. — [#54](https://github.com/ryanmagoon/gamelord/issues/54)
 - [ ] Per-game netplay compatibility metadata (supported cores, input latency settings) — [#84](https://github.com/ryanmagoon/gamelord/issues/84)
 
@@ -293,17 +326,14 @@ Tracking issue for the first alpha release. All items below must be completed be
   - [x] Windows initial support: cross-platform zip extraction (pure Node zlib), platform-aware buildbot core downloads, macOS-only API guards (`setWindowButtonVisibility`, `trafficLightPosition`), Windows `titleBarOverlay` + game window control buttons, cross-platform build scripts, native addon compiles on MSVC
   - [ ] **Windows ARM64 support** — CoreDownloader already serves x86_64 cores; add `windows/arm64` buildbot path for `process.arch === "arm64"`, ensure native addon compiles for ARM64 target, add electron-builder `--arm64` target. High priority — Snapdragon is a primary dev device. — [#203](https://github.com/ryanmagoon/gamelord/issues/203)
   - [ ] **Windows code signing (Authenticode)** — EV or OV code signing certificate, `signtool.exe` integration in electron-builder, CI workflow with cert import and signing secrets (mirrors macOS notarization flow). — [#204](https://github.com/ryanmagoon/gamelord/issues/204)
-  - [ ] **Windows release packaging + CI** — Windows runner in CI matrix, NSIS/zip build targets, GitHub Releases artifacts for Windows. — [#205](https://github.com/ryanmagoon/gamelord/issues/205)
+  - [x] **Windows release packaging + CI** — Windows runner added to release and nightly workflows, builds NSIS installer + ZIP, publishes to GitHub Releases alongside macOS artifacts. Unsigned for now (SmartScreen warning, click through). — [#205](https://github.com/ryanmagoon/gamelord/issues/205)
   - [ ] **Linux support** — Core downloading with XDG paths, titlebar behavior across DEs, electron-builder targets (AppImage/deb/rpm/snap), CI Linux matrix, app icon. — [#206](https://github.com/ryanmagoon/gamelord/issues/206)
 
 ### P10 — Web Presence (Vercel)
 
 - [ ] **gamelord.app landing page** — Next.js on Vercel. Hero, feature showcase, screenshot gallery, download links, changelog. Dark theme matching app aesthetic. — [#60](https://github.com/ryanmagoon/gamelord/issues/60)
 - [ ] Documentation site (`docs.gamelord.app`) — Next.js + MDX or Astro — [#99](https://github.com/ryanmagoon/gamelord/issues/99)
-- [ ] **Cloud saves API** — serverless functions + blob storage for save state sync. REST endpoints: upload/download/list/delete saves. Signed upload URLs, gzip compression. — [#46](https://github.com/ryanmagoon/gamelord/issues/46)
-- [ ] **User accounts + auth** — OAuth via GitHub/Discord. Deep link callback to Electron app. Session persistence via OS keychain. — [#47](https://github.com/ryanmagoon/gamelord/issues/47)
 - [ ] **User profile dashboard** — achievements, play history, library stats. Public/private toggle. Activity feed. — [#48](https://github.com/ryanmagoon/gamelord/issues/48)
-- [ ] **PostgreSQL for user data and game metadata** — hosted Postgres (Neon/Supabase/Railway), Drizzle or Prisma migrations, connection pooling, pgvector extension for AI search. — [#49](https://github.com/ryanmagoon/gamelord/issues/49)
 - [ ] Multiplayer lobby/matchmaking API — pairs with P7 relay server (#50) (relay itself should NOT be on Vercel — needs persistent WebSocket connections, use Fly.io/Railway/VPS) — [#100](https://github.com/ryanmagoon/gamelord/issues/100)
 
 ### P11 — Native Addon Hardening

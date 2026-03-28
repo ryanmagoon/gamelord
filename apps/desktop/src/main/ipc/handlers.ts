@@ -29,6 +29,8 @@ export class IPCHandlers {
   private gameWindowManager: GameWindowManager;
   private autoUpdater: AutoUpdaterService | null = null;
   private pendingResumeDialogs = new Map<string, (response: ResumeDialogResponse) => void>();
+  /** Whether the homebrew import check has finished (imported, skipped, or errored). */
+  private homebrewDone = false;
 
   constructor(preloadPath: string) {
     this.emulatorManager = new EmulatorManager();
@@ -44,18 +46,28 @@ export class IPCHandlers {
 
     // Import bundled homebrew ROMs on first launch (async, non-blocking).
     // Notifies the renderer when done so it can reload the library.
+    // Also sets homebrewDone so late-loading renderers can query the state
+    // via library:isHomebrewDone (the event may fire before they register).
     this.homebrewService
       .importIfNeeded()
       .then((imported) => {
         if (imported) {
-          const windows = BrowserWindow.getAllWindows();
-          for (const window of windows) {
-            window.webContents.send("library:homebrewImported");
-          }
+          ipcLog.info("Homebrew ROMs imported, notifying renderer");
+        }
+        this.homebrewDone = true;
+        const windows = BrowserWindow.getAllWindows();
+        for (const window of windows) {
+          window.webContents.send("library:homebrewImported");
         }
       })
       .catch((error) => {
         ipcLog.error("Homebrew import failed:", error);
+        this.homebrewDone = true;
+        // Still dismiss the setup screen so the user isn't stuck
+        const windows = BrowserWindow.getAllWindows();
+        for (const window of windows) {
+          window.webContents.send("library:homebrewImported");
+        }
       });
   }
 
@@ -344,6 +356,12 @@ export class IPCHandlers {
       windows.forEach((window: BrowserWindow) => {
         window.webContents.send("library:scanProgress", data);
       });
+    });
+
+    // Homebrew import status — lets the renderer check if the import check
+    // has already completed (the event may have fired before the renderer loaded).
+    ipcMain.handle("library:isHomebrewDone", () => {
+      return this.homebrewDone;
     });
 
     // System management
