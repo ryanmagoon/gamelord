@@ -1,9 +1,15 @@
-import { BrowserWindow } from "electron";
+import { app, BrowserWindow } from "electron";
 import { autoUpdater } from "electron-updater";
 import type { UpdateInfo, ProgressInfo } from "electron-updater";
 import { updaterLog } from "../logger";
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+/**
+ * Pattern matching the GitHub 406 error when no production release exists.
+ * This happens on nightly-only builds where all releases are pre-releases.
+ */
+const NO_LATEST_RELEASE_RE = /Unable to find latest version/i;
 
 /**
  * Manages automatic update checks and downloads via electron-updater.
@@ -15,9 +21,24 @@ export class AutoUpdaterService {
   constructor() {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.allowPrerelease = this.isPrerelease();
     autoUpdater.logger = updaterLog;
 
     this.setupEventForwarding();
+  }
+
+  /**
+   * Detect if the current build is a pre-release (nightly).
+   * Nightly releases are tagged `nightly-YYYY-MM-DD` — electron-updater
+   * sets the app version from the release tag, which includes "nightly".
+   * Falls back to checking if no stable release exists by enabling
+   * prerelease for any version that contains a prerelease identifier.
+   */
+  private isPrerelease(): boolean {
+    const version = app.getVersion();
+    // Semver pre-release versions contain a hyphen (e.g. "0.1.0-nightly.20260328")
+    // Also match plain "nightly" substring for tagged builds
+    return version.includes("-") || version.includes("nightly");
   }
 
   /**
@@ -107,6 +128,17 @@ export class AutoUpdaterService {
     });
 
     autoUpdater.on("error", (error: Error) => {
+      // When no production release exists (nightly-only repo), GitHub returns
+      // 406 and electron-updater surfaces "Unable to find latest version".
+      // This is expected — log at info level and don't alarm the user.
+      if (NO_LATEST_RELEASE_RE.test(error.message)) {
+        updaterLog.info(
+          "No production release found (expected for nightly builds):",
+          error.message,
+        );
+        return;
+      }
+
       updaterLog.error("Auto-update error:", error.message);
       this.broadcast("updates:error", {
         message: error.message,

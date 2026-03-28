@@ -10,11 +10,13 @@ const {
   mockQuitAndInstall,
   mockWebContentsSend,
   mockGetAllWindows,
+  mockGetVersion,
 } = vi.hoisted(() => {
   const mockCheckForUpdates = vi.fn().mockResolvedValue(undefined);
   const mockQuitAndInstall = vi.fn();
   const mockWebContentsSend = vi.fn();
   const mockGetAllWindows = vi.fn();
+  const mockGetVersion = vi.fn().mockReturnValue("0.1.0");
 
   // Minimal EventEmitter implementation for the mock — avoids importing
   // node:events inside vi.hoisted() which isn't available at hoist time.
@@ -23,6 +25,7 @@ const {
   const fakeAutoUpdater = {
     autoDownload: false,
     autoInstallOnAppQuit: false,
+    allowPrerelease: false,
     logger: null as unknown,
     checkForUpdates: mockCheckForUpdates,
     quitAndInstall: mockQuitAndInstall,
@@ -58,6 +61,7 @@ const {
     mockQuitAndInstall,
     mockWebContentsSend,
     mockGetAllWindows,
+    mockGetVersion,
   };
 });
 
@@ -66,6 +70,9 @@ vi.mock("electron-updater", () => ({
 }));
 
 vi.mock("electron", () => ({
+  app: {
+    getVersion: () => mockGetVersion(),
+  },
   BrowserWindow: {
     getAllWindows: (...args: Array<unknown>) => mockGetAllWindows(...args),
   },
@@ -106,6 +113,30 @@ describe("AutoUpdaterService", () => {
       expect(fakeAutoUpdater.autoDownload).toBe(true);
       expect(fakeAutoUpdater.autoInstallOnAppQuit).toBe(true);
       expect(fakeAutoUpdater.logger).toBeDefined();
+    });
+
+    it("sets allowPrerelease=false for stable versions", () => {
+      expect(fakeAutoUpdater.allowPrerelease).toBe(false);
+    });
+
+    it("sets allowPrerelease=true for nightly versions", () => {
+      fakeAutoUpdater.removeAllListeners();
+      fakeAutoUpdater.allowPrerelease = false;
+      mockGetVersion.mockReturnValueOnce("0.1.0-nightly.20260328");
+
+      const nightlyService = new AutoUpdaterService();
+      expect(fakeAutoUpdater.allowPrerelease).toBe(true);
+      nightlyService.cleanup();
+    });
+
+    it("sets allowPrerelease=true for any pre-release version", () => {
+      fakeAutoUpdater.removeAllListeners();
+      fakeAutoUpdater.allowPrerelease = false;
+      mockGetVersion.mockReturnValueOnce("0.1.0-beta.1");
+
+      const preService = new AutoUpdaterService();
+      expect(fakeAutoUpdater.allowPrerelease).toBe(true);
+      preService.cleanup();
     });
 
     it("registers event listeners on autoUpdater", () => {
@@ -198,6 +229,16 @@ describe("AutoUpdaterService", () => {
       expect(mockWebContentsSend).toHaveBeenCalledWith("updates:error", {
         message: "Network timeout",
       });
+    });
+
+    it("suppresses 'Unable to find latest version' error from renderer", () => {
+      fakeAutoUpdater.emit(
+        "error",
+        new Error(
+          "Unable to find latest version on GitHub (https://github.com/ryanmagoon/gamelord/releases/latest), please ensure a production release exists: HttpError: 406",
+        ),
+      );
+      expect(mockWebContentsSend).not.toHaveBeenCalled();
     });
 
     it("broadcasts to all open windows", () => {
