@@ -91,6 +91,13 @@ function createMockLibraryService(games: Array<Game> = []): LibraryService {
         Object.assign(game, updates);
       }
     }),
+    updateGameBatched: vi.fn((id: string, updates: Partial<Game>) => {
+      const game = gameMap.get(id);
+      if (game) {
+        Object.assign(game, updates);
+      }
+    }),
+    flushSave: vi.fn(async () => {}),
   } as unknown as LibraryService;
 }
 
@@ -641,6 +648,190 @@ describe("ArtworkService", () => {
       const lastEvent = progressEvents.at(-1);
       expect(lastEvent).toBeDefined();
       expect(lastEvent?.phase).toBe("not-found");
+    });
+  });
+
+  describe("pause/resume", () => {
+    it("emits paused/resumed events", async () => {
+      const game = makeGame({
+        id: "g1",
+        title: "Game 1",
+        coverArt: undefined,
+      });
+      const lib = createMockLibraryService([game]);
+      const service = new ArtworkService(lib);
+      await flushPromises();
+
+      // Store config so createClient works
+      await service.setCredentials("user1", "pass1");
+      await flushPromises();
+
+      const events: Array<string> = [];
+      service.on("paused", () => events.push("paused"));
+      service.on("resumed", () => events.push("resumed"));
+
+      // Start sync — the sync loop will process game1 and complete
+      // We need to pause before it processes the game.
+      // Mock fetchByHash to stall so we can pause mid-sync.
+      const stallControl = { resolve: () => {} };
+      mockFetchByHash.mockImplementation(
+        () =>
+          new Promise<null>((resolve) => {
+            stallControl.resolve = () => resolve(null);
+          }),
+      );
+
+      const syncPromise = service.syncAllGames();
+
+      // Wait for the stall to be set up
+      await flushPromises();
+
+      service.pause();
+      expect(events).toContain("paused");
+      expect(service.isPaused()).toBe(true);
+
+      service.resume();
+      expect(events).toContain("resumed");
+      expect(service.isPaused()).toBe(false);
+
+      // Unblock the stalled request and let sync finish
+      stallControl.resolve();
+      await syncPromise;
+    });
+
+    it("blocks the sync loop when paused and resumes on resume()", async () => {
+      const games = [
+        makeGame({ id: "g1", title: "Game 1", coverArt: undefined }),
+        makeGame({ id: "g2", title: "Game 2", coverArt: undefined }),
+      ];
+      const lib = createMockLibraryService(games);
+      const service = new ArtworkService(lib);
+      await flushPromises();
+      await service.setCredentials("user1", "pass1");
+      await flushPromises();
+
+      let callCount = 0;
+      mockFetchByHash.mockImplementation(async () => {
+        callCount++;
+        return null;
+      });
+
+      // After processing game 1, pause
+      service.on("progress", (p: ArtworkProgress) => {
+        if (p.gameId === "g1" && p.phase === "not-found") {
+          service.pause();
+        }
+      });
+
+      const syncPromise = service.syncAllGames();
+      // Let game 1 finish
+      await flushPromises();
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Only game 1 should have been queried (hash + name = 2 calls)
+      const callsBeforeResume = callCount;
+
+      // Resume and let sync finish
+      service.resume();
+      await syncPromise;
+
+      // Game 2 should now also have been queried
+      expect(callCount).toBeGreaterThan(callsBeforeResume);
+    });
+
+    it("cancel unblocks a paused sync", async () => {
+      const games = [
+        makeGame({ id: "g1", title: "Game 1", coverArt: undefined }),
+        makeGame({ id: "g2", title: "Game 2", coverArt: undefined }),
+      ];
+      const lib = createMockLibraryService(games);
+      const service = new ArtworkService(lib);
+      await flushPromises();
+      await service.setCredentials("user1", "pass1");
+      await flushPromises();
+
+      mockFetchByHash.mockResolvedValue(null);
+
+      // Pause after game 1 finishes
+      service.on("progress", (p: ArtworkProgress) => {
+        if (p.gameId === "g1" && p.phase === "not-found") {
+          service.pause();
+        }
+      });
+
+      const syncPromise = service.syncAllGames();
+      // Let game 1 process and trigger the pause
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(service.isPaused()).toBe(true);
+
+      // Cancel should unblock and finish the sync
+      service.cancelSync();
+      expect(service.isPaused()).toBe(false);
+
+      await syncPromise;
+    });
+
+    it("pause is a no-op when not syncing", () => {
+      const lib = createMockLibraryService([]);
+      const service = new ArtworkService(lib);
+
+      const events: Array<string> = [];
+      service.on("paused", () => events.push("paused"));
+
+      service.pause();
+      expect(events).toHaveLength(0);
+      expect(service.isPaused()).toBe(false);
+    });
+
+    it("getSyncStatus includes paused state", async () => {
+      const lib = createMockLibraryService([]);
+      const service = new ArtworkService(lib);
+      await flushPromises();
+
+      const status = service.getSyncStatus();
+      expect(status).toEqual({ inProgress: false, paused: false });
+    });
+  });
+
+  describe("batched saves during sync", () => {
+    it("uses updateGameBatched during sync instead of updateGame", async () => {
+      const game = makeGame({ id: "g1", coverArt: undefined });
+      const lib = createMockLibraryService([game]);
+      const service = new ArtworkService(lib);
+      await flushPromises();
+      await service.setCredentials("user1", "pass1");
+      await flushPromises();
+
+      mockFetchByHash.mockResolvedValue({
+        title: "Test Game",
+        media: {},
+      });
+
+      await service.syncAllGames();
+
+      expect(lib.updateGameBatched).toHaveBeenCalled();
+      expect(lib.updateGame).not.toHaveBeenCalled();
+      expect(lib.flushSave).toHaveBeenCalled();
+    });
+
+    it("uses updateGame for single syncGame (not batch)", async () => {
+      const game = makeGame({ id: "g1", coverArt: undefined });
+      const lib = createMockLibraryService([game]);
+      const service = new ArtworkService(lib);
+      await flushPromises();
+      await service.setCredentials("user1", "pass1");
+      await flushPromises();
+
+      mockFetchByHash.mockResolvedValue({
+        title: "Test Game",
+        media: {},
+      });
+
+      await service.syncGame("g1");
+
+      expect(lib.updateGame).toHaveBeenCalled();
+      expect(lib.updateGameBatched).not.toHaveBeenCalled();
     });
   });
 });
