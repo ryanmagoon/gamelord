@@ -99,6 +99,33 @@ export type WorkerCommand =
     };
 
 // ---------------------------------------------------------------------------
+// Libretro log levels (from libretro.h RETRO_LOG_*)
+// ---------------------------------------------------------------------------
+
+export const RETRO_LOG_DEBUG = 0;
+export const RETRO_LOG_INFO = 1;
+export const RETRO_LOG_WARN = 2;
+export const RETRO_LOG_ERROR = 3;
+
+/**
+ * Minimum log level to forward over IPC. Debug-level messages are dropped
+ * because cores like mGBA emit thousands of DMA/IRQ trace messages per
+ * second at that level, which saturates the IPC channel and throttles the
+ * main process event loop.
+ */
+export const MIN_FORWARD_LOG_LEVEL = RETRO_LOG_INFO;
+
+/**
+ * Filter native log entries to only those worth forwarding over IPC.
+ * Returns a new array (empty if nothing passes the filter).
+ */
+export function filterForwardableLogs(
+  entries: ReadonlyArray<{ level: number; message: string }>,
+): Array<{ level: number; message: string }> {
+  return entries.filter((entry) => entry.level >= MIN_FORWARD_LOG_LEVEL);
+}
+
+// ---------------------------------------------------------------------------
 // Worker → Main events
 // ---------------------------------------------------------------------------
 

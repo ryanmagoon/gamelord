@@ -4,6 +4,12 @@ import * as path from "node:path";
 import * as crypto from "node:crypto";
 import type { WorkerCommand, WorkerEvent, AVInfo } from "../workers/core-worker-protocol";
 import {
+  RETRO_LOG_DEBUG,
+  RETRO_LOG_INFO,
+  RETRO_LOG_WARN,
+  RETRO_LOG_ERROR,
+} from "../workers/core-worker-protocol";
+import {
   computeVideoBufferSize,
   CTRL_SAB_BYTE_LENGTH,
   CTRL_AUDIO_SAMPLE_RATE,
@@ -356,18 +362,17 @@ export class EmulationWorkerClient extends EventEmitter {
 
       case "log":
         // Route native addon log messages through electron-log.
-        // Libretro log levels: 0=debug, 1=info, 2=warn, 3=error
         switch (event.level) {
-          case 0:
+          case RETRO_LOG_DEBUG:
             libretroLog.debug(event.message);
             break;
-          case 1:
+          case RETRO_LOG_INFO:
             libretroLog.info(event.message);
             break;
-          case 2:
+          case RETRO_LOG_WARN:
             libretroLog.warn(event.message);
             break;
-          case 3:
+          case RETRO_LOG_ERROR:
             libretroLog.error(event.message);
             break;
           default:

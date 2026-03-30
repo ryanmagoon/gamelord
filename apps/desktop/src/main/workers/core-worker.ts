@@ -24,6 +24,7 @@ import {
   CTRL_AUDIO_WRITE_POS,
   CTRL_AUDIO_SAMPLE_RATE,
 } from "./shared-frame-protocol";
+import { filterForwardableLogs } from "./core-worker-protocol";
 
 // ---------------------------------------------------------------------------
 // State
@@ -427,9 +428,8 @@ function startEmulationLoop(): void {
       }
     }
 
-    // Drain buffered log messages from the native addon
-    const logs = native.getLogMessages();
-    for (const entry of logs) {
+    // Drain buffered log messages, dropping debug-level noise.
+    for (const entry of filterForwardableLogs(native.getLogMessages())) {
       send({ type: "log", level: entry.level, message: entry.message });
     }
 
@@ -498,9 +498,8 @@ function startEmulationLoop(): void {
         }
       }
 
-      // Drain buffered log messages from the native addon
-      const logs = native.getLogMessages();
-      for (const entry of logs) {
+      // Drain buffered log messages, dropping debug-level noise.
+      for (const entry of filterForwardableLogs(native.getLogMessages())) {
         send({ type: "log", level: entry.level, message: entry.message });
       }
     }
