@@ -66,7 +66,9 @@ export interface GamelordAPI {
     syncAll: () => Promise<{ success: boolean; error?: string }>;
     syncGames: (gameIds: Array<string>) => Promise<{ success: boolean; error?: string }>;
     cancelSync: () => Promise<{ success: boolean }>;
-    getSyncStatus: () => Promise<{ inProgress: boolean }>;
+    pause: () => Promise<{ success: boolean }>;
+    resume: () => Promise<{ success: boolean }>;
+    getSyncStatus: () => Promise<{ inProgress: boolean; paused: boolean }>;
     getCredentials: () => Promise<{ hasCredentials: boolean }>;
     setCredentials: (
       userId: string,

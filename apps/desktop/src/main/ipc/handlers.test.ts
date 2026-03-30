@@ -311,7 +311,7 @@ describe("IPCHandlers", () => {
 
     it("registers exactly the expected number of handle channels", () => {
       const handleCalls = vi.mocked(ipcMain.handle).mock.calls;
-      expect(handleCalls).toHaveLength(37);
+      expect(handleCalls).toHaveLength(39);
     });
   });
 

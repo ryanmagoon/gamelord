@@ -21,7 +21,7 @@ import {
   type ArtworkSyncPhase,
   type CommandAction,
 } from "@gamelord/ui";
-import { Plus, FolderOpen, RefreshCw, ImageDown, X } from "lucide-react";
+import { Plus, FolderOpen, RefreshCw, ImageDown, Pause, X } from "lucide-react";
 import type { Game as AppGame, GameSystem } from "../../types/library";
 import type { ArtworkProgress } from "../../types/artwork";
 import type { GamelordAPI } from "../types/global";
@@ -68,6 +68,7 @@ export const LibraryView: React.FC<{
   // Each GameCard subscribes to its own phase via useSyncExternalStore.
   const [artworkSyncStore] = useState(() => new ArtworkSyncStore());
   const [syncCounter, setSyncCounter] = useState<{ current: number; total: number } | null>(null);
+  const [syncPaused, setSyncPaused] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const phaseCleanupTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   /** Track sync results for the notification summary. */
@@ -243,6 +244,7 @@ export const LibraryView: React.FC<{
 
     api.on("artwork:syncComplete", () => {
       setSyncCounter(null);
+      setSyncPaused(false);
       loadLibrary();
 
       // Show summary notification
@@ -304,6 +306,7 @@ export const LibraryView: React.FC<{
     api.on("artwork:syncError", (raw: unknown) => {
       const data = raw as { error: string; errorCode?: string };
       setSyncCounter(null);
+      setSyncPaused(false);
       artworkSyncStore.clear();
       syncResults.current = { found: 0, notFound: 0, errors: 0 };
 
@@ -336,6 +339,9 @@ export const LibraryView: React.FC<{
       setSyncNotification({ message, variant: "error" });
     });
 
+    api.on("artwork:syncPaused", () => setSyncPaused(true));
+    api.on("artwork:syncResumed", () => setSyncPaused(false));
+
     return () => {
       api.removeAllListeners("library:scanProgress");
       api.removeAllListeners("library:homebrewImported");
@@ -343,6 +349,8 @@ export const LibraryView: React.FC<{
       api.removeAllListeners("artwork:progress");
       api.removeAllListeners("artwork:syncComplete");
       api.removeAllListeners("artwork:syncError");
+      api.removeAllListeners("artwork:syncPaused");
+      api.removeAllListeners("artwork:syncResumed");
       // Clear all cleanup timers
       phaseCleanupTimers.current.forEach((timer) => clearTimeout(timer));
       phaseCleanupTimers.current.clear();
@@ -802,8 +810,12 @@ export const LibraryView: React.FC<{
           {/* Sync progress badge — replaces the old purple banner */}
           {isSyncing && (
             <Badge variant="secondary" className="gap-1.5 text-xs font-normal">
-              <ImageDown className="h-3 w-3 animate-pulse" />
-              Syncing {syncCounter.current}/{syncCounter.total}
+              {syncPaused ? (
+                <Pause className="h-3 w-3" />
+              ) : (
+                <ImageDown className="h-3 w-3 animate-pulse" />
+              )}
+              {syncPaused ? "Paused" : "Syncing"} {syncCounter.current}/{syncCounter.total}
               <button
                 onClick={() => {
                   playSfx("click");

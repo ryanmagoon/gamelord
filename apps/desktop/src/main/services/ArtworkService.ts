@@ -59,6 +59,8 @@ export class ArtworkService extends EventEmitter {
   private config: ArtworkConfig = {};
   private cancelled = false;
   private syncing = false;
+  private paused = false;
+  private pauseResolve: (() => void) | null = null;
   private lastRequestTime = 0;
 
   constructor(libraryService: LibraryService) {
@@ -265,8 +267,10 @@ export class ArtworkService extends EventEmitter {
     }
 
     // Step 5: Update game record (including regional system name if applicable)
+    // Uses batched update when called from a sync batch to avoid rewriting
+    // library.json after every game. The batch loop calls flushSave() periodically.
     const regionalName = getRegionalSystemName(game.systemId, gameInfo.region);
-    await this.libraryService.updateGame(gameId, {
+    const updates: Partial<typeof game> = {
       ...(coverArtPath && artworkUrl
         ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl)}` }
         : {}),
@@ -281,7 +285,13 @@ export class ArtworkService extends EventEmitter {
         players: gameInfo.players,
         rating: gameInfo.rating,
       },
-    });
+    };
+
+    if (this.syncing) {
+      this.libraryService.updateGameBatched(gameId, updates);
+    } else {
+      await this.libraryService.updateGame(gameId, updates);
+    }
 
     return !!coverArtPath;
   }
@@ -328,11 +338,47 @@ export class ArtworkService extends EventEmitter {
   /** Cancel an in-progress bulk sync. */
   cancelSync(): void {
     this.cancelled = true;
+    // If paused, unblock so the loop can exit
+    if (this.pauseResolve) {
+      this.pauseResolve();
+      this.pauseResolve = null;
+    }
+    this.paused = false;
+  }
+
+  /**
+   * Pause the sync loop after the current game finishes processing.
+   * The loop blocks at the next `waitIfPaused()` checkpoint until `resume()` is called.
+   */
+  pause(): void {
+    if (!this.syncing || this.paused) {
+      return;
+    }
+    this.paused = true;
+    this.emit("paused");
+  }
+
+  /** Resume a paused sync loop. */
+  resume(): void {
+    if (!this.paused) {
+      return;
+    }
+    this.paused = false;
+    if (this.pauseResolve) {
+      this.pauseResolve();
+      this.pauseResolve = null;
+    }
+    this.emit("resumed");
+  }
+
+  /** Returns whether the sync is currently paused. */
+  isPaused(): boolean {
+    return this.paused;
   }
 
   /** Get current sync status. */
-  getSyncStatus(): { inProgress: boolean } {
-    return { inProgress: this.syncing };
+  getSyncStatus(): { inProgress: boolean; paused: boolean } {
+    return { inProgress: this.syncing, paused: this.paused };
   }
 
   /**
@@ -447,6 +493,13 @@ export class ArtworkService extends EventEmitter {
         break;
       }
 
+      // If paused (e.g. during gameplay), block here until resumed
+      await this.waitIfPaused();
+
+      if (this.cancelled) {
+        break;
+      }
+
       const game = this.libraryService.getGame(gameId);
       if (!game) {
         processed++;
@@ -518,9 +571,19 @@ export class ArtworkService extends EventEmitter {
       }
 
       processed++;
+
+      // Flush batched saves to disk every 10 games to bound data loss on crash
+      if (processed % 10 === 0) {
+        await this.libraryService.flushSave();
+      }
     }
 
+    // Final flush for any remaining batched updates
+    await this.libraryService.flushSave();
+
     this.syncing = false;
+    this.paused = false;
+    this.pauseResolve = null;
     const status: ArtworkSyncStatus = {
       inProgress: false,
       processed,
@@ -531,6 +594,16 @@ export class ArtworkService extends EventEmitter {
     };
     this.emit("syncComplete", status);
     return status;
+  }
+
+  /** Block until the sync is unpaused. Returns immediately if not paused. */
+  private waitIfPaused(): Promise<void> {
+    if (!this.paused) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      this.pauseResolve = resolve;
+    });
   }
 
   /** Enforce rate limiting by waiting if needed since the last API request. */

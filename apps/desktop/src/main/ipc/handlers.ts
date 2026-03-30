@@ -330,8 +330,15 @@ export class IPCHandlers {
       });
     };
 
-    this.emulatorManager.on("gameLaunched", (data) => forwardEvent("emulator:launched", data));
-    this.emulatorManager.on("emulator:exited", (data) => forwardEvent("emulator:exited", data));
+    this.emulatorManager.on("gameLaunched", (data) => {
+      forwardEvent("emulator:launched", data);
+      // Auto-pause artwork sync during gameplay to avoid I/O contention
+      this.artworkService.pause();
+    });
+    this.emulatorManager.on("emulator:exited", (data) => {
+      forwardEvent("emulator:exited", data);
+      this.artworkService.resume();
+    });
     this.emulatorManager.on("emulator:error", (error) => forwardEvent("emulator:error", error));
     this.emulatorManager.on("emulator:stateSaved", (data) =>
       forwardEvent("emulator:stateSaved", data),
@@ -348,10 +355,19 @@ export class IPCHandlers {
     this.emulatorManager.on("emulator:speedChanged", (data) =>
       forwardEvent("emulator:speedChanged", data),
     );
-    this.emulatorManager.on("emulator:terminated", () => forwardEvent("emulator:terminated"));
+    this.emulatorManager.on("emulator:terminated", () => {
+      forwardEvent("emulator:terminated");
+      this.artworkService.resume();
+    });
     this.emulatorManager.on("core:downloadProgress", (data) =>
       forwardEvent("core:downloadProgress", data),
     );
+
+    // Native mode: game window close doesn't go through EmulatorManager events,
+    // so we listen on GameWindowManager directly to resume artwork sync.
+    this.gameWindowManager.on("gameWindowClosed", () => {
+      this.artworkService.resume();
+    });
   }
 
   private setupLibraryHandlers(): void {
@@ -544,6 +560,8 @@ export class IPCHandlers {
 
     this.artworkService.on("progress", (data) => forwardEvent("artwork:progress", data));
     this.artworkService.on("syncComplete", (data) => forwardEvent("artwork:syncComplete", data));
+    this.artworkService.on("paused", () => forwardEvent("artwork:syncPaused"));
+    this.artworkService.on("resumed", () => forwardEvent("artwork:syncResumed"));
 
     ipcMain.handle("artwork:syncGame", async (_event, gameId: string) => {
       try {
@@ -582,6 +600,16 @@ export class IPCHandlers {
 
     ipcMain.handle("artwork:cancelSync", () => {
       this.artworkService.cancelSync();
+      return { success: true };
+    });
+
+    ipcMain.handle("artwork:pause", () => {
+      this.artworkService.pause();
+      return { success: true };
+    });
+
+    ipcMain.handle("artwork:resume", () => {
+      this.artworkService.resume();
       return { success: true };
     });
 
@@ -680,6 +708,11 @@ export class IPCHandlers {
     // before the shutdown handshake completes.
     this.emulatorManager.prepareForQuit();
     await this.emulatorManager.stopEmulator();
+
+    // Stop any in-progress artwork sync and flush pending batched library
+    // writes so artwork downloaded during this session isn't lost on quit.
+    this.artworkService.cancelSync();
+    await this.libraryService.flushSave();
   }
 
   /**
