@@ -47,6 +47,18 @@ interface RomCandidate {
   systemIdFilter?: string;
 }
 
+/** A file whose extension matches multiple systems and requires user disambiguation. */
+export interface AmbiguousRomFile {
+  /** File extension (lowercase, with leading dot). */
+  ext: string;
+  /** Absolute path to the file. */
+  fullPath: string;
+  /** Systems whose extensions include this file's extension. */
+  matchingSystems: Array<GameSystem>;
+  /** File modification time in ms since epoch. */
+  mtimeMs: number;
+}
+
 /** Number of ROM files to hash concurrently. */
 const HASH_CONCURRENCY = 4;
 
@@ -412,6 +424,7 @@ export class LibraryService extends EventEmitter {
     directoryPath: string,
     systemId: string | undefined,
     candidates: Array<RomCandidate>,
+    ambiguousFiles: Array<AmbiguousRomFile>,
   ): Promise<void> {
     let entries;
     try {
@@ -490,12 +503,25 @@ export class LibraryService extends EventEmitter {
           ? this.config.systems.filter((s) => s.id === systemId)
           : this.config.systems;
 
-        const matchedSystem = systems.find((s) => s.extensions.includes(ext));
-        if (!matchedSystem) {
+        const matchingSystems = systems.filter((s) => s.extensions.includes(ext));
+        if (matchingSystems.length === 0) {
           if (systemId) {
             libraryLog.debug(`Skipped ${entry.name}: ext=${ext} not in ${systemId} extensions`);
           }
+        } else if (matchingSystems.length > 1 && !systemId) {
+          // Extension matches multiple systems and no system filter — ambiguous
+          // Skip files already in the library (they have a known system assignment)
+          const existingGameId = this.romPathIndex.get(fullPath);
+          if (!existingGameId) {
+            ambiguousFiles.push({
+              ext,
+              fullPath,
+              matchingSystems,
+              mtimeMs,
+            });
+          }
         } else {
+          const matchedSystem = matchingSystems[0];
           const existingGameId = this.romPathIndex.get(fullPath);
           const existingGame = existingGameId ? this.games.get(existingGameId) : undefined;
 
@@ -515,7 +541,7 @@ export class LibraryService extends EventEmitter {
 
     // Recurse into subdirectories
     for (const { fullPath, resolvedSystemId } of dirEntries) {
-      await this.collectCandidates(fullPath, resolvedSystemId, candidates);
+      await this.collectCandidates(fullPath, resolvedSystemId, candidates, ambiguousFiles);
     }
   }
 
@@ -696,9 +722,22 @@ export class LibraryService extends EventEmitter {
   public async scanDirectory(directoryPath: string, systemId?: string): Promise<Array<Game>> {
     // Phase 1: Fast directory walk — collect all candidate files with stat info
     const candidates: Array<RomCandidate> = [];
-    await this.collectCandidates(directoryPath, systemId, candidates);
+    const ambiguousFiles: Array<AmbiguousRomFile> = [];
+    await this.collectCandidates(directoryPath, systemId, candidates, ambiguousFiles);
+
+    if (ambiguousFiles.length > 0) {
+      libraryLog.info(
+        `Scan: ${ambiguousFiles.length} file(s) have ambiguous system (extension matches multiple systems)`,
+      );
+      this.emit("scanAmbiguous", ambiguousFiles);
+    }
+
+    if (candidates.length === 0 && ambiguousFiles.length === 0) {
+      return [];
+    }
 
     if (candidates.length === 0) {
+      // All files were ambiguous — nothing to process yet
       return [];
     }
 
@@ -729,6 +768,48 @@ export class LibraryService extends EventEmitter {
     libraryLog.info(
       `Scan complete: ${foundGames.length} games (${progressState.skipped} skipped via cache)`,
     );
+
+    if (foundGames.length > 0) {
+      await this.saveLibrary();
+    }
+
+    return foundGames;
+  }
+
+  /**
+   * Process ambiguous files after user has assigned systems to them.
+   * Each entry maps a file path to the chosen system ID.
+   */
+  public async processResolvedFiles(
+    resolved: Array<{ fullPath: string; systemId: string; mtimeMs: number }>,
+  ): Promise<Array<Game>> {
+    const candidates: Array<RomCandidate> = [];
+
+    for (const { fullPath, systemId, mtimeMs } of resolved) {
+      const system = this.config.systems.find((s) => s.id === systemId);
+      if (!system) {
+        continue;
+      }
+      const ext = path.extname(fullPath).toLowerCase();
+      candidates.push({
+        ext,
+        fullPath,
+        isKnown: false,
+        isZip: false,
+        mtimeMs,
+        system,
+        systemIdFilter: systemId,
+      });
+    }
+
+    if (candidates.length === 0) {
+      return [];
+    }
+
+    libraryLog.info(`Processing ${candidates.length} user-resolved ambiguous file(s)`);
+
+    const progressState = { processed: 0, skipped: 0, total: candidates.length };
+    const foundGames = await this.processCandidatesBatch(candidates, progressState);
 
     if (foundGames.length > 0) {
       await this.saveLibrary();
