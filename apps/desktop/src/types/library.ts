@@ -67,10 +67,16 @@ export const DEFAULT_SYSTEMS: Array<GameSystem> = [
     shortName: "Genesis",
   },
   {
-    extensions: [".gb", ".gbc", ".sgb"],
+    extensions: [".gb", ".sgb"],
     id: "gb",
     name: "Game Boy",
     shortName: "GB",
+  },
+  {
+    extensions: [".gbc"],
+    id: "gbc",
+    name: "Game Boy Color",
+    shortName: "GBC",
   },
   {
     extensions: [".gba", ".agb"],

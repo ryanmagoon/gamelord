@@ -74,6 +74,8 @@ export const SYSTEM_BUTTONS: Record<string, ReadonlySet<number>> = {
   nes: new Set([0, 2, 3, 4, 5, 6, 7, 8]),
   /* Game Boy: same as NES */
   gb: new Set([0, 2, 3, 4, 5, 6, 7, 8]),
+  /* Game Boy Color: same as Game Boy */
+  gbc: new Set([0, 2, 3, 4, 5, 6, 7, 8]),
   /* SNES: all standard buttons */
   snes: new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
   /* GBA: D-pad, A, B, L, R, Select, Start (no X/Y) */

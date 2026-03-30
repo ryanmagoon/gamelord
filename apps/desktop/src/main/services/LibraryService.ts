@@ -102,6 +102,7 @@ export class LibraryService extends EventEmitter {
       this.config = JSON.parse(data);
       await this.backfillNewSystems();
       await this.repairMissingRomsPaths();
+      await this.migrateGbcExtensions();
     } catch {
       // If no config exists, create default
       this.config = {
@@ -259,6 +260,7 @@ export class LibraryService extends EventEmitter {
     this.rebuildRomPathIndex();
     await this.migrateGameIds();
     await this.backfillRomHashes();
+    await this.migrateGbcGames();
   }
 
   /** Rebuild reverse indexes from the current games map. */
@@ -341,6 +343,41 @@ export class LibraryService extends EventEmitter {
     if (changed) {
       this.rebuildRomPathIndex();
       await this.saveLibrary();
+    }
+  }
+
+  /**
+   * Remove ".gbc" from the persisted "gb" system config if still present.
+   * Runs during config loading so new scans use the correct system assignment.
+   */
+  private async migrateGbcExtensions(): Promise<void> {
+    const gbSystem = this.config.systems.find((s) => s.id === "gb");
+    if (gbSystem && gbSystem.extensions.includes(".gbc")) {
+      gbSystem.extensions = gbSystem.extensions.filter((ext) => ext !== ".gbc");
+      await this.saveConfig();
+      libraryLog.info('Removed ".gbc" extension from "gb" system config');
+    }
+  }
+
+  /**
+   * Reassign existing .gbc games from the "gb" system to the new "gbc" system.
+   * Runs during library loading to fix games scanned before the split.
+   */
+  private async migrateGbcGames(): Promise<void> {
+    let changed = false;
+
+    for (const game of this.games.values()) {
+      if (game.systemId === "gb" && game.romPath.toLowerCase().endsWith(".gbc")) {
+        game.systemId = "gbc";
+        game.system = "Game Boy Color";
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await this.saveLibrary();
+      const count = [...this.games.values()].filter((g) => g.systemId === "gbc").length;
+      libraryLog.info(`Migrated ${count} Game Boy Color game(s) from "gb" to "gbc" system`);
     }
   }
 

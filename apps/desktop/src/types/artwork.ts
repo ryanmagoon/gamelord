@@ -2,6 +2,7 @@
 export const SYSTEM_ID_MAP: Record<string, number> = {
   arcade: 75,
   gb: 9,
+  gbc: 10,
   gba: 12,
   genesis: 1,
   n64: 14,

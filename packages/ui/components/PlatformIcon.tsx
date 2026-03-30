@@ -18,6 +18,17 @@ const platformIcons: Record<string, React.FC<{ className?: string }>> = {
       <rect x="11" y="10" width="2" height="2" />
     </svg>
   ),
+  GBC: ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="2" width="12" height="20" rx="1.5" />
+      <rect x="8" y="4" width="8" height="7" rx="0.5" />
+      <rect x="9" y="13" width="2" height="2" />
+      <rect x="13" y="13" width="2" height="2" />
+      <rect x="11" y="15" width="2" height="2" />
+      <rect x="11" y="11" width="2" height="2" />
+      <circle cx="15" cy="5.5" r="0.8" />
+    </svg>
+  ),
   GBA: ({ className }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
       <rect x="4" y="8" width="16" height="8" rx="2" />
