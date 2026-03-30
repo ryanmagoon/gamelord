@@ -436,6 +436,69 @@ describe("ArtworkService", () => {
       );
     });
 
+    it("persists romRegions on the game record when present in API response", async () => {
+      const game = makeGame({
+        id: "persist-rom-regions",
+        title: "Albert Odyssey",
+        system: "Super Nintendo Entertainment System",
+        systemId: "snes",
+      });
+      const libraryService = createMockLibraryService([game]);
+      const service = new ArtworkService(libraryService);
+      await flushPromises();
+      await service.setCredentials("user", "pass");
+
+      mockFetchByHash.mockResolvedValue({
+        title: "Albert Odyssey",
+        region: "ss",
+        romRegions: ["jp"],
+        developer: "Sunsoft",
+        publisher: "Sunsoft",
+        genre: "RPG",
+        players: 1,
+        rating: 0.7,
+        releaseDate: "1993-03-05",
+        media: {},
+      });
+
+      await service.syncGame("persist-rom-regions");
+
+      expect(libraryService.updateGame).toHaveBeenCalledWith(
+        "persist-rom-regions",
+        expect.objectContaining({ romRegions: ["jp"] }),
+      );
+    });
+
+    it("does not include romRegions in update when absent from API response", async () => {
+      const game = makeGame({
+        id: "no-rom-regions",
+        title: "Search Result Game",
+        system: "Super Nintendo Entertainment System",
+        systemId: "snes",
+      });
+      const libraryService = createMockLibraryService([game]);
+      const service = new ArtworkService(libraryService);
+      await flushPromises();
+      await service.setCredentials("user", "pass");
+
+      mockFetchByHash.mockResolvedValue({
+        title: "Search Result Game",
+        region: "us",
+        developer: "Dev",
+        publisher: "Pub",
+        genre: "Action",
+        players: 1,
+        rating: 0.8,
+        releaseDate: "1993-01-01",
+        media: {},
+      });
+
+      await service.syncGame("no-rom-regions");
+
+      const updateCall = vi.mocked(libraryService.updateGame).mock.calls[0][1];
+      expect(updateCall).not.toHaveProperty("romRegions");
+    });
+
     it("falls back to title region when romRegions is absent", async () => {
       const game = makeGame({
         id: "jp-title-only",
