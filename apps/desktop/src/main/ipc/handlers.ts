@@ -362,6 +362,12 @@ export class IPCHandlers {
     this.emulatorManager.on("core:downloadProgress", (data) =>
       forwardEvent("core:downloadProgress", data),
     );
+
+    // Native mode: game window close doesn't go through EmulatorManager events,
+    // so we listen on GameWindowManager directly to resume artwork sync.
+    this.gameWindowManager.on("gameWindowClosed", () => {
+      this.artworkService.resume();
+    });
   }
 
   private setupLibraryHandlers(): void {
