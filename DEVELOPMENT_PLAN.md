@@ -191,7 +191,16 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Per-game input mappings — override default bindings on a per-game or per-system basis — [#82](https://github.com/ryanmagoon/gamelord/issues/82)
 - [ ] **Remap UI navigation buttons** — Let users customize which controller buttons map to UI actions (select, back, menu, etc.) separately from in-game bindings. — [#140](https://github.com/ryanmagoon/gamelord/issues/140)
 
-### P6 — Rewind
+### P6 — Core Options Configuration
+
+Expose libretro core options to users so they can tune emulator behavior (hardware renderer, CPU overclock, audio interpolation, etc.) per-core and per-game. The native addon already parses options and stores key→value defaults, but discards all metadata (descriptions, allowed values, categories). The approach is schema-driven: the addon returns a full runtime schema, the UI renders dynamically from it, and a curated "recommended" subset gets prominent placement while advanced users can access the full list.
+
+- [ ] **Native addon — expose full core option metadata** — Extend parse functions to preserve descriptions, allowed values (with labels), categories, and defaults. New `getCoreOptionsSchema()` method. — [#253](https://github.com/ryanmagoon/gamelord/issues/253)
+- [ ] **Worker/IPC — wire up core options commands** — Add `getCoreOptionsSchema` and `setCoreOption` to worker protocol, IPC handlers for renderer access. — [#254](https://github.com/ryanmagoon/gamelord/issues/254)
+- [ ] **Persistence — per-game and per-core option overrides** — Store overrides in database with resolution hierarchy (per-game > per-core > core defaults). Apply merged overrides before first `retro_run()`. — [#255](https://github.com/ryanmagoon/gamelord/issues/255)
+- [ ] **UI — core options settings panel** — Dynamic settings panel accessible from game detail and global core settings. Options grouped by category, dropdowns with descriptions, visual override indicators, reset buttons. Recommended/advanced split. Storybook stories for all states. — [#256](https://github.com/ryanmagoon/gamelord/issues/256)
+
+### P7 — Rewind
 
 - [ ] Implement frame-state ring buffer — capture serialized save states every N frames — [#83](https://github.com/ryanmagoon/gamelord/issues/83)
 - [ ] Hold-to-rewind input binding (rewind button replays buffered states in reverse) — [#83](https://github.com/ryanmagoon/gamelord/issues/83)
@@ -231,7 +240,7 @@ Sync SRAM/battery saves (.srm) across GameLord desktop instances, Android retro 
 
 - [ ] **Cloud save sync with conflict resolution** — Vector clocks for multi-device causal ordering, auto-resolution heuristics ("newest wins"), save version retention policy, save version diffing. — [#53](https://github.com/ryanmagoon/gamelord/issues/53)
 
-### P7 — Online Multiplayer
+### P8 — Online Multiplayer
 
 - [ ] **Relay server for input synchronization** — persistent WebSocket connections on Fly.io/Railway (not serverless). Binary protocol for input frames, room-based routing, sub-5ms relay latency target. — [#50](https://github.com/ryanmagoon/gamelord/issues/50)
 - [ ] **Rollback-based netcode** — latency hiding via save state serialization: roll back to last confirmed state, replay with correct inputs, snap forward. State ring buffer, input history buffer, configurable rollback window (~7 frames / 117ms). — [#51](https://github.com/ryanmagoon/gamelord/issues/51)
@@ -290,7 +299,7 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [x] **Auto-updates** — `electron-updater` + GitHub Releases. Check on launch + every 6 hours. Non-intrusive update notification with progress bar. — [#185](https://github.com/ryanmagoon/gamelord/issues/185)
 - [x] **Nightly builds** — Scheduled GitHub Actions workflow (daily + manual dispatch). Auto-tags `nightly-YYYY-MM-DD`, publishes as pre-release, skips if no new commits, prunes old nightlies (keeps last 7).
 
-### P8 — UI Polish
+### P9 — UI Polish
 
 - [x] **Synthesized UI sound effects** — Web Audio API-based SFX system with 20 retro/8-bit sounds generated programmatically (no bundled files). Covers button clicks, toggles, confirmations, menu open/close, save/load state, pause/resume, power on/off, dialogs, screenshot, favorites, sync notifications, fast forward, and game launch. Sound-to-action audit: fixed mismatched sounds (toggleOff on confirmations, dialogClose on positive actions), added `confirm` (bright affirming chirp for primary actions), `menuOpen`/`menuClose` (subtle ticks for dropdown menus), and filled gaps across library toolbar buttons, system filter tabs, game options dialog, credentials dialog, settings dialog open/close, and game window dropdown menus. Separate AudioContext from emulation audio with independent volume control. SFX toggle and volume slider in game window settings. Preferences persisted to localStorage.
 - [ ] **TV static animation hitches during artwork sync** ([#23](https://github.com/ryanmagoon/gamelord/issues/23)) — When artwork syncs for any card (download, error, or not-found), all other cards' TV static animations freeze momentarily. React-level optimizations already applied: stable style refs for React.memo (`useFlipAnimation`), shared `TVStaticManager` singleton (one rAF loop instead of 50+), per-game `UiGame` object cache, and `ArtworkSyncStore` backed by `useSyncExternalStore` to bypass parent re-renders. Hitches persist — likely caused by browser-level bottleneck: canvas `putImageData` cost across 50+ canvases, forced reflow during `useAspectRatioTransition` height changes, or image decode blocking the main thread. Next steps: profile with Chrome DevTools Performance panel to identify the exact frame-time spike, consider `OffscreenCanvas` in a Web Worker for noise generation, investigate batching `putImageData` calls with `requestIdleCallback`, and test whether pausing static on off-screen cards via `IntersectionObserver` eliminates the jank.
@@ -316,7 +325,7 @@ Tracking issue for the first alpha release. All items below must be completed be
 - [x] **Visual regression testing** — Chromatic integrated with Storybook. CI runs Chromatic on every PR. TV static renders a solid placeholder in Chromatic snapshots to avoid subpixel aliasing diffs from canvas scaling and gradient overlays. Storybook deployed to Vercel as a separate project (`packages/ui/vercel.json`).
 - [x] **Graceful app startup (Phase 1)** — Eliminated FOUC: `show: false` + `ready-to-show` on BrowserWindow, `backgroundColor: '#0a0a0a'`, `<meta name="color-scheme" content="dark">` + inline critical CSS in `index.html`, `#root` opacity fade-in on React mount. Phase 2 (future): branded splash/loading state, staggered UI element cascade, CRT power-on flicker effect on startup. — [#125](https://github.com/ryanmagoon/gamelord/issues/125)
 
-### P9 — Packaging & Distribution
+### P10 — Packaging & Distribution
 
 - [ ] Bundle libretro cores with the app — [#98](https://github.com/ryanmagoon/gamelord/issues/98)
 - [x] **Bundled homebrew ROMs** — Initial implementation ships 3 NES homebrew ROMs (Lawn Mower, NESert Golfing, 8-Bit Table Tennis) with permissive licenses. Auto-imported via HomebrewService on first launch when library is empty. Future work: expand to additional systems (SNES, GB, GBA, Genesis). — [#139](https://github.com/ryanmagoon/gamelord/issues/139)
@@ -330,14 +339,14 @@ Tracking issue for the first alpha release. All items below must be completed be
   - [x] **Windows release packaging + CI** — Windows runner added to release and nightly workflows, builds NSIS installer + ZIP, publishes to GitHub Releases alongside macOS artifacts. Unsigned for now (SmartScreen warning, click through). — [#205](https://github.com/ryanmagoon/gamelord/issues/205)
   - [ ] **Linux support** — Core downloading with XDG paths, titlebar behavior across DEs, electron-builder targets (AppImage/deb/rpm/snap), CI Linux matrix, app icon. — [#206](https://github.com/ryanmagoon/gamelord/issues/206)
 
-### P10 — Web Presence (Vercel)
+### P11 — Web Presence (Vercel)
 
 - [ ] **gamelord.app landing page** — Next.js on Vercel. Hero, feature showcase, screenshot gallery, download links, changelog. Dark theme matching app aesthetic. — [#60](https://github.com/ryanmagoon/gamelord/issues/60)
 - [ ] Documentation site (`docs.gamelord.app`) — Next.js + MDX or Astro — [#99](https://github.com/ryanmagoon/gamelord/issues/99)
 - [ ] **User profile dashboard** — achievements, play history, library stats. Public/private toggle. Activity feed. — [#48](https://github.com/ryanmagoon/gamelord/issues/48)
 - [ ] Multiplayer lobby/matchmaking API — pairs with P7 relay server (#50) (relay itself should NOT be on Vercel — needs persistent WebSocket connections, use Fly.io/Railway/VPS) — [#100](https://github.com/ryanmagoon/gamelord/issues/100)
 
-### P11 — Native Addon Hardening
+### P12 — Native Addon Hardening
 
 - [ ] **Replace dynamic `require()` with proper native addon loading** — [#10](https://github.com/ryanmagoon/gamelord/issues/10)
 - [ ] **Enable C++ exceptions or remove STL** — `NAPI_DISABLE_CPP_EXCEPTIONS` is set but `std::vector` can throw on allocation failure; either enable exceptions or use pre-allocated fixed buffers — [#101](https://github.com/ryanmagoon/gamelord/issues/101)
