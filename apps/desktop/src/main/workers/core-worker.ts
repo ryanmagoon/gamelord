@@ -427,10 +427,15 @@ function startEmulationLoop(): void {
       }
     }
 
-    // Drain buffered log messages from the native addon
+    // Drain buffered log messages from the native addon.
+    // Skip debug-level (0) messages — cores like mGBA emit thousands of
+    // DMA/IRQ trace messages per second at debug level, which flood IPC
+    // and throttle the main process.
     const logs = native.getLogMessages();
     for (const entry of logs) {
-      send({ type: "log", level: entry.level, message: entry.message });
+      if (entry.level > 0) {
+        send({ type: "log", level: entry.level, message: entry.message });
+      }
     }
 
     scheduleNext();
@@ -498,10 +503,13 @@ function startEmulationLoop(): void {
         }
       }
 
-      // Drain buffered log messages from the native addon
+      // Drain buffered log messages from the native addon.
+      // Skip debug-level (0) — see fast-forward tick comment above.
       const logs = native.getLogMessages();
       for (const entry of logs) {
-        send({ type: "log", level: entry.level, message: entry.message });
+        if (entry.level > 0) {
+          send({ type: "log", level: entry.level, message: entry.message });
+        }
       }
     }
 
