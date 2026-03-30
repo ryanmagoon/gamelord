@@ -269,7 +269,10 @@ export class ArtworkService extends EventEmitter {
     // Step 5: Update game record (including regional system name if applicable)
     // Uses batched update when called from a sync batch to avoid rewriting
     // library.json after every game. The batch loop calls flushSave() periodically.
-    const regionalName = getRegionalSystemName(game.systemId, gameInfo.region);
+    // Prefer ROM-level region (from the matched ROM dump) over title-level region
+    // (which is biased by REGION_PRIORITY toward US even for JP-only games).
+    const effectiveRegion = gameInfo.romRegions?.[0] ?? gameInfo.region;
+    const regionalName = getRegionalSystemName(game.systemId, effectiveRegion);
     const updates: Partial<typeof game> = {
       ...(coverArtPath && artworkUrl
         ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl)}` }

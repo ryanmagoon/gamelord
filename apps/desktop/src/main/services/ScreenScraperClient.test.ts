@@ -343,6 +343,78 @@ describe("ScreenScraperClient", () => {
     });
   });
 
+  describe("ROM-level region extraction", () => {
+    it("extracts romRegions from jeu.rom.regions.regions_shortname", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: {
+          id: "28582",
+          rommd5: "8131F775F2802410A27F0579F5AB93BD",
+          regions: {
+            regions_shortname: ["jp"],
+            regions_en: ["Japan"],
+          },
+        },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).romRegions).toEqual(["jp"]);
+    });
+
+    it("extracts multi-region ROMs", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: {
+          id: "1234",
+          regions: {
+            regions_shortname: ["eu", "us"],
+          },
+        },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).romRegions).toEqual(["eu", "us"]);
+    });
+
+    it("omits romRegions when jeu.rom is absent (search results)", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture();
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).romRegions).toBeUndefined();
+    });
+
+    it("omits romRegions when rom has no regions field", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: { id: "1234", rommd5: "abc" },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).romRegions).toBeUndefined();
+    });
+
+    it("omits romRegions when regions_shortname is empty", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: {
+          id: "1234",
+          regions: { regions_shortname: [] },
+        },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).romRegions).toBeUndefined();
+    });
+
+    it("filters out non-string entries in regions_shortname", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: {
+          id: "1234",
+          regions: { regions_shortname: ["jp", "", null, 42, "us"] },
+        },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).romRegions).toEqual(["jp", "us"]);
+    });
+  });
+
   describe("media selection", () => {
     it("returns undefined when no media of requested type exists", () => {
       const client = new ScreenScraperClient(dummyCredentials);

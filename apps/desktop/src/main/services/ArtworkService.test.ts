@@ -400,6 +400,74 @@ describe("ArtworkService", () => {
       );
     });
 
+    it("prefers ROM-level region over title-level region for system name", async () => {
+      const game = makeGame({
+        id: "jp-rom-ss-title",
+        title: "Albert Odyssey",
+        system: "Super Nintendo Entertainment System",
+        systemId: "snes",
+      });
+      const libraryService = createMockLibraryService([game]);
+      const service = new ArtworkService(libraryService);
+      await flushPromises();
+      await service.setCredentials("user", "pass");
+
+      // Simulates a JP-only game where the title region resolves to "ss"
+      // (ScreenScraper default) because of REGION_PRIORITY, but the ROM's
+      // actual region is "jp".
+      mockFetchByHash.mockResolvedValue({
+        title: "Albert Odyssey",
+        region: "ss",
+        romRegions: ["jp"],
+        developer: "Sunsoft",
+        publisher: "Sunsoft",
+        genre: "RPG",
+        players: 1,
+        rating: 0.7,
+        releaseDate: "1993-03-05",
+        media: {},
+      });
+
+      await service.syncGame("jp-rom-ss-title");
+
+      expect(libraryService.updateGame).toHaveBeenCalledWith(
+        "jp-rom-ss-title",
+        expect.objectContaining({ system: "Super Famicom" }),
+      );
+    });
+
+    it("falls back to title region when romRegions is absent", async () => {
+      const game = makeGame({
+        id: "jp-title-only",
+        title: "Some Japanese Game",
+        system: "Super Nintendo Entertainment System",
+        systemId: "snes",
+      });
+      const libraryService = createMockLibraryService([game]);
+      const service = new ArtworkService(libraryService);
+      await flushPromises();
+      await service.setCredentials("user", "pass");
+
+      mockFetchByHash.mockResolvedValue({
+        title: "Some Japanese Game",
+        region: "jp",
+        developer: "Dev",
+        publisher: "Pub",
+        genre: "RPG",
+        players: 1,
+        rating: 0.8,
+        releaseDate: "1993-01-01",
+        media: {},
+      });
+
+      await service.syncGame("jp-title-only");
+
+      expect(libraryService.updateGame).toHaveBeenCalledWith(
+        "jp-title-only",
+        expect.objectContaining({ system: "Super Famicom" }),
+      );
+    });
+
     it("updates system to Mega Drive for Genesis game with EU region", async () => {
       const game = makeGame({
         id: "eu-genesis-game",
