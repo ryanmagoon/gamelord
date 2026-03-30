@@ -708,6 +708,11 @@ export class IPCHandlers {
     // before the shutdown handshake completes.
     this.emulatorManager.prepareForQuit();
     await this.emulatorManager.stopEmulator();
+
+    // Stop any in-progress artwork sync and flush pending batched library
+    // writes so artwork downloaded during this session isn't lost on quit.
+    this.artworkService.cancelSync();
+    await this.libraryService.flushSave();
   }
 
   /**
