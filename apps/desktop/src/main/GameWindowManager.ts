@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, MessageChannelMain, nativeImage, screen } from "electron";
 import path from "node:path";
+import { EventEmitter } from "node:events";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { Game } from "../types/library";
@@ -20,7 +21,7 @@ export type GameWindowMode = "overlay" | "native";
 /** Max time to wait for the renderer's shutdown animation + OS window fade before force-closing. */
 const SHUTDOWN_ANIMATION_TIMEOUT = 2000;
 
-export class GameWindowManager {
+export class GameWindowManager extends EventEmitter {
   private gameWindows = new Map<string, BrowserWindow>();
   private trackingIntervals = new Map<string, ReturnType<typeof setInterval>>();
   private frameIntervals = new Map<string, ReturnType<typeof setInterval>>();
@@ -32,6 +33,7 @@ export class GameWindowManager {
   private shutdownTimeouts = new Map<number, ReturnType<typeof setTimeout>>();
 
   constructor(preloadPath: string) {
+    super();
     this.preloadPath = preloadPath;
     this.setupIpcHandlers();
   }
@@ -279,6 +281,8 @@ export class GameWindowManager {
       workerClient.shutdown().catch((error) => {
         gameWindowLog.warn("Worker shutdown after window close failed:", error);
       });
+
+      this.emit("gameWindowClosed", { gameId: game.id });
     });
 
     this.gameWindows.set(game.id, gameWindow);

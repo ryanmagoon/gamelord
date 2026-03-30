@@ -10,10 +10,10 @@ Before manually testing any emulator functionality, ensure the native addon is b
 
 ## Worktree Setup
 
-When working in a git worktree (`.claude/worktrees/`), dependencies and build artifacts are not shared with the main repo. After `pnpm install`, also run:
+When working in a git worktree (`.claude/worktrees/`), dependencies and build artifacts are not shared with the main repo. After `pnpm install`, run:
 
-1. **Build the native addon** (see above).
-2. **Symlink `.env`** — `ln -s /Users/ryanmagoon/code/gamelord/apps/desktop/.env apps/desktop/.env`. The worktree only has `.env.example`; the real credentials (ScreenScraper, etc.) live in the main repo.
+1. **`./scripts/setup-worktree.sh`** — Symlinks `.env` and any other shared files from the main repo. Safe to run multiple times. This replaces the manual symlink step.
+2. **Build the native addon** (see above).
 
 ### Rename auto-generated worktree branches
 

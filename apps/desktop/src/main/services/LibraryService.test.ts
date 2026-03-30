@@ -2131,4 +2131,68 @@ describe("LibraryService", () => {
       fs.unlinkSync(romPath);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // updateGameBatched / flushSave
+  // ---------------------------------------------------------------------------
+
+  describe("updateGameBatched", () => {
+    it("updates in-memory state without writing to disk", async () => {
+      const romPath = path.join(ROMS_DIR, "batched_test.nes");
+      fs.writeFileSync(romPath, "batched-data");
+
+      const service = await createService();
+      const game = await service.addGame(romPath, "nes");
+      expect(game).not.toBeNull();
+
+      // Read the library.json after the addGame write
+      const diskBefore = fs.readFileSync(path.join(USER_DATA_DIR, "library.json"), "utf8");
+
+      service.updateGameBatched(game!.id, { title: "New Title" });
+
+      // In-memory should be updated
+      const updated = service.getGame(game!.id);
+      expect(updated?.title).toBe("New Title");
+
+      // Disk should be unchanged
+      const diskAfter = fs.readFileSync(path.join(USER_DATA_DIR, "library.json"), "utf8");
+      expect(diskAfter).toBe(diskBefore);
+
+      fs.unlinkSync(romPath);
+    });
+
+    it("flushSave writes pending batched changes to disk", async () => {
+      const romPath = path.join(ROMS_DIR, "flush_test.nes");
+      fs.writeFileSync(romPath, "flush-data");
+
+      const service = await createService();
+      const game = await service.addGame(romPath, "nes");
+      expect(game).not.toBeNull();
+
+      service.updateGameBatched(game!.id, { title: "Flushed Title" });
+      await service.flushSave();
+
+      // Verify by loading from disk with a fresh service
+      const service2 = await createService();
+      const persisted = service2.getGame(game!.id);
+      expect(persisted?.title).toBe("Flushed Title");
+
+      fs.unlinkSync(romPath);
+    });
+
+    it("flushSave is a no-op when nothing is dirty", async () => {
+      const service = await createService();
+
+      // Spy on saveLibrary (private, accessed via prototype)
+      const saveSpy = vi.spyOn(
+        service as unknown as Record<string, () => Promise<void>>,
+        "saveLibrary",
+      );
+
+      await service.flushSave();
+      expect(saveSpy).not.toHaveBeenCalled();
+
+      saveSpy.mockRestore();
+    });
+  });
 });

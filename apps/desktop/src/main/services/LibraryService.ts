@@ -72,6 +72,8 @@ export class LibraryService extends EventEmitter {
   private configPath: string;
   private libraryPath: string;
   private romsCacheDir: string;
+  /** Tracks whether batched updates need flushing to disk. */
+  private dirty = false;
 
   constructor() {
     super();
@@ -935,6 +937,33 @@ export class LibraryService extends EventEmitter {
       }
       await this.saveLibrary();
     }
+  }
+
+  /**
+   * Update a game's in-memory state without immediately writing to disk.
+   * Call `flushSave()` when you're done with the batch to persist.
+   * Used during artwork sync to avoid rewriting library.json after every game.
+   */
+  public updateGameBatched(gameId: string, updates: Partial<Game>): void {
+    const game = this.games.get(gameId);
+    if (game) {
+      const oldRomPath = game.romPath;
+      Object.assign(game, updates);
+      if (updates.romPath && updates.romPath !== oldRomPath) {
+        this.romPathIndex.delete(oldRomPath);
+        this.romPathIndex.set(updates.romPath, gameId);
+      }
+      this.dirty = true;
+    }
+  }
+
+  /** Persist pending batched updates to disk. No-op if nothing changed. */
+  public async flushSave(): Promise<void> {
+    if (!this.dirty) {
+      return;
+    }
+    this.dirty = false;
+    await this.saveLibrary();
   }
 
   public getConfig(): LibraryConfig {
