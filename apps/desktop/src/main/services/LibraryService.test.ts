@@ -1517,6 +1517,123 @@ describe("LibraryService", () => {
     });
   });
 
+  describe("migrateGbcSystem", () => {
+    it("reassigns .gbc games from gb to gbc system on load", async () => {
+      const gbRomPath = path.join(ROMS_DIR, "tetris.gb");
+      const gbcRomPath = path.join(ROMS_DIR, "pokemon_crystal.gbc");
+      fs.writeFileSync(gbRomPath, "gb-content");
+      fs.writeFileSync(gbcRomPath, "gbc-content");
+
+      const gbId = sha256File(gbRomPath);
+      const gbcId = sha256File(gbcRomPath);
+      const gbHashes = computeExpectedHashes("gb-content");
+      const gbcHashes = computeExpectedHashes("gbc-content");
+
+      const games = [
+        {
+          id: gbId,
+          romPath: gbRomPath,
+          romHashes: gbHashes,
+          system: "Game Boy",
+          systemId: "gb",
+          title: "Tetris",
+        },
+        {
+          id: gbcId,
+          romPath: gbcRomPath,
+          romHashes: gbcHashes,
+          system: "Game Boy",
+          systemId: "gb",
+          title: "Pokemon Crystal",
+        },
+      ];
+      fs.writeFileSync(path.join(USER_DATA_DIR, "library.json"), JSON.stringify(games, null, 2));
+
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const loadedGames = service.getGames();
+      expect(loadedGames).toHaveLength(2);
+
+      const gbGame = loadedGames.find((g) => g.id === gbId);
+      const gbcGame = loadedGames.find((g) => g.id === gbcId);
+
+      expect(gbGame?.systemId).toBe("gb");
+      expect(gbGame?.system).toBe("Game Boy");
+
+      expect(gbcGame?.systemId).toBe("gbc");
+      expect(gbcGame?.system).toBe("Game Boy Color");
+
+      fs.unlinkSync(gbRomPath);
+      fs.unlinkSync(gbcRomPath);
+    });
+
+    it("removes .gbc extension from persisted gb system config", async () => {
+      // Write a config where gb still has .gbc in its extensions (pre-migration)
+      const legacyConfig = {
+        autoScan: false,
+        romsBasePath: ROMS_DIR,
+        scanRecursive: true,
+        systems: [
+          {
+            extensions: [".gb", ".gbc", ".sgb"],
+            id: "gb",
+            name: "Game Boy",
+            shortName: "GB",
+          },
+        ],
+      };
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(legacyConfig, null, 2),
+      );
+
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const config = service.getConfig();
+      const gbSystem = config.systems.find((s) => s.id === "gb");
+      expect(gbSystem?.extensions).not.toContain(".gbc");
+      expect(gbSystem?.extensions).toContain(".gb");
+      expect(gbSystem?.extensions).toContain(".sgb");
+
+      // GBC system should have been backfilled
+      const gbcSystem = config.systems.find((s) => s.id === "gbc");
+      expect(gbcSystem).toBeDefined();
+      expect(gbcSystem?.extensions).toEqual([".gbc"]);
+    });
+
+    it("is a no-op when no .gbc games exist", async () => {
+      const gbRomPath = path.join(ROMS_DIR, "tetris_noop.gb");
+      fs.writeFileSync(gbRomPath, "gb-only-content");
+
+      const gbId = sha256File(gbRomPath);
+      const gbHashes = computeExpectedHashes("gb-only-content");
+
+      const games = [
+        {
+          id: gbId,
+          romPath: gbRomPath,
+          romHashes: gbHashes,
+          system: "Game Boy",
+          systemId: "gb",
+          title: "Tetris",
+        },
+      ];
+      fs.writeFileSync(path.join(USER_DATA_DIR, "library.json"), JSON.stringify(games, null, 2));
+
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const loadedGames = service.getGames();
+      expect(loadedGames).toHaveLength(1);
+      expect(loadedGames[0].systemId).toBe("gb");
+      expect(loadedGames[0].system).toBe("Game Boy");
+
+      fs.unlinkSync(gbRomPath);
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // Zip extraction during scan
   // ---------------------------------------------------------------------------

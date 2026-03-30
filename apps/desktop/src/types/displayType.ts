@@ -13,6 +13,7 @@ export type DisplayType = "crt" | "lcd-handheld" | "lcd-portable";
 const SYSTEM_DISPLAY_MAP: Record<string, DisplayType> = {
   arcade: "crt",
   gb: "lcd-handheld",
+  gbc: "lcd-handheld",
   gba: "lcd-handheld",
   genesis: "crt",
   n64: "crt",
