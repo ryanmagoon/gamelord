@@ -26,6 +26,7 @@ import { LibraryView } from "./components/LibraryView";
 import { ResumeGameDialog } from "./components/ResumeGameDialog";
 import { CoreSelectDialog } from "./components/CoreSelectDialog";
 import { SettingsDialog } from "./components/Settings/SettingsDialog";
+import { SystemDisambiguationDialog } from "./components/SystemDisambiguationDialog";
 import type { GamelordAPI, CoreInfo } from "./types/global";
 
 interface ResumeDialogState {
@@ -103,6 +104,18 @@ function App() {
   const [launchError, setLaunchError] = useState<string | null>(null);
   /** Settings dialog state. */
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  /** System disambiguation dialog state. */
+  const [disambiguationDialog, setDisambiguationDialog] = useState<{
+    open: boolean;
+    requestId: string;
+    files: Array<{
+      ext: string;
+      fullPath: string;
+      matchingSystems: Array<{ id: string; name: string; shortName: string }>;
+      mtimeMs: number;
+    }>;
+  }>({ open: false, requestId: "", files: [] });
 
   /** Auto-update notification state. */
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>("idle");
@@ -222,6 +235,47 @@ function App() {
       setResumeDialog((previous) => ({ ...previous, open: false }));
     },
     [api, resumeDialog.requestId, resumeDialog.gameId, playSfx],
+  );
+
+  // Listen for system disambiguation dialog requests from main process
+  useEffect(() => {
+    if (!api?.on) {
+      return undefined;
+    }
+
+    const handleScanAmbiguous = (raw: unknown) => {
+      const data = raw as {
+        requestId: string;
+        files: Array<{
+          ext: string;
+          fullPath: string;
+          matchingSystems: Array<{ id: string; name: string; shortName: string }>;
+          mtimeMs: number;
+        }>;
+      };
+
+      playSfxRef.current("dialogOpen");
+      setDisambiguationDialog({
+        open: true,
+        requestId: data.requestId,
+        files: data.files,
+      });
+    };
+
+    api.on("library:scanAmbiguous", handleScanAmbiguous);
+
+    return () => {
+      api.removeAllListeners("library:scanAmbiguous");
+    };
+  }, [api]);
+
+  const handleDisambiguationResolve = useCallback(
+    (resolved: Array<{ fullPath: string; systemId: string; mtimeMs: number }>) => {
+      playSfx(resolved.length > 0 ? "confirm" : "dialogClose");
+      api.dialog.respondDisambiguate(disambiguationDialog.requestId, resolved);
+      setDisambiguationDialog((previous) => ({ ...previous, open: false }));
+    },
+    [api, disambiguationDialog.requestId, playSfx],
   );
 
   /** Applies the dark class to <html> with a smooth crossfade transition. */
@@ -566,6 +620,13 @@ function App() {
             onSelect={handleCoreSelect}
             onCancel={handleCoreSelectCancel}
             suppressOverlayAnimation={coreSelectDialog.fromDropdown}
+          />
+
+          {/* System disambiguation dialog */}
+          <SystemDisambiguationDialog
+            open={disambiguationDialog.open}
+            files={disambiguationDialog.files}
+            onResolve={handleDisambiguationResolve}
           />
         </div>
       )}
