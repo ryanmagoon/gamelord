@@ -1,4 +1,10 @@
-import type { GameSystem, Game, LibraryConfig, CheatEntry, GameCheatState } from "../../types/library";
+import type {
+  GameSystem,
+  Game,
+  LibraryConfig,
+  CheatEntry,
+  GameCheatState,
+} from "../../types/library";
 
 export interface CoreInfo {
   name: string;
