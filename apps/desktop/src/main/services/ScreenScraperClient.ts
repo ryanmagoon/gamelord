@@ -200,6 +200,16 @@ export class ScreenScraperClient {
       screenshot: this.selectMedia(medias, "ss"),
     };
 
+    // Extract ROM-level regions from the matched ROM entry (hash-based lookups only).
+    // jeu.rom is the specific ROM that matched the hash; its regions.regions_shortname
+    // contains the actual release regions for that ROM dump (e.g., ["jp"] for a JP ROM).
+    const rom = jeu.rom as Record<string, unknown> | undefined;
+    const romRegionsObj = rom?.regions as Record<string, unknown> | undefined;
+    const romRegionsRaw = romRegionsObj?.regions_shortname;
+    const romRegions = Array.isArray(romRegionsRaw)
+      ? (romRegionsRaw as Array<string>).filter((r) => typeof r === "string" && r.length > 0)
+      : undefined;
+
     return {
       developer,
       genre,
@@ -209,6 +219,7 @@ export class ScreenScraperClient {
       rating,
       region,
       releaseDate,
+      ...(romRegions && romRegions.length > 0 ? { romRegions } : {}),
       synopsis,
       title,
     };

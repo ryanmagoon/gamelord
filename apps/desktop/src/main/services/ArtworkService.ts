@@ -26,7 +26,7 @@ import {
   ScreenScraperGameInfo,
 } from "../../types/artwork";
 import { readImageDimensions } from "../utils/readImageDimensions";
-import { getRegionalSystemName } from "../../types/library";
+import { Game, getRegionalSystemName } from "../../types/library";
 
 /**
  * Maximum width for downloaded artwork images (in pixels).
@@ -62,6 +62,7 @@ export class ArtworkService extends EventEmitter {
   private paused = false;
   private pauseResolve: (() => void) | null = null;
   private lastRequestTime = 0;
+  private configLoaded: Promise<void>;
 
   constructor(libraryService: LibraryService) {
     super();
@@ -69,10 +70,12 @@ export class ArtworkService extends EventEmitter {
     const userData = app.getPath("userData");
     this.artworkDirectory = path.join(userData, "artwork");
     this.configPath = path.join(userData, "artwork-config.json");
-    this.loadConfig();
+    this.configLoaded = this.loadConfig();
 
     // Backfill aspect ratios for games that have cover art but no stored ratio
     void this.backfillAspectRatios();
+    // Backfill ROM regions for games synced before region tracking was added
+    void this.backfillRomRegions();
   }
 
   /**
@@ -117,6 +120,78 @@ export class ArtworkService extends EventEmitter {
         );
       }
     }
+  }
+
+  /**
+   * One-time backfill for games synced before ROM-level region tracking.
+   * Queries ScreenScraper by hash (no artwork download) to get romRegions,
+   * then re-derives the regional system display name. Skips games that
+   * already have romRegions or that lack metadata (never synced).
+   * Requires credentials — silently skips if unconfigured.
+   */
+  private async backfillRomRegions(): Promise<void> {
+    // Wait for config to load (fire-and-forget constructor)
+    await this.configLoaded;
+
+    if (!this.hasCredentials()) {
+      return;
+    }
+
+    const games = this.libraryService.getGames();
+    const needsBackfill = games.filter(
+      (g) => g.metadata && (!g.romRegions || g.romRegions.length === 0),
+    );
+
+    if (needsBackfill.length === 0) {
+      return;
+    }
+
+    artworkLog.info(`Backfilling ROM regions for ${needsBackfill.length} game(s)`);
+
+    let client: ScreenScraperClient;
+    try {
+      client = this.createClient();
+    } catch {
+      return; // Dev credentials missing — skip silently
+    }
+
+    for (const game of needsBackfill) {
+      // Don't conflict with a user-initiated sync
+      if (this.syncing) {
+        artworkLog.info("ROM region backfill paused — artwork sync in progress");
+        return;
+      }
+
+      try {
+        await this.waitForRateLimit();
+        const gameInfo = await client.fetchByHash(game.romHashes.md5, game.systemId);
+
+        if (gameInfo?.romRegions && gameInfo.romRegions.length > 0) {
+          const effectiveRegion = gameInfo.romRegions[0];
+          const regionalName = getRegionalSystemName(game.systemId, effectiveRegion);
+          const updates: Partial<Game> = {
+            romRegions: gameInfo.romRegions,
+            ...(regionalName ? { system: regionalName } : {}),
+          };
+          await this.libraryService.updateGame(game.id, updates);
+        }
+      } catch (error) {
+        if (error instanceof ScreenScraperError) {
+          if (error.errorCode === "auth-failed") {
+            artworkLog.error("ROM region backfill stopped — invalid credentials");
+            return;
+          }
+          if (error.errorCode === "rate-limited") {
+            artworkLog.warn("ROM region backfill rate-limited — stopping for now");
+            return;
+          }
+          // Timeout/network errors: skip this game, try next
+          artworkLog.warn(`ROM region backfill failed for "${game.title}": ${error.message}`);
+        }
+      }
+    }
+
+    artworkLog.info("ROM region backfill complete");
   }
 
   /** Returns the artwork directory path, creating it if needed. */
@@ -269,13 +344,17 @@ export class ArtworkService extends EventEmitter {
     // Step 5: Update game record (including regional system name if applicable)
     // Uses batched update when called from a sync batch to avoid rewriting
     // library.json after every game. The batch loop calls flushSave() periodically.
-    const regionalName = getRegionalSystemName(game.systemId, gameInfo.region);
+    // Prefer ROM-level region (from the matched ROM dump) over title-level region
+    // (which is biased by REGION_PRIORITY toward US even for JP-only games).
+    const effectiveRegion = gameInfo.romRegions?.[0] ?? gameInfo.region;
+    const regionalName = getRegionalSystemName(game.systemId, effectiveRegion);
     const updates: Partial<typeof game> = {
       ...(coverArtPath && artworkUrl
         ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl)}` }
         : {}),
       ...(coverArtAspectRatio !== undefined ? { coverArtAspectRatio } : {}),
       ...(regionalName ? { system: regionalName } : {}),
+      ...(gameInfo.romRegions ? { romRegions: gameInfo.romRegions } : {}),
       metadata: {
         developer: gameInfo.developer,
         publisher: gameInfo.publisher,

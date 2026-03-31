@@ -2312,4 +2312,128 @@ describe("LibraryService", () => {
       saveSpy.mockRestore();
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // backfillRegionalSystemNames
+  // ---------------------------------------------------------------------------
+
+  describe("backfillRegionalSystemNames", () => {
+    it("updates .sfc game system to Super Famicom when synced but missing romRegions", async () => {
+      const romPath = path.join(ROMS_DIR, "albert_odyssey.sfc");
+      const content = "jp-snes-rom-content";
+      fs.writeFileSync(romPath, content);
+
+      const gameId = sha256File(romPath);
+      const hashes = computeExpectedHashes(content);
+      const games = [
+        {
+          id: gameId,
+          romHashes: hashes,
+          romPath,
+          system: "SNES",
+          systemId: "snes",
+          title: "Albert Odyssey",
+          metadata: { developer: "Sunsoft" },
+        },
+      ];
+      fs.writeFileSync(path.join(USER_DATA_DIR, "library.json"), JSON.stringify(games));
+
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const loaded = service.getGames();
+      expect(loaded[0].system).toBe("Super Famicom");
+
+      fs.unlinkSync(romPath);
+    });
+
+    it("updates .smc game system to SNES when synced but missing romRegions", async () => {
+      const romPath = path.join(ROMS_DIR, "super_mario_world.smc");
+      const content = "us-snes-rom-content";
+      fs.writeFileSync(romPath, content);
+
+      const gameId = sha256File(romPath);
+      const hashes = computeExpectedHashes(content);
+      const games = [
+        {
+          id: gameId,
+          romHashes: hashes,
+          romPath,
+          system: "Super Nintendo Entertainment System",
+          systemId: "snes",
+          title: "Super Mario World",
+          metadata: { developer: "Nintendo" },
+        },
+      ];
+      fs.writeFileSync(path.join(USER_DATA_DIR, "library.json"), JSON.stringify(games));
+
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const loaded = service.getGames();
+      expect(loaded[0].system).toBe("SNES");
+
+      fs.unlinkSync(romPath);
+    });
+
+    it("skips games that already have romRegions", async () => {
+      const romPath = path.join(ROMS_DIR, "already_tagged.sfc");
+      const content = "already-tagged-content";
+      fs.writeFileSync(romPath, content);
+
+      const gameId = sha256File(romPath);
+      const hashes = computeExpectedHashes(content);
+      const games = [
+        {
+          id: gameId,
+          romHashes: hashes,
+          romPath,
+          romRegions: ["us"],
+          system: "SNES",
+          systemId: "snes",
+          title: "Already Tagged Game",
+          metadata: { developer: "Dev" },
+        },
+      ];
+      fs.writeFileSync(path.join(USER_DATA_DIR, "library.json"), JSON.stringify(games));
+
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const loaded = service.getGames();
+      // Should remain "SNES" — romRegions already set, skip heuristic
+      expect(loaded[0].system).toBe("SNES");
+
+      fs.unlinkSync(romPath);
+    });
+
+    it("skips games without metadata (not yet synced)", async () => {
+      const romPath = path.join(ROMS_DIR, "unsynced.sfc");
+      const content = "unsynced-content";
+      fs.writeFileSync(romPath, content);
+
+      const gameId = sha256File(romPath);
+      const hashes = computeExpectedHashes(content);
+      const games = [
+        {
+          id: gameId,
+          romHashes: hashes,
+          romPath,
+          system: "Super Nintendo Entertainment System",
+          systemId: "snes",
+          title: "Unsynced Game",
+        },
+      ];
+      fs.writeFileSync(path.join(USER_DATA_DIR, "library.json"), JSON.stringify(games));
+
+      const service = await createService();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const loaded = service.getGames();
+      // No metadata = not synced, should be untouched
+      expect(loaded[0].system).toBe("Super Nintendo Entertainment System");
+
+      fs.unlinkSync(romPath);
+    });
+  });
 });

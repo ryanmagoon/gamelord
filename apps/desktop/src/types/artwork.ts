@@ -67,6 +67,13 @@ export interface ScreenScraperGameInfo {
   rating?: number;
   /** ScreenScraper region code for the matched title (e.g., 'us', 'jp', 'eu'). */
   region?: string;
+  /**
+   * Region codes from the matched ROM entry (e.g., ['jp'], ['us', 'eu']).
+   * More accurate than `region` (which comes from the title preference order)
+   * because it reflects the actual release regions of the specific ROM dump.
+   * Only present for hash-based lookups where ScreenScraper matches a known ROM.
+   */
+  romRegions?: Array<string>;
   releaseDate?: string;
   synopsis?: string;
   title: string;

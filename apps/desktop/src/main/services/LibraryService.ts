@@ -2,7 +2,13 @@ import { promises as fs, createReadStream } from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 import { EventEmitter } from "node:events";
-import { Game, GameSystem, LibraryConfig, DEFAULT_SYSTEMS } from "../../types/library";
+import {
+  Game,
+  GameSystem,
+  LibraryConfig,
+  DEFAULT_SYSTEMS,
+  getRegionalSystemName,
+} from "../../types/library";
 import crypto from "node:crypto";
 import zlib from "node:zlib";
 import { libraryLog } from "../logger";
@@ -261,6 +267,7 @@ export class LibraryService extends EventEmitter {
     await this.migrateGameIds();
     await this.backfillRomHashes();
     await this.migrateGbcGames();
+    await this.backfillRegionalSystemNames();
   }
 
   /** Rebuild reverse indexes from the current games map. */
@@ -378,6 +385,56 @@ export class LibraryService extends EventEmitter {
       await this.saveLibrary();
       const count = [...this.games.values()].filter((g) => g.systemId === "gbc").length;
       libraryLog.info(`Migrated ${count} Game Boy Color game(s) from "gb" to "gbc" system`);
+    }
+  }
+
+  /**
+   * Extension-to-region map for unambiguous ROM formats.
+   * Only includes extensions where the format definitively indicates a region.
+   */
+  private static readonly EXTENSION_REGION_HINTS: Record<string, string> = {
+    ".sfc": "jp", // Super Famicom (Japanese SNES format)
+    ".smc": "us", // SNES cartridge (US/EU format)
+  };
+
+  /**
+   * Best-effort backfill for games synced before ROM-level region tracking.
+   * Uses file extension heuristics to derive regional system display names
+   * (e.g. ".sfc" → "Super Famicom"). Only touches games that have metadata
+   * (already synced) but no stored romRegions. The background API backfill
+   * in ArtworkService will overwrite with authoritative data later.
+   */
+  private async backfillRegionalSystemNames(): Promise<void> {
+    let changed = false;
+
+    for (const [, game] of this.games.entries()) {
+      // Skip games that already have ROM regions (already correct)
+      if (game.romRegions && game.romRegions.length > 0) {
+        continue;
+      }
+
+      // Skip games that haven't been synced yet (no metadata to correct)
+      if (!game.metadata) {
+        continue;
+      }
+
+      const ext = path.extname(game.romPath).toLowerCase();
+      const hintRegion = LibraryService.EXTENSION_REGION_HINTS[ext];
+      if (!hintRegion) {
+        continue;
+      }
+
+      const regionalName = getRegionalSystemName(game.systemId, hintRegion);
+      if (regionalName && game.system !== regionalName) {
+        const oldName = game.system;
+        game.system = regionalName;
+        changed = true;
+        libraryLog.info(`Backfilled system name for "${game.title}": ${oldName} → ${regionalName}`);
+      }
+    }
+
+    if (changed) {
+      await this.saveLibrary();
     }
   }
 
