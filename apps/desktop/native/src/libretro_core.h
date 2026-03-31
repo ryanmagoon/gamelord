@@ -49,6 +49,8 @@ private:
   Napi::Value GetLogMessages(const Napi::CallbackInfo &info);
   Napi::Value GetCoreOptions(const Napi::CallbackInfo &info);
   Napi::Value SetCoreOption(const Napi::CallbackInfo &info);
+  void CheatReset(const Napi::CallbackInfo &info);
+  void CheatSet(const Napi::CallbackInfo &info);
 
   // Internal
   void CloseCore();
@@ -96,6 +98,8 @@ private:
   retro_get_region_t fn_get_region_ = nullptr;
   retro_get_memory_data_t fn_get_memory_data_ = nullptr;
   retro_get_memory_size_t fn_get_memory_size_ = nullptr;
+  retro_cheat_reset_t fn_cheat_reset_ = nullptr;
+  retro_cheat_set_t fn_cheat_set_ = nullptr;
 
   // State
   std::atomic<bool> core_loaded_{false};

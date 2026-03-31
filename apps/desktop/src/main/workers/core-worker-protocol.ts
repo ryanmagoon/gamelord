@@ -40,6 +40,8 @@ export interface NativeLibretroCore {
   getLogMessages(): Array<{ level: number; message: string }>;
   getCoreOptions(): Record<string, string>;
   setCoreOption(key: string, value: string): boolean;
+  cheatReset(): void;
+  cheatSet(index: number, enabled: boolean, code: string): void;
 }
 
 export interface NativeAddon {
@@ -96,6 +98,14 @@ export type WorkerCommand =
       videoSAB: SharedArrayBuffer;
       audioSAB: SharedArrayBuffer;
       videoBufferSize: number;
+    }
+  | { action: "cheatReset"; requestId: string }
+  | {
+      action: "cheatSet";
+      index: number;
+      enabled: boolean;
+      code: string;
+      requestId: string;
     };
 
 // ---------------------------------------------------------------------------

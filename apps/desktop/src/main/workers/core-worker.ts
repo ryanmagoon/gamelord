@@ -649,6 +649,32 @@ function handleMessage(command: WorkerCommand): void {
       Atomics.store(controlView, CTRL_AUDIO_SAMPLE_RATE, sampleRate);
       break;
 
+    case "cheatReset":
+      try {
+        native?.cheatReset();
+        sendResponse(command.requestId, true);
+      } catch (error) {
+        sendResponse(
+          command.requestId,
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      break;
+
+    case "cheatSet":
+      try {
+        native?.cheatSet(command.index, command.enabled, command.code);
+        sendResponse(command.requestId, true);
+      } catch (error) {
+        sendResponse(
+          command.requestId,
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      break;
+
     case "shutdown":
       try {
         stopEmulationLoop();

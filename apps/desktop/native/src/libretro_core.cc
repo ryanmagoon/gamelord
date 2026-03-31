@@ -33,6 +33,8 @@ Napi::Object LibretroCore::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("getLogMessages", &LibretroCore::GetLogMessages),
     InstanceMethod("getCoreOptions", &LibretroCore::GetCoreOptions),
     InstanceMethod("setCoreOption", &LibretroCore::SetCoreOption),
+    InstanceMethod("cheatReset", &LibretroCore::CheatReset),
+    InstanceMethod("cheatSet", &LibretroCore::CheatSet),
   });
 
   Napi::FunctionReference *constructor = new Napi::FunctionReference();
@@ -213,6 +215,31 @@ void LibretroCore::Run(const Napi::CallbackInfo &info) {
 void LibretroCore::Reset(const Napi::CallbackInfo &info) {
   if (!game_loaded_ || !fn_reset_) return;
   fn_reset_();
+}
+
+void LibretroCore::CheatReset(const Napi::CallbackInfo &info) {
+  if (!game_loaded_ || !fn_cheat_reset_) return;
+  fn_cheat_reset_();
+}
+
+void LibretroCore::CheatSet(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+
+  if (!game_loaded_ || !fn_cheat_set_) {
+    Napi::Error::New(env, "No game loaded or core does not support cheats").ThrowAsJavaScriptException();
+    return;
+  }
+
+  if (info.Length() < 3 || !info[0].IsNumber() || !info[1].IsBoolean() || !info[2].IsString()) {
+    Napi::TypeError::New(env, "Expected (index: number, enabled: boolean, code: string)").ThrowAsJavaScriptException();
+    return;
+  }
+
+  unsigned index = info[0].As<Napi::Number>().Uint32Value();
+  bool enabled = info[1].As<Napi::Boolean>().Value();
+  std::string code = info[2].As<Napi::String>().Utf8Value();
+
+  fn_cheat_set_(index, enabled, code.c_str());
 }
 
 Napi::Value LibretroCore::GetSystemInfo(const Napi::CallbackInfo &info) {
@@ -555,6 +582,8 @@ bool LibretroCore::ResolveFunctions() {
   RESOLVE(get_region);
   RESOLVE(get_memory_data);
   RESOLVE(get_memory_size);
+  RESOLVE(cheat_reset);
+  RESOLVE(cheat_set);
 
 #undef RESOLVE
 

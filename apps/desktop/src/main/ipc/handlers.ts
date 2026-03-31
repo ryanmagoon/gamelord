@@ -6,6 +6,7 @@ import { resolveAddonPath } from "../emulator/resolveAddonPath";
 import { LibraryService } from "../services/LibraryService";
 import { ArtworkService } from "../services/ArtworkService";
 import { HomebrewService } from "../services/HomebrewService";
+import { CheatDatabaseService } from "../services/CheatDatabaseService";
 import { ScreenScraperError } from "../services/ScreenScraperClient";
 import { GameWindowManager } from "../GameWindowManager";
 import type { AutoUpdaterService } from "../services/AutoUpdaterService";
@@ -28,6 +29,7 @@ export class IPCHandlers {
   private artworkService: ArtworkService;
   private homebrewService: HomebrewService;
   private gameWindowManager: GameWindowManager;
+  private cheatDatabaseService: CheatDatabaseService;
   private autoUpdater: AutoUpdaterService | null = null;
   private pendingResumeDialogs = new Map<string, (response: ResumeDialogResponse) => void>();
   /** Whether the homebrew import check has finished (imported, skipped, or errored). */
@@ -42,6 +44,7 @@ export class IPCHandlers {
     this.libraryService = new LibraryService();
     this.artworkService = new ArtworkService(this.libraryService);
     this.homebrewService = new HomebrewService(this.libraryService);
+    this.cheatDatabaseService = new CheatDatabaseService();
     this.gameWindowManager = new GameWindowManager(preloadPath);
     this.setupHandlers();
     this.setupEmulatorEventForwarding();
@@ -128,6 +131,11 @@ export class IPCHandlers {
               error: `${biosCheck.systemName} requires BIOS files that are missing: ${fileList}. Place them in: ${biosCheck.biosDir}`,
             };
           }
+
+          // Ensure cheat database is downloaded (non-blocking background task)
+          this.cheatDatabaseService.ensureDatabase().catch((error) => {
+            ipcLog.warn("Cheat database download failed:", error);
+          });
 
           // Convert renderer-relative card bounds to screen coordinates
           let cardScreenBounds: { x: number; y: number; width: number; height: number } | undefined;
@@ -319,6 +327,61 @@ export class IPCHandlers {
         return { success: false, error: errorMessage(error) };
       }
     });
+
+    // Cheats
+    ipcMain.handle(
+      "cheats:listForGame",
+      async (event: IpcMainInvokeEvent, systemId: string, romFilename: string) => {
+        try {
+          const cheats = this.cheatDatabaseService.getCheatsForGame(systemId, romFilename);
+          return { success: true, cheats };
+        } catch (error) {
+          ipcLog.error("Failed to list cheats:", error);
+          return { success: false, error: errorMessage(error), cheats: [] };
+        }
+      },
+    );
+
+    ipcMain.handle("cheats:downloadDatabase", async () => {
+      try {
+        await this.cheatDatabaseService.ensureDatabase();
+        return { success: true };
+      } catch (error) {
+        ipcLog.error("Failed to download cheat database:", error);
+        return { success: false, error: errorMessage(error) };
+      }
+    });
+
+    ipcMain.handle(
+      "cheats:set",
+      async (event: IpcMainInvokeEvent, index: number, enabled: boolean, code: string) => {
+        try {
+          const workerClient = this.emulatorManager.getWorkerClient();
+          if (!workerClient) {
+            return { success: false, error: "No emulator running" };
+          }
+          await workerClient.cheatSet(index, enabled, code);
+          return { success: true };
+        } catch (error) {
+          ipcLog.error("Failed to set cheat:", error);
+          return { success: false, error: errorMessage(error) };
+        }
+      },
+    );
+
+    ipcMain.handle("cheats:reset", async () => {
+      try {
+        const workerClient = this.emulatorManager.getWorkerClient();
+        if (!workerClient) {
+          return { success: false, error: "No emulator running" };
+        }
+        await workerClient.cheatReset();
+        return { success: true };
+      } catch (error) {
+        ipcLog.error("Failed to reset cheats:", error);
+        return { success: false, error: errorMessage(error) };
+      }
+    });
   }
 
   private setupEmulatorEventForwarding(): void {
@@ -363,6 +426,9 @@ export class IPCHandlers {
     });
     this.emulatorManager.on("core:downloadProgress", (data) =>
       forwardEvent("core:downloadProgress", data),
+    );
+    this.cheatDatabaseService.on("progress", (data) =>
+      forwardEvent("cheats:downloadProgress", data),
     );
 
     // Native mode: game window close doesn't go through EmulatorManager events,
