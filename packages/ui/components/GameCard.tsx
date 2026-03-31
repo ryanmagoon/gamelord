@@ -27,6 +27,15 @@ export interface Game {
   /** Machine-readable system identifier (e.g. "snes", "nes"). Used for launch. */
   systemId?: string;
   title: string;
+
+  // ── Multi-disc grouping ──────────────────────────────────────────────
+
+  /** Shared identifier linking all discs of the same game. Omitted for single-disc games. */
+  discGroup?: string;
+  /** 1-indexed disc number within the group. */
+  discNumber?: number;
+  /** Total number of discs in the group, when known. */
+  discTotal?: number;
 }
 
 export interface GameCardMenuItem {

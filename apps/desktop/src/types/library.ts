@@ -39,6 +39,21 @@ export interface Game {
    * regional system display name (e.g. "Super Famicom" for JP SNES ROMs).
    */
   romRegions?: Array<string>;
+
+  // ── Multi-disc grouping ──────────────────────────────────────────────
+
+  /**
+   * Shared identifier linking all discs of the same game. Derived from an .m3u
+   * playlist filename or from ScreenScraper's `jeu.id` + systemId. Single-disc
+   * games omit this field.
+   */
+  discGroup?: string;
+  /** 1-indexed disc number within the group (e.g. 1, 2, 3). */
+  discNumber?: number;
+  /** Total number of discs in the group, when known from .m3u or metadata. */
+  discTotal?: number;
+  /** Absolute path to the .m3u playlist that defines this disc group, if any. */
+  m3uPath?: string;
   /** Original archive path if this ROM was extracted from a .zip during scan. */
   sourceArchivePath?: string;
   system: string;
