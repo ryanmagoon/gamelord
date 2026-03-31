@@ -124,6 +124,24 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Remove C++ singleton constraint (`LibretroCore::s_instance`) to allow multiple core instances — [#68](https://github.com/ryanmagoon/gamelord/issues/68)
 - [ ] **Expand system definitions to all viable libretro cores** — Audit the ARM64 macOS libretro buildbot for available cores, add system definitions and core mappings for every system with a working core (PS2/PCSX2, GameCube+Wii/Dolphin, Dreamcast/Flycast, Saturn/Beetle Saturn, 3DO/Opera, TurboGrafx-16/Beetle PCE, Neo Geo/FBNeo, Atari 2600/Stella, Atari 7800/ProSystem, Atari Lynx/Handy, WonderSwan/Beetle WonderSwan, Virtual Boy/Beetle VB, etc.), and verify each core loads and runs a test ROM — [#116](https://github.com/ryanmagoon/gamelord/issues/116)
 
+#### Multi-Disc Game Support
+
+Multi-disc games (PS1 RPGs, Saturn titles, etc.) need first-class handling: disc grouping in the library, `.m3u` playlist support, and runtime disc swapping via the libretro disc control interface. Individual discs remain visible as separate library entries (users may have incomplete sets), but the UI shows disc relationships and surfaces gaps. Disc detection uses three sources in priority order: (1) `.m3u` playlists, (2) ScreenScraper metadata (the `jeu.rom` object identifies disc number — same flow that populates `romRegions`), (3) filename heuristics as a deferred fallback.
+
+**Phase 1 — Scanner Cleanup & Data Model:**
+- [ ] **`.cue`/`.bin` dedup in scanner** — Parse `.cue` files to extract referenced `.bin` filenames; skip `.bin` candidates that are already referenced by a `.cue` in the same directory. Prevents duplicate library entries for the same disc. — [#263](https://github.com/ryanmagoon/gamelord/issues/263)
+- [ ] **Disc grouping data model** — Add optional fields to `Game`: `discGroup` (shared group ID), `discNumber` (1-indexed), `discTotal` (total discs when known), `m3uPath` (path to defining `.m3u`). No migration needed — fields are optional. — [#264](https://github.com/ryanmagoon/gamelord/issues/264)
+
+**Phase 2 — Disc Detection & Library UI:**
+- [ ] **ScreenScraper disc metadata extraction** — Extend `ScreenScraperClient.parseGameResponse()` to extract disc info from the `jeu.rom` object (shared `jeu.id` across discs + disc number). Populate `discGroup` and `discNumber` during artwork sync. Include in `backfillRomRegions()` flow for legacy games. — [#265](https://github.com/ryanmagoon/gamelord/issues/265)
+- [ ] **`.m3u` playlist support in scanner** — Recognize `.m3u` as a valid extension for disc-based systems. Parse playlists to annotate disc candidates with group, number, total, and m3u path. `.m3u` grouping takes precedence over metadata-derived grouping. Missing discs (referenced but absent) are detected by the UI via `discTotal` vs group membership. — [#266](https://github.com/ryanmagoon/gamelord/issues/266)
+- [ ] **Library UI disc badges and visual grouping** — Render "Disc N of M" pill badges on game cards. Sort disc groups consecutively by disc number. Render ghost/placeholder cards for missing discs (dimmed, non-interactive). Storybook stories for all states. — [#267](https://github.com/ryanmagoon/gamelord/issues/267)
+
+**Phase 3 — Runtime Disc Swapping:**
+- [ ] **Libretro disc control interface in native addon** — Add env commands 13/64 and `retro_disk_control_ext_callback` structs to `libretro.h`. Implement disc control static callbacks in `LibretroCore` (eject/set index/replace image). New N-API methods: `setDiscPaths`, `swapDisc`, `getCurrentDiscIndex`, `getDiscCount`. — [#268](https://github.com/ryanmagoon/gamelord/issues/268)
+- [ ] **Worker protocol and IPC for disc swap** — Add `swapDisc` worker command; extend `init` with `discPaths`/`initialDiscIndex`. Derive SRAM filename from group base name so all discs share one save file. New `emulation:swapDisc` IPC handler. — [#269](https://github.com/ryanmagoon/gamelord/issues/269)
+- [ ] **In-game disc swap overlay** — Presentational `DiscSwapOverlay` component showing current disc and available/missing discs. Triggered by keyboard shortcut (F6) or pause menu. Storybook stories for all states. — [#270](https://github.com/ryanmagoon/gamelord/issues/270)
+
 ### P4 — Library & Metadata
 
 - [x] Integrate metadata API (ScreenScraper) for cover art and game info
