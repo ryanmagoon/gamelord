@@ -124,7 +124,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [ ] Remove C++ singleton constraint (`LibretroCore::s_instance`) to allow multiple core instances — [#68](https://github.com/ryanmagoon/gamelord/issues/68)
 - [ ] **Expand system definitions to all viable libretro cores** — Audit the ARM64 macOS libretro buildbot for available cores, add system definitions and core mappings for every system with a working core (PS2/PCSX2, GameCube+Wii/Dolphin, Dreamcast/Flycast, Saturn/Beetle Saturn, 3DO/Opera, TurboGrafx-16/Beetle PCE, Neo Geo/FBNeo, Atari 2600/Stella, Atari 7800/ProSystem, Atari Lynx/Handy, WonderSwan/Beetle WonderSwan, Virtual Boy/Beetle VB, etc.), and verify each core loads and runs a test ROM — [#116](https://github.com/ryanmagoon/gamelord/issues/116)
 
-#### Multi-Disc Game Support
+#### Multi-Disc Game Support — [#272](https://github.com/ryanmagoon/gamelord/issues/272)
 
 Multi-disc games (PS1 RPGs, Saturn titles, etc.) need first-class handling: disc grouping in the library, `.m3u` playlist support, and runtime disc swapping via the libretro disc control interface. Individual discs remain visible as separate library entries (users may have incomplete sets), but the UI shows disc relationships and surfaces gaps. Disc detection uses three sources in priority order: (1) `.m3u` playlists, (2) ScreenScraper metadata (the `jeu.rom` object identifies disc number — same flow that populates `romRegions`), (3) filename heuristics as a deferred fallback.
 
