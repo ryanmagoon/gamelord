@@ -86,7 +86,7 @@ export function Component({ prop }: { prop: string }) {
 
 - Work in 3-5 hour sessions
 - Complete measurable milestones each day
-- Update DEVELOPMENT_PLAN.md with progress
+- Track progress via GitHub Issues
 
 ### Testing
 
