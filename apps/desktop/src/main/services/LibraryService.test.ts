@@ -2608,4 +2608,228 @@ describe("LibraryService", () => {
       fs.rmSync(unquotedDir, { force: true, recursive: true });
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // .m3u playlist support (#266)
+  // ---------------------------------------------------------------------------
+
+  describe("scanDirectory — .m3u playlist support", () => {
+    const TEST_PSX_SYSTEM: GameSystem = {
+      extensions: [".cue", ".bin", ".iso", ".chd", ".pbp", ".m3u"],
+      id: "psx",
+      name: "PlayStation",
+      shortName: "PS1",
+    };
+
+    function makeM3uConfig(options: { scanRecursive?: boolean } = {}) {
+      return {
+        autoScan: false,
+        scanRecursive: options.scanRecursive ?? false,
+        systems: [TEST_PSX_SYSTEM],
+      };
+    }
+
+    it("an .m3u listing 3 disc images annotates those 3 games with correct disc fields", async () => {
+      const m3uDir = path.join(TEST_DIR, "m3u-three-discs");
+      fs.mkdirSync(m3uDir, { recursive: true });
+
+      const disc1 = path.join(m3uDir, "Final Fantasy VII (Disc 1).cue");
+      const disc2 = path.join(m3uDir, "Final Fantasy VII (Disc 2).cue");
+      const disc3 = path.join(m3uDir, "Final Fantasy VII (Disc 3).cue");
+      fs.writeFileSync(disc1, "TRACK 01 MODE2/2352");
+      fs.writeFileSync(disc2, "TRACK 01 MODE2/2352");
+      fs.writeFileSync(disc3, "TRACK 01 MODE2/2352");
+
+      fs.writeFileSync(
+        path.join(m3uDir, "Final Fantasy VII.m3u"),
+        [
+          "Final Fantasy VII (Disc 1).cue",
+          "Final Fantasy VII (Disc 2).cue",
+          "Final Fantasy VII (Disc 3).cue",
+        ].join("\n"),
+      );
+
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(makeM3uConfig(), null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(m3uDir, "psx");
+
+      expect(games).toHaveLength(3);
+
+      const byPath = new Map(games.map((g) => [g.romPath, g]));
+      const game1 = byPath.get(disc1);
+      const game2 = byPath.get(disc2);
+      const game3 = byPath.get(disc3);
+
+      expect(game1).toBeDefined();
+      expect(game2).toBeDefined();
+      expect(game3).toBeDefined();
+
+      expect(game1?.discGroup).toBe("Final Fantasy VII");
+      expect(game1?.discNumber).toBe(1);
+      expect(game1?.discTotal).toBe(3);
+      expect(game1?.m3uPath).toBe(path.join(m3uDir, "Final Fantasy VII.m3u"));
+
+      expect(game2?.discGroup).toBe("Final Fantasy VII");
+      expect(game2?.discNumber).toBe(2);
+      expect(game2?.discTotal).toBe(3);
+
+      expect(game3?.discGroup).toBe("Final Fantasy VII");
+      expect(game3?.discNumber).toBe(3);
+      expect(game3?.discTotal).toBe(3);
+
+      fs.rmSync(m3uDir, { force: true, recursive: true });
+    });
+
+    it("missing disc doesn't create a phantom entry but discTotal still reflects the .m3u count", async () => {
+      const m3uDir = path.join(TEST_DIR, "m3u-missing-disc");
+      fs.mkdirSync(m3uDir, { recursive: true });
+
+      // Only create 2 of the 3 referenced discs
+      const disc1 = path.join(m3uDir, "Game (Disc 1).cue");
+      const disc2 = path.join(m3uDir, "Game (Disc 2).cue");
+      fs.writeFileSync(disc1, "TRACK 01 MODE2/2352");
+      fs.writeFileSync(disc2, "TRACK 01 MODE2/2352");
+      // disc3 intentionally not created
+
+      fs.writeFileSync(
+        path.join(m3uDir, "Game.m3u"),
+        ["Game (Disc 1).cue", "Game (Disc 2).cue", "Game (Disc 3).cue"].join("\n"),
+      );
+
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(makeM3uConfig(), null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(m3uDir, "psx");
+
+      expect(games).toHaveLength(2);
+
+      for (const game of games) {
+        expect(game.discTotal).toBe(3);
+      }
+
+      fs.rmSync(m3uDir, { force: true, recursive: true });
+    });
+
+    it("the .m3u file itself does not appear as a game entry", async () => {
+      const m3uDir = path.join(TEST_DIR, "m3u-no-playlist-entry");
+      fs.mkdirSync(m3uDir, { recursive: true });
+
+      const disc1 = path.join(m3uDir, "Xenogears (Disc 1).cue");
+      fs.writeFileSync(disc1, "TRACK 01 MODE2/2352");
+
+      fs.writeFileSync(path.join(m3uDir, "Xenogears.m3u"), "Xenogears (Disc 1).cue\n");
+
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(makeM3uConfig(), null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(m3uDir, "psx");
+
+      const m3uEntries = games.filter((g) => g.romPath.endsWith(".m3u"));
+      expect(m3uEntries).toHaveLength(0);
+
+      fs.rmSync(m3uDir, { force: true, recursive: true });
+    });
+
+    it("blank lines and comment lines in .m3u are ignored", async () => {
+      const m3uDir = path.join(TEST_DIR, "m3u-comments");
+      fs.mkdirSync(m3uDir, { recursive: true });
+
+      const disc1 = path.join(m3uDir, "Chrono Cross (Disc 1).cue");
+      const disc2 = path.join(m3uDir, "Chrono Cross (Disc 2).cue");
+      fs.writeFileSync(disc1, "TRACK 01 MODE2/2352");
+      fs.writeFileSync(disc2, "TRACK 01 MODE2/2352");
+
+      fs.writeFileSync(
+        path.join(m3uDir, "Chrono Cross.m3u"),
+        [
+          "# Chrono Cross playlist",
+          "",
+          "Chrono Cross (Disc 1).cue",
+          "",
+          "# Second disc",
+          "Chrono Cross (Disc 2).cue",
+          "",
+        ].join("\n"),
+      );
+
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(makeM3uConfig(), null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(m3uDir, "psx");
+
+      expect(games).toHaveLength(2);
+
+      const byPath = new Map(games.map((g) => [g.romPath, g]));
+      const game1 = byPath.get(disc1);
+      const game2 = byPath.get(disc2);
+
+      expect(game1?.discNumber).toBe(1);
+      expect(game1?.discTotal).toBe(2);
+      expect(game2?.discNumber).toBe(2);
+      expect(game2?.discTotal).toBe(2);
+
+      fs.rmSync(m3uDir, { force: true, recursive: true });
+    });
+
+    it("games not referenced by any .m3u have no disc fields", async () => {
+      const m3uDir = path.join(TEST_DIR, "m3u-non-disc-game");
+      fs.mkdirSync(m3uDir, { recursive: true });
+
+      const discCue = path.join(m3uDir, "Multi (Disc 1).cue");
+      fs.writeFileSync(discCue, "TRACK 01 MODE2/2352");
+
+      fs.writeFileSync(path.join(m3uDir, "Multi.m3u"), "Multi (Disc 1).cue\n");
+
+      const singleGameSystem: GameSystem = {
+        extensions: [".nes"],
+        id: "nes",
+        name: "Nintendo Entertainment System",
+        shortName: "NES",
+      };
+
+      // Write config with both PSX (for the .cue) and NES (for the .nes)
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(
+          {
+            autoScan: false,
+            scanRecursive: false,
+            systems: [TEST_PSX_SYSTEM, singleGameSystem],
+          },
+          null,
+          2,
+        ),
+      );
+
+      // Add a .nes file that is NOT in any .m3u
+      const nesRom = path.join(m3uDir, "Contra.nes");
+      fs.writeFileSync(nesRom, "nes-rom-data");
+
+      const service = await createService();
+      // Scan the whole dir without a systemId filter so both systems pick up their files
+      const games = await service.scanDirectory(m3uDir);
+
+      const nesGame = games.find((g) => g.romPath === nesRom);
+      expect(nesGame).toBeDefined();
+      expect(nesGame?.discGroup).toBeUndefined();
+      expect(nesGame?.discNumber).toBeUndefined();
+      expect(nesGame?.discTotal).toBeUndefined();
+      expect(nesGame?.m3uPath).toBeUndefined();
+
+      fs.rmSync(m3uDir, { force: true, recursive: true });
+    });
+  });
 });
