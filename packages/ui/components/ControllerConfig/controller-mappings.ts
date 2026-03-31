@@ -111,11 +111,13 @@ export function getControllerDisplayName(gamepadId: string): string {
  */
 export function getButtonLabel(retroId: number, controllerType: ControllerType): string {
   if (controllerType === "playstation") {
+    // Libretro uses SNES positional naming: B=bottom, A=right, Y=left, X=top.
+    // PlayStation: Cross=bottom, Circle=right, Square=left, Triangle=top.
     const psLabels: Record<number, string> = {
-      [LIBRETRO_BUTTON.A]: "Cross",
-      [LIBRETRO_BUTTON.B]: "Circle",
-      [LIBRETRO_BUTTON.X]: "Square",
-      [LIBRETRO_BUTTON.Y]: "Triangle",
+      [LIBRETRO_BUTTON.B]: "Cross",
+      [LIBRETRO_BUTTON.A]: "Circle",
+      [LIBRETRO_BUTTON.Y]: "Square",
+      [LIBRETRO_BUTTON.X]: "Triangle",
       [LIBRETRO_BUTTON.L]: "L1",
       [LIBRETRO_BUTTON.R]: "R1",
       [LIBRETRO_BUTTON.SELECT]: "Share",

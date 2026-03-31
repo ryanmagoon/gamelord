@@ -138,17 +138,17 @@ describe("useGamepad", () => {
     act(() => tickPolling());
     expect(gameInput).not.toHaveBeenCalled();
 
-    // Press A button (gamepad index 0 → libretro A = 8)
+    // Press bottom face button (gamepad index 0 → libretro B = 0)
     mockGamepads[0] = createMockGamepad(0, {
       buttons: [{ pressed: true, value: 1 }],
     });
 
     act(() => tickPolling());
-    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.A, true);
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.B, true);
   });
 
   it("sends gameInput on button release transition", () => {
-    // Start with A pressed
+    // Start with bottom face button pressed
     mockGamepads[0] = createMockGamepad(0, {
       buttons: [{ pressed: true, value: 1 }],
     });
@@ -157,10 +157,10 @@ describe("useGamepad", () => {
     act(() => tickPolling());
     gameInput.mockClear();
 
-    // Release A
+    // Release bottom face button
     mockGamepads[0] = createMockGamepad(0);
     act(() => tickPolling());
-    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.A, false);
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.B, false);
   });
 
   it("does not re-fire for held buttons on subsequent polls", () => {
@@ -222,7 +222,7 @@ describe("useGamepad", () => {
   it("releases all buttons on gamepad disconnect", () => {
     // Start with multiple buttons pressed
     const buttons: Array<Partial<GamepadButton> | null> = new Array(16).fill(null);
-    buttons[0] = { pressed: true, value: 1 }; // A
+    buttons[0] = { pressed: true, value: 1 }; // bottom face → B
     buttons[9] = { pressed: true, value: 1 }; // Start
     mockGamepads[0] = createMockGamepad(0, { buttons });
     renderHook(() => useGamepad({ enabled: true, gameInput }));
@@ -235,8 +235,8 @@ describe("useGamepad", () => {
       window.dispatchEvent(createGamepadEvent("gamepaddisconnected", createMockGamepad(0)));
     });
 
-    // Should release A and Start
-    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.A, false);
+    // Should release B (bottom face) and Start
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.B, false);
     expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.START, false);
   });
 
@@ -256,22 +256,22 @@ describe("useGamepad", () => {
 
   it("supports two gamepads on separate ports", () => {
     mockGamepads[0] = createMockGamepad(0, {
-      buttons: [{ pressed: true, value: 1 }], // A on port 0
+      buttons: [{ pressed: true, value: 1 }], // bottom face (B) on port 0
     });
     mockGamepads[1] = createMockGamepad(1, {
-      buttons: [null, { pressed: true, value: 1 }], // B on port 1
+      buttons: [null, { pressed: true, value: 1 }], // right face (A) on port 1
     });
     renderHook(() => useGamepad({ enabled: true, gameInput }));
 
     act(() => tickPolling());
-    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.A, true);
-    expect(gameInput).toHaveBeenCalledWith(1, LIBRETRO_BUTTON.B, true);
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.B, true);
+    expect(gameInput).toHaveBeenCalledWith(1, LIBRETRO_BUTTON.A, true);
   });
 
   it("handles multiple simultaneous button presses", () => {
     mockGamepads[0] = createMockGamepad(0, {
       buttons: [
-        { pressed: true, value: 1 }, // A
+        { pressed: true, value: 1 }, // bottom face → B
         null,
         null,
         null,
@@ -281,7 +281,7 @@ describe("useGamepad", () => {
     renderHook(() => useGamepad({ enabled: true, gameInput }));
 
     act(() => tickPolling());
-    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.A, true);
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.B, true);
     expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.L, true);
     expect(gameInput).toHaveBeenCalledTimes(2);
   });
