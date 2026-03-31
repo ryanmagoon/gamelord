@@ -80,6 +80,8 @@ export interface ScreenScraperGameInfo {
 }
 
 export interface ArtworkConfig {
+  /** User dismissed the credential setup prompt ("don't ask again"). */
+  credentialPromptDismissed?: boolean;
   preferences?: {
     autoSyncOnScan: boolean;
     preferredRegion: string;
