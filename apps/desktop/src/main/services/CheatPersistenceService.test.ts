@@ -6,7 +6,7 @@ vi.mock("electron", () => ({
 }));
 
 // Must import after mocks are set up
-import { CheatPersistenceService, type GameCheatState } from "./CheatPersistenceService";
+import { CheatPersistenceService } from "./CheatPersistenceService";
 
 // Mock fs for controlled testing
 vi.mock("node:fs", async () => {

@@ -1,25 +1,8 @@
 import { app } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { CheatEntry } from "../../types/library";
+import type { GameCheatState } from "../../types/library";
 import { CheatDatabaseService } from "./CheatDatabaseService";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface CustomCheat {
-  description: string;
-  code: string;
-  enabled: boolean;
-}
-
-export interface GameCheatState {
-  /** Indices of enabled database cheats */
-  enabledIndices: Array<number>;
-  /** User-defined custom cheats */
-  customCheats: Array<CustomCheat>;
-}
 
 interface CheatConfig {
   games: Record<string, GameCheatState>;

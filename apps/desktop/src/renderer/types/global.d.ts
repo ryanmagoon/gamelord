@@ -1,4 +1,4 @@
-import type { GameSystem, Game, LibraryConfig, CheatEntry } from "../../types/library";
+import type { GameSystem, Game, LibraryConfig, CheatEntry, GameCheatState } from "../../types/library";
 
 export interface CoreInfo {
   name: string;
@@ -52,6 +52,28 @@ export interface GamelordAPI {
       code: string,
     ) => Promise<{ success: boolean; error?: string }>;
     reset: () => Promise<{ success: boolean; error?: string }>;
+    getGameState: (
+      gameId: string,
+    ) => Promise<{ success: boolean; state: GameCheatState | null; error?: string }>;
+    toggleCheat: (
+      gameId: string,
+      index: number,
+      enabled: boolean,
+    ) => Promise<{ success: boolean; error?: string }>;
+    toggleCustomCheat: (
+      gameId: string,
+      customIndex: number,
+      enabled: boolean,
+    ) => Promise<{ success: boolean; error?: string }>;
+    addCustomCheat: (
+      gameId: string,
+      description: string,
+      code: string,
+    ) => Promise<{ success: boolean; error?: string }>;
+    removeCustomCheat: (
+      gameId: string,
+      customIndex: number,
+    ) => Promise<{ success: boolean; error?: string }>;
   };
   // Library management (matches preload API)
   library: {
