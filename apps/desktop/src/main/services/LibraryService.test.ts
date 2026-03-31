@@ -2436,4 +2436,176 @@ describe("LibraryService", () => {
       fs.unlinkSync(romPath);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // .cue/.bin deduplication (#263)
+  // ---------------------------------------------------------------------------
+
+  describe("scanDirectory — .cue/.bin deduplication", () => {
+    const TEST_PSX_SYSTEM: GameSystem = {
+      extensions: [".cue", ".bin", ".iso", ".chd", ".pbp"],
+      id: "psx",
+      name: "PlayStation",
+      shortName: "PS1",
+    };
+
+    it("scanning a folder with Game.cue + Game.bin produces one entry (the .cue)", async () => {
+      const cueBinDir = path.join(TEST_DIR, "cue-bin-dedup");
+      fs.mkdirSync(cueBinDir, { recursive: true });
+
+      // Write a .cue that references the .bin
+      fs.writeFileSync(
+        path.join(cueBinDir, "CoolGame.cue"),
+        'FILE "CoolGame.bin" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n',
+      );
+      fs.writeFileSync(path.join(cueBinDir, "CoolGame.bin"), "fake-bin-data");
+
+      const config = {
+        autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_PSX_SYSTEM],
+      };
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(config, null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(cueBinDir, "psx");
+
+      expect(games).toHaveLength(1);
+      expect(games[0].romPath).toBe(path.join(cueBinDir, "CoolGame.cue"));
+
+      fs.rmSync(cueBinDir, { force: true, recursive: true });
+    });
+
+    it("a standalone .bin with no corresponding .cue still scans normally", async () => {
+      const standaloneBinDir = path.join(TEST_DIR, "standalone-bin");
+      fs.mkdirSync(standaloneBinDir, { recursive: true });
+
+      fs.writeFileSync(path.join(standaloneBinDir, "NoCue.bin"), "standalone-bin-data");
+
+      const config = {
+        autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_PSX_SYSTEM],
+      };
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(config, null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(standaloneBinDir, "psx");
+
+      expect(games).toHaveLength(1);
+      expect(games[0].romPath).toBe(path.join(standaloneBinDir, "NoCue.bin"));
+
+      fs.rmSync(standaloneBinDir, { force: true, recursive: true });
+    });
+
+    it("a .cue referencing a .bin in a different directory does not skip that .bin", async () => {
+      const crossDirRoot = path.join(TEST_DIR, "cue-cross-dir");
+      const dirA = path.join(crossDirRoot, "dirA");
+      const dirB = path.join(crossDirRoot, "dirB");
+      fs.mkdirSync(dirA, { recursive: true });
+      fs.mkdirSync(dirB, { recursive: true });
+
+      // .cue in dirA references a file named "Shared.bin" — but relative to dirA
+      fs.writeFileSync(
+        path.join(dirA, "Game.cue"),
+        'FILE "Shared.bin" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n',
+      );
+      // The actual Shared.bin is in dirB, not dirA — should NOT be skipped
+      fs.writeFileSync(path.join(dirB, "Shared.bin"), "bin-data-dirB");
+
+      const config = {
+        autoScan: false,
+        scanRecursive: true,
+        systems: [TEST_PSX_SYSTEM],
+      };
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(config, null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(crossDirRoot, "psx");
+
+      // Should find both: the .cue in dirA and the .bin in dirB
+      const romPaths = games.map((g) => g.romPath);
+      expect(romPaths).toContain(path.join(dirA, "Game.cue"));
+      expect(romPaths).toContain(path.join(dirB, "Shared.bin"));
+
+      fs.rmSync(crossDirRoot, { force: true, recursive: true });
+    });
+
+    it("handles multi-bin .cue files (multiple FILE directives)", async () => {
+      const multiBinDir = path.join(TEST_DIR, "multi-bin-cue");
+      fs.mkdirSync(multiBinDir, { recursive: true });
+
+      fs.writeFileSync(
+        path.join(multiBinDir, "Game.cue"),
+        [
+          'FILE "Game (Track 1).bin" BINARY',
+          "  TRACK 01 MODE2/2352",
+          "    INDEX 01 00:00:00",
+          'FILE "Game (Track 2).bin" BINARY',
+          "  TRACK 02 AUDIO",
+          "    INDEX 01 00:00:00",
+          "",
+        ].join("\n"),
+      );
+      fs.writeFileSync(path.join(multiBinDir, "Game (Track 1).bin"), "track1");
+      fs.writeFileSync(path.join(multiBinDir, "Game (Track 2).bin"), "track2");
+
+      const config = {
+        autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_PSX_SYSTEM],
+      };
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(config, null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(multiBinDir, "psx");
+
+      // Only the .cue should appear, both .bin files should be skipped
+      expect(games).toHaveLength(1);
+      expect(games[0].romPath).toBe(path.join(multiBinDir, "Game.cue"));
+
+      fs.rmSync(multiBinDir, { force: true, recursive: true });
+    });
+
+    it("handles .cue with unquoted FILE paths", async () => {
+      const unquotedDir = path.join(TEST_DIR, "unquoted-cue");
+      fs.mkdirSync(unquotedDir, { recursive: true });
+
+      fs.writeFileSync(
+        path.join(unquotedDir, "Game.cue"),
+        "FILE Game.bin BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n",
+      );
+      fs.writeFileSync(path.join(unquotedDir, "Game.bin"), "bin-data");
+
+      const config = {
+        autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_PSX_SYSTEM],
+      };
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(config, null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(unquotedDir, "psx");
+
+      expect(games).toHaveLength(1);
+      expect(games[0].romPath).toBe(path.join(unquotedDir, "Game.cue"));
+
+      fs.rmSync(unquotedDir, { force: true, recursive: true });
+    });
+  });
 });

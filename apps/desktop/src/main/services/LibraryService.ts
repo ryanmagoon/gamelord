@@ -608,12 +608,32 @@ export class LibraryService extends EventEmitter {
       }),
     );
 
+    // Build a set of .bin paths referenced by .cue files in this directory.
+    // Referenced .bin files are skipped to avoid duplicate library entries.
+    const cueReferencedBins = new Set<string>();
+    for (const result of statResults) {
+      if (!result) {
+        continue;
+      }
+      if (path.extname(result.entry.name).toLowerCase() === ".cue") {
+        const refs = await this.parseCueReferences(result.fullPath);
+        for (const ref of refs) {
+          cueReferencedBins.add(ref);
+        }
+      }
+    }
+
     for (const result of statResults) {
       if (!result) {
         continue;
       }
       const { entry, fullPath, mtimeMs } = result;
       const ext = path.extname(entry.name).toLowerCase();
+
+      // Skip .bin files that are referenced by a .cue in the same directory
+      if (cueReferencedBins.has(fullPath)) {
+        continue;
+      }
 
       if (ext === ".zip" && systemId !== "arcade") {
         // Non-arcade zip — needs extraction
@@ -1222,6 +1242,46 @@ export class LibraryService extends EventEmitter {
         sha1: sha1.digest("hex"),
       },
     };
+  }
+
+  /**
+   * Parse a .cue file and return the absolute paths of all FILE references.
+   * Handles both quoted (`FILE "Name.bin" BINARY`) and unquoted (`FILE Name.bin BINARY`)
+   * FILE directives. Paths are resolved relative to the .cue file's directory.
+   */
+  private async parseCueReferences(cuePath: string): Promise<Array<string>> {
+    let content: string;
+    try {
+      content = await fs.readFile(cuePath, "utf8");
+    } catch {
+      return [];
+    }
+
+    const cueDir = path.dirname(cuePath);
+    const references: Array<string> = [];
+
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed.toUpperCase().startsWith("FILE ")) {
+        continue;
+      }
+
+      // Match quoted: FILE "filename.bin" BINARY
+      const quotedMatch = /^FILE\s+"([^"]+)"/i.exec(trimmed);
+      if (quotedMatch) {
+        references.push(path.resolve(cueDir, quotedMatch[1]));
+        continue;
+      }
+
+      // Match unquoted: FILE filename.bin BINARY
+      // The filename is between FILE and the last space-separated token (the type)
+      const unquotedMatch = /^FILE\s+(.+)\s+(BINARY|MOTOROLA|AIFF|WAVE|MP3)$/i.exec(trimmed);
+      if (unquotedMatch) {
+        references.push(path.resolve(cueDir, unquotedMatch[1]));
+      }
+    }
+
+    return references;
   }
 
   private cleanGameTitle(filename: string): string {
