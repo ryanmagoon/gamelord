@@ -104,6 +104,7 @@ test-roms/
 # Claude Code
 .claude/settings.json
 .claude/worktrees/
+.claude/projects/
 
 # Entire
 .entire/
