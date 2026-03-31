@@ -116,7 +116,8 @@ cheat0_code = "ABC123"
   });
 
   it("handles Windows-style line endings", () => {
-    const content = "cheats = 1\r\ncheat0_desc = \"Test\"\r\ncheat0_code = \"ABC\"\r\ncheat0_enable = false\r\n";
+    const content =
+      'cheats = 1\r\ncheat0_desc = "Test"\r\ncheat0_code = "ABC"\r\ncheat0_enable = false\r\n';
     const cheats = parseChtFile(content);
 
     expect(cheats).toHaveLength(1);

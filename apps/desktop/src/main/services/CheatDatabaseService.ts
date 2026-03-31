@@ -30,30 +30,38 @@ export function parseChtFile(content: string): Array<CheatEntry> {
 
   for (const line of lines) {
     const eqIndex = line.indexOf("=");
-    if (eqIndex === -1) continue;
+    if (eqIndex === -1) {
+      continue;
+    }
 
     const key = line.slice(0, eqIndex).trim();
     let value = line.slice(eqIndex + 1).trim();
 
     // Strip surrounding quotes
     if (value.startsWith('"') && value.endsWith('"')) {
-      value = value.slice(1, -1).replace(/\\"/g, '"');
+      value = value.slice(1, -1).replaceAll(String.raw`\"`, '"');
     }
 
     kvMap.set(key, value);
   }
 
   const countStr = kvMap.get("cheats");
-  if (!countStr) return [];
+  if (!countStr) {
+    return [];
+  }
 
-  const count = parseInt(countStr, 10);
-  if (!Number.isFinite(count) || count <= 0) return [];
+  const count = Number.parseInt(countStr, 10);
+  if (!Number.isFinite(count) || count <= 0) {
+    return [];
+  }
 
   const cheats: Array<CheatEntry> = [];
 
   for (let i = 0; i < count; i++) {
     const code = kvMap.get(`cheat${i}_code`);
-    if (!code) continue; // Skip cheats without a code — they're useless
+    if (!code) {
+      continue;
+    } // Skip cheats without a code — they're useless
 
     const description = kvMap.get(`cheat${i}_desc`) || `Cheat ${i}`;
     const enableStr = kvMap.get(`cheat${i}_enable`);
@@ -69,7 +77,9 @@ export function parseChtFile(content: string): Array<CheatEntry> {
  * Check if a .cht filename matches a ROM name (case-insensitive, extension-stripped).
  */
 export function matchChtFilename(romNameNoExt: string, chtFilename: string): boolean {
-  if (!chtFilename.toLowerCase().endsWith(".cht")) return false;
+  if (!chtFilename.toLowerCase().endsWith(".cht")) {
+    return false;
+  }
   const chtNameNoExt = chtFilename.slice(0, -4);
   return chtNameNoExt.toLowerCase() === romNameNoExt.toLowerCase();
 }
@@ -143,9 +153,13 @@ export class CheatDatabaseService extends EventEmitter {
 
   /** Ensure the cheat database exists. Downloads if missing or stale. Non-blocking. */
   async ensureDatabase(): Promise<void> {
-    if (this.downloading) return;
+    if (this.downloading) {
+      return;
+    }
 
-    if (this.isDatabaseFresh()) return;
+    if (this.isDatabaseFresh()) {
+      return;
+    }
 
     try {
       await this.downloadDatabase();
@@ -161,11 +175,15 @@ export class CheatDatabaseService extends EventEmitter {
     const romNameNoExt = path.basename(romFilename, path.extname(romFilename));
     const folders = SYSTEM_CHT_FOLDERS[systemId];
 
-    if (!folders) return [];
+    if (!folders) {
+      return [];
+    }
 
     for (const folder of folders) {
       const systemDir = path.join(this.cheatsDir, folder);
-      if (!fs.existsSync(systemDir)) continue;
+      if (!fs.existsSync(systemDir)) {
+        continue;
+      }
 
       let entries: Array<string>;
       try {
@@ -192,7 +210,9 @@ export class CheatDatabaseService extends EventEmitter {
 
   /** Whether the database has been downloaded and is not stale. */
   private isDatabaseFresh(): boolean {
-    if (!fs.existsSync(this.metadataPath)) return false;
+    if (!fs.existsSync(this.metadataPath)) {
+      return false;
+    }
 
     try {
       const raw = fs.readFileSync(this.metadataPath, "utf8");
@@ -266,53 +286,55 @@ export class CheatDatabaseService extends EventEmitter {
           return;
         }
 
-        https.get(targetUrl, (response) => {
-          if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400) {
-            response.destroy();
-            const location = response.headers.location;
-            if (!location) {
-              reject(new Error("Redirect without Location header"));
+        https
+          .get(targetUrl, (response) => {
+            if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400) {
+              response.destroy();
+              const location = response.headers.location;
+              if (!location) {
+                reject(new Error("Redirect without Location header"));
+                return;
+              }
+              follow(location, redirectCount + 1);
               return;
             }
-            follow(location, redirectCount + 1);
-            return;
-          }
 
-          if (response.statusCode !== 200) {
-            response.destroy();
-            reject(new Error(`HTTP ${response.statusCode} downloading cheat database`));
-            return;
-          }
-
-          const totalBytes = parseInt(response.headers["content-length"] || "0", 10);
-          let downloadedBytes = 0;
-
-          const file = fs.createWriteStream(dest);
-
-          response.on("data", (chunk: Buffer) => {
-            downloadedBytes += chunk.length;
-            if (totalBytes > 0) {
-              onProgress(Math.round((downloadedBytes / totalBytes) * 85));
+            if (response.statusCode !== 200) {
+              response.destroy();
+              reject(new Error(`HTTP ${response.statusCode} downloading cheat database`));
+              return;
             }
-          });
 
-          response.pipe(file);
+            const totalBytes = Number.parseInt(response.headers["content-length"] || "0", 10);
+            let downloadedBytes = 0;
 
-          file.on("finish", () => {
-            file.close();
-            resolve();
-          });
+            const file = fs.createWriteStream(dest);
 
-          file.on("error", (error) => {
-            file.close();
-            try {
-              fs.unlinkSync(dest);
-            } catch {
-              // Ignore
-            }
-            reject(error);
-          });
-        }).on("error", reject);
+            response.on("data", (chunk: Buffer) => {
+              downloadedBytes += chunk.length;
+              if (totalBytes > 0) {
+                onProgress(Math.round((downloadedBytes / totalBytes) * 85));
+              }
+            });
+
+            response.pipe(file);
+
+            file.on("finish", () => {
+              file.close();
+              resolve();
+            });
+
+            file.on("error", (error) => {
+              file.close();
+              try {
+                fs.unlinkSync(dest);
+              } catch {
+                // Ignore
+              }
+              reject(error);
+            });
+          })
+          .on("error", reject);
       };
 
       follow(url, 0);
