@@ -10,6 +10,7 @@ export * from "./components/ui/dropdown-menu";
 
 export * from "./components/ControllerConfig";
 export * from "./components/ControlsOverlay";
+export * from "./components/CheatPanel";
 export * from "./components/CoreDownloadBanner";
 export * from "./components/UpdateNotification";
 export * from "./components/GameCard";
