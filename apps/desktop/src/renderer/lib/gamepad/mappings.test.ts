@@ -21,11 +21,11 @@ describe("STANDARD_GAMEPAD_MAPPING", () => {
     expect(uniqueIds.size).toBe(nonNullIds.length);
   });
 
-  it("maps face buttons correctly (Xbox positional → libretro)", () => {
-    expect(STANDARD_GAMEPAD_MAPPING[0]).toBe(LIBRETRO_BUTTON.A); // bottom face → A
-    expect(STANDARD_GAMEPAD_MAPPING[1]).toBe(LIBRETRO_BUTTON.B); // right face → B
-    expect(STANDARD_GAMEPAD_MAPPING[2]).toBe(LIBRETRO_BUTTON.X); // left face → X
-    expect(STANDARD_GAMEPAD_MAPPING[3]).toBe(LIBRETRO_BUTTON.Y); // top face → Y
+  it("maps face buttons by position (W3C positional → libretro SNES positional)", () => {
+    expect(STANDARD_GAMEPAD_MAPPING[0]).toBe(LIBRETRO_BUTTON.B); // bottom face → B (Cross)
+    expect(STANDARD_GAMEPAD_MAPPING[1]).toBe(LIBRETRO_BUTTON.A); // right face  → A (Circle)
+    expect(STANDARD_GAMEPAD_MAPPING[2]).toBe(LIBRETRO_BUTTON.Y); // left face   → Y (Square)
+    expect(STANDARD_GAMEPAD_MAPPING[3]).toBe(LIBRETRO_BUTTON.X); // top face    → X (Triangle)
   });
 
   it("maps shoulder buttons correctly", () => {

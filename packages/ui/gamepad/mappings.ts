@@ -24,20 +24,21 @@ export const LIBRETRO_BUTTON = {
  * Maps W3C Standard Gamepad API button indices to libretro joypad button IDs.
  * Array index = Gamepad API button index, value = libretro button ID.
  *
- * The W3C standard mapping uses Xbox positional layout:
- *   buttons[0] = A (bottom face)  -> libretro A (8)
- *   buttons[1] = B (right face)   -> libretro B (0)
- *   buttons[2] = X (left face)    -> libretro X (9)
- *   buttons[3] = Y (top face)     -> libretro Y (1)
+ * The W3C standard mapping is positional (Xbox physical layout):
+ *   buttons[0] = bottom face  -> libretro B (0)  = SNES B / PS Cross
+ *   buttons[1] = right face   -> libretro A (8)  = SNES A / PS Circle
+ *   buttons[2] = left face    -> libretro Y (1)  = SNES Y / PS Square
+ *   buttons[3] = top face     -> libretro X (9)  = SNES X / PS Triangle
  *
- * This works correctly with 8BitDo SN30 Pro in XInput mode and any
- * controller reporting mapping: "standard".
+ * Libretro uses SNES positional naming: B=bottom, A=right, Y=left, X=top.
+ * The mapping must be by POSITION, not by name — Xbox A (bottom) maps to
+ * libretro B (bottom), not libretro A (right).
  */
 export const STANDARD_GAMEPAD_MAPPING: Array<number | null> = [
-  LIBRETRO_BUTTON.A, // buttons[0]  - A / Cross (bottom face)
-  LIBRETRO_BUTTON.B, // buttons[1]  - B / Circle (right face)
-  LIBRETRO_BUTTON.X, // buttons[2]  - X / Square (left face)
-  LIBRETRO_BUTTON.Y, // buttons[3]  - Y / Triangle (top face)
+  LIBRETRO_BUTTON.B, // buttons[0]  - bottom face (Xbox A / PS Cross)
+  LIBRETRO_BUTTON.A, // buttons[1]  - right face  (Xbox B / PS Circle)
+  LIBRETRO_BUTTON.Y, // buttons[2]  - left face   (Xbox X / PS Square)
+  LIBRETRO_BUTTON.X, // buttons[3]  - top face    (Xbox Y / PS Triangle)
   LIBRETRO_BUTTON.L, // buttons[4]  - Left bumper
   LIBRETRO_BUTTON.R, // buttons[5]  - Right bumper
   LIBRETRO_BUTTON.L2, // buttons[6]  - Left trigger

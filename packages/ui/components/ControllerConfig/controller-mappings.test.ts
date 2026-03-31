@@ -83,10 +83,11 @@ describe("getControllerDisplayName", () => {
 
 describe("getButtonLabel", () => {
   it("returns PlayStation labels for PlayStation controllers", () => {
-    expect(getButtonLabel(LIBRETRO_BUTTON.A, "playstation")).toBe("Cross");
-    expect(getButtonLabel(LIBRETRO_BUTTON.B, "playstation")).toBe("Circle");
-    expect(getButtonLabel(LIBRETRO_BUTTON.X, "playstation")).toBe("Square");
-    expect(getButtonLabel(LIBRETRO_BUTTON.Y, "playstation")).toBe("Triangle");
+    // Libretro SNES naming: B=bottom=Cross, A=right=Circle, Y=left=Square, X=top=Triangle
+    expect(getButtonLabel(LIBRETRO_BUTTON.B, "playstation")).toBe("Cross");
+    expect(getButtonLabel(LIBRETRO_BUTTON.A, "playstation")).toBe("Circle");
+    expect(getButtonLabel(LIBRETRO_BUTTON.Y, "playstation")).toBe("Square");
+    expect(getButtonLabel(LIBRETRO_BUTTON.X, "playstation")).toBe("Triangle");
     expect(getButtonLabel(LIBRETRO_BUTTON.L, "playstation")).toBe("L1");
     expect(getButtonLabel(LIBRETRO_BUTTON.R, "playstation")).toBe("R1");
     expect(getButtonLabel(LIBRETRO_BUTTON.SELECT, "playstation")).toBe("Share");
@@ -152,15 +153,15 @@ describe("mappingToArray", () => {
 
   it("produces null entries for unbound buttons", () => {
     const mapping = getDefaultMapping();
-    // Unbind the A button
+    // Unbind the A button (right face, gamepad index 1)
     const modified = {
       bindings: mapping.bindings.map((b) =>
         b.retroId === LIBRETRO_BUTTON.A ? { ...b, gamepadButtonIndex: null } : b,
       ),
     };
     const array = mappingToArray(modified);
-    // Button index 0 was A, should now be null
-    expect(array[0]).toBeNull();
+    // A is at gamepad index 1 (right face), should now be null
+    expect(array[1]).toBeNull();
   });
 });
 
