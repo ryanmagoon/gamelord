@@ -354,10 +354,10 @@ const CheatRow: React.FC<CheatRowProps> = ({ description, code, enabled, onToggl
         aria-checked={enabled}
         aria-label={`Toggle ${description}`}
         onClick={() => onToggle(!enabled)}
-        className={`relative w-8 h-[18px] rounded-full transition-colors flex-shrink-0 ${enabled ? "bg-green-500/80" : "bg-white/10"}`}
+        className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${enabled ? "bg-green-500/80" : "bg-white/15"}`}
       >
         <span
-          className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-transform ${enabled ? "translate-x-[15px]" : "translate-x-[2px]"}`}
+          className={`absolute top-[3px] w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform ${enabled ? "translate-x-[18px]" : "translate-x-[3px]"}`}
         />
       </button>
     </div>
