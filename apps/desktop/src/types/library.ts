@@ -33,6 +33,12 @@ export interface Game {
   /** File modification timestamp (ms since epoch) used for scan cache invalidation. */
   romMtime?: number;
   romPath: string;
+  /**
+   * Region codes from the matched ROM entry in ScreenScraper (e.g. ["jp"], ["us", "eu"]).
+   * Set during artwork sync from rom.regions.regions_shortname. Used to derive the
+   * regional system display name (e.g. "Super Famicom" for JP SNES ROMs).
+   */
+  romRegions?: Array<string>;
   /** Original archive path if this ROM was extracted from a .zip during scan. */
   sourceArchivePath?: string;
   system: string;
