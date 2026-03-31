@@ -2,7 +2,7 @@
 
 After the global session-start steps (sync with main, check for stashed changes):
 
-1. Read `DEVELOPMENT_PLAN.md` for current project state.
+1. Read `ARCHITECTURE.md` for project context. Check GitHub Issues for current work items.
 
 ## Native Addon
 
