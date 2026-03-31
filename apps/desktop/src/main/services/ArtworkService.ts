@@ -321,6 +321,13 @@ export class ArtworkService extends EventEmitter {
     }
 
     if (!gameInfo) {
+      // Mark this game so we don't re-query the API on the next startup sync
+      const notFoundUpdate: Partial<Game> = { artworkNotFound: Date.now() };
+      if (this.syncing) {
+        this.libraryService.updateGameBatched(gameId, notFoundUpdate);
+      } else {
+        await this.libraryService.updateGame(gameId, notFoundUpdate);
+      }
       return false;
     }
 
@@ -358,10 +365,14 @@ export class ArtworkService extends EventEmitter {
     // (which is biased by REGION_PRIORITY toward US even for JP-only games).
     const effectiveRegion = gameInfo.romRegions?.[0] ?? gameInfo.region;
     const regionalName = getRegionalSystemName(game.systemId, effectiveRegion);
+    const hasArtwork = !!coverArtPath && !!artworkUrl;
     const updates: Partial<typeof game> = {
-      ...(coverArtPath && artworkUrl
-        ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl)}` }
-        : {}),
+      ...(hasArtwork
+        ? {
+            coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl)}`,
+            artworkNotFound: undefined, // Clear any previous not-found marker
+          }
+        : { artworkNotFound: Date.now() }),
       ...(coverArtAspectRatio !== undefined ? { coverArtAspectRatio } : {}),
       ...(regionalName ? { system: regionalName } : {}),
       ...(gameInfo.romRegions ? { romRegions: gameInfo.romRegions } : {}),
@@ -398,7 +409,7 @@ export class ArtworkService extends EventEmitter {
     this.cancelled = false;
 
     const allGames = this.libraryService.getGames();
-    const gamesToSync = allGames.filter((game) => !game.coverArt);
+    const gamesToSync = allGames.filter((game) => !game.coverArt && !game.artworkNotFound);
 
     return this.runSyncBatch(gamesToSync.map((game) => game.id));
   }

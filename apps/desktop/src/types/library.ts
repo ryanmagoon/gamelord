@@ -17,6 +17,13 @@ export interface GameSystem {
 }
 
 export interface Game {
+  /**
+   * Timestamp (ms since epoch) when artwork sync determined no artwork is available
+   * for this game. Set when ScreenScraper returns no match or no artwork URL.
+   * Prevents redundant API calls on subsequent startup syncs.
+   * Cleared when artwork is successfully downloaded (e.g. via force sync).
+   */
+  artworkNotFound?: number;
   coverArt?: string;
   /** Width / height ratio of the downloaded cover art (e.g. 0.714 for a 3:4.2 box). */
   coverArtAspectRatio?: number;
