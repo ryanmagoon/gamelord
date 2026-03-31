@@ -8,22 +8,14 @@ At the start of every new conversation, before doing anything else:
    - **Normal repo:** `git fetch origin && git checkout main && git pull origin main`
    - **Worktree** (detected by path containing `.claude/worktrees/`): `git fetch origin && git rebase origin/main` — you cannot checkout main in a worktree because it's already checked out by the main repo.
 2. If there are stashed or uncommitted changes from a previous session, surface them to the user and ask what to do (keep, drop, or stash).
-3. Read `DEVELOPMENT_PLAN.md` for current project state.
+3. Read `ARCHITECTURE.md` for project context. Check GitHub Issues for current work items.
 
 Never give advice about what to work on next, or start new work, from a stale branch.
 
 ## Key Documentation
 
-- `DEVELOPMENT_PLAN.md` — Architecture overview, completed work, TODO roadmap, and technical notes. Read this first when orienting on the project.
-
-### Keeping the Development Plan Current
-
-`DEVELOPMENT_PLAN.md` is the single source of truth for project state. It must stay accurate across sessions so any new chat can pick up where the last one left off.
-
-- **Mark items done as you complete them.** When you finish a TODO item, immediately update it from `[ ]` to `[x]` with a brief description of what was done. Don't batch these — update the plan in the same commit as the implementation.
-- **Add new items when they're discovered.** If work reveals a new task, bug, or follow-up, add it to the appropriate priority section in `DEVELOPMENT_PLAN.md`. This includes ideas discussed in conversation that we decide to pursue — if it's agreed upon, it goes in the plan.
-- **Record new known issues.** If you encounter a bug, limitation, or quirk during development, add it to the "Known Issues" section at the bottom of the plan.
-- **Reference GitHub issues.** When a GitHub issue is created for deferred work, include the issue URL next to the corresponding item in the plan (e.g., `— see #42`). When closing an issue via PR, update the plan item to `[x]` in the same change.
+- `ARCHITECTURE.md` — How the app works, key files, supported cores.
+- **GitHub Issues** — Source of truth for project state. Use parent issues with sub-issues for multi-part work. Close issues via PRs (`Closes #123`). Create new issues when discovering work.
 
 ## Package Manager
 
@@ -59,7 +51,7 @@ Emulation frame pacing is a top-tier concern. Every code change — especially i
 - **No `backdrop-filter` or `backdrop-blur` in the game window.** These force expensive GPU compositing every frame and compete with the WebGL shader pipeline. Use solid or semi-transparent backgrounds instead. Backdrop effects are fine in the library UI where frame pacing doesn't matter.
 - **No expensive CSS effects layered over the game canvas.** Avoid `box-shadow` animations, large `filter: blur()`, or CSS `transform` animations on elements that overlap the canvas during gameplay. Static transforms and opacity transitions are acceptable.
 - **Renderer draws must be synced to `requestAnimationFrame`.** Never draw to WebGL directly from an IPC event handler. Buffer the latest frame and draw it in the next rAF callback to align with the display's vsync.
-- **Emulation timing must not rely on `setTimeout`/`setInterval` precision.** These have ~4ms minimum granularity and jitter under load. The target architecture is a dedicated Worker thread with high-resolution timing (see P2 in `DEVELOPMENT_PLAN.md`).
+- **Emulation timing must not rely on `setTimeout`/`setInterval` precision.** These have ~4ms minimum granularity and jitter under load. The emulation loop runs in a dedicated Electron utility process (`core-worker.ts`) with hybrid sleep+spin frame pacing.
 - **Profile before adding multi-pass shaders.** Any shader preset with 3+ passes must be tested on integrated GPUs (e.g. Apple M-series) to confirm it maintains 60fps. Include lighter alternatives users can fall back to.
 - **Measure, don't guess.** When in doubt about a change's performance impact, add a temporary FPS/frame-time counter and test with a real game running. Don't ship code that "should be fine" without verification.
 - **Pause-state effects are exempt.** When the emulation loop is stopped (paused, menu open, etc.), the GPU is idle and expensive cosmetic effects (VHS distortion, scanline drift, static overlays) are fair game. The performance rules above apply to effects running _during active gameplay_.
