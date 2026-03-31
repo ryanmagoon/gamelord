@@ -171,6 +171,8 @@ typedef void (*retro_unload_game_t)(void);
 typedef unsigned (*retro_get_region_t)(void);
 typedef void *(*retro_get_memory_data_t)(unsigned id);
 typedef size_t (*retro_get_memory_size_t)(unsigned id);
+typedef void (*retro_cheat_reset_t)(void);
+typedef void (*retro_cheat_set_t)(unsigned index, bool enabled, const char *code);
 
 /* Core options v1 structures */
 struct retro_core_option_value {
