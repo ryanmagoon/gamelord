@@ -59,8 +59,7 @@ export class ArtworkService extends EventEmitter {
   private config: ArtworkConfig = {};
   private cancelled = false;
   private syncing = false;
-  private paused = false;
-  private pauseResolve: (() => void) | null = null;
+  private gameplayActive = false;
   private lastRequestTime = 0;
   private configLoaded: Promise<void>;
 
@@ -428,47 +427,30 @@ export class ArtworkService extends EventEmitter {
   /** Cancel an in-progress bulk sync. */
   cancelSync(): void {
     this.cancelled = true;
-    // If paused, unblock so the loop can exit
-    if (this.pauseResolve) {
-      this.pauseResolve();
-      this.pauseResolve = null;
-    }
-    this.paused = false;
   }
 
   /**
-   * Pause the sync loop after the current game finishes processing.
-   * The loop blocks at the next `waitIfPaused()` checkpoint until `resume()` is called.
+   * Signal that a game is actively running (or has stopped).
+   * During gameplay, the sync loop continues but defers disk flushes
+   * to avoid any event loop pressure from JSON serialization + file I/O.
+   * Deferred flushes run automatically when gameplay ends.
    */
-  pause(): void {
-    if (!this.syncing || this.paused) {
-      return;
+  setGameplayActive(active: boolean): void {
+    this.gameplayActive = active;
+    if (!active && this.syncing) {
+      // Gameplay ended — flush any deferred writes immediately
+      void this.libraryService.flushSave();
     }
-    this.paused = true;
-    this.emit("paused");
   }
 
-  /** Resume a paused sync loop. */
-  resume(): void {
-    if (!this.paused) {
-      return;
-    }
-    this.paused = false;
-    if (this.pauseResolve) {
-      this.pauseResolve();
-      this.pauseResolve = null;
-    }
-    this.emit("resumed");
-  }
-
-  /** Returns whether the sync is currently paused. */
-  isPaused(): boolean {
-    return this.paused;
+  /** Returns whether gameplay is currently active. */
+  isGameplayActive(): boolean {
+    return this.gameplayActive;
   }
 
   /** Get current sync status. */
-  getSyncStatus(): { inProgress: boolean; paused: boolean } {
-    return { inProgress: this.syncing, paused: this.paused };
+  getSyncStatus(): { inProgress: boolean } {
+    return { inProgress: this.syncing };
   }
 
   /**
@@ -583,13 +565,6 @@ export class ArtworkService extends EventEmitter {
         break;
       }
 
-      // If paused (e.g. during gameplay), block here until resumed
-      await this.waitIfPaused();
-
-      if (this.cancelled) {
-        break;
-      }
-
       const game = this.libraryService.getGame(gameId);
       if (!game) {
         processed++;
@@ -662,8 +637,10 @@ export class ArtworkService extends EventEmitter {
 
       processed++;
 
-      // Flush batched saves to disk every 10 games to bound data loss on crash
-      if (processed % 10 === 0) {
+      // Flush batched saves to disk every 10 games to bound data loss on crash.
+      // During gameplay, defer flushing to avoid any event loop pressure —
+      // the in-memory state is already updated and flushes when gameplay ends.
+      if (processed % 10 === 0 && !this.gameplayActive) {
         await this.libraryService.flushSave();
       }
     }
@@ -672,8 +649,7 @@ export class ArtworkService extends EventEmitter {
     await this.libraryService.flushSave();
 
     this.syncing = false;
-    this.paused = false;
-    this.pauseResolve = null;
+    this.gameplayActive = false;
     const status: ArtworkSyncStatus = {
       inProgress: false,
       processed,
@@ -684,16 +660,6 @@ export class ArtworkService extends EventEmitter {
     };
     this.emit("syncComplete", status);
     return status;
-  }
-
-  /** Block until the sync is unpaused. Returns immediately if not paused. */
-  private waitIfPaused(): Promise<void> {
-    if (!this.paused) {
-      return Promise.resolve();
-    }
-    return new Promise<void>((resolve) => {
-      this.pauseResolve = resolve;
-    });
   }
 
   /** Enforce rate limiting by waiting if needed since the last API request. */
