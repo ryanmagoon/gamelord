@@ -171,6 +171,9 @@ contextBridge.exposeInMainWorld("gamelord", {
     setCredentials: (userId: string, userPassword: string) =>
       ipcRenderer.invoke("artwork:setCredentials", userId, userPassword),
     clearCredentials: () => ipcRenderer.invoke("artwork:clearCredentials"),
+    isCredentialPromptDismissed: () =>
+      ipcRenderer.invoke("artwork:isCredentialPromptDismissed") as Promise<boolean>,
+    dismissCredentialPrompt: () => ipcRenderer.invoke("artwork:dismissCredentialPrompt"),
   },
 
   // SharedArrayBuffer frame port (zero-copy frame/audio transfer)

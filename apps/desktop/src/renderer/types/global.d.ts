@@ -75,6 +75,8 @@ export interface GamelordAPI {
       userPassword: string,
     ) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
     clearCredentials: () => Promise<{ success: boolean; error?: string }>;
+    isCredentialPromptDismissed: () => Promise<boolean>;
+    dismissCredentialPrompt: () => Promise<{ success: boolean }>;
   };
 
   // Auto-updates

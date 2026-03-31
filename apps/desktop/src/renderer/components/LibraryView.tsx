@@ -84,6 +84,7 @@ export const LibraryView: React.FC<{
   const [credentialPassword, setCredentialPassword] = useState("");
   const [credentialError, setCredentialError] = useState("");
   const [isValidatingCredentials, setIsValidatingCredentials] = useState(false);
+  const [dontAskAgain, setDontAskAgain] = useState(false);
   /** Notification banner shown after sync completes or errors. */
   const [syncNotification, setSyncNotification] = useState<{
     message: string;
@@ -153,6 +154,22 @@ export const LibraryView: React.FC<{
       if (loadedGames.length > 0) {
         // Library has games — no need to wait for homebrew import.
         setIsImportingHomebrew(false);
+
+        // Auto-sync artwork for any games missing cover art
+        try {
+          const { hasCredentials } = await api.artwork.getCredentials();
+          if (hasCredentials) {
+            await api.artwork.syncAll();
+          } else {
+            // No credentials — prompt unless the user previously opted out
+            const dismissed = await api.artwork.isCredentialPromptDismissed();
+            if (!dismissed) {
+              setShowCredentialsDialog(true);
+            }
+          }
+        } catch (error) {
+          console.error("Auto-sync check failed:", error);
+        }
       } else {
         // Library is empty. Check if the homebrew import check already
         // completed (the event may have fired before we registered our
@@ -505,23 +522,6 @@ export const LibraryView: React.FC<{
 
   const isSyncing = syncCounter !== null;
 
-  const handleDownloadArtwork = async () => {
-    const { hasCredentials } = await api.artwork.getCredentials();
-    if (!hasCredentials) {
-      setShowCredentialsDialog(true);
-      return;
-    }
-    // Sort by title so artwork loads in the same order the user sees in the grid
-    const sortedIds = [...games].sort((a, b) => a.title.localeCompare(b.title)).map((g) => g.id);
-    await api.artwork.syncGames(sortedIds);
-  };
-
-  const handleCancelArtworkSync = async () => {
-    await api.artwork.cancelSync();
-    setSyncCounter(null);
-    artworkSyncStore.clear();
-  };
-
   const handleSaveCredentials = async () => {
     if (!credentialUserId || !credentialPassword) {
       setCredentialError("Both username and password are required.");
@@ -751,14 +751,6 @@ export const LibraryView: React.FC<{
         onSelect: () => void handleSelectDirectory(),
         keywords: ["browse", "directory", "import"],
       },
-      {
-        id: "download-artwork",
-        label: "Download Artwork",
-        group: "Actions",
-        icon: <ImageDown className="h-4 w-4 mr-3 shrink-0 text-muted-foreground" />,
-        onSelect: () => void handleDownloadArtwork(),
-        keywords: ["art", "cover", "metadata", "sync"],
-      },
     ];
     return [...libraryActions, ...commandPaletteActions];
   }, [commandPaletteActions]);
@@ -816,30 +808,8 @@ export const LibraryView: React.FC<{
                 <ImageDown className="h-3 w-3 animate-pulse" />
               )}
               {syncPaused ? "Paused" : "Syncing"} {syncCounter.current}/{syncCounter.total}
-              <button
-                onClick={() => {
-                  playSfx("click");
-                  void handleCancelArtworkSync();
-                }}
-                className="ml-1 hover:text-destructive transition-colors"
-                aria-label="Cancel artwork sync"
-              >
-                <X className="h-3 w-3" />
-              </button>
             </Badge>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              playSfx("click");
-              void handleDownloadArtwork();
-            }}
-            disabled={isSyncing}
-          >
-            <ImageDown className="h-4 w-4 mr-2" />
-            Download Artwork
-          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -1062,35 +1032,52 @@ export const LibraryView: React.FC<{
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => {
-                playSfx("dialogClose");
-                setCredentialUserId("");
-                setCredentialPassword("");
-                setCredentialError("");
-              }}
-            >
-              Cancel
-            </AlertDialogCancel>
-            {/* Use a regular Button instead of AlertDialogAction to prevent
-                the dialog from auto-closing when validation fails. */}
-            <Button
-              onClick={() => {
-                playSfx("click");
-                void handleSaveCredentials();
-              }}
-              disabled={isValidatingCredentials}
-            >
-              {isValidatingCredentials ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Validating...
-                </>
-              ) : (
-                "Save & Download"
-              )}
-            </Button>
+          <AlertDialogFooter className="flex-col gap-3 sm:flex-col">
+            <div className="flex items-center justify-between w-full">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <input
+                  checked={dontAskAgain}
+                  className="rounded border-input"
+                  onChange={(e) => setDontAskAgain(e.target.checked)}
+                  type="checkbox"
+                />
+                Don&apos;t ask again
+              </label>
+              <div className="flex gap-2">
+                <AlertDialogCancel
+                  onClick={() => {
+                    playSfx("dialogClose");
+                    if (dontAskAgain) {
+                      void api.artwork.dismissCredentialPrompt();
+                    }
+                    setCredentialUserId("");
+                    setCredentialPassword("");
+                    setCredentialError("");
+                    setDontAskAgain(false);
+                  }}
+                >
+                  Cancel
+                </AlertDialogCancel>
+                {/* Use a regular Button instead of AlertDialogAction to prevent
+                    the dialog from auto-closing when validation fails. */}
+                <Button
+                  onClick={() => {
+                    playSfx("click");
+                    void handleSaveCredentials();
+                  }}
+                  disabled={isValidatingCredentials}
+                >
+                  {isValidatingCredentials ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Validating...
+                    </>
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
+              </div>
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
