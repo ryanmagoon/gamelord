@@ -21,6 +21,7 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
       ui: ${{ steps.filter.outputs.ui }}
+      native: ${{ steps.filter.outputs.native }}
     steps:
       - uses: actions/checkout@v4
 
@@ -29,13 +30,22 @@ jobs:
         with:
           filters: |
             code:
-              - '!**/*.md'
-              - '!LICENSE'
-              - '!.gitignore'
-              - '!docs/**'
+              - 'apps/**'
+              - 'packages/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - 'tsconfig*.json'
+              - 'oxlint.config.ts'
+              - 'vercel.json'
+              - '.github/workflows/**'
             ui:
               - 'packages/ui/**'
               - 'apps/desktop/src/renderer/components/**'
+            native:
+              - 'apps/desktop/native/**'
 
   lint-typecheck-format:
     name: Lint, Type Check & Format
@@ -141,14 +151,10 @@ jobs:
       - run: echo "No code changes detected — skipping"
 
   native-addon:
-    name: Native Addon Build (${{ matrix.os }})
+    name: Native Addon Build (macos-latest)
     needs: changes
-    if: needs.changes.outputs.code == 'true'
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest]
+    if: needs.changes.outputs.native == 'true'
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -166,12 +172,9 @@ jobs:
         run: npx node-gyp rebuild
 
   native-addon-skip:
-    name: Native Addon Build (${{ matrix.os }})
+    name: Native Addon Build (macos-latest)
     needs: changes
-    if: needs.changes.outputs.code != 'true'
+    if: needs.changes.outputs.native != 'true'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        os: [macos-latest, windows-latest]
     steps:
-      - run: echo "No code changes detected — skipping"
+      - run: echo "No native addon changes detected — skipping"
