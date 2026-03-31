@@ -4,6 +4,7 @@ import { EventEmitter } from "node:events";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { Game } from "../types/library";
+import { getDisplayType } from "../types/displayType";
 import type { EmulationWorkerClient } from "./emulator/EmulationWorkerClient";
 import type { AVInfo } from "./workers/core-worker-protocol";
 import { animateWindowClose } from "./windowCloseAnimation";
@@ -60,11 +61,13 @@ export class GameWindowManager extends EventEmitter {
 
     const baseWidth = avInfo.geometry.baseWidth || 256;
     const baseHeight = avInfo.geometry.baseHeight || 240;
-    // Use the core's reported aspect ratio (accounts for non-square pixels like NES 4:3)
-    const aspectRatio =
-      avInfo.geometry.aspectRatio && avInfo.geometry.aspectRatio > 0
-        ? avInfo.geometry.aspectRatio
-        : baseWidth / baseHeight;
+    // Use the core's reported aspect ratio (accounts for non-square pixels).
+    // When the core reports 0, CRT systems (Genesis, SNES, etc.) default to 4:3
+    // since their pixels were non-square and designed for TV display. Handhelds
+    // have square pixels so baseWidth/baseHeight is correct for them.
+    const coreAspectRatio = avInfo.geometry.aspectRatio;
+    const fallbackRatio = getDisplayType(game.systemId) === "crt" ? 4 / 3 : baseWidth / baseHeight;
+    const aspectRatio = coreAspectRatio && coreAspectRatio > 0 ? coreAspectRatio : fallbackRatio;
     // Size the window to fill ~80% of the primary display height so it's
     // immediately prominent instead of feeling tiny on large monitors.
     // Floor is baseHeight * 3 (~720p for NES) so the window never opens

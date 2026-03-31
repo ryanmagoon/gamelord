@@ -222,8 +222,8 @@ export const GameWindow: React.FC = () => {
       return;
     }
 
-    // Use game aspect ratio if available, otherwise default to NES aspect ratio
-    const aspectRatio = gameAspectRatio || 256 / 240;
+    // Use game aspect ratio if available, otherwise default to 4:3
+    const aspectRatio = gameAspectRatio || 4 / 3;
 
     // Calculate canvas size to fit container while maintaining aspect ratio
     let canvasW: number;
@@ -443,12 +443,14 @@ export const GameWindow: React.FC = () => {
         canvas.width = avInfo.geometry.baseWidth;
         canvas.height = avInfo.geometry.baseHeight;
       }
-      // Calculate aspect ratio for proper scaling
-      const aspectRatio =
-        avInfo.geometry.aspectRatio > 0
-          ? avInfo.geometry.aspectRatio
+      // Use the core's reported aspect ratio. When the core reports 0,
+      // CRT systems default to 4:3 (non-square pixels designed for TV).
+      const coreAR = avInfo.geometry.aspectRatio;
+      const fallbackAR =
+        game && getDisplayType(game.systemId) === "crt"
+          ? 4 / 3
           : avInfo.geometry.baseWidth / avInfo.geometry.baseHeight;
-      setGameAspectRatio(aspectRatio);
+      setGameAspectRatio(coreAR > 0 ? coreAR : fallbackAR);
     });
 
     api.on("game:video-frame", (raw: unknown) => {
