@@ -1,3 +1,11 @@
+/** A single cheat code parsed from a libretro .cht database file. */
+export interface CheatEntry {
+  index: number;
+  description: string;
+  code: string;
+  enabled: boolean;
+}
+
 export interface GameSystem {
   corePath?: string;
   extensions: Array<string>;
