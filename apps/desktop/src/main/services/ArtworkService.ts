@@ -258,6 +258,17 @@ export class ArtworkService extends EventEmitter {
     await this.saveConfig();
   }
 
+  /** Whether the user has permanently dismissed the credential setup prompt. */
+  isCredentialPromptDismissed(): boolean {
+    return this.config.credentialPromptDismissed === true;
+  }
+
+  /** Persist the user's choice to never be prompted for credentials again. */
+  async dismissCredentialPrompt(): Promise<void> {
+    this.config.credentialPromptDismissed = true;
+    await this.saveConfig();
+  }
+
   /**
    * Run the full artwork pipeline for a single game.
    * Returns true if artwork was found and downloaded.

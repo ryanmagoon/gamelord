@@ -647,6 +647,15 @@ export class IPCHandlers {
         return { success: false, error: errorMessage(error) };
       }
     });
+
+    ipcMain.handle("artwork:isCredentialPromptDismissed", () => {
+      return this.artworkService.isCredentialPromptDismissed();
+    });
+
+    ipcMain.handle("artwork:dismissCredentialPrompt", async () => {
+      await this.artworkService.dismissCredentialPrompt();
+      return { success: true };
+    });
   }
 
   private setupDialogHandlers(): void {

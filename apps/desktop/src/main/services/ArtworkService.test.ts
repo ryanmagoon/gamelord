@@ -188,6 +188,42 @@ describe("ArtworkService", () => {
     });
   });
 
+  describe("credential prompt dismissal", () => {
+    it("is not dismissed by default", async () => {
+      const service = new ArtworkService(createMockLibraryService());
+      await flushPromises();
+
+      expect(service.isCredentialPromptDismissed()).toBe(false);
+    });
+
+    it("reports dismissed after calling dismissCredentialPrompt", async () => {
+      const service = new ArtworkService(createMockLibraryService());
+      await flushPromises();
+
+      await service.dismissCredentialPrompt();
+      expect(service.isCredentialPromptDismissed()).toBe(true);
+    });
+
+    it("persists dismissal to config file", async () => {
+      const service = new ArtworkService(createMockLibraryService());
+      await flushPromises();
+
+      await service.dismissCredentialPrompt();
+      expect(mockWriteFile).toHaveBeenCalledWith(
+        "/tmp/gamelord-test/artwork-config.json",
+        expect.stringContaining('"credentialPromptDismissed": true'),
+      );
+    });
+
+    it("loads dismissed state from persisted config", async () => {
+      mockReadFile.mockResolvedValue(JSON.stringify({ credentialPromptDismissed: true }));
+      const service = new ArtworkService(createMockLibraryService());
+      await flushPromises();
+
+      expect(service.isCredentialPromptDismissed()).toBe(true);
+    });
+  });
+
   describe("syncAllGames", () => {
     it("returns immediately if already syncing", async () => {
       const game = makeGame();
