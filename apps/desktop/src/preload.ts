@@ -58,6 +58,16 @@ contextBridge.exposeInMainWorld("gamelord", {
     load: (slot: number) => ipcRenderer.invoke("savestate:load", slot),
   },
 
+  // Cheats
+  cheats: {
+    listForGame: (systemId: string, romFilename: string) =>
+      ipcRenderer.invoke("cheats:listForGame", systemId, romFilename),
+    downloadDatabase: () => ipcRenderer.invoke("cheats:downloadDatabase"),
+    set: (index: number, enabled: boolean, code: string) =>
+      ipcRenderer.invoke("cheats:set", index, enabled, code),
+    reset: () => ipcRenderer.invoke("cheats:reset"),
+  },
+
   // Run one frame and return video+audio data (called from requestAnimationFrame)
   tick: () => ipcRenderer.invoke("game:tick"),
 
@@ -86,6 +96,7 @@ contextBridge.exposeInMainWorld("gamelord", {
       "game:audio-samples",
       "overlay:show-controls",
       "core:downloadProgress",
+      "cheats:downloadProgress",
       "library:scanProgress",
       "library:scanAmbiguous",
       "library:homebrewImported",
