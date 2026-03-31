@@ -247,6 +247,30 @@ describe("ArtworkService", () => {
       expect(status.total).toBe(0);
     });
 
+    it("skips games previously marked as artworkNotFound", async () => {
+      const games = [
+        makeGame({
+          id: "found-before",
+          title: "Previously Not Found",
+          artworkNotFound: Date.now(),
+        }),
+        makeGame({ id: "never-synced", title: "Never Synced" }),
+      ];
+      const service = new ArtworkService(createMockLibraryService(games));
+      await flushPromises();
+
+      const progressEvents: Array<ArtworkProgress> = [];
+      service.on("progress", (p: ArtworkProgress) => progressEvents.push(p));
+
+      const status = await service.syncAllGames();
+
+      // Only the never-synced game should be in the batch
+      expect(status.total).toBe(1);
+      const syncedIds = new Set(progressEvents.map((p) => p.gameId));
+      expect(syncedIds.has("found-before")).toBe(false);
+      expect(syncedIds.has("never-synced")).toBe(true);
+    });
+
     it("emits syncComplete event when done", async () => {
       const service = new ArtworkService(createMockLibraryService([]));
       await flushPromises();
@@ -628,6 +652,84 @@ describe("ArtworkService", () => {
       // updateGame should NOT contain a 'system' key since Game Boy has no regional variants
       const updateCall = vi.mocked(libraryService.updateGame).mock.calls[0][1];
       expect(updateCall).not.toHaveProperty("system");
+    });
+
+    it("sets artworkNotFound when game is not found in API", async () => {
+      const game = makeGame();
+      const libraryService = createMockLibraryService([game]);
+      const service = new ArtworkService(libraryService);
+      await flushPromises();
+      await service.setCredentials("user", "pass");
+
+      mockFetchByHash.mockResolvedValue(null);
+      mockFetchByName.mockResolvedValue(null);
+
+      const result = await service.syncGame("game1");
+      expect(result).toBe(false);
+
+      expect(libraryService.updateGame).toHaveBeenCalledWith(
+        "game1",
+        expect.objectContaining({ artworkNotFound: expect.any(Number) }),
+      );
+    });
+
+    it("sets artworkNotFound when game found but has no artwork URL", async () => {
+      const game = makeGame();
+      const libraryService = createMockLibraryService([game]);
+      const service = new ArtworkService(libraryService);
+      await flushPromises();
+      await service.setCredentials("user", "pass");
+
+      mockFetchByHash.mockResolvedValue({
+        title: "Some Game",
+        developer: "Dev",
+        publisher: "Pub",
+        genre: "Action",
+        players: 1,
+        rating: 0.8,
+        releaseDate: "1990-01-01",
+        media: {}, // No artwork URLs
+      });
+
+      const result = await service.syncGame("game1");
+      expect(result).toBe(false);
+
+      expect(libraryService.updateGame).toHaveBeenCalledWith(
+        "game1",
+        expect.objectContaining({ artworkNotFound: expect.any(Number) }),
+      );
+    });
+
+    it("clears artworkNotFound when artwork is successfully found", async () => {
+      const game = makeGame({ artworkNotFound: Date.now() - 86_400_000 });
+      const libraryService = createMockLibraryService([game]);
+      const service = new ArtworkService(libraryService);
+      await flushPromises();
+      await service.setCredentials("user", "pass");
+
+      mockFetchByHash.mockResolvedValue({
+        title: "Some Game",
+        developer: "Dev",
+        publisher: "Pub",
+        genre: "Action",
+        players: 1,
+        rating: 0.8,
+        releaseDate: "1990-01-01",
+        media: { boxArt2d: "https://screenscraper.fr/medias/box2d.png" },
+      });
+
+      // Mock the download to succeed
+      vi.spyOn(service, "downloadArtwork").mockResolvedValue(
+        "/tmp/gamelord-test/artwork/game1.png",
+      );
+
+      const result = await service.syncGame("game1", true);
+      expect(result).toBe(true);
+
+      expect(libraryService.updateGame).toHaveBeenCalledWith(
+        "game1",
+        expect.objectContaining({ artworkNotFound: undefined }),
+      );
     });
 
     it("falls through to name search on non-auth errors from hash lookup", async () => {
