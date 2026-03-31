@@ -249,7 +249,11 @@ describe("ArtworkService", () => {
 
     it("skips games previously marked as artworkNotFound", async () => {
       const games = [
-        makeGame({ id: "found-before", title: "Previously Not Found", artworkNotFound: Date.now() }),
+        makeGame({
+          id: "found-before",
+          title: "Previously Not Found",
+          artworkNotFound: Date.now(),
+        }),
         makeGame({ id: "never-synced", title: "Never Synced" }),
       ];
       const service = new ArtworkService(createMockLibraryService(games));
@@ -715,7 +719,9 @@ describe("ArtworkService", () => {
       });
 
       // Mock the download to succeed
-      vi.spyOn(service, "downloadArtwork").mockResolvedValue("/tmp/gamelord-test/artwork/game1.png");
+      vi.spyOn(service, "downloadArtwork").mockResolvedValue(
+        "/tmp/gamelord-test/artwork/game1.png",
+      );
 
       const result = await service.syncGame("game1", true);
       expect(result).toBe(true);
