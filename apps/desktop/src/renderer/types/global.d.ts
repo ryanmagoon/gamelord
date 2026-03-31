@@ -1,4 +1,4 @@
-import type { GameSystem, Game, LibraryConfig } from "../../types/library";
+import type { GameSystem, Game, LibraryConfig, CheatEntry } from "../../types/library";
 
 export interface CoreInfo {
   name: string;
@@ -39,6 +39,19 @@ export interface GamelordAPI {
   saveState: {
     save: (slot: number) => Promise<{ success: boolean }>;
     load: (slot: number) => Promise<{ success: boolean }>;
+  };
+  cheats: {
+    listForGame: (
+      systemId: string,
+      romFilename: string,
+    ) => Promise<{ success: boolean; cheats: Array<CheatEntry>; error?: string }>;
+    downloadDatabase: () => Promise<{ success: boolean; error?: string }>;
+    set: (
+      index: number,
+      enabled: boolean,
+      code: string,
+    ) => Promise<{ success: boolean; error?: string }>;
+    reset: () => Promise<{ success: boolean; error?: string }>;
   };
   // Library management (matches preload API)
   library: {

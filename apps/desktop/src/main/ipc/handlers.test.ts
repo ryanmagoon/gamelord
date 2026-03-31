@@ -29,6 +29,7 @@ vi.mock("../emulator/EmulationWorkerClient");
 vi.mock("../emulator/resolveAddonPath");
 vi.mock("../services/LibraryService");
 vi.mock("../services/ArtworkService");
+vi.mock("../services/CheatDatabaseService");
 vi.mock("../GameWindowManager");
 vi.mock("../logger", () => ({
   ipcLog: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
@@ -39,6 +40,7 @@ import { EmulatorManager } from "../emulator/EmulatorManager";
 import { EmulationWorkerClient } from "../emulator/EmulationWorkerClient";
 import { resolveAddonPath } from "../emulator/resolveAddonPath";
 import { LibraryService } from "../services/LibraryService";
+import { CheatDatabaseService } from "../services/CheatDatabaseService";
 import { GameWindowManager } from "../GameWindowManager";
 import { IPCHandlers } from "./handlers";
 import type { Game, GameSystem } from "../../types/library";
@@ -254,6 +256,18 @@ beforeEach(() => {
     return gameWindowManagerInstance as unknown as GameWindowManager;
   } as unknown as () => GameWindowManager);
 
+  // Configure CheatDatabaseService mock constructor
+  const cheatEmitter = new EventEmitter();
+  vi.mocked(CheatDatabaseService).mockImplementation(function (this: Record<string, unknown>) {
+    Object.assign(this, {
+      ensureDatabase: vi.fn().mockResolvedValue(undefined),
+      getCheatsForGame: vi.fn().mockReturnValue([]),
+      on: cheatEmitter.on.bind(cheatEmitter),
+      emit: cheatEmitter.emit.bind(cheatEmitter),
+    });
+    return this as unknown as CheatDatabaseService;
+  } as unknown as () => CheatDatabaseService);
+
   // Instantiate IPCHandlers — triggers all handler registrations
   new IPCHandlers("/fake/preload.js");
 });
@@ -311,7 +325,7 @@ describe("IPCHandlers", () => {
 
     it("registers exactly the expected number of handle channels", () => {
       const handleCalls = vi.mocked(ipcMain.handle).mock.calls;
-      expect(handleCalls).toHaveLength(39);
+      expect(handleCalls).toHaveLength(43);
     });
   });
 

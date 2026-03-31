@@ -183,6 +183,14 @@ export class EmulationWorkerClient extends EventEmitter {
     return (result as { path: string }).path;
   }
 
+  async cheatReset(): Promise<void> {
+    await this.sendRequest({ action: "cheatReset" });
+  }
+
+  async cheatSet(index: number, enabled: boolean, code: string): Promise<void> {
+    await this.sendRequest({ action: "cheatSet", index, enabled, code });
+  }
+
   /**
    * Mark the worker as shutting down so that a process exit during the
    * async shutdown sequence doesn't emit an unexpected-exit error.
