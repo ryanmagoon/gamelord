@@ -200,6 +200,22 @@ Expose libretro core options to users so they can tune emulator behavior (hardwa
 - [ ] **Persistence — per-game and per-core option overrides** — Store overrides in database with resolution hierarchy (per-game > per-core > core defaults). Apply merged overrides before first `retro_run()`. — [#255](https://github.com/ryanmagoon/gamelord/issues/255)
 - [ ] **UI — core options settings panel** — Dynamic settings panel accessible from game detail and global core settings. Options grouped by category, dropdowns with descriptions, visual override indicators, reset buttons. Recommended/advanced split. Storybook stories for all states. — [#256](https://github.com/ryanmagoon/gamelord/issues/256)
 
+### Cheats
+
+Pre-download cheat databases from the [libretro-database](https://github.com/libretro/libretro-database/tree/master/cht) `.cht` files so users have cheats available out of the box. Wire up the libretro cheat API (`retro_cheat_reset`, `retro_cheat_set`) and build a UI for browsing, toggling, and managing cheat codes per game.
+
+**Phase 1 — Cheat Database & Native Support**
+
+- [ ] **Cheat database downloader** — Download `.cht` files from the libretro-database GitHub repo (organized by system) on first launch or on demand. Store in `<userData>/cheats/<systemId>/`. Auto-update periodically (check repo for new commits, download changed files). Similar architecture to `CoreDownloader` — background download with progress events.
+- [ ] **Native addon — wire up `retro_cheat_reset` / `retro_cheat_set`** — Expose the libretro cheat API through the native addon. `retro_cheat_set(index, enabled, code)` applies a cheat code at runtime. `retro_cheat_reset()` clears all active cheats. Support Game Genie, Action Replay, and Pro Action Replay code formats (core-dependent).
+- [ ] **Worker/IPC — cheat commands** — Add `cheatReset`, `cheatSet`, and `listAvailableCheats` to the worker protocol and IPC handlers. `listAvailableCheats` parses the `.cht` file matching the current ROM (by filename or hash) and returns structured cheat entries.
+
+**Phase 2 — Cheat UI**
+
+- [ ] **Cheat browser panel** — Accessible from the game window overlay or pause menu. Shows all available cheats for the current game (from the pre-downloaded `.cht` database) with toggle switches. Cheats grouped by category when available. Search/filter for games with large cheat lists. Presentational component in `packages/ui/` with Storybook stories.
+- [ ] **Custom cheat entry** — Manual code input for cheats not in the database. Text field with format validation (Game Genie, Action Replay, raw address+value). User-added cheats saved per-game alongside database cheats.
+- [ ] **Per-game cheat persistence** — Remember which cheats are enabled per game. Auto-apply enabled cheats on game launch (after `retro_load_game`, before first `retro_run`). Stored in library config or a dedicated cheats config file.
+
 ### P7 — Rewind
 
 - [ ] Implement frame-state ring buffer — capture serialized save states every N frames — [#83](https://github.com/ryanmagoon/gamelord/issues/83)
