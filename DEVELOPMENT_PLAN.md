@@ -96,7 +96,7 @@ Items are grouped by priority. Work top-down within each tier.
 - [x] **Fix test environment** — Switch vitest config from jsdom to happy-dom (per project conventions)
 - [x] **Fix game ID hashing** — Replace `MD5(romPath)` in `LibraryService.ts` with `SHA-256(fileContent)` so IDs survive file moves
 - [x] **ROM checksum validation** — Compute CRC32/SHA-1/MD5 checksums on ROM files at scan time via single-pass streaming. Stored in required `romHashes` field on `Game`. Backfill on startup for existing libraries. ArtworkService simplified to use pre-computed MD5. — [#61](https://github.com/ryanmagoon/gamelord/issues/61)
-- [x] **Artwork sync auto-pause during gameplay** — Artwork sync now auto-pauses when a game launches and resumes when the emulator exits, preventing main process event loop contention. Also batches library.json writes (every 10 games instead of every game) to reduce I/O. Renderer shows a "Paused" badge. — [#246](https://github.com/ryanmagoon/gamelord/issues/246)
+- [x] **Artwork sync continues during gameplay** — Replaced the hard auto-pause with three targeted optimizations so artwork sync runs transparently during gameplay: (1) JSON.stringify offloaded to a worker thread so large library serialization doesn't block the main event loop, (2) artwork progress IPC events scoped to library windows only (no longer broadcast to game windows), (3) disk flushes deferred during gameplay and flushed when the game exits. — [#246](https://github.com/ryanmagoon/gamelord/issues/246)
 
 ### P2 — Performance
 

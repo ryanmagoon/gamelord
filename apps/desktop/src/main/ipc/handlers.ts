@@ -332,12 +332,14 @@ export class IPCHandlers {
 
     this.emulatorManager.on("gameLaunched", (data) => {
       forwardEvent("emulator:launched", data);
-      // Auto-pause artwork sync during gameplay to avoid I/O contention
-      this.artworkService.pause();
+      // Tell artwork sync to defer disk flushes during gameplay.
+      // Sync continues (API calls + image downloads are non-blocking),
+      // but we skip flushSave() to avoid any remaining event loop pressure.
+      this.artworkService.setGameplayActive(true);
     });
     this.emulatorManager.on("emulator:exited", (data) => {
       forwardEvent("emulator:exited", data);
-      this.artworkService.resume();
+      this.artworkService.setGameplayActive(false);
     });
     this.emulatorManager.on("emulator:error", (error) => forwardEvent("emulator:error", error));
     this.emulatorManager.on("emulator:stateSaved", (data) =>
@@ -357,16 +359,16 @@ export class IPCHandlers {
     );
     this.emulatorManager.on("emulator:terminated", () => {
       forwardEvent("emulator:terminated");
-      this.artworkService.resume();
+      this.artworkService.setGameplayActive(false);
     });
     this.emulatorManager.on("core:downloadProgress", (data) =>
       forwardEvent("core:downloadProgress", data),
     );
 
     // Native mode: game window close doesn't go through EmulatorManager events,
-    // so we listen on GameWindowManager directly to resume artwork sync.
+    // so we listen on GameWindowManager directly to end gameplay mode.
     this.gameWindowManager.on("gameWindowClosed", () => {
-      this.artworkService.resume();
+      this.artworkService.setGameplayActive(false);
     });
   }
 
@@ -550,18 +552,22 @@ export class IPCHandlers {
   }
 
   private setupArtworkHandlers(): void {
-    // Forward artwork progress events to all renderer windows
-    const forwardEvent = (eventName: string, data?: unknown) => {
+    // Forward artwork events only to non-game windows (library UI).
+    // Broadcasting to game windows wastes IPC bandwidth and adds event loop
+    // pressure during gameplay — the game window doesn't use these events.
+    const forwardToLibraryWindows = (eventName: string, data?: unknown) => {
       const windows = BrowserWindow.getAllWindows();
-      windows.forEach((window: BrowserWindow) => {
-        window.webContents.send(eventName, data);
-      });
+      for (const window of windows) {
+        if (!this.gameWindowManager.isGameWindow(window)) {
+          window.webContents.send(eventName, data);
+        }
+      }
     };
 
-    this.artworkService.on("progress", (data) => forwardEvent("artwork:progress", data));
-    this.artworkService.on("syncComplete", (data) => forwardEvent("artwork:syncComplete", data));
-    this.artworkService.on("paused", () => forwardEvent("artwork:syncPaused"));
-    this.artworkService.on("resumed", () => forwardEvent("artwork:syncResumed"));
+    this.artworkService.on("progress", (data) => forwardToLibraryWindows("artwork:progress", data));
+    this.artworkService.on("syncComplete", (data) =>
+      forwardToLibraryWindows("artwork:syncComplete", data),
+    );
 
     ipcMain.handle("artwork:syncGame", async (_event, gameId: string) => {
       try {
@@ -577,7 +583,7 @@ export class IPCHandlers {
       const syncPromise = this.artworkService.syncAllGames();
       syncPromise.catch((error) => {
         ipcLog.error("Artwork sync failed:", error);
-        forwardEvent("artwork:syncError", {
+        forwardToLibraryWindows("artwork:syncError", {
           error: error instanceof Error ? error.message : String(error),
           errorCode: error instanceof ScreenScraperError ? error.errorCode : undefined,
         });
@@ -590,7 +596,7 @@ export class IPCHandlers {
       const syncPromise = this.artworkService.syncGames(gameIds);
       syncPromise.catch((error) => {
         ipcLog.error("Artwork sync for imported games failed:", error);
-        forwardEvent("artwork:syncError", {
+        forwardToLibraryWindows("artwork:syncError", {
           error: error instanceof Error ? error.message : String(error),
           errorCode: error instanceof ScreenScraperError ? error.errorCode : undefined,
         });
@@ -600,16 +606,6 @@ export class IPCHandlers {
 
     ipcMain.handle("artwork:cancelSync", () => {
       this.artworkService.cancelSync();
-      return { success: true };
-    });
-
-    ipcMain.handle("artwork:pause", () => {
-      this.artworkService.pause();
-      return { success: true };
-    });
-
-    ipcMain.handle("artwork:resume", () => {
-      this.artworkService.resume();
       return { success: true };
     });
 

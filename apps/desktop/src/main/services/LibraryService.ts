@@ -2,6 +2,7 @@ import { promises as fs, createReadStream } from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 import { EventEmitter } from "node:events";
+import { Worker } from "node:worker_threads";
 import {
   Game,
   GameSystem,
@@ -221,11 +222,15 @@ export class LibraryService extends EventEmitter {
    * Writes to a `.tmp` file first, renames the existing file to `.bak`,
    * then renames `.tmp` to the final path. This ensures the file is
    * never in a partially-written state.
+   *
+   * JSON serialization runs in a worker thread to avoid blocking the main
+   * process event loop — large libraries (1000+ games) can take 10-50ms+
+   * to stringify, which starves frame/audio IPC during gameplay.
    */
   private async atomicWriteJSON(filePath: string, data: unknown): Promise<void> {
     const tmpPath = `${filePath}.tmp`;
     const bakPath = `${filePath}.bak`;
-    const content = JSON.stringify(data, null, 2);
+    const content = await this.stringifyInWorker(data);
 
     await fs.writeFile(tmpPath, content, "utf8");
 
@@ -236,6 +241,37 @@ export class LibraryService extends EventEmitter {
     }
 
     await fs.rename(tmpPath, filePath);
+  }
+
+  /**
+   * Serialize data to JSON in a worker thread to keep the main event loop free.
+   * Spawns a short-lived worker for each call — the overhead (~2ms) is negligible
+   * compared to the stringify time it offloads, and avoids managing a persistent worker.
+   * Falls back to synchronous stringify if the worker file isn't found (e.g. in tests).
+   */
+  private stringifyInWorker(data: unknown): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const workerPath = path.join(__dirname, "../workers/json-stringify-worker.js");
+      let worker: Worker;
+      try {
+        worker = new Worker(workerPath);
+      } catch {
+        // Worker file doesn't exist (tests, or pre-build). Fall back to sync stringify.
+        resolve(JSON.stringify(data, null, 2));
+        return;
+      }
+      worker.on("message", (content: string) => {
+        resolve(content);
+        void worker.terminate();
+      });
+      worker.on("error", (err: Error) => {
+        // Worker failed — fall back to sync stringify rather than crashing
+        resolve(JSON.stringify(data, null, 2));
+        void worker.terminate();
+        libraryLog.warn("JSON stringify worker failed, fell back to sync:", err.message);
+      });
+      worker.postMessage(data);
+    });
   }
 
   private async saveConfig(): Promise<void> {

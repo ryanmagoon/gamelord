@@ -498,6 +498,16 @@ export class GameWindowManager extends EventEmitter {
     return this.gameWindows.get(gameId);
   }
 
+  /** Returns true if the given BrowserWindow is a game window managed by this class. */
+  isGameWindow(window: BrowserWindow): boolean {
+    for (const gw of this.gameWindows.values()) {
+      if (gw === window) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private setupIpcHandlers(): void {
     ipcMain.on("game-window:minimize", (event) => {
       const window = BrowserWindow.fromWebContents(event.sender);
