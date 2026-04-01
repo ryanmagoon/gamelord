@@ -307,7 +307,7 @@ export class EmulatorManager extends EventEmitter {
       nds: ["desmume_libretro"],
       nes: ["fceumm_libretro", "nestopia_libretro", "mesen_libretro"],
       psp: ["ppsspp_libretro"],
-      psx: ["pcsx_rearmed_libretro", "mednafen_psx_hw_libretro"],
+      psx: ["pcsx_rearmed_libretro", "mednafen_psx_hw_libretro", "swanstation_libretro"],
       saturn: ["mednafen_saturn_libretro", "yabause_libretro"],
       snes: ["snes9x_libretro", "bsnes_libretro"],
     };
@@ -438,7 +438,7 @@ export class EmulatorManager extends EventEmitter {
 
   /**
    * Get the identifier of the currently active libretro core
-   * (e.g. "mednafen_psx_hw", "pcsx_rearmed", "duckstation").
+   * (e.g. "mednafen_psx_hw", "pcsx_rearmed", "swanstation").
    * Returns null when no game is running.
    */
   getActiveCoreId(): string | null {

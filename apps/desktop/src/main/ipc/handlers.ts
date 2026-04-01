@@ -342,7 +342,7 @@ export class IPCHandlers {
       async (event: IpcMainInvokeEvent, systemId: string, romFilename: string) => {
         try {
           // Pass the CD-ROM serial and core ID for chtdb serial-based lookup.
-          // Chtdb cheats are only included when the active core is DuckStation,
+          // Chtdb cheats are only included when the active core is SwanStation,
           // since its extended code types are incompatible with other cores.
           const workerClient = this.emulatorManager.getWorkerClient();
           const serial = workerClient?.getDetectedSerial() ?? undefined;
