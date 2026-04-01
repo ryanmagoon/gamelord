@@ -139,6 +139,19 @@ export function filterForwardableLogs(
   return entries.filter((entry) => entry.level >= MIN_FORWARD_LOG_LEVEL);
 }
 
+/**
+ * Extract a CD-ROM serial from a core log message.
+ *
+ * PSX cores (e.g. Beetle PSX, PCSX ReARMed) log the disc serial as:
+ * `CD-ROM ID: SLUS00551` or `CD-ROM ID: SLUS-00551`
+ *
+ * Returns the raw serial string if found, or null.
+ */
+export function extractSerialFromLog(message: string): string | null {
+  const match = message.match(/CD-ROM ID:\s*([A-Za-z]{4}-?\d{5})/);
+  return match ? match[1] : null;
+}
+
 // ---------------------------------------------------------------------------
 // Worker → Main events
 // ---------------------------------------------------------------------------
@@ -150,6 +163,7 @@ export type WorkerEvent =
   | { type: "error"; message: string; fatal: boolean }
   | { type: "log"; level: number; message: string }
   | { type: "speedChanged"; multiplier: number }
+  | { type: "serialDetected"; serial: string }
   | {
       type: "response";
       requestId: string;

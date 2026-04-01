@@ -1,9 +1,14 @@
-/** A single cheat code parsed from a libretro .cht database file. */
+/** Where a cheat entry was sourced from. */
+export type CheatSource = "libretro" | "chtdb";
+
+/** A single cheat code parsed from a cheat database file. */
 export interface CheatEntry {
   index: number;
   description: string;
   code: string;
   enabled: boolean;
+  /** Which database this cheat came from. Defaults to "libretro" for backwards compat. */
+  source?: CheatSource;
 }
 
 /** A user-defined cheat code not in the database. */

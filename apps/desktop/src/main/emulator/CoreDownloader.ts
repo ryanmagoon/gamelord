@@ -37,14 +37,14 @@ const SYSTEM_CORES: Record<string, Array<string>> = {
   nds: ["desmume_libretro"],
   nes: ["fceumm_libretro", "nestopia_libretro", "mesen_libretro"],
   psp: ["ppsspp_libretro"],
-  psx: ["pcsx_rearmed_libretro", "beetle_psx_libretro"],
+  psx: ["pcsx_rearmed_libretro", "mednafen_psx_hw_libretro"],
   saturn: ["mednafen_saturn_libretro", "yabause_libretro"],
   snes: ["snes9x_libretro", "bsnes_libretro"],
 };
 
 /** Human-readable display names for cores. */
 const CORE_DISPLAY_NAMES: Record<string, string> = {
-  beetle_psx_libretro: "Beetle PSX",
+  mednafen_psx_hw_libretro: "Beetle PSX HW",
   bsnes_libretro: "bsnes",
   desmume_libretro: "DeSmuME",
   fceumm_libretro: "FCEUmm",
