@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { X, Plus, Trash2, Search } from "lucide-react";
+import { Switch } from "../ui/switch";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -18,6 +19,8 @@ export interface CustomCheatItem {
   enabled: boolean;
 }
 
+export type CheatDatabaseStatus = "ready" | "downloading" | "not-downloaded" | "error";
+
 export interface CheatPanelProps {
   open: boolean;
   onClose: () => void;
@@ -28,6 +31,10 @@ export interface CheatPanelProps {
   onAddCustomCheat: (description: string, code: string) => void;
   onRemoveCustomCheat: (index: number) => void;
   gameTitle: string;
+  /** Status of the cheat database. Controls empty-state messaging. */
+  databaseStatus?: CheatDatabaseStatus;
+  /** Callback to trigger cheat database download. */
+  onDownloadDatabase?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -50,6 +57,8 @@ export const CheatPanel: React.FC<CheatPanelProps> = ({
   onAddCustomCheat,
   onRemoveCustomCheat,
   gameTitle,
+  databaseStatus = "ready",
+  onDownloadDatabase,
 }) => {
   // -------------------------------------------------------------------------
   // Delayed unmount for exit animations
@@ -218,8 +227,42 @@ export const CheatPanel: React.FC<CheatPanelProps> = ({
 
         {/* Cheat list */}
         <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1">
-          {/* Empty state */}
-          {!hasAnyCheats && (
+          {/* Empty / download states */}
+          {!hasAnyCheats && databaseStatus === "downloading" && (
+            <div className="py-8 text-center">
+              <div className="inline-block w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin mb-3" />
+              <p className="text-sm text-white/40">Downloading cheat database…</p>
+              <p className="text-xs text-white/25 mt-1">This only happens once.</p>
+            </div>
+          )}
+          {!hasAnyCheats && databaseStatus === "not-downloaded" && (
+            <div className="py-8 text-center">
+              <p className="text-sm text-white/40">Cheat database not downloaded yet.</p>
+              {onDownloadDatabase && (
+                <button
+                  onClick={onDownloadDatabase}
+                  className="mt-3 px-4 py-1.5 bg-white/10 hover:bg-white/15 text-white text-xs font-medium rounded-lg transition-colors"
+                >
+                  Download Cheat Database
+                </button>
+              )}
+            </div>
+          )}
+          {!hasAnyCheats && databaseStatus === "error" && (
+            <div className="py-8 text-center">
+              <p className="text-sm text-red-400/80">Failed to download cheat database.</p>
+              {onDownloadDatabase && (
+                <button
+                  onClick={onDownloadDatabase}
+                  className="mt-3 px-4 py-1.5 bg-white/10 hover:bg-white/15 text-white text-xs font-medium rounded-lg transition-colors"
+                >
+                  Retry Download
+                </button>
+              )}
+              <p className="text-xs text-white/25 mt-2">You can still add custom cheats below.</p>
+            </div>
+          )}
+          {!hasAnyCheats && databaseStatus === "ready" && (
             <div className="py-8 text-center">
               <p className="text-sm text-white/40">No cheats found for this game.</p>
               <p className="text-xs text-white/25 mt-1">Add a custom cheat below.</p>
@@ -348,18 +391,12 @@ const CheatRow: React.FC<CheatRowProps> = ({ description, code, enabled, onToggl
         </button>
       )}
 
-      {/* Toggle switch */}
-      <button
-        role="switch"
-        aria-checked={enabled}
+      <Switch
+        checked={enabled}
+        onCheckedChange={onToggle}
         aria-label={`Toggle ${description}`}
-        onClick={() => onToggle(!enabled)}
-        className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${enabled ? "bg-green-500/80" : "bg-white/15"}`}
-      >
-        <span
-          className={`absolute top-[3px] w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform ${enabled ? "translate-x-[18px]" : "translate-x-[3px]"}`}
-        />
-      </button>
+        className="data-[state=checked]:bg-green-500/80 data-[state=unchecked]:bg-white/15"
+      />
     </div>
   );
 };

@@ -51,6 +51,7 @@ export interface GamelordAPI {
       systemId: string,
       romFilename: string,
     ) => Promise<{ success: boolean; cheats: Array<CheatEntry>; error?: string }>;
+    databaseStatus: () => Promise<{ present: boolean; downloading: boolean }>;
     downloadDatabase: () => Promise<{ success: boolean; error?: string }>;
     set: (
       index: number,

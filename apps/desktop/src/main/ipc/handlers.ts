@@ -350,6 +350,13 @@ export class IPCHandlers {
       },
     );
 
+    ipcMain.handle("cheats:databaseStatus", () => {
+      return {
+        present: this.cheatDatabaseService.isDatabasePresent(),
+        downloading: this.cheatDatabaseService.isDownloading(),
+      };
+    });
+
     ipcMain.handle("cheats:downloadDatabase", async () => {
       try {
         await this.cheatDatabaseService.ensureDatabase();

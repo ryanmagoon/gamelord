@@ -264,6 +264,8 @@ beforeEach(() => {
     Object.assign(this, {
       ensureDatabase: vi.fn().mockResolvedValue(undefined),
       getCheatsForGame: vi.fn().mockReturnValue([]),
+      isDatabasePresent: vi.fn().mockReturnValue(true),
+      isDownloading: vi.fn().mockReturnValue(false),
       on: cheatEmitter.on.bind(cheatEmitter),
       emit: cheatEmitter.emit.bind(cheatEmitter),
     });
@@ -340,7 +342,7 @@ describe("IPCHandlers", () => {
 
     it("registers exactly the expected number of handle channels", () => {
       const handleCalls = vi.mocked(ipcMain.handle).mock.calls;
-      expect(handleCalls).toHaveLength(48);
+      expect(handleCalls).toHaveLength(49);
     });
   });
 

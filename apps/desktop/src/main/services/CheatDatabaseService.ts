@@ -208,6 +208,16 @@ export class CheatDatabaseService extends EventEmitter {
     return [];
   }
 
+  /** Whether the database has been downloaded at all (may be stale). */
+  isDatabasePresent(): boolean {
+    return fs.existsSync(this.metadataPath);
+  }
+
+  /** Whether the database is currently being downloaded. */
+  isDownloading(): boolean {
+    return this.downloading;
+  }
+
   /** Whether the database has been downloaded and is not stale. */
   private isDatabaseFresh(): boolean {
     if (!fs.existsSync(this.metadataPath)) {

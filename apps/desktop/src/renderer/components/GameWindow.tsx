@@ -142,6 +142,9 @@ export const GameWindow: React.FC = () => {
   const [showCheatPanel, setShowCheatPanel] = useState(false);
   const [cheatItems, setCheatItems] = useState<Array<CheatItem>>([]);
   const [customCheatItems, setCustomCheatItems] = useState<Array<CustomCheatItem>>([]);
+  const [cheatDbStatus, setCheatDbStatus] = useState<
+    "ready" | "downloading" | "not-downloaded" | "error"
+  >("ready");
   const pausedByOverlayRef = useRef(false);
   const [showControlsHint, setShowControlsHint] = useState(() => {
     return localStorage.getItem("gamelord:controlsHintDismissed") !== "true";
@@ -192,6 +195,16 @@ export const GameWindow: React.FC = () => {
   }, [api, game]);
 
   const openCheatPanel = useCallback(async () => {
+    // Check database status first
+    const status = await api.cheats.databaseStatus();
+    if (status.downloading) {
+      setCheatDbStatus("downloading");
+    } else if (!status.present) {
+      setCheatDbStatus("not-downloaded");
+    } else {
+      setCheatDbStatus("ready");
+    }
+
     await loadCheats();
     setShowCheatPanel(true);
     if (!isPaused) {
@@ -199,6 +212,17 @@ export const GameWindow: React.FC = () => {
       api.emulation.pause().catch(console.error);
     }
   }, [loadCheats, isPaused, api]);
+
+  const handleDownloadDatabase = useCallback(async () => {
+    setCheatDbStatus("downloading");
+    const result = await api.cheats.downloadDatabase();
+    if (result.success) {
+      setCheatDbStatus("ready");
+      await loadCheats();
+    } else {
+      setCheatDbStatus("error");
+    }
+  }, [api, loadCheats]);
 
   const handleToggleCheat = useCallback(
     async (index: number, enabled: boolean) => {
@@ -1584,6 +1608,8 @@ export const GameWindow: React.FC = () => {
         onAddCustomCheat={handleAddCustomCheat}
         onRemoveCustomCheat={handleRemoveCustomCheat}
         gameTitle={game?.title ?? ""}
+        databaseStatus={cheatDbStatus}
+        onDownloadDatabase={handleDownloadDatabase}
       />
 
       {/* First-launch controls hint */}

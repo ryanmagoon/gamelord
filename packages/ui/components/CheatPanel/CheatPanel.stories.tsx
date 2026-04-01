@@ -88,3 +88,32 @@ export const CustomCheatsOnly: Story = {
     gameTitle: "Unknown Game",
   },
 };
+
+export const DatabaseNotDownloaded: Story = {
+  args: {
+    cheats: [],
+    customCheats: [],
+    gameTitle: "Resident Evil",
+    databaseStatus: "not-downloaded",
+    onDownloadDatabase: fn(),
+  },
+};
+
+export const DatabaseDownloading: Story = {
+  args: {
+    cheats: [],
+    customCheats: [],
+    gameTitle: "Resident Evil",
+    databaseStatus: "downloading",
+  },
+};
+
+export const DatabaseError: Story = {
+  args: {
+    cheats: [],
+    customCheats: [],
+    gameTitle: "Resident Evil",
+    databaseStatus: "error",
+    onDownloadDatabase: fn(),
+  },
+};

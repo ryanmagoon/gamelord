@@ -62,6 +62,11 @@ contextBridge.exposeInMainWorld("gamelord", {
   cheats: {
     listForGame: (systemId: string, romFilename: string) =>
       ipcRenderer.invoke("cheats:listForGame", systemId, romFilename),
+    databaseStatus: () =>
+      ipcRenderer.invoke("cheats:databaseStatus") as Promise<{
+        present: boolean;
+        downloading: boolean;
+      }>,
     downloadDatabase: () => ipcRenderer.invoke("cheats:downloadDatabase"),
     set: (index: number, enabled: boolean, code: string) =>
       ipcRenderer.invoke("cheats:set", index, enabled, code),
