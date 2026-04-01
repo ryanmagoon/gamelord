@@ -245,7 +245,7 @@ export class EmulatorManager extends EventEmitter {
     // Track the active core identifier for feature gating (e.g. chtdb cheats).
     // Extract from the core filename if no explicit coreName was provided.
     if (coreName) {
-      this.activeCoreId = coreName;
+      this.activeCoreId = coreName.replace(/_libretro$/, "");
     } else if (options.corePath) {
       // Core path like ".../cores/mednafen_psx_hw_libretro.dylib" → "mednafen_psx_hw"
       const coreFilename = path.basename(options.corePath);
