@@ -180,7 +180,7 @@ export class CheatDatabaseService extends EventEmitter {
     }
 
     for (const folder of folders) {
-      const systemDir = path.join(this.cheatsDir, folder);
+      const systemDir = path.join(this.cheatsDir, "cht", folder);
       if (!fs.existsSync(systemDir)) {
         continue;
       }
