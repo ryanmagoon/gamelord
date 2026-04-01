@@ -127,7 +127,7 @@ export const DEFAULT_SYSTEMS: Array<GameSystem> = [
     shortName: "N64",
   },
   {
-    extensions: [".cue", ".bin", ".iso", ".chd", ".pbp"],
+    extensions: [".cue", ".bin", ".iso", ".chd", ".pbp", ".m3u"],
     id: "psx",
     name: "PlayStation",
     shortName: "PS1",
@@ -145,7 +145,7 @@ export const DEFAULT_SYSTEMS: Array<GameSystem> = [
     shortName: "NDS",
   },
   {
-    extensions: [".cue", ".chd", ".ccd", ".mdf"],
+    extensions: [".cue", ".chd", ".ccd", ".mdf", ".m3u"],
     id: "saturn",
     name: "Sega Saturn",
     shortName: "Saturn",

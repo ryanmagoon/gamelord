@@ -4,8 +4,42 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Search, Filter, Grid, List, Heart } from "lucide-react";
+import { Search, Filter, Grid, List, Heart, Disc2 } from "lucide-react";
 import { cn } from "../utils";
+
+/** A purely-UI placeholder representing a missing disc in an incomplete set. */
+interface DiscPlaceholder {
+  kind: "placeholder";
+  /** The discGroup this placeholder belongs to. */
+  discGroup: string;
+  /** The missing disc number (1-indexed). */
+  discNumber: number;
+  /** Total discs in this group. */
+  discTotal: number;
+  /** Stable key for React rendering. */
+  id: string;
+}
+
+type DisplayItem = { kind: "game"; game: Game } | DiscPlaceholder;
+
+/** Ghost card rendered for missing discs in an incomplete multi-disc set. */
+function DiscPlaceholderCard({ discNumber, discTotal }: { discNumber: number; discTotal: number }) {
+  return (
+    <div
+      aria-label={`Disc ${discNumber} — Missing`}
+      className="w-full h-full rounded-none border-2 border-dashed border-white/20 bg-muted/30 opacity-50 flex flex-col items-center justify-center gap-2 select-none"
+    >
+      <Disc2 className="h-8 w-8 text-white/30" />
+      <span className="text-xs font-semibold text-white/40 text-center leading-tight px-2">
+        Disc {discNumber}/{discTotal}
+        <br />
+        <span className="text-[10px] font-normal uppercase tracking-wider text-white/30">
+          Missing
+        </span>
+      </span>
+    </div>
+  );
+}
 import { useFlipAnimation } from "../hooks/useFlipAnimation";
 import { useScrollContainer } from "../hooks/useScrollContainer";
 import { useMosaicVirtualizer } from "../hooks/useMosaicVirtualizer";
@@ -127,13 +161,36 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
       filtered = filtered.filter((game) => game.favorite);
     }
 
-    // Sort
+    // Sort — disc groups are always kept consecutive and ordered by discNumber
+    // within whatever primary sort is applied.
     switch (sortBy) {
       case "title":
-        filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title));
+        filtered = [...filtered].sort((a, b) => {
+          // Sort key for grouping: prefer discGroup (shared across discs), else title
+          const keyA = a.discGroup ?? a.title;
+          const keyB = b.discGroup ?? b.title;
+          const groupCmp = keyA.localeCompare(keyB);
+          if (groupCmp !== 0) {
+            return groupCmp;
+          }
+          // Within the same disc group, order by disc number
+          return (a.discNumber ?? 0) - (b.discNumber ?? 0);
+        });
         break;
       case "platform":
-        filtered = [...filtered].sort((a, b) => a.platform.localeCompare(b.platform));
+        filtered = [...filtered].sort((a, b) => {
+          const platformCmp = a.platform.localeCompare(b.platform);
+          if (platformCmp !== 0) {
+            return platformCmp;
+          }
+          const keyA = a.discGroup ?? a.title;
+          const keyB = b.discGroup ?? b.title;
+          const groupCmp = keyA.localeCompare(keyB);
+          if (groupCmp !== 0) {
+            return groupCmp;
+          }
+          return (a.discNumber ?? 0) - (b.discNumber ?? 0);
+        });
         break;
       case "lastPlayed":
         filtered = [...filtered].sort((a, b) => {
@@ -153,6 +210,59 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
 
     return filtered;
   }, [games, searchQuery, selectedPlatform, sortBy, showFavoritesOnly]);
+
+  // Build display items: real games interspersed with placeholder cards for missing discs.
+  // Placeholders are purely UI — they don't affect filteredGames (used for FLIP/virtualization keys).
+  const displayItems = useMemo((): Array<DisplayItem> => {
+    const items: Array<DisplayItem> = [];
+    let i = 0;
+    while (i < filteredGames.length) {
+      const game = filteredGames[i];
+      if (game.discGroup == null || game.discNumber == null || game.discTotal == null) {
+        items.push({ kind: "game", game });
+        i++;
+        continue;
+      }
+
+      // Collect all consecutive games in this disc group
+      const group = game.discGroup;
+      const total = game.discTotal;
+      const groupGames: Array<Game> = [];
+      let j = i;
+      while (j < filteredGames.length && filteredGames[j].discGroup === group) {
+        groupGames.push(filteredGames[j]);
+        j++;
+      }
+
+      // Build a map: discNumber → game for this group
+      const byDisc = new Map<number, Game>();
+      for (const g of groupGames) {
+        if (g.discNumber != null) {
+          byDisc.set(g.discNumber, g);
+        }
+      }
+
+      // Emit discs 1..total in order, inserting placeholders for missing ones
+      for (let disc = 1; disc <= total; disc++) {
+        const found = byDisc.get(disc);
+        if (found != null) {
+          items.push({ kind: "game", game: found });
+        } else {
+          items.push({
+            kind: "placeholder",
+            discGroup: group,
+            discNumber: disc,
+            discTotal: total,
+            id: `placeholder-${group}-${disc}`,
+          });
+        }
+      }
+
+      i = j;
+    }
+
+    return items;
+  }, [filteredGames]);
 
   // Median aspect ratio per platform — used as fallback for games without cover art
   // so fallback cards match the width of their platform neighbors.
@@ -180,17 +290,22 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     return medians;
   }, [games]);
 
-  const isLargeList = filteredGames.length > VIRTUALIZATION_THRESHOLD;
+  const isLargeList = displayItems.length > VIRTUALIZATION_THRESHOLD;
 
   // ---- FLIP animation (small lists only) ----
-  const flipItems = useFlipAnimation(isLargeList ? [] : filteredGames, getGameKey, { gridRef });
+  // FLIP only tracks real Game objects; placeholders appear/disappear with the group.
+  const flipGames = useMemo(() => (isLargeList ? [] : filteredGames), [isLargeList, filteredGames]);
+  const flipItems = useFlipAnimation(flipGames, getGameKey, { gridRef });
 
   // ---- Row layout (used by both small and large list paths) ----
   const aspectRatios = useMemo(() => {
-    return filteredGames.map(
-      (game) => game.coverArtAspectRatio ?? platformMedianAR.get(game.platform) ?? 0.75,
-    );
-  }, [filteredGames, platformMedianAR]);
+    return displayItems.map((item) => {
+      if (item.kind === "placeholder") {
+        return 0.75;
+      }
+      return item.game.coverArtAspectRatio ?? platformMedianAR.get(item.game.platform) ?? 0.75;
+    });
+  }, [displayItems, platformMedianAR]);
 
   const layout = useMemo(() => {
     if (aspectRatios.length === 0 || containerWidth <= 0) {
@@ -418,13 +533,38 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
             style={{ height: totalHeight > 0 ? totalHeight : undefined }}
           >
             {visibleIndices.map((index, visibleIndex) => {
-              const game = filteredGames[index];
+              const item = displayItems[index];
               const pos = layout.items[index];
-              if (!pos) {
+              if (!item || !pos) {
                 return null;
               }
               const isEntering = showEntrance && visibleIndex < 30;
+              const posStyle: React.CSSProperties = {
+                height: pos.height,
+                left: pos.x,
+                position: "absolute",
+                top: pos.y,
+                width: pos.width,
+              };
 
+              if (item.kind === "placeholder") {
+                return (
+                  <div
+                    className={cn(isEntering && "animate-card-enter")}
+                    key={item.id}
+                    style={{
+                      ...posStyle,
+                      ...(isEntering
+                        ? { animationDelay: `${Math.min(visibleIndex * 30, 400)}ms` }
+                        : undefined),
+                    }}
+                  >
+                    <DiscPlaceholderCard discNumber={item.discNumber} discTotal={item.discTotal} />
+                  </div>
+                );
+              }
+
+              const { game } = item;
               return (
                 <GameCard
                   artworkSyncStore={artworkSyncStore}
@@ -441,11 +581,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
                   onPlay={onPlayGame}
                   onToggleFavorite={onToggleFavorite}
                   style={{
-                    height: pos.height,
-                    left: pos.x,
-                    position: "absolute",
-                    top: pos.y,
-                    width: pos.width,
+                    ...posStyle,
                     ...(isEntering
                       ? { animationDelay: `${Math.min(visibleIndex * 30, 400)}ms` }
                       : undefined),
@@ -461,13 +597,33 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
             ref={gridRef}
             style={{ gap: `${MOSAIC_GAP}px` }}
           >
-            {flipItems.map((flipItem) => {
-              const layoutIndex = filteredGames.indexOf(flipItem.item);
-              const pos = layoutIndex >= 0 ? layout.items[layoutIndex] : undefined;
+            {displayItems.map((item, displayIndex) => {
+              if (item.kind === "placeholder") {
+                const pos = layout.items[displayIndex];
+                return (
+                  <div
+                    className="animate-card-enter"
+                    key={item.id}
+                    style={{
+                      height: pos?.height ?? ROW_HEIGHT,
+                      width: pos?.width ?? computeCardWidth(0.75),
+                    }}
+                  >
+                    <DiscPlaceholderCard discNumber={item.discNumber} discTotal={item.discTotal} />
+                  </div>
+                );
+              }
+
+              const { game } = item;
+              const flipItem = flipItems.find((fi) => fi.item === game);
+              const layoutIndex = displayIndex;
+              const pos = layout.items[layoutIndex];
               const aspectRatio =
-                flipItem.item.coverArtAspectRatio ??
-                platformMedianAR.get(flipItem.item.platform) ??
-                0.75;
+                game.coverArtAspectRatio ?? platformMedianAR.get(game.platform) ?? 0.75;
+
+              if (!flipItem) {
+                return null;
+              }
 
               return (
                 <GameCard
@@ -476,10 +632,10 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
                     flipItem.animationState === "entering" && "animate-card-enter",
                     flipItem.animationState === "exiting" && "animate-card-exit",
                   )}
-                  disabled={launchingGameId != null && launchingGameId !== flipItem.item.id}
-                  game={flipItem.item}
+                  disabled={launchingGameId != null && launchingGameId !== game.id}
+                  game={game}
                   getMenuItems={getMenuItems}
-                  isLaunching={launchingGameId === flipItem.item.id}
+                  isLaunching={launchingGameId === game.id}
                   key={flipItem.key}
                   onOptions={onGameOptions}
                   onPlay={onPlayGame}

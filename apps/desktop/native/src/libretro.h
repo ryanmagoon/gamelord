@@ -20,7 +20,17 @@ extern "C" {
 #define RETRO_PIXEL_FORMAT_XRGB8888 1
 #define RETRO_PIXEL_FORMAT_RGB565   2
 
+/* Calling convention for libretro disc control callbacks */
+#ifndef RETRO_CALLCONV
+  #ifdef _WIN32
+    #define RETRO_CALLCONV __cdecl
+  #else
+    #define RETRO_CALLCONV
+  #endif
+#endif
+
 /* Environment commands */
+#define RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE 13
 #define RETRO_ENVIRONMENT_SET_PIXEL_FORMAT 10
 #define RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY 9
 #define RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY 31
@@ -51,6 +61,7 @@ extern "C" {
 #define RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2 67
 #define RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL 68
 #define RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK 69
+#define RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE 64
 
 /* Input device types */
 #define RETRO_DEVICE_NONE     0
@@ -224,6 +235,29 @@ struct retro_core_options_v2_intl {
 struct retro_core_option_display {
   const char *key;
   bool visible;
+};
+
+struct retro_disk_control_callback {
+  bool (RETRO_CALLCONV *set_eject_state)(bool ejected);
+  bool (RETRO_CALLCONV *get_eject_state)(void);
+  unsigned (RETRO_CALLCONV *get_image_index)(void);
+  bool (RETRO_CALLCONV *set_image_index)(unsigned index);
+  unsigned (RETRO_CALLCONV *get_num_images)(void);
+  bool (RETRO_CALLCONV *replace_image_index)(unsigned index, const struct retro_game_info *info);
+  bool (RETRO_CALLCONV *add_image_index)(void);
+};
+
+struct retro_disk_control_ext_callback {
+  bool (RETRO_CALLCONV *set_eject_state)(bool ejected);
+  bool (RETRO_CALLCONV *get_eject_state)(void);
+  unsigned (RETRO_CALLCONV *get_image_index)(void);
+  bool (RETRO_CALLCONV *set_image_index)(unsigned index);
+  unsigned (RETRO_CALLCONV *get_num_images)(void);
+  bool (RETRO_CALLCONV *replace_image_index)(unsigned index, const struct retro_game_info *info);
+  bool (RETRO_CALLCONV *add_image_index)(void);
+  bool (RETRO_CALLCONV *set_initial_image)(unsigned index, const char *path);
+  bool (RETRO_CALLCONV *get_image_path)(unsigned index, char *path, size_t len);
+  bool (RETRO_CALLCONV *get_image_label)(unsigned index, char *label, size_t len);
 };
 
 struct retro_game_info_ext {

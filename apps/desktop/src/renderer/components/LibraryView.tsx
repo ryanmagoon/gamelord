@@ -714,6 +714,9 @@ export const LibraryView: React.FC<{
           lastPlayed: game.lastPlayed,
           playTime: game.playTime,
           favorite: game.favorite,
+          discGroup: game.discGroup,
+          discNumber: game.discNumber,
+          discTotal: game.discTotal,
         };
       }
       nextCache.set(game, uiGame);

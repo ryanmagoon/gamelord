@@ -51,10 +51,23 @@ private:
   Napi::Value SetCoreOption(const Napi::CallbackInfo &info);
   void CheatReset(const Napi::CallbackInfo &info);
   void CheatSet(const Napi::CallbackInfo &info);
+  Napi::Value SetDiscPaths(const Napi::CallbackInfo &info);
+  Napi::Value SwapDisc(const Napi::CallbackInfo &info);
+  Napi::Value GetCurrentDiscIndex(const Napi::CallbackInfo &info);
+  Napi::Value GetDiscCount(const Napi::CallbackInfo &info);
 
   // Internal
   void CloseCore();
   bool ResolveFunctions();
+
+  // Static disc control callbacks (called by the core into our frontend)
+  static bool RETRO_CALLCONV DiskSetEjectState(bool ejected);
+  static bool RETRO_CALLCONV DiskGetEjectState();
+  static unsigned RETRO_CALLCONV DiskGetImageIndex();
+  static bool RETRO_CALLCONV DiskSetImageIndex(unsigned index);
+  static unsigned RETRO_CALLCONV DiskGetNumImages();
+  static bool RETRO_CALLCONV DiskReplaceImageIndex(unsigned index, const struct retro_game_info *info);
+  static bool RETRO_CALLCONV DiskAddImageIndex();
 
   // libretro callbacks (static because libretro API uses C function pointers)
   static bool EnvironmentCallback(unsigned cmd, void *data);
@@ -152,6 +165,15 @@ private:
   // Core options: key → current value (initially the default from the core)
   std::unordered_map<std::string, std::string> core_options_;
   bool core_options_dirty_ = false;
+
+  // Disc control state
+  std::vector<std::string> disc_paths_;
+  unsigned current_disc_index_ = 0;
+  bool disc_ejected_ = false;
+  retro_disk_control_ext_callback disc_control_ext_cb_ = {};
+  retro_disk_control_callback disc_control_cb_ = {};
+  bool has_disc_control_ext_ = false;
+  bool has_disc_control_ = false;
 
   // Parse helpers for the three option registration formats
   void ParseLegacyVariables(const struct retro_variable *vars);

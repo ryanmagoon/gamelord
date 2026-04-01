@@ -42,6 +42,10 @@ export interface NativeLibretroCore {
   setCoreOption(key: string, value: string): boolean;
   cheatReset(): void;
   cheatSet(index: number, enabled: boolean, code: string): void;
+  setDiscPaths(paths: Array<string>): void;
+  swapDisc(index: number): boolean;
+  getCurrentDiscIndex(): number;
+  getDiscCount(): number;
 }
 
 export interface NativeAddon {

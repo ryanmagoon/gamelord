@@ -437,6 +437,62 @@ describe("ScreenScraperClient", () => {
     });
   });
 
+  describe("disc metadata extraction", () => {
+    it("extracts gameId from jeu.id", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      // The fixture already has id: "12345" at the jeu level
+      const fixture = makeGameResponseFixture();
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).gameId).toBe("12345");
+    });
+
+    it("omits gameId when jeu.id is absent", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({ id: undefined });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).gameId).toBeUndefined();
+    });
+
+    it("extracts discNumber from jeu.rom.discnum", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: {
+          id: "55001",
+          rommd5: "AABBCCDD",
+          discnum: "2",
+          regions: { regions_shortname: ["us"] },
+        },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).discNumber).toBe(2);
+    });
+
+    it("omits discNumber when jeu.rom.discnum is absent", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: { id: "55001", rommd5: "AABBCCDD" },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).discNumber).toBeUndefined();
+    });
+
+    it("omits discNumber when jeu.rom is absent", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture();
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).discNumber).toBeUndefined();
+    });
+
+    it("handles non-numeric discnum gracefully", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: { id: "55001", discnum: "abc" },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).discNumber).toBeUndefined();
+    });
+  });
+
   describe("ScreenScraperError", () => {
     it("carries errorCode and statusCode", () => {
       const error = new ScreenScraperError("Auth failed", 401, "auth-failed");

@@ -35,6 +35,10 @@ Napi::Object LibretroCore::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("setCoreOption", &LibretroCore::SetCoreOption),
     InstanceMethod("cheatReset", &LibretroCore::CheatReset),
     InstanceMethod("cheatSet", &LibretroCore::CheatSet),
+    InstanceMethod("setDiscPaths", &LibretroCore::SetDiscPaths),
+    InstanceMethod("swapDisc", &LibretroCore::SwapDisc),
+    InstanceMethod("getCurrentDiscIndex", &LibretroCore::GetCurrentDiscIndex),
+    InstanceMethod("getDiscCount", &LibretroCore::GetDiscCount),
   });
 
   Napi::FunctionReference *constructor = new Napi::FunctionReference();
@@ -526,6 +530,112 @@ Napi::Value LibretroCore::SetCoreOption(const Napi::CallbackInfo &info) {
 }
 
 // ---------------------------------------------------------------------------
+// Disc control N-API methods
+// ---------------------------------------------------------------------------
+
+Napi::Value LibretroCore::SetDiscPaths(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (!s_instance) return env.Undefined();
+
+  if (info.Length() < 1 || !info[0].IsArray()) {
+    Napi::TypeError::New(env, "Expected array of paths").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  auto arr = info[0].As<Napi::Array>();
+  s_instance->disc_paths_.clear();
+  for (uint32_t i = 0; i < arr.Length(); i++) {
+    s_instance->disc_paths_.push_back(arr.Get(i).As<Napi::String>().Utf8Value());
+  }
+  return env.Undefined();
+}
+
+Napi::Value LibretroCore::SwapDisc(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (!s_instance) return Napi::Boolean::New(env, false);
+
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Expected disc index").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  unsigned index = info[0].As<Napi::Number>().Uint32Value();
+  if (index >= s_instance->disc_paths_.size()) {
+    return Napi::Boolean::New(env, false);
+  }
+
+  if (s_instance->has_disc_control_ext_) {
+    auto &cb = s_instance->disc_control_ext_cb_;
+    if (cb.set_eject_state) cb.set_eject_state(true);
+    if (cb.set_image_index) cb.set_image_index(index);
+    if (cb.set_eject_state) cb.set_eject_state(false);
+  } else if (s_instance->has_disc_control_) {
+    auto &cb = s_instance->disc_control_cb_;
+    if (cb.set_eject_state) cb.set_eject_state(true);
+    if (cb.set_image_index) cb.set_image_index(index);
+    if (cb.set_eject_state) cb.set_eject_state(false);
+  }
+
+  s_instance->current_disc_index_ = index;
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value LibretroCore::GetCurrentDiscIndex(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  unsigned index = s_instance ? s_instance->current_disc_index_ : 0;
+  return Napi::Number::New(env, index);
+}
+
+Napi::Value LibretroCore::GetDiscCount(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  uint32_t count = s_instance ? static_cast<uint32_t>(s_instance->disc_paths_.size()) : 0;
+  return Napi::Number::New(env, count);
+}
+
+// ---------------------------------------------------------------------------
+// Disc control static callbacks (called by the core into our frontend)
+// ---------------------------------------------------------------------------
+
+bool RETRO_CALLCONV LibretroCore::DiskSetEjectState(bool ejected) {
+  if (!s_instance) return false;
+  s_instance->disc_ejected_ = ejected;
+  return true;
+}
+
+bool RETRO_CALLCONV LibretroCore::DiskGetEjectState() {
+  return s_instance ? s_instance->disc_ejected_ : false;
+}
+
+unsigned RETRO_CALLCONV LibretroCore::DiskGetImageIndex() {
+  return s_instance ? s_instance->current_disc_index_ : 0;
+}
+
+bool RETRO_CALLCONV LibretroCore::DiskSetImageIndex(unsigned index) {
+  if (!s_instance) return false;
+  if (index >= s_instance->disc_paths_.size()) return false;
+  s_instance->current_disc_index_ = index;
+  return true;
+}
+
+unsigned RETRO_CALLCONV LibretroCore::DiskGetNumImages() {
+  return s_instance ? static_cast<unsigned>(s_instance->disc_paths_.size()) : 0;
+}
+
+bool RETRO_CALLCONV LibretroCore::DiskReplaceImageIndex(unsigned index, const retro_game_info *info) {
+  if (!s_instance || index >= s_instance->disc_paths_.size()) return false;
+  if (info && info->path) {
+    s_instance->disc_paths_[index] = info->path;
+  }
+  return true;
+}
+
+bool RETRO_CALLCONV LibretroCore::DiskAddImageIndex() {
+  if (!s_instance) return false;
+  s_instance->disc_paths_.push_back("");
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Internal
 // ---------------------------------------------------------------------------
 
@@ -811,6 +921,24 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME:
     case RETRO_ENVIRONMENT_SET_PERFORMANCE_LEVEL:
       return true;
+
+    case RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE: {
+      auto *cb = static_cast<const retro_disk_control_ext_callback *>(data);
+      if (cb) {
+        self->disc_control_ext_cb_ = *cb;
+        self->has_disc_control_ext_ = true;
+      }
+      return true;
+    }
+
+    case RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE: {
+      auto *cb = static_cast<const retro_disk_control_callback *>(data);
+      if (cb) {
+        self->disc_control_cb_ = *cb;
+        self->has_disc_control_ = true;
+      }
+      return true;
+    }
 
     default:
       return false;

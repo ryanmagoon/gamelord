@@ -223,6 +223,97 @@ function LargeLibraryRenderer() {
   );
 }
 
+export const MultiDiscComplete: Story = {
+  args: {
+    games: [
+      {
+        id: "ff7-disc1",
+        title: "Final Fantasy VII",
+        platform: "PS1",
+        genre: "RPG",
+        coverArtAspectRatio: 0.714,
+        romPath: "/roms/ff7-disc1.bin",
+        discGroup: "final-fantasy-vii",
+        discNumber: 1,
+        discTotal: 3,
+      },
+      {
+        id: "ff7-disc2",
+        title: "Final Fantasy VII",
+        platform: "PS1",
+        genre: "RPG",
+        coverArtAspectRatio: 0.714,
+        romPath: "/roms/ff7-disc2.bin",
+        discGroup: "final-fantasy-vii",
+        discNumber: 2,
+        discTotal: 3,
+      },
+      {
+        id: "ff7-disc3",
+        title: "Final Fantasy VII",
+        platform: "PS1",
+        genre: "RPG",
+        coverArtAspectRatio: 0.714,
+        romPath: "/roms/ff7-disc3.bin",
+        discGroup: "final-fantasy-vii",
+        discNumber: 3,
+        discTotal: 3,
+      },
+      ...sampleGames,
+    ],
+    onPlayGame() {
+      /* storybook action placeholder */
+    },
+  },
+  decorators: [
+    (Story) => (
+      <div className="p-8 bg-background min-h-screen">
+        <Story />
+      </div>
+    ),
+  ],
+};
+
+export const MultiDiscIncomplete: Story = {
+  args: {
+    games: [
+      {
+        id: "re2-disc1",
+        title: "Resident Evil 2",
+        platform: "PS1",
+        genre: "Action",
+        coverArtAspectRatio: 0.714,
+        romPath: "/roms/re2-disc1.bin",
+        discGroup: "resident-evil-2",
+        discNumber: 1,
+        discTotal: 3,
+      },
+      {
+        id: "re2-disc3",
+        title: "Resident Evil 2",
+        platform: "PS1",
+        genre: "Action",
+        coverArtAspectRatio: 0.714,
+        romPath: "/roms/re2-disc3.bin",
+        discGroup: "resident-evil-2",
+        discNumber: 3,
+        discTotal: 3,
+      },
+      ...sampleGames,
+    ],
+    onPlayGame() {
+      /* storybook action placeholder */
+    },
+  },
+  decorators: [
+    (Story) => (
+      <div className="p-8 bg-background min-h-screen">
+        <Story />
+      </div>
+    ),
+  ],
+};
+
 export const LargeLibrary: Story = {
   args: {
     games: largeLibrary,

@@ -52,6 +52,11 @@ interface RomCandidate {
   system?: GameSystem;
   /** System ID filter passed into the scan (propagated for context). */
   systemIdFilter?: string;
+  // ── Multi-disc fields (populated when the file appears in an .m3u playlist) ──
+  discGroup?: string;
+  discNumber?: number;
+  discTotal?: number;
+  m3uPath?: string;
 }
 
 /** A file whose extension matches multiple systems and requires user disambiguation. */
@@ -110,6 +115,7 @@ export class LibraryService extends EventEmitter {
       await this.backfillNewSystems();
       await this.repairMissingRomsPaths();
       await this.migrateGbcExtensions();
+      await this.migrateM3uExtensions();
     } catch {
       // If no config exists, create default
       this.config = {
@@ -403,6 +409,25 @@ export class LibraryService extends EventEmitter {
   }
 
   /**
+   * Add ".m3u" to PSX and Saturn system extension lists for users who already
+   * have a persisted config from before .m3u playlist support was added.
+   */
+  private async migrateM3uExtensions(): Promise<void> {
+    let changed = false;
+    for (const systemId of ["psx", "saturn"]) {
+      const system = this.config.systems.find((s) => s.id === systemId);
+      if (system && !system.extensions.includes(".m3u")) {
+        system.extensions.push(".m3u");
+        changed = true;
+        libraryLog.info(`Added ".m3u" extension to "${systemId}" system config`);
+      }
+    }
+    if (changed) {
+      await this.saveConfig();
+    }
+  }
+
+  /**
    * Reassign existing .gbc games from the "gb" system to the new "gbc" system.
    * Runs during library loading to fix games scanned before the split.
    */
@@ -623,12 +648,85 @@ export class LibraryService extends EventEmitter {
       }
     }
 
+    // Build a map of disc path → disc annotation from .m3u playlists in this directory.
+    // .m3u files themselves must not be added as game candidates.
+    const m3uDiscAnnotations = new Map<
+      string,
+      { discGroup: string; discNumber: number; discTotal: number; m3uPath: string }
+    >();
+    for (const result of statResults) {
+      if (!result) {
+        continue;
+      }
+      if (path.extname(result.entry.name).toLowerCase() === ".m3u") {
+        const discPaths = await this.parseM3uPlaylist(result.fullPath);
+        const discTotal = discPaths.length;
+        const discGroup = path.basename(result.entry.name, ".m3u");
+        discPaths.forEach((discPath, index) => {
+          m3uDiscAnnotations.set(discPath, {
+            discGroup,
+            discNumber: index + 1,
+            discTotal,
+            m3uPath: result.fullPath,
+          });
+        });
+      }
+    }
+
+    // Auto-detect disc grouping from filenames like "(Disc 1)", "(Disc 2)".
+    // Only applies to files not already annotated by an .m3u playlist.
+    // Pattern matches: (Disc 1), (Disc 2), (Disc1), etc. — case-insensitive.
+    const DISC_PATTERN = /\s*\(Disc\s*(\d+)\)/i;
+    const filenameDiscGroups = new Map<string, Array<{ fullPath: string; discNumber: number }>>();
+    for (const result of statResults) {
+      if (!result) {
+        continue;
+      }
+      const { entry, fullPath } = result;
+      if (m3uDiscAnnotations.has(fullPath)) {
+        continue; // .m3u takes precedence
+      }
+      const baseName = path.basename(entry.name, path.extname(entry.name).toLowerCase());
+      const discMatch = DISC_PATTERN.exec(baseName);
+      if (discMatch) {
+        const discNumber = Number.parseInt(discMatch[1], 10);
+        const groupName = baseName.replace(DISC_PATTERN, "").trim();
+        let group = filenameDiscGroups.get(groupName);
+        if (!group) {
+          group = [];
+          filenameDiscGroups.set(groupName, group);
+        }
+        group.push({ fullPath, discNumber });
+      }
+    }
+
+    // Build filename-based annotations: discTotal is only set when 2+ discs share a group
+    const filenameDiscAnnotations = new Map<
+      string,
+      { discGroup: string; discNumber: number; discTotal?: number }
+    >();
+    for (const [groupName, members] of filenameDiscGroups) {
+      const discTotal = members.length >= 2 ? members.length : undefined;
+      for (const { fullPath, discNumber } of members) {
+        filenameDiscAnnotations.set(fullPath, {
+          discGroup: groupName,
+          discNumber,
+          discTotal,
+        });
+      }
+    }
+
     for (const result of statResults) {
       if (!result) {
         continue;
       }
       const { entry, fullPath, mtimeMs } = result;
       const ext = path.extname(entry.name).toLowerCase();
+
+      // .m3u files are playlist metadata — not game entries
+      if (ext === ".m3u") {
+        continue;
+      }
 
       // Skip .bin files that are referenced by a .cue in the same directory
       if (cueReferencedBins.has(fullPath)) {
@@ -676,6 +774,8 @@ export class LibraryService extends EventEmitter {
           const matchedSystem = matchingSystems[0];
           const existingGameId = this.romPathIndex.get(fullPath);
           const existingGame = existingGameId ? this.games.get(existingGameId) : undefined;
+          const discAnnotation =
+            m3uDiscAnnotations.get(fullPath) ?? filenameDiscAnnotations.get(fullPath);
 
           candidates.push({
             existingMtime: existingGame?.romMtime,
@@ -686,6 +786,7 @@ export class LibraryService extends EventEmitter {
             mtimeMs,
             system: matchedSystem,
             systemIdFilter: systemId,
+            ...discAnnotation,
           });
         }
       }
@@ -719,7 +820,7 @@ export class LibraryService extends EventEmitter {
   private async processRomCandidate(
     candidate: RomCandidate,
   ): Promise<{ game: Game; isNew: boolean } | null> {
-    const { ext, fullPath, mtimeMs, system } = candidate;
+    const { discGroup, discNumber, discTotal, ext, fullPath, m3uPath, mtimeMs, system } = candidate;
     if (!system) {
       return null;
     }
@@ -737,6 +838,11 @@ export class LibraryService extends EventEmitter {
           existingGame.system = system.name;
         }
         existingGame.systemId = system.id;
+        // Always update disc fields in case the .m3u was added or changed
+        existingGame.discGroup = discGroup;
+        existingGame.discNumber = discNumber;
+        existingGame.discTotal = discTotal;
+        existingGame.m3uPath = m3uPath;
         return { game: existingGame, isNew: false };
       }
     }
@@ -752,6 +858,10 @@ export class LibraryService extends EventEmitter {
       const game: Game = existing
         ? {
             ...existing,
+            discGroup,
+            discNumber,
+            discTotal,
+            m3uPath,
             romHashes: existing.romHashes ?? hashes,
             romMtime: mtimeMs,
             romPath: fullPath,
@@ -760,7 +870,11 @@ export class LibraryService extends EventEmitter {
             title,
           }
         : {
+            discGroup,
+            discNumber,
+            discTotal,
             id: gameId,
+            m3uPath,
             romHashes: hashes,
             romMtime: mtimeMs,
             romPath: fullPath,
@@ -1249,6 +1363,33 @@ export class LibraryService extends EventEmitter {
    * Handles both quoted (`FILE "Name.bin" BINARY`) and unquoted (`FILE Name.bin BINARY`)
    * FILE directives. Paths are resolved relative to the .cue file's directory.
    */
+  /**
+   * Parse an .m3u playlist file and return an ordered list of absolute disc paths.
+   * Comment lines (starting with `#`) and blank lines are ignored.
+   * Each entry is resolved relative to the .m3u file's directory.
+   */
+  async parseM3uPlaylist(m3uPath: string): Promise<Array<string>> {
+    let content: string;
+    try {
+      content = await fs.readFile(m3uPath, "utf8");
+    } catch {
+      return [];
+    }
+
+    const m3uDir = path.dirname(m3uPath);
+    const discPaths: Array<string> = [];
+
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed.length === 0 || trimmed.startsWith("#")) {
+        continue;
+      }
+      discPaths.push(path.resolve(m3uDir, trimmed));
+    }
+
+    return discPaths;
+  }
+
   private async parseCueReferences(cuePath: string): Promise<Array<string>> {
     let content: string;
     try {

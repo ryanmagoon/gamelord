@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { cn } from "../utils";
-import { MoreVertical, Heart } from "lucide-react";
+import { MoreVertical, Heart, Disc2 } from "lucide-react";
 import { TVStatic } from "./TVStatic";
 import { useArtworkSyncPhase, type ArtworkSyncStore } from "../hooks/useArtworkSyncStore";
 import { useEdgeAwareHover } from "../hooks/useEdgeAwareHover";
@@ -244,6 +244,18 @@ export const GameCard: React.FC<GameCardProps> = React.memo(
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <span className="text-xs font-mono font-bold text-amber-300/90 uppercase tracking-wider select-none animate-not-found-fade-in drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                   Artwork not found
+                </span>
+              </div>
+            )}
+
+            {/* Disc badge — bottom-left pill overlay, visible whenever discGroup is set */}
+            {game.discGroup != null && game.discNumber != null && (
+              <div className="absolute bottom-2 left-2 pointer-events-none z-10 animate-card-enter">
+                <span className="inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white/90 leading-none">
+                  <Disc2 className="h-2.5 w-2.5 shrink-0" />
+                  {game.discTotal != null
+                    ? `Disc ${game.discNumber}/${game.discTotal}`
+                    : `Disc ${game.discNumber}`}
                 </span>
               </div>
             )}
