@@ -307,7 +307,7 @@ export class EmulatorManager extends EventEmitter {
       nds: ["desmume_libretro"],
       nes: ["fceumm_libretro", "nestopia_libretro", "mesen_libretro"],
       psp: ["ppsspp_libretro"],
-      psx: ["pcsx_rearmed_libretro", "beetle_psx_libretro"],
+      psx: ["pcsx_rearmed_libretro", "mednafen_psx_hw_libretro"],
       saturn: ["mednafen_saturn_libretro", "yabause_libretro"],
       snes: ["snes9x_libretro", "bsnes_libretro"],
     };
