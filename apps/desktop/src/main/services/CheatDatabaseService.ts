@@ -347,15 +347,28 @@ export class CheatDatabaseService extends EventEmitter {
   /**
    * Get cheats for a specific game, merging both databases.
    *
-   * When a serial is provided (PSX games), chtdb results are looked up
-   * by serial and take priority. Libretro results are merged in after,
-   * with duplicates (same code string) removed.
+   * When a serial is provided and the active core supports DuckStation's
+   * extended cheat format, chtdb results are included with priority.
+   * Otherwise only libretro-database cheats are returned.
+   *
+   * @param coreId - The libretro core identifier (e.g. "mednafen_psx_hw",
+   *   "duckstation"). When set to "duckstation", chtdb cheats are included
+   *   unfiltered. For all other cores, chtdb is skipped because its extended
+   *   code types (A7, F4, 90, etc.) cause glitchy behaviour.
    */
-  getCheatsForGame(systemId: string, romFilename: string, serial?: string): Array<CheatEntry> {
-    // Serial-matched chtdb cheats (PSX only, highest priority)
-    const chtdbCheats = serial ? this.getCheatsFromChtdb(serial) : [];
+  getCheatsForGame(
+    systemId: string,
+    romFilename: string,
+    serial?: string,
+    coreId?: string,
+  ): Array<CheatEntry> {
+    // Chtdb cheats are only safe with DuckStation's cheat engine — even
+    // "standard format" codes use DuckStation-specific activation semantics
+    // that cause incorrect behaviour on Beetle PSX.
+    const useChtdb = serial && coreId === "duckstation";
+    const chtdbCheats = useChtdb ? this.getCheatsFromChtdb(serial) : [];
 
-    // Filename-matched libretro cheats
+    // Filename-matched libretro cheats (works with all cores)
     const libreCheats = this.getCheatsFromLibretro(systemId, romFilename);
 
     // Merge: chtdb first (serial-matched = higher confidence), then
@@ -422,11 +435,7 @@ export class CheatDatabaseService extends EventEmitter {
     try {
       const content = fs.readFileSync(chtPath, "utf8");
       const cheats = parseDuckStationChtFile(content);
-      // Filter out cheats with extended DuckStation code types (A7, F4, 90, etc.)
-      // that Beetle PSX's retro_cheat_set can't handle. Only standard GameShark
-      // format (XXXXXXXX XXXX) is safe to pass through.
-      const compatible = cheats.filter((cheat) => isBeetleCompatible(cheat.code));
-      return compatible.map((cheat, i) => ({
+      return cheats.map((cheat, i) => ({
         ...cheat,
         index: i,
         source: "chtdb" as CheatSource,

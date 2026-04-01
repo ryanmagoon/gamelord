@@ -341,9 +341,18 @@ export class IPCHandlers {
       "cheats:listForGame",
       async (event: IpcMainInvokeEvent, systemId: string, romFilename: string) => {
         try {
-          // Pass the CD-ROM serial (if available) for chtdb serial-based lookup
-          const serial = this.emulatorManager.getWorkerClient()?.getDetectedSerial() ?? undefined;
-          const cheats = this.cheatDatabaseService.getCheatsForGame(systemId, romFilename, serial);
+          // Pass the CD-ROM serial and core ID for chtdb serial-based lookup.
+          // Chtdb cheats are only included when the active core is DuckStation,
+          // since its extended code types are incompatible with other cores.
+          const workerClient = this.emulatorManager.getWorkerClient();
+          const serial = workerClient?.getDetectedSerial() ?? undefined;
+          const coreId = this.emulatorManager.getActiveCoreId() ?? undefined;
+          const cheats = this.cheatDatabaseService.getCheatsForGame(
+            systemId,
+            romFilename,
+            serial,
+            coreId,
+          );
           return { success: true, cheats };
         } catch (error) {
           ipcLog.error("Failed to list cheats:", error);
@@ -895,12 +904,14 @@ export class IPCHandlers {
   private async autoApplyCheats(workerClient: EmulationWorkerClient, game: Game): Promise<void> {
     const romFilename = game.romPath.split("/").pop() || game.romPath;
     const serial = workerClient.getDetectedSerial() ?? undefined;
+    const coreId = this.emulatorManager.getActiveCoreId() ?? undefined;
     const enabledCheats = this.cheatPersistenceService.getEnabledCheats(
       game.id,
       this.cheatDatabaseService,
       game.systemId,
       romFilename,
       serial,
+      coreId,
     );
 
     if (enabledCheats.length === 0) {
