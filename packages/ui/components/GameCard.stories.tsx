@@ -122,6 +122,43 @@ export const NotFavorited: Story = {
   },
 };
 
+export const DiscBadgeSingleDisc: Story = {
+  args: {
+    game: {
+      id: "disc-1",
+      title: "Final Fantasy VII",
+      platform: "PS1",
+      genre: "RPG",
+      coverArt: superMarioBrosBox,
+      romPath: "/roms/ff7-disc1.bin",
+      discGroup: "final-fantasy-vii",
+      discNumber: 1,
+    },
+    onPlay() {
+      /* storybook action placeholder */
+    },
+  },
+};
+
+export const DiscBadgeComplete: Story = {
+  args: {
+    game: {
+      id: "disc-2",
+      title: "Final Fantasy VII",
+      platform: "PS1",
+      genre: "RPG",
+      coverArt: superMarioBrosBox,
+      romPath: "/roms/ff7-disc2.bin",
+      discGroup: "final-fantasy-vii",
+      discNumber: 2,
+      discTotal: 3,
+    },
+    onPlay() {
+      /* storybook action placeholder */
+    },
+  },
+};
+
 /** Test that accessibility features work correctly */
 export const AccessibilityTest: Story = {
   args: {

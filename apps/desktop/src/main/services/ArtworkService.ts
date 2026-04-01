@@ -165,13 +165,22 @@ export class ArtworkService extends EventEmitter {
         await this.waitForRateLimit();
         const gameInfo = await client.fetchByHash(game.romHashes.md5, game.systemId);
 
-        if (gameInfo?.romRegions && gameInfo.romRegions.length > 0) {
-          const effectiveRegion = gameInfo.romRegions[0];
-          const regionalName = getRegionalSystemName(game.systemId, effectiveRegion);
+        if (gameInfo && (gameInfo.romRegions?.length || gameInfo.gameId)) {
+          const effectiveRegion = gameInfo.romRegions?.[0];
+          const regionalName = getRegionalSystemName(game.systemId, effectiveRegion ?? "");
           const updates: Partial<Game> = {
-            romRegions: gameInfo.romRegions,
+            ...(gameInfo.romRegions?.length ? { romRegions: gameInfo.romRegions } : {}),
             ...(regionalName ? { system: regionalName } : {}),
           };
+
+          // Backfill disc grouping if not already set by .m3u
+          if (!game.m3uPath && gameInfo.gameId && !game.discGroup) {
+            updates.discGroup = `ss:${gameInfo.gameId}:${game.systemId}`;
+            if (gameInfo.discNumber !== undefined) {
+              updates.discNumber = gameInfo.discNumber;
+            }
+          }
+
           await this.libraryService.updateGame(game.id, updates);
         }
       } catch (error) {
@@ -321,6 +330,13 @@ export class ArtworkService extends EventEmitter {
     }
 
     if (!gameInfo) {
+      // Mark this game so we don't re-query the API on the next startup sync
+      const notFoundUpdate: Partial<Game> = { artworkNotFound: Date.now() };
+      if (this.syncing) {
+        this.libraryService.updateGameBatched(gameId, notFoundUpdate);
+      } else {
+        await this.libraryService.updateGame(gameId, notFoundUpdate);
+      }
       return false;
     }
 
@@ -358,13 +374,33 @@ export class ArtworkService extends EventEmitter {
     // (which is biased by REGION_PRIORITY toward US even for JP-only games).
     const effectiveRegion = gameInfo.romRegions?.[0] ?? gameInfo.region;
     const regionalName = getRegionalSystemName(game.systemId, effectiveRegion);
+    const hasArtwork = !!coverArtPath && !!artworkUrl;
+
+    // Derive disc grouping from ScreenScraper metadata only when the game doesn't
+    // already have .m3u-based grouping (.m3u takes precedence per spec).
+    const discUpdates: Partial<Game> = {};
+    if (!game.m3uPath && gameInfo.gameId) {
+      // discGroup = ScreenScraper game ID + systemId to be unique across systems
+      const ssDiscGroup = `ss:${gameInfo.gameId}:${game.systemId}`;
+      if (!game.discGroup || game.discGroup === ssDiscGroup) {
+        discUpdates.discGroup = ssDiscGroup;
+      }
+      if (gameInfo.discNumber !== undefined) {
+        discUpdates.discNumber = gameInfo.discNumber;
+      }
+    }
+
     const updates: Partial<typeof game> = {
-      ...(coverArtPath && artworkUrl
-        ? { coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl)}` }
-        : {}),
+      ...(hasArtwork
+        ? {
+            coverArt: `artwork://${gameId}${this.getImageExtension(artworkUrl)}`,
+            artworkNotFound: undefined, // Clear any previous not-found marker
+          }
+        : { artworkNotFound: Date.now() }),
       ...(coverArtAspectRatio !== undefined ? { coverArtAspectRatio } : {}),
       ...(regionalName ? { system: regionalName } : {}),
       ...(gameInfo.romRegions ? { romRegions: gameInfo.romRegions } : {}),
+      ...discUpdates,
       metadata: {
         developer: gameInfo.developer,
         publisher: gameInfo.publisher,
@@ -398,7 +434,7 @@ export class ArtworkService extends EventEmitter {
     this.cancelled = false;
 
     const allGames = this.libraryService.getGames();
-    const gamesToSync = allGames.filter((game) => !game.coverArt);
+    const gamesToSync = allGames.filter((game) => !game.coverArt && !game.artworkNotFound);
 
     return this.runSyncBatch(gamesToSync.map((game) => game.id));
   }

@@ -30,6 +30,13 @@ export interface GameSystem {
 }
 
 export interface Game {
+  /**
+   * Timestamp (ms since epoch) when artwork sync determined no artwork is available
+   * for this game. Set when ScreenScraper returns no match or no artwork URL.
+   * Prevents redundant API calls on subsequent startup syncs.
+   * Cleared when artwork is successfully downloaded (e.g. via force sync).
+   */
+  artworkNotFound?: number;
   coverArt?: string;
   /** Width / height ratio of the downloaded cover art (e.g. 0.714 for a 3:4.2 box). */
   coverArtAspectRatio?: number;
@@ -60,6 +67,21 @@ export interface Game {
    * regional system display name (e.g. "Super Famicom" for JP SNES ROMs).
    */
   romRegions?: Array<string>;
+
+  // ── Multi-disc grouping ──────────────────────────────────────────────
+
+  /**
+   * Shared identifier linking all discs of the same game. Derived from an .m3u
+   * playlist filename or from ScreenScraper's `jeu.id` + systemId. Single-disc
+   * games omit this field.
+   */
+  discGroup?: string;
+  /** 1-indexed disc number within the group (e.g. 1, 2, 3). */
+  discNumber?: number;
+  /** Total number of discs in the group, when known from .m3u or metadata. */
+  discTotal?: number;
+  /** Absolute path to the .m3u playlist that defines this disc group, if any. */
+  m3uPath?: string;
   /** Original archive path if this ROM was extracted from a .zip during scan. */
   sourceArchivePath?: string;
   system: string;
@@ -118,7 +140,7 @@ export const DEFAULT_SYSTEMS: Array<GameSystem> = [
     shortName: "N64",
   },
   {
-    extensions: [".cue", ".bin", ".iso", ".chd", ".pbp"],
+    extensions: [".cue", ".bin", ".iso", ".chd", ".pbp", ".m3u"],
     id: "psx",
     name: "PlayStation",
     shortName: "PS1",
@@ -136,7 +158,7 @@ export const DEFAULT_SYSTEMS: Array<GameSystem> = [
     shortName: "NDS",
   },
   {
-    extensions: [".cue", ".chd", ".ccd", ".mdf"],
+    extensions: [".cue", ".chd", ".ccd", ".mdf", ".m3u"],
     id: "saturn",
     name: "Sega Saturn",
     shortName: "Saturn",
