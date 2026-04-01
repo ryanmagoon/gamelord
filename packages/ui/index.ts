@@ -7,9 +7,11 @@ export * from "./components/ui/dialog";
 export * from "./components/ui/input";
 export * from "./components/ui/select";
 export * from "./components/ui/dropdown-menu";
+export * from "./components/ui/switch";
 
 export * from "./components/ControllerConfig";
 export * from "./components/ControlsOverlay";
+export * from "./components/CheatPanel";
 export * from "./components/CoreDownloadBanner";
 export * from "./components/UpdateNotification";
 export * from "./components/GameCard";

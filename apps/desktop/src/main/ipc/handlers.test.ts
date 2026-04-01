@@ -30,6 +30,7 @@ vi.mock("../emulator/resolveAddonPath");
 vi.mock("../services/LibraryService");
 vi.mock("../services/ArtworkService");
 vi.mock("../services/CheatDatabaseService");
+vi.mock("../services/CheatPersistenceService");
 vi.mock("../GameWindowManager");
 vi.mock("../logger", () => ({
   ipcLog: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
@@ -41,6 +42,7 @@ import { EmulationWorkerClient } from "../emulator/EmulationWorkerClient";
 import { resolveAddonPath } from "../emulator/resolveAddonPath";
 import { LibraryService } from "../services/LibraryService";
 import { CheatDatabaseService } from "../services/CheatDatabaseService";
+import { CheatPersistenceService } from "../services/CheatPersistenceService";
 import { GameWindowManager } from "../GameWindowManager";
 import { IPCHandlers } from "./handlers";
 import type { Game, GameSystem } from "../../types/library";
@@ -262,11 +264,26 @@ beforeEach(() => {
     Object.assign(this, {
       ensureDatabase: vi.fn().mockResolvedValue(undefined),
       getCheatsForGame: vi.fn().mockReturnValue([]),
+      isDatabasePresent: vi.fn().mockReturnValue(true),
+      isDownloading: vi.fn().mockReturnValue(false),
       on: cheatEmitter.on.bind(cheatEmitter),
       emit: cheatEmitter.emit.bind(cheatEmitter),
     });
     return this as unknown as CheatDatabaseService;
   } as unknown as () => CheatDatabaseService);
+
+  // Configure CheatPersistenceService mock constructor
+  vi.mocked(CheatPersistenceService).mockImplementation(function (this: Record<string, unknown>) {
+    Object.assign(this, {
+      getGameState: vi.fn().mockReturnValue({ enabledIndices: [], customCheats: [] }),
+      setCheatEnabled: vi.fn(),
+      addCustomCheat: vi.fn(),
+      removeCustomCheat: vi.fn(),
+      setCustomCheatEnabled: vi.fn(),
+      getEnabledCheats: vi.fn().mockReturnValue([]),
+    });
+    return this as unknown as CheatPersistenceService;
+  } as unknown as () => CheatPersistenceService);
 
   // Instantiate IPCHandlers — triggers all handler registrations
   new IPCHandlers("/fake/preload.js");
@@ -325,7 +342,7 @@ describe("IPCHandlers", () => {
 
     it("registers exactly the expected number of handle channels", () => {
       const handleCalls = vi.mocked(ipcMain.handle).mock.calls;
-      expect(handleCalls).toHaveLength(43);
+      expect(handleCalls).toHaveLength(49);
     });
   });
 

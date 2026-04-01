@@ -62,10 +62,24 @@ contextBridge.exposeInMainWorld("gamelord", {
   cheats: {
     listForGame: (systemId: string, romFilename: string) =>
       ipcRenderer.invoke("cheats:listForGame", systemId, romFilename),
+    databaseStatus: () =>
+      ipcRenderer.invoke("cheats:databaseStatus") as Promise<{
+        present: boolean;
+        downloading: boolean;
+      }>,
     downloadDatabase: () => ipcRenderer.invoke("cheats:downloadDatabase"),
     set: (index: number, enabled: boolean, code: string) =>
       ipcRenderer.invoke("cheats:set", index, enabled, code),
     reset: () => ipcRenderer.invoke("cheats:reset"),
+    getGameState: (gameId: string) => ipcRenderer.invoke("cheats:getGameState", gameId),
+    toggleCheat: (gameId: string, index: number, enabled: boolean) =>
+      ipcRenderer.invoke("cheats:toggleCheat", gameId, index, enabled),
+    toggleCustomCheat: (gameId: string, customIndex: number, enabled: boolean) =>
+      ipcRenderer.invoke("cheats:toggleCustomCheat", gameId, customIndex, enabled),
+    addCustomCheat: (gameId: string, description: string, code: string) =>
+      ipcRenderer.invoke("cheats:addCustomCheat", gameId, description, code),
+    removeCustomCheat: (gameId: string, customIndex: number) =>
+      ipcRenderer.invoke("cheats:removeCustomCheat", gameId, customIndex),
   },
 
   // Run one frame and return video+audio data (called from requestAnimationFrame)

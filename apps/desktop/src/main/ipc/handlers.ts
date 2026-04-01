@@ -7,6 +7,7 @@ import { LibraryService } from "../services/LibraryService";
 import { ArtworkService } from "../services/ArtworkService";
 import { HomebrewService } from "../services/HomebrewService";
 import { CheatDatabaseService } from "../services/CheatDatabaseService";
+import { CheatPersistenceService } from "../services/CheatPersistenceService";
 import { ScreenScraperError } from "../services/ScreenScraperClient";
 import { GameWindowManager } from "../GameWindowManager";
 import type { AutoUpdaterService } from "../services/AutoUpdaterService";
@@ -30,6 +31,7 @@ export class IPCHandlers {
   private homebrewService: HomebrewService;
   private gameWindowManager: GameWindowManager;
   private cheatDatabaseService: CheatDatabaseService;
+  private cheatPersistenceService: CheatPersistenceService;
   private autoUpdater: AutoUpdaterService | null = null;
   private pendingResumeDialogs = new Map<string, (response: ResumeDialogResponse) => void>();
   /** Whether the homebrew import check has finished (imported, skipped, or errored). */
@@ -45,6 +47,7 @@ export class IPCHandlers {
     this.artworkService = new ArtworkService(this.libraryService);
     this.homebrewService = new HomebrewService(this.libraryService);
     this.cheatDatabaseService = new CheatDatabaseService();
+    this.cheatPersistenceService = new CheatPersistenceService();
     this.gameWindowManager = new GameWindowManager(preloadPath);
     this.setupHandlers();
     this.setupEmulatorEventForwarding();
@@ -199,6 +202,11 @@ export class IPCHandlers {
             // Store the worker client on the emulator manager for control routing
             this.emulatorManager.setWorkerClient(workerClient);
 
+            // Auto-apply persisted cheats (non-blocking)
+            this.autoApplyCheats(workerClient, game).catch((error) => {
+              ipcLog.warn("Failed to auto-apply cheats:", error);
+            });
+
             this.gameWindowManager.createNativeGameWindow(
               game,
               workerClient,
@@ -342,6 +350,13 @@ export class IPCHandlers {
       },
     );
 
+    ipcMain.handle("cheats:databaseStatus", () => {
+      return {
+        present: this.cheatDatabaseService.isDatabasePresent(),
+        downloading: this.cheatDatabaseService.isDownloading(),
+      };
+    });
+
     ipcMain.handle("cheats:downloadDatabase", async () => {
       try {
         await this.cheatDatabaseService.ensureDatabase();
@@ -382,6 +397,63 @@ export class IPCHandlers {
         return { success: false, error: errorMessage(error) };
       }
     });
+
+    ipcMain.handle("cheats:getGameState", async (event: IpcMainInvokeEvent, gameId: string) => {
+      try {
+        const state = this.cheatPersistenceService.getGameState(gameId);
+        return { success: true, state };
+      } catch (error) {
+        return { success: false, error: errorMessage(error), state: null };
+      }
+    });
+
+    ipcMain.handle(
+      "cheats:toggleCheat",
+      async (event: IpcMainInvokeEvent, gameId: string, index: number, enabled: boolean) => {
+        try {
+          this.cheatPersistenceService.setCheatEnabled(gameId, index, enabled);
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: errorMessage(error) };
+        }
+      },
+    );
+
+    ipcMain.handle(
+      "cheats:toggleCustomCheat",
+      async (event: IpcMainInvokeEvent, gameId: string, customIndex: number, enabled: boolean) => {
+        try {
+          this.cheatPersistenceService.setCustomCheatEnabled(gameId, customIndex, enabled);
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: errorMessage(error) };
+        }
+      },
+    );
+
+    ipcMain.handle(
+      "cheats:addCustomCheat",
+      async (event: IpcMainInvokeEvent, gameId: string, description: string, code: string) => {
+        try {
+          this.cheatPersistenceService.addCustomCheat(gameId, description, code);
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: errorMessage(error) };
+        }
+      },
+    );
+
+    ipcMain.handle(
+      "cheats:removeCustomCheat",
+      async (event: IpcMainInvokeEvent, gameId: string, customIndex: number) => {
+        try {
+          this.cheatPersistenceService.removeCustomCheat(gameId, customIndex);
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: errorMessage(error) };
+        }
+      },
+    );
   }
 
   private setupEmulatorEventForwarding(): void {
@@ -812,5 +884,30 @@ export class IPCHandlers {
         }
       }, 30_000);
     });
+  }
+
+  /**
+   * Apply any previously-enabled cheats for a game after the emulation
+   * worker is initialized. Runs cheatReset first, then sets each enabled cheat.
+   */
+  private async autoApplyCheats(workerClient: EmulationWorkerClient, game: Game): Promise<void> {
+    const romFilename = game.romPath.split("/").pop() || game.romPath;
+    const enabledCheats = this.cheatPersistenceService.getEnabledCheats(
+      game.id,
+      this.cheatDatabaseService,
+      game.systemId,
+      romFilename,
+    );
+
+    if (enabledCheats.length === 0) {
+      return;
+    }
+
+    await workerClient.cheatReset();
+    for (const cheat of enabledCheats) {
+      await workerClient.cheatSet(cheat.index, true, cheat.code);
+    }
+
+    ipcLog.info(`Auto-applied ${enabledCheats.length} cheat(s) for ${game.title}`);
   }
 }

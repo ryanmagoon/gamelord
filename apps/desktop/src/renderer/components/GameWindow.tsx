@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Button,
+  CheatPanel,
+  type CheatItem,
+  type CustomCheatItem,
   ControlsOverlay,
   type KeyboardBinding,
   filterBindingsForSystem,
@@ -25,6 +28,7 @@ import {
   FastForward,
   ChevronDown,
   Keyboard,
+  Code,
   Minus,
   Square,
   X,
@@ -135,6 +139,12 @@ export const GameWindow: React.FC = () => {
   });
 
   const [showControlsOverlay, setShowControlsOverlay] = useState(false);
+  const [showCheatPanel, setShowCheatPanel] = useState(false);
+  const [cheatItems, setCheatItems] = useState<Array<CheatItem>>([]);
+  const [customCheatItems, setCustomCheatItems] = useState<Array<CustomCheatItem>>([]);
+  const [cheatDbStatus, setCheatDbStatus] = useState<
+    "ready" | "downloading" | "not-downloaded" | "error"
+  >("ready");
   const pausedByOverlayRef = useRef(false);
   const [showControlsHint, setShowControlsHint] = useState(() => {
     return localStorage.getItem("gamelord:controlsHintDismissed") !== "true";
@@ -160,6 +170,124 @@ export const GameWindow: React.FC = () => {
   // and trigger state updates during the power-on sequence).
   const handlePowerOnComplete = useCallback(() => setIsPoweringOn(false), []);
   const handlePowerOffComplete = useCallback(() => api.gameWindow.readyToClose(), [api]);
+
+  // -------------------------------------------------------------------------
+  // Cheat panel
+  // -------------------------------------------------------------------------
+  const loadCheats = useCallback(async () => {
+    if (!game) {
+      return;
+    }
+    const romFilename = game.romPath.split("/").pop() || game.romPath;
+    const [cheatsResult, stateResult] = await Promise.all([
+      api.cheats.listForGame(game.systemId, romFilename),
+      api.cheats.getGameState(game.id),
+    ]);
+
+    const enabledIndices = new Set(stateResult.state?.enabledIndices ?? []);
+    setCheatItems(
+      (cheatsResult.cheats ?? []).map((c) => ({
+        ...c,
+        enabled: enabledIndices.has(c.index),
+      })),
+    );
+    setCustomCheatItems(stateResult.state?.customCheats ?? []);
+  }, [api, game]);
+
+  const openCheatPanel = useCallback(async () => {
+    // Check database status first
+    const status = await api.cheats.databaseStatus();
+    if (status.downloading) {
+      setCheatDbStatus("downloading");
+    } else if (!status.present) {
+      setCheatDbStatus("not-downloaded");
+    } else {
+      setCheatDbStatus("ready");
+    }
+
+    await loadCheats();
+    setShowCheatPanel(true);
+    if (!isPaused) {
+      pausedByOverlayRef.current = true;
+      api.emulation.pause().catch(console.error);
+    }
+  }, [loadCheats, isPaused, api]);
+
+  const handleDownloadDatabase = useCallback(async () => {
+    setCheatDbStatus("downloading");
+    const result = await api.cheats.downloadDatabase();
+    if (result.success) {
+      setCheatDbStatus("ready");
+      await loadCheats();
+    } else {
+      setCheatDbStatus("error");
+    }
+  }, [api, loadCheats]);
+
+  const handleToggleCheat = useCallback(
+    async (index: number, enabled: boolean) => {
+      if (!game) {
+        return;
+      }
+      // Update local state immediately for responsive UI
+      setCheatItems((prev) => prev.map((c) => (c.index === index ? { ...c, enabled } : c)));
+      // Persist + apply to running core
+      await api.cheats.toggleCheat(game.id, index, enabled);
+      const cheat = cheatItems.find((c) => c.index === index);
+      if (cheat) {
+        await api.cheats.set(index, enabled, cheat.code);
+      }
+    },
+    [api, game, cheatItems],
+  );
+
+  const handleToggleCustomCheat = useCallback(
+    async (customIndex: number, enabled: boolean) => {
+      if (!game) {
+        return;
+      }
+      setCustomCheatItems((prev) =>
+        prev.map((c, i) => (i === customIndex ? { ...c, enabled } : c)),
+      );
+      await api.cheats.toggleCustomCheat(game.id, customIndex, enabled);
+      const cheat = customCheatItems[customIndex];
+      if (cheat) {
+        // Custom cheats are indexed after database cheats
+        await api.cheats.set(cheatItems.length + customIndex, enabled, cheat.code);
+      }
+    },
+    [api, game, cheatItems.length, customCheatItems],
+  );
+
+  const handleAddCustomCheat = useCallback(
+    async (description: string, code: string) => {
+      if (!game) {
+        return;
+      }
+      await api.cheats.addCustomCheat(game.id, description, code);
+      // Reload to get the updated state
+      await loadCheats();
+      // Apply the new cheat (it's enabled by default)
+      await api.cheats.set(cheatItems.length + customCheatItems.length, true, code);
+    },
+    [api, game, loadCheats, cheatItems.length, customCheatItems.length],
+  );
+
+  const handleRemoveCustomCheat = useCallback(
+    async (customIndex: number) => {
+      if (!game) {
+        return;
+      }
+      // Disable the cheat on the core first
+      const cheat = customCheatItems[customIndex];
+      if (cheat?.enabled) {
+        await api.cheats.set(cheatItems.length + customIndex, false, cheat.code);
+      }
+      await api.cheats.removeCustomCheat(game.id, customIndex);
+      await loadCheats();
+    },
+    [api, game, loadCheats, cheatItems.length, customCheatItems],
+  );
 
   const {
     play: playSfx,
@@ -1343,6 +1471,17 @@ export const GameWindow: React.FC = () => {
                     <span>Controls</span>
                     <span className="ml-auto text-xs text-white/30">?</span>
                   </button>
+                  <button
+                    onClick={() => {
+                      playSfx("click");
+                      setShowSettingsMenu(false);
+                      openCheatPanel().catch(console.error);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                  >
+                    <Code className="h-3.5 w-3.5" />
+                    <span>Cheats</span>
+                  </button>
                   <div className="border-t border-white/10 my-1" />
                   <button
                     onClick={() => {
@@ -1450,6 +1589,27 @@ export const GameWindow: React.FC = () => {
           }
         }}
         bindings={filterBindingsForSystem(KEYBOARD_BINDINGS, game?.systemId)}
+      />
+
+      {/* Cheat panel overlay */}
+      <CheatPanel
+        open={showCheatPanel}
+        onClose={() => {
+          setShowCheatPanel(false);
+          if (pausedByOverlayRef.current) {
+            pausedByOverlayRef.current = false;
+            api.emulation.resume().catch(console.error);
+          }
+        }}
+        cheats={cheatItems}
+        onToggleCheat={handleToggleCheat}
+        customCheats={customCheatItems}
+        onToggleCustomCheat={handleToggleCustomCheat}
+        onAddCustomCheat={handleAddCustomCheat}
+        onRemoveCustomCheat={handleRemoveCustomCheat}
+        gameTitle={game?.title ?? ""}
+        databaseStatus={cheatDbStatus}
+        onDownloadDatabase={handleDownloadDatabase}
       />
 
       {/* First-launch controls hint */}
