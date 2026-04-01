@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld("gamelord", {
     setSpeed: (multiplier: number) => ipcRenderer.invoke("emulation:setSpeed", multiplier),
     setFastForwardAudio: (enabled: boolean) =>
       ipcRenderer.invoke("emulation:setFastForwardAudio", enabled),
+    swapDisc: (index: number) => ipcRenderer.invoke("emulation:swapDisc", index),
   },
 
   // Save states
@@ -102,10 +103,12 @@ contextBridge.exposeInMainWorld("gamelord", {
       "emulator:resumed",
       "emulator:reset",
       "emulator:speedChanged",
+      "emulator:discChanged",
       "emulator:terminated",
       "game:loaded",
       "game:mode",
       "game:av-info",
+      "game:disc-info",
       "game:video-frame",
       "game:audio-samples",
       "overlay:show-controls",
