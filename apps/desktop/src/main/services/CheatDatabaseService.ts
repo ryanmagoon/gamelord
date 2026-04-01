@@ -74,14 +74,42 @@ export function parseChtFile(content: string): Array<CheatEntry> {
 }
 
 /**
- * Check if a .cht filename matches a ROM name (case-insensitive, extension-stripped).
+ * Strip all parenthetical groups (region tags, cheat device names, etc.)
+ * and normalise whitespace to produce a base game title for fuzzy matching.
+ *
+ * "Resident Evil - Director's Cut (USA, Europe) (Game Buster)"
+ *   → "resident evil - director's cut"
+ */
+export function baseTitle(name: string): string {
+  return name
+    .replaceAll(/\([^)]*\)/g, "")
+    .trim()
+    .replaceAll(/\s+/g, " ")
+    .toLowerCase();
+}
+
+/**
+ * Check if a .cht filename matches a ROM name.
+ *
+ * Matching strategy (in priority order):
+ * 1. Exact match (extension-stripped, case-insensitive)
+ * 2. Base-title match — strip all parenthetical groups from both names
+ *    and compare the core title. This handles differing region tags and
+ *    cheat-device suffixes between ROM filenames and the libretro database.
  */
 export function matchChtFilename(romNameNoExt: string, chtFilename: string): boolean {
   if (!chtFilename.toLowerCase().endsWith(".cht")) {
     return false;
   }
   const chtNameNoExt = chtFilename.slice(0, -4);
-  return chtNameNoExt.toLowerCase() === romNameNoExt.toLowerCase();
+
+  // Exact match
+  if (chtNameNoExt.toLowerCase() === romNameNoExt.toLowerCase()) {
+    return true;
+  }
+
+  // Base-title fuzzy match
+  return baseTitle(romNameNoExt) === baseTitle(chtNameNoExt);
 }
 
 // ---------------------------------------------------------------------------
@@ -179,6 +207,8 @@ export class CheatDatabaseService extends EventEmitter {
       return [];
     }
 
+    const allCheats: Array<CheatEntry> = [];
+
     for (const folder of folders) {
       const systemDir = path.join(this.cheatsDir, "cht", folder);
       if (!fs.existsSync(systemDir)) {
@@ -197,15 +227,19 @@ export class CheatDatabaseService extends EventEmitter {
           const chtPath = path.join(systemDir, entry);
           try {
             const content = fs.readFileSync(chtPath, "utf8");
-            return parseChtFile(content);
+            const cheats = parseChtFile(content);
+            // Re-index so indices are unique across all matched files
+            for (const cheat of cheats) {
+              allCheats.push({ ...cheat, index: allCheats.length });
+            }
           } catch {
-            return [];
+            // Skip unreadable files
           }
         }
       }
     }
 
-    return [];
+    return allCheats;
   }
 
   /** Whether the database has been downloaded at all (may be stale). */
