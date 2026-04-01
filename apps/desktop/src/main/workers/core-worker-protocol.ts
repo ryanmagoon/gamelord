@@ -142,14 +142,26 @@ export function filterForwardableLogs(
 /**
  * Extract a CD-ROM serial from a core log message.
  *
- * PSX cores (e.g. Beetle PSX, PCSX ReARMed) log the disc serial as:
- * `CD-ROM ID: SLUS00551` or `CD-ROM ID: SLUS-00551`
+ * Different PSX cores log the serial in different formats:
+ * - Beetle PSX / PCSX ReARMed: `CD-ROM ID: SLUS00551`
+ * - SwanStation: `Inserted media from /path (SLUS-00551, Game Title)`
  *
  * Returns the raw serial string if found, or null.
  */
 export function extractSerialFromLog(message: string): string | null {
-  const match = message.match(/CD-ROM ID:\s*([A-Za-z]{4}-?\d{5})/);
-  return match ? match[1] : null;
+  // Beetle PSX / PCSX ReARMed format
+  const cdromMatch = message.match(/CD-ROM ID:\s*([A-Za-z]{4}-?\d{5})/);
+  if (cdromMatch) {
+    return cdromMatch[1];
+  }
+
+  // SwanStation format: "Inserted media from /path (SLUS-00551, Title)"
+  const swanMatch = message.match(/Inserted media from .+\(([A-Za-z]{4}-\d{5}),/);
+  if (swanMatch) {
+    return swanMatch[1];
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
