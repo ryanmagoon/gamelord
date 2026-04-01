@@ -55,7 +55,18 @@ export interface ArtworkSyncStatus {
 
 export interface ScreenScraperGameInfo {
   developer?: string;
+  /**
+   * ScreenScraper's game-level ID (`jeu.id`). Shared across all discs of the
+   * same title — use as the basis for `discGroup` when grouping multi-disc games.
+   * Only present for hash-based lookups (jeuInfos endpoint).
+   */
+  gameId?: string;
   genre?: string;
+  /**
+   * 1-indexed disc number from `jeu.rom.discnum`. Present only when ScreenScraper
+   * identifies the ROM as a specific disc of a multi-disc game.
+   */
+  discNumber?: number;
   media: {
     boxArt2d?: string;
     boxArt3d?: string;
