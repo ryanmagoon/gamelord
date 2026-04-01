@@ -60,6 +60,7 @@ export class EmulationWorkerClient extends EventEmitter {
   private running = false;
   private shuttingDown = false;
   private sharedBuffers: SharedBuffers | null = null;
+  private detectedSerial: string | null = null;
 
   /**
    * Spawn the utility process, load the core and ROM, and start the
@@ -100,6 +101,10 @@ export class EmulationWorkerClient extends EventEmitter {
           clearTimeout(initTimeout);
           this.workerProcess?.removeListener("message", onMessage);
           reject(new Error(event.message));
+        } else if (event.type === "serialDetected") {
+          // CD-ROM serial arrives before "ready" — capture it early
+          this.detectedSerial = event.serial;
+          libretroLog.info(`CD-ROM serial detected: ${event.serial}`);
         }
       };
 
@@ -243,6 +248,15 @@ export class EmulationWorkerClient extends EventEmitter {
    */
   getSharedBuffers(): SharedBuffers | null {
     return this.sharedBuffers;
+  }
+
+  /**
+   * Returns the CD-ROM serial detected from core log messages (PSX only),
+   * or null if no serial was detected (cartridge-based systems, or core
+   * didn't log one).
+   */
+  getDetectedSerial(): string | null {
+    return this.detectedSerial;
   }
 
   // -------------------------------------------------------------------------
@@ -389,6 +403,11 @@ export class EmulationWorkerClient extends EventEmitter {
         }
         break;
 
+      case "serialDetected":
+        this.detectedSerial = event.serial;
+        libretroLog.info(`CD-ROM serial detected: ${event.serial}`);
+        break;
+
       case "ready":
         // Handled during init — ignore if received after startup
         break;
@@ -407,5 +426,6 @@ export class EmulationWorkerClient extends EventEmitter {
     this.running = false;
     this.shuttingDown = false;
     this.sharedBuffers = null;
+    this.detectedSerial = null;
   }
 }

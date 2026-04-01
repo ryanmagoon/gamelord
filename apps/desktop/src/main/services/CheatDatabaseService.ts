@@ -5,7 +5,7 @@ import * as path from "node:path";
 import * as https from "node:https";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { CheatEntry } from "../../types/library";
+import type { CheatEntry, CheatSource } from "../../types/library";
 
 const execFileAsync = promisify(execFile);
 
@@ -71,6 +71,109 @@ export function parseChtFile(content: string): Array<CheatEntry> {
   }
 
   return cheats;
+}
+
+// ---------------------------------------------------------------------------
+// DuckStation chtdb parser (pure function, no side effects — easy to test)
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a DuckStation chtdb .cht file into structured cheat entries.
+ *
+ * Format:
+ * ```
+ * ; comment
+ * [Cheat Name]
+ * Type = Gameshark
+ * Activation = EndFrame
+ * 800C51AC 008C
+ * D00CF844 0010
+ * 800C51AC 00C8
+ * ```
+ *
+ * Each `[Section]` defines one cheat. Hex code lines within a section
+ * are joined with `+` to match libretro's `retro_cheat_set` format.
+ */
+export function parseDuckStationChtFile(content: string): Array<CheatEntry> {
+  const lines = content.split(/\r?\n/);
+  const cheats: Array<CheatEntry> = [];
+
+  let currentName: string | null = null;
+  let currentCodes: Array<string> = [];
+
+  const flush = () => {
+    if (currentName !== null && currentCodes.length > 0) {
+      cheats.push({
+        index: cheats.length,
+        description: currentName,
+        code: currentCodes.join("+"),
+        enabled: false,
+      });
+    }
+    currentName = null;
+    currentCodes = [];
+  };
+
+  // Matches hex code lines like "800C51AC 008C" or "A7038CCA 10402400"
+  const hexCodePattern = /^[0-9A-Fa-f]{8}\s+[0-9A-Fa-f]+$/;
+  // Matches metadata lines like "Type = Gameshark" or "Activation = EndFrame"
+  const metadataPattern = /^(Type|Activation)\s*=/i;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Skip empty lines and comments
+    if (trimmed === "" || trimmed.startsWith(";")) {
+      continue;
+    }
+
+    // Section header: [Cheat Name]
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      flush();
+      currentName = trimmed.slice(1, -1);
+      continue;
+    }
+
+    // Skip metadata lines
+    if (metadataPattern.test(trimmed)) {
+      continue;
+    }
+
+    // Hex code line
+    if (currentName !== null && hexCodePattern.test(trimmed)) {
+      currentCodes.push(trimmed);
+    }
+  }
+
+  // Flush last section
+  flush();
+
+  return cheats;
+}
+
+// ---------------------------------------------------------------------------
+// Serial formatting
+// ---------------------------------------------------------------------------
+
+/**
+ * Format a raw CD-ROM serial (e.g. `SLUS00551` from core logs) into
+ * the DuckStation chtdb filename format (`SLUS-00551`).
+ *
+ * If the serial already contains a hyphen in the right place, it's returned
+ * uppercased. Non-matching strings are returned as-is.
+ */
+export function formatSerial(raw: string): string {
+  const upper = raw.toUpperCase();
+  // Already formatted: "SLUS-00551"
+  if (/^[A-Z]{4}-\d{5}$/.test(upper)) {
+    return upper;
+  }
+  // Raw from core log: "SLUS00551"
+  const match = upper.match(/^([A-Z]{4})(\d{5})$/);
+  if (match) {
+    return `${match[1]}-${match[2]}`;
+  }
+  return raw;
 }
 
 /**
@@ -152,6 +255,8 @@ export interface CheatDatabaseProgress {
 
 interface CheatDatabaseMetadata {
   lastDownloaded: number; // ms since epoch
+  /** Timestamp of last chtdb download (undefined = never downloaded). */
+  chtdbLastDownloaded?: number;
 }
 
 const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -161,12 +266,14 @@ const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // ---------------------------------------------------------------------------
 
 /**
- * Downloads and manages the libretro cheat database (.cht files).
+ * Downloads and manages cheat databases:
+ * - **libretro-database** — filename-matched .cht files for all systems
+ * - **DuckStation chtdb** — serial-matched .cht files for PSX (GameShark format)
  *
- * - Downloads the libretro-database repo archive on first game launch
- * - Extracts only the cht/ subtree to <userData>/cheats/
- * - Matches cheats to ROMs by filename
- * - Re-downloads if the database is >7 days old
+ * Both databases are downloaded as GitHub archives and extracted to
+ * `<userData>/cheats/`. The chtdb database is stored separately under
+ * `<userData>/cheats/chtdb/`. Results are merged with serial-matched
+ * chtdb cheats taking priority for PSX games.
  */
 export class CheatDatabaseService extends EventEmitter {
   private cheatsDir: string;
@@ -179,27 +286,60 @@ export class CheatDatabaseService extends EventEmitter {
     this.metadataPath = path.join(this.cheatsDir, "metadata.json");
   }
 
-  /** Ensure the cheat database exists. Downloads if missing or stale. Non-blocking. */
+  /** Ensure both cheat databases exist. Downloads if missing or stale. Non-blocking. */
   async ensureDatabase(): Promise<void> {
     if (this.downloading) {
       return;
     }
 
-    if (this.isDatabaseFresh()) {
+    const libreFresh = this.isDatabaseFresh("libretro");
+    const chtdbFresh = this.isDatabaseFresh("chtdb");
+
+    if (libreFresh && chtdbFresh) {
       return;
     }
 
     try {
-      await this.downloadDatabase();
+      // Download both databases in parallel when both are stale
+      const downloads: Array<Promise<void>> = [];
+      if (!libreFresh) {
+        downloads.push(this.downloadLibretroDatabase());
+      }
+      if (!chtdbFresh) {
+        downloads.push(this.downloadChtdb());
+      }
+      this.downloading = true;
+      await Promise.all(downloads);
     } catch (error) {
       // Non-fatal — cheats are simply unavailable
       const message = error instanceof Error ? error.message : String(error);
       this.emitProgress("error", 0, message);
+    } finally {
+      this.downloading = false;
     }
   }
 
-  /** Get cheats for a specific game by system ID and ROM filename. */
-  getCheatsForGame(systemId: string, romFilename: string): Array<CheatEntry> {
+  /**
+   * Get cheats for a specific game, merging both databases.
+   *
+   * When a serial is provided (PSX games), chtdb results are looked up
+   * by serial and take priority. Libretro results are merged in after,
+   * with duplicates (same code string) removed.
+   */
+  getCheatsForGame(systemId: string, romFilename: string, serial?: string): Array<CheatEntry> {
+    // Serial-matched chtdb cheats (PSX only, highest priority)
+    const chtdbCheats = serial ? this.getCheatsFromChtdb(serial) : [];
+
+    // Filename-matched libretro cheats
+    const libreCheats = this.getCheatsFromLibretro(systemId, romFilename);
+
+    // Merge: chtdb first (serial-matched = higher confidence), then
+    // libretro cheats that aren't duplicates.
+    return this.mergeCheats(chtdbCheats, libreCheats);
+  }
+
+  /** Look up cheats from the libretro-database by filename matching. */
+  private getCheatsFromLibretro(systemId: string, romFilename: string): Array<CheatEntry> {
     const romNameNoExt = path.basename(romFilename, path.extname(romFilename));
     const folders = SYSTEM_CHT_FOLDERS[systemId];
 
@@ -228,9 +368,12 @@ export class CheatDatabaseService extends EventEmitter {
           try {
             const content = fs.readFileSync(chtPath, "utf8");
             const cheats = parseChtFile(content);
-            // Re-index so indices are unique across all matched files
             for (const cheat of cheats) {
-              allCheats.push({ ...cheat, index: allCheats.length });
+              allCheats.push({
+                ...cheat,
+                index: allCheats.length,
+                source: "libretro" as CheatSource,
+              });
             }
           } catch {
             // Skip unreadable files
@@ -242,7 +385,64 @@ export class CheatDatabaseService extends EventEmitter {
     return allCheats;
   }
 
-  /** Whether the database has been downloaded at all (may be stale). */
+  /** Look up cheats from DuckStation chtdb by CD-ROM serial. */
+  private getCheatsFromChtdb(serial: string): Array<CheatEntry> {
+    const formatted = formatSerial(serial);
+    const chtPath = path.join(this.cheatsDir, "chtdb", `${formatted}.cht`);
+
+    if (!fs.existsSync(chtPath)) {
+      return [];
+    }
+
+    try {
+      const content = fs.readFileSync(chtPath, "utf8");
+      const cheats = parseDuckStationChtFile(content);
+      return cheats.map((cheat, i) => ({
+        ...cheat,
+        index: i,
+        source: "chtdb" as CheatSource,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Merge chtdb and libretro cheats, deduplicating by normalised code string.
+   * Chtdb cheats take priority (they appear first and block libretro duplicates).
+   */
+  private mergeCheats(primary: Array<CheatEntry>, secondary: Array<CheatEntry>): Array<CheatEntry> {
+    if (primary.length === 0) {
+      return secondary;
+    }
+    if (secondary.length === 0) {
+      return primary;
+    }
+
+    // Build a set of normalised codes from the primary source
+    const seenCodes = new Set<string>();
+    for (const cheat of primary) {
+      seenCodes.add(this.normalizeCode(cheat.code));
+    }
+
+    const merged = [...primary];
+    for (const cheat of secondary) {
+      const norm = this.normalizeCode(cheat.code);
+      if (!seenCodes.has(norm)) {
+        seenCodes.add(norm);
+        merged.push({ ...cheat, index: merged.length });
+      }
+    }
+
+    return merged;
+  }
+
+  /** Normalise a cheat code for deduplication (lowercase, strip whitespace). */
+  private normalizeCode(code: string): string {
+    return code.toLowerCase().replaceAll(/\s+/g, "");
+  }
+
+  /** Whether at least one database has been downloaded (may be stale). */
   isDatabasePresent(): boolean {
     return fs.existsSync(this.metadataPath);
   }
@@ -252,8 +452,8 @@ export class CheatDatabaseService extends EventEmitter {
     return this.downloading;
   }
 
-  /** Whether the database has been downloaded and is not stale. */
-  private isDatabaseFresh(): boolean {
+  /** Whether a specific database source has been downloaded and is not stale. */
+  private isDatabaseFresh(source: "libretro" | "chtdb"): boolean {
     if (!fs.existsSync(this.metadataPath)) {
       return false;
     }
@@ -261,59 +461,105 @@ export class CheatDatabaseService extends EventEmitter {
     try {
       const raw = fs.readFileSync(this.metadataPath, "utf8");
       const metadata: CheatDatabaseMetadata = JSON.parse(raw);
-      return Date.now() - metadata.lastDownloaded < STALE_THRESHOLD_MS;
+      const timestamp =
+        source === "libretro" ? metadata.lastDownloaded : metadata.chtdbLastDownloaded;
+      if (!timestamp) {
+        return false;
+      }
+      return Date.now() - timestamp < STALE_THRESHOLD_MS;
     } catch {
       return false;
     }
   }
 
+  /** Read current metadata from disk, or return a fresh object. */
+  private readMetadata(): CheatDatabaseMetadata {
+    if (fs.existsSync(this.metadataPath)) {
+      try {
+        return JSON.parse(fs.readFileSync(this.metadataPath, "utf8")) as CheatDatabaseMetadata;
+      } catch {
+        // Corrupt — start fresh
+      }
+    }
+    return { lastDownloaded: 0 };
+  }
+
+  /** Persist metadata to disk. */
+  private writeMetadata(metadata: CheatDatabaseMetadata): void {
+    fs.writeFileSync(this.metadataPath, JSON.stringify(metadata, null, 2));
+  }
+
   /** Download the libretro-database archive and extract the cht/ directory. */
-  private async downloadDatabase(): Promise<void> {
-    this.downloading = true;
+  private async downloadLibretroDatabase(): Promise<void> {
+    fs.mkdirSync(this.cheatsDir, { recursive: true });
+
+    const tarballUrl =
+      "https://github.com/libretro/libretro-database/archive/refs/heads/master.tar.gz";
+
+    this.emitProgress("downloading", 0);
+
+    const tarballPath = path.join(this.cheatsDir, "libretro-database.tar.gz");
 
     try {
-      fs.mkdirSync(this.cheatsDir, { recursive: true });
-
-      const tarballUrl =
-        "https://github.com/libretro/libretro-database/archive/refs/heads/master.tar.gz";
-
-      this.emitProgress("downloading", 0);
-
-      const tarballPath = path.join(this.cheatsDir, "libretro-database.tar.gz");
-
       await this.downloadFile(tarballUrl, tarballPath, (percent) => {
         this.emitProgress("downloading", percent);
       });
 
       this.emitProgress("extracting", 85);
 
-      await this.extractChtFiles(tarballPath);
+      await this.extractTarball(tarballPath, this.cheatsDir, "*/cht/*");
 
+      const metadata = this.readMetadata();
+      metadata.lastDownloaded = Date.now();
+      this.writeMetadata(metadata);
+
+      this.emitProgress("done", 100);
+    } finally {
       // Clean up tarball
       try {
         fs.unlinkSync(tarballPath);
       } catch {
-        // Ignore cleanup errors
+        // Ignore
       }
+    }
+  }
 
-      // Write metadata
-      const metadata: CheatDatabaseMetadata = { lastDownloaded: Date.now() };
-      fs.writeFileSync(this.metadataPath, JSON.stringify(metadata, null, 2));
+  /** Download the DuckStation chtdb archive and extract cheats/. */
+  private async downloadChtdb(): Promise<void> {
+    fs.mkdirSync(this.cheatsDir, { recursive: true });
 
-      this.emitProgress("done", 100);
-    } catch (error) {
-      // Clean up partial download
-      const tarballPath = path.join(this.cheatsDir, "libretro-database.tar.gz");
-      if (fs.existsSync(tarballPath)) {
-        try {
-          fs.unlinkSync(tarballPath);
-        } catch {
-          // Ignore
-        }
-      }
-      throw error;
+    const tarballUrl = "https://github.com/duckstation/chtdb/archive/refs/heads/master.tar.gz";
+
+    const tarballPath = path.join(this.cheatsDir, "chtdb.tar.gz");
+    const chtdbDir = path.join(this.cheatsDir, "chtdb");
+
+    try {
+      await this.downloadFile(tarballUrl, tarballPath, () => {
+        // Progress is reported by the libretro download — chtdb is small (~2MB)
+      });
+
+      fs.mkdirSync(chtdbDir, { recursive: true });
+
+      // Extract cheats/ directory, stripping the repo root + "cheats/" prefix
+      // so files land directly in chtdb/ as "SLUS-00551.cht" etc.
+      await execFileAsync("tar", [
+        "xzf",
+        tarballPath,
+        "--strip-components=2",
+        "--include=*/cheats/*",
+        "-C",
+        chtdbDir,
+      ]);
+
+      const metadata = this.readMetadata();
+      metadata.chtdbLastDownloaded = Date.now();
+      this.writeMetadata(metadata);
     } finally {
-      this.downloading = false;
+      try {
+        fs.unlinkSync(tarballPath);
+      } catch {
+        // Ignore
+      }
     }
   }
 
@@ -386,20 +632,24 @@ export class CheatDatabaseService extends EventEmitter {
   }
 
   /**
-   * Extract only the cht/ subdirectory from the downloaded tarball.
+   * Extract a filtered subdirectory from a tarball.
    *
    * Uses the system `tar` command (available on macOS and Linux) to avoid
    * adding a Node tar dependency. The --include flag filters to only the
-   * cht/ directory, and --strip-components removes the repo root prefix.
+   * specified directory, and --strip-components removes the repo root prefix.
    */
-  private async extractChtFiles(tarballPath: string): Promise<void> {
+  private async extractTarball(
+    tarballPath: string,
+    destDir: string,
+    includePattern: string,
+  ): Promise<void> {
     await execFileAsync("tar", [
       "xzf",
       tarballPath,
       "--strip-components=1",
-      "--include=*/cht/*",
+      `--include=${includePattern}`,
       "-C",
-      this.cheatsDir,
+      destDir,
     ]);
   }
 

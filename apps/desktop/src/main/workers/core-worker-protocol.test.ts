@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   filterForwardableLogs,
+  extractSerialFromLog,
   RETRO_LOG_DEBUG,
   RETRO_LOG_INFO,
   RETRO_LOG_WARN,
@@ -67,5 +68,31 @@ describe("filterForwardableLogs", () => {
 
   it("minimum forward level is info (level 1)", () => {
     expect(MIN_FORWARD_LOG_LEVEL).toBe(1);
+  });
+});
+
+describe("extractSerialFromLog", () => {
+  it("extracts serial without hyphen from CD-ROM ID log", () => {
+    expect(extractSerialFromLog("CD-ROM ID: SLUS00551")).toBe("SLUS00551");
+  });
+
+  it("extracts serial with hyphen from CD-ROM ID log", () => {
+    expect(extractSerialFromLog("CD-ROM ID: SLUS-00551")).toBe("SLUS-00551");
+  });
+
+  it("extracts serial from log with surrounding text", () => {
+    expect(extractSerialFromLog("[info] CD-ROM ID: SCES00001 (loaded)")).toBe("SCES00001");
+  });
+
+  it("returns null for non-matching log messages", () => {
+    expect(extractSerialFromLog("Loaded BIOS successfully")).toBeNull();
+    expect(extractSerialFromLog("")).toBeNull();
+    expect(extractSerialFromLog("CD-ROM loaded")).toBeNull();
+  });
+
+  it("handles various PSX serial prefixes", () => {
+    expect(extractSerialFromLog("CD-ROM ID: SCPS10001")).toBe("SCPS10001");
+    expect(extractSerialFromLog("CD-ROM ID: SLES-01234")).toBe("SLES-01234");
+    expect(extractSerialFromLog("CD-ROM ID: SLPM86001")).toBe("SLPM86001");
   });
 });

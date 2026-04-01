@@ -341,7 +341,9 @@ export class IPCHandlers {
       "cheats:listForGame",
       async (event: IpcMainInvokeEvent, systemId: string, romFilename: string) => {
         try {
-          const cheats = this.cheatDatabaseService.getCheatsForGame(systemId, romFilename);
+          // Pass the CD-ROM serial (if available) for chtdb serial-based lookup
+          const serial = this.emulatorManager.getWorkerClient()?.getDetectedSerial() ?? undefined;
+          const cheats = this.cheatDatabaseService.getCheatsForGame(systemId, romFilename, serial);
           return { success: true, cheats };
         } catch (error) {
           ipcLog.error("Failed to list cheats:", error);
@@ -892,11 +894,13 @@ export class IPCHandlers {
    */
   private async autoApplyCheats(workerClient: EmulationWorkerClient, game: Game): Promise<void> {
     const romFilename = game.romPath.split("/").pop() || game.romPath;
+    const serial = workerClient.getDetectedSerial() ?? undefined;
     const enabledCheats = this.cheatPersistenceService.getEnabledCheats(
       game.id,
       this.cheatDatabaseService,
       game.systemId,
       romFilename,
+      serial,
     );
 
     if (enabledCheats.length === 0) {
