@@ -152,6 +152,31 @@ export function parseDuckStationChtFile(content: string): Array<CheatEntry> {
 }
 
 // ---------------------------------------------------------------------------
+// Code compatibility filtering
+// ---------------------------------------------------------------------------
+
+/**
+ * Standard GameShark code format: `XXXXXXXX XXXX` (8 + 4 hex nybbles = 12 total).
+ * Beetle PSX's `retro_cheat_set` only supports this format. DuckStation's extended
+ * codes use 8-digit values (`XXXXXXXX XXXXXXXX`) which cause glitchy behaviour
+ * when passed to Beetle.
+ */
+const STANDARD_GAMESHARK_LINE = /^[0-9A-Fa-f]{8}\s+[0-9A-Fa-f]{4}$/;
+
+/**
+ * Check whether a cheat's code lines are all in standard GameShark format
+ * compatible with Beetle PSX's `retro_cheat_set` implementation.
+ *
+ * Codes with extended DuckStation prefixes (A7 32-bit patch, F4 advanced
+ * conditional, 90 32-bit write, etc.) use 8-digit values that Beetle
+ * can't parse, causing memory corruption and glitchy behaviour.
+ */
+export function isBeetleCompatible(code: string): boolean {
+  const lines = code.split("+");
+  return lines.every((line) => STANDARD_GAMESHARK_LINE.test(line.trim()));
+}
+
+// ---------------------------------------------------------------------------
 // Serial formatting
 // ---------------------------------------------------------------------------
 
@@ -397,7 +422,11 @@ export class CheatDatabaseService extends EventEmitter {
     try {
       const content = fs.readFileSync(chtPath, "utf8");
       const cheats = parseDuckStationChtFile(content);
-      return cheats.map((cheat, i) => ({
+      // Filter out cheats with extended DuckStation code types (A7, F4, 90, etc.)
+      // that Beetle PSX's retro_cheat_set can't handle. Only standard GameShark
+      // format (XXXXXXXX XXXX) is safe to pass through.
+      const compatible = cheats.filter((cheat) => isBeetleCompatible(cheat.code));
+      return compatible.map((cheat, i) => ({
         ...cheat,
         index: i,
         source: "chtdb" as CheatSource,

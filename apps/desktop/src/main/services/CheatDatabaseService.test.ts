@@ -5,6 +5,7 @@ import {
   baseTitle,
   parseDuckStationChtFile,
   formatSerial,
+  isBeetleCompatible,
 } from "./CheatDatabaseService";
 
 describe("parseChtFile", () => {
@@ -354,5 +355,57 @@ describe("formatSerial", () => {
 
   it("handles uppercase with existing hyphen", () => {
     expect(formatSerial("slus-00551")).toBe("SLUS-00551");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isBeetleCompatible
+// ---------------------------------------------------------------------------
+
+describe("isBeetleCompatible", () => {
+  it("accepts standard 16-bit constant write (80 prefix)", () => {
+    expect(isBeetleCompatible("800C51AC 008C")).toBe(true);
+  });
+
+  it("accepts standard 8-bit constant write (30 prefix)", () => {
+    expect(isBeetleCompatible("300C8714 003F")).toBe(true);
+  });
+
+  it("accepts conditional code (D0 prefix)", () => {
+    expect(isBeetleCompatible("D00CF844 0010")).toBe(true);
+  });
+
+  it("accepts 8-bit conditional (E0 prefix)", () => {
+    expect(isBeetleCompatible("E00CF845 0040")).toBe(true);
+  });
+
+  it("accepts multi-line standard codes joined with +", () => {
+    expect(isBeetleCompatible("D00CF844 0010+800C51AC 00C8")).toBe(true);
+  });
+
+  it("accepts 50 repeat codes with standard value length", () => {
+    expect(isBeetleCompatible("50000902 0001+800C8724 FF02")).toBe(true);
+  });
+
+  it("rejects DuckStation A7 32-bit patch codes", () => {
+    expect(isBeetleCompatible("A7038CCA 10402400")).toBe(false);
+  });
+
+  it("rejects DuckStation F4 advanced conditional", () => {
+    expect(isBeetleCompatible("F4105000 00FF5000")).toBe(false);
+  });
+
+  it("rejects 90 32-bit write codes", () => {
+    expect(isBeetleCompatible("9000BF90 27BDFFD8")).toBe(false);
+  });
+
+  it("rejects mixed: one standard + one extended", () => {
+    expect(isBeetleCompatible("800C51AC 008C+A7038CCA 10402400")).toBe(false);
+  });
+
+  it("rejects codes with non-standard value lengths", () => {
+    // 2F/FFFF patterns from extended DuckStation format
+    expect(isBeetleCompatible("2F004010 00000000")).toBe(false);
+    expect(isBeetleCompatible("FFFFFFFF FFFFFFFF")).toBe(false);
   });
 });
