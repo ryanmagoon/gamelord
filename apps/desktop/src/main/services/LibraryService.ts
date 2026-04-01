@@ -673,6 +673,49 @@ export class LibraryService extends EventEmitter {
       }
     }
 
+    // Auto-detect disc grouping from filenames like "(Disc 1)", "(Disc 2)".
+    // Only applies to files not already annotated by an .m3u playlist.
+    // Pattern matches: (Disc 1), (Disc 2), (Disc1), etc. — case-insensitive.
+    const DISC_PATTERN = /\s*\(Disc\s*(\d+)\)/i;
+    const filenameDiscGroups = new Map<string, Array<{ fullPath: string; discNumber: number }>>();
+    for (const result of statResults) {
+      if (!result) {
+        continue;
+      }
+      const { entry, fullPath } = result;
+      if (m3uDiscAnnotations.has(fullPath)) {
+        continue; // .m3u takes precedence
+      }
+      const baseName = path.basename(entry.name, path.extname(entry.name).toLowerCase());
+      const discMatch = DISC_PATTERN.exec(baseName);
+      if (discMatch) {
+        const discNumber = Number.parseInt(discMatch[1], 10);
+        const groupName = baseName.replace(DISC_PATTERN, "").trim();
+        let group = filenameDiscGroups.get(groupName);
+        if (!group) {
+          group = [];
+          filenameDiscGroups.set(groupName, group);
+        }
+        group.push({ fullPath, discNumber });
+      }
+    }
+
+    // Build filename-based annotations: discTotal is only set when 2+ discs share a group
+    const filenameDiscAnnotations = new Map<
+      string,
+      { discGroup: string; discNumber: number; discTotal?: number }
+    >();
+    for (const [groupName, members] of filenameDiscGroups) {
+      const discTotal = members.length >= 2 ? members.length : undefined;
+      for (const { fullPath, discNumber } of members) {
+        filenameDiscAnnotations.set(fullPath, {
+          discGroup: groupName,
+          discNumber,
+          discTotal,
+        });
+      }
+    }
+
     for (const result of statResults) {
       if (!result) {
         continue;
@@ -731,7 +774,8 @@ export class LibraryService extends EventEmitter {
           const matchedSystem = matchingSystems[0];
           const existingGameId = this.romPathIndex.get(fullPath);
           const existingGame = existingGameId ? this.games.get(existingGameId) : undefined;
-          const discAnnotation = m3uDiscAnnotations.get(fullPath);
+          const discAnnotation =
+            m3uDiscAnnotations.get(fullPath) ?? filenameDiscAnnotations.get(fullPath);
 
           candidates.push({
             existingMtime: existingGame?.romMtime,

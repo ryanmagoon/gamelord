@@ -2832,4 +2832,142 @@ describe("LibraryService", () => {
       fs.rmSync(m3uDir, { force: true, recursive: true });
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Automatic filename-based disc detection
+  // ---------------------------------------------------------------------------
+
+  describe("scanDirectory — filename-based disc detection", () => {
+    const TEST_PSX_SYSTEM: GameSystem = {
+      extensions: [".cue", ".bin", ".iso", ".chd", ".pbp", ".m3u"],
+      id: "psx",
+      name: "PlayStation",
+      shortName: "PS1",
+    };
+
+    it("groups files with (Disc N) in their filenames", async () => {
+      const discDir = path.join(TEST_DIR, "auto-disc-detect");
+      fs.mkdirSync(discDir, { recursive: true });
+
+      fs.writeFileSync(path.join(discDir, "Resident Evil 2 (USA) (Disc 1).chd"), "re2-disc1");
+      fs.writeFileSync(path.join(discDir, "Resident Evil 2 (USA) (Disc 2).chd"), "re2-disc2");
+
+      const config = {
+        autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_PSX_SYSTEM],
+      };
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(config, null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(discDir, "psx");
+
+      expect(games).toHaveLength(2);
+
+      const disc1 = games.find((g) => g.romPath.includes("Disc 1"));
+      const disc2 = games.find((g) => g.romPath.includes("Disc 2"));
+
+      expect(disc1?.discGroup).toBe("Resident Evil 2 (USA)");
+      expect(disc1?.discNumber).toBe(1);
+      expect(disc1?.discTotal).toBe(2);
+
+      expect(disc2?.discGroup).toBe("Resident Evil 2 (USA)");
+      expect(disc2?.discNumber).toBe(2);
+      expect(disc2?.discTotal).toBe(2);
+
+      fs.rmSync(discDir, { force: true, recursive: true });
+    });
+
+    it("detects a single disc with (Disc N) and sets discNumber but no discTotal", async () => {
+      const singleDir = path.join(TEST_DIR, "single-disc-detect");
+      fs.mkdirSync(singleDir, { recursive: true });
+
+      fs.writeFileSync(path.join(singleDir, "Final Fantasy VIII (USA) (Disc 1).chd"), "ff8-disc1");
+
+      const config = {
+        autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_PSX_SYSTEM],
+      };
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(config, null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(singleDir, "psx");
+
+      expect(games).toHaveLength(1);
+      expect(games[0].discGroup).toBe("Final Fantasy VIII (USA)");
+      expect(games[0].discNumber).toBe(1);
+      // Only one disc present — discTotal is unknown
+      expect(games[0].discTotal).toBeUndefined();
+
+      fs.rmSync(singleDir, { force: true, recursive: true });
+    });
+
+    it("does not set disc fields on files without (Disc N) in the name", async () => {
+      const noDiscDir = path.join(TEST_DIR, "no-disc-marker");
+      fs.mkdirSync(noDiscDir, { recursive: true });
+
+      fs.writeFileSync(path.join(noDiscDir, "Crash Bandicoot (USA).chd"), "crash-data");
+
+      const config = {
+        autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_PSX_SYSTEM],
+      };
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(config, null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(noDiscDir, "psx");
+
+      expect(games).toHaveLength(1);
+      expect(games[0].discGroup).toBeUndefined();
+      expect(games[0].discNumber).toBeUndefined();
+      expect(games[0].discTotal).toBeUndefined();
+
+      fs.rmSync(noDiscDir, { force: true, recursive: true });
+    });
+
+    it(".m3u grouping takes precedence over filename detection", async () => {
+      const precedenceDir = path.join(TEST_DIR, "m3u-precedence");
+      fs.mkdirSync(precedenceDir, { recursive: true });
+
+      fs.writeFileSync(path.join(precedenceDir, "Game (Disc 1).chd"), "disc1");
+      fs.writeFileSync(path.join(precedenceDir, "Game (Disc 2).chd"), "disc2");
+      // .m3u lists the same files — its grouping should win
+      fs.writeFileSync(
+        path.join(precedenceDir, "My Custom Playlist.m3u"),
+        "Game (Disc 1).chd\nGame (Disc 2).chd\n",
+      );
+
+      const config = {
+        autoScan: false,
+        scanRecursive: false,
+        systems: [TEST_PSX_SYSTEM],
+      };
+      fs.writeFileSync(
+        path.join(USER_DATA_DIR, "library-config.json"),
+        JSON.stringify(config, null, 2),
+      );
+
+      const service = await createService();
+      const games = await service.scanDirectory(precedenceDir, "psx");
+
+      expect(games).toHaveLength(2);
+      // Should use the .m3u name, not filename-derived group
+      for (const game of games) {
+        expect(game.discGroup).toBe("My Custom Playlist");
+      }
+
+      fs.rmSync(precedenceDir, { force: true, recursive: true });
+    });
+  });
 });
