@@ -6,6 +6,19 @@ export interface CheatEntry {
   enabled: boolean;
 }
 
+/** A user-defined cheat code not in the database. */
+export interface CustomCheat {
+  description: string;
+  code: string;
+  enabled: boolean;
+}
+
+/** Persisted cheat state for a single game. */
+export interface GameCheatState {
+  enabledIndices: Array<number>;
+  customCheats: Array<CustomCheat>;
+}
+
 export interface GameSystem {
   corePath?: string;
   extensions: Array<string>;

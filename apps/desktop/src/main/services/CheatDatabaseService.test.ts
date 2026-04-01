@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseChtFile, matchChtFilename } from "./CheatDatabaseService";
+import { parseChtFile, matchChtFilename, baseTitle } from "./CheatDatabaseService";
 
 describe("parseChtFile", () => {
   it("parses a standard .cht file with multiple cheats", () => {
@@ -141,5 +141,54 @@ describe("matchChtFilename", () => {
   it("matches against .cht extension only", () => {
     expect(matchChtFilename("Game", "Game.cht")).toBe(true);
     expect(matchChtFilename("Game", "Game.txt")).toBe(false);
+  });
+
+  it("matches when ROM has fewer parenthetical groups than cht file", () => {
+    expect(
+      matchChtFilename(
+        "Resident Evil - Director's Cut (USA)",
+        "Resident Evil - Director's Cut (USA, Europe) (Game Buster).cht",
+      ),
+    ).toBe(true);
+  });
+
+  it("matches when both have different region tags", () => {
+    expect(
+      matchChtFilename(
+        "Resident Evil - Survivor (USA)",
+        "Resident Evil - Survivor (USA, Europe) (GameShark).cht",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects different base titles despite similar parentheticals", () => {
+    expect(matchChtFilename("Resident Evil 2 (USA)", "Resident Evil 3 - Nemesis (USA).cht")).toBe(
+      false,
+    );
+  });
+
+  it("matches when ROM has no parenthetical groups at all", () => {
+    expect(
+      matchChtFilename(
+        "Resident Evil - Director's Cut",
+        "Resident Evil - Director's Cut (USA, Europe) (Game Buster).cht",
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("baseTitle", () => {
+  it("strips parenthetical groups and normalises whitespace", () => {
+    expect(baseTitle("Resident Evil - Director's Cut (USA, Europe) (Game Buster)")).toBe(
+      "resident evil - director's cut",
+    );
+  });
+
+  it("handles names with no parenthetical groups", () => {
+    expect(baseTitle("Super Mario Bros")).toBe("super mario bros");
+  });
+
+  it("handles names that are all parenthetical groups", () => {
+    expect(baseTitle("(USA) (GameShark)")).toBe("");
   });
 });
