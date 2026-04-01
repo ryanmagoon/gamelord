@@ -85,9 +85,11 @@ export class CheatPersistenceService {
     cheatDatabaseService: CheatDatabaseService,
     systemId: string,
     romFilename: string,
+    serial?: string,
+    coreId?: string,
   ): Array<{ index: number; code: string }> {
     const state = this.getGameState(gameId);
-    const dbCheats = cheatDatabaseService.getCheatsForGame(systemId, romFilename);
+    const dbCheats = cheatDatabaseService.getCheatsForGame(systemId, romFilename, serial, coreId);
 
     const result: Array<{ index: number; code: string }> = [];
     let cheatIndex = 0;

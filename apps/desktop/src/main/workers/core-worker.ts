@@ -24,7 +24,7 @@ import {
   CTRL_AUDIO_WRITE_POS,
   CTRL_AUDIO_SAMPLE_RATE,
 } from "./shared-frame-protocol";
-import { filterForwardableLogs } from "./core-worker-protocol";
+import { filterForwardableLogs, extractSerialFromLog } from "./core-worker-protocol";
 
 // ---------------------------------------------------------------------------
 // State
@@ -221,6 +221,15 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   // Load game
   if (!native.loadGame(romPath)) {
     throw new Error(`Failed to load game: ${romPath}`);
+  }
+
+  // Check for CD-ROM serial in post-load log messages (PSX cores)
+  for (const entry of native.getLogMessages()) {
+    const serial = extractSerialFromLog(entry.message);
+    if (serial) {
+      send({ type: "serialDetected", serial });
+      break;
+    }
   }
 
   // Load SRAM from disk

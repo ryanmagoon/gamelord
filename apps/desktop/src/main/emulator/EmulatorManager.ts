@@ -38,6 +38,7 @@ export interface BiosValidationResult {
 export class EmulatorManager extends EventEmitter {
   private currentEmulator: EmulatorCore | null = null;
   private workerClient: EmulationWorkerClient | null = null;
+  private activeCoreId: string | null = null;
   private availableEmulators: Map<string, EmulatorInfo> = new Map();
   private coreDownloader: CoreDownloader;
   private powerSaveBlockerId: number | null = null;
@@ -241,6 +242,18 @@ export class EmulatorManager extends EventEmitter {
       }
     }
 
+    // Track the active core identifier for feature gating (e.g. chtdb cheats).
+    // Extract from the core filename if no explicit coreName was provided.
+    if (coreName) {
+      this.activeCoreId = coreName;
+    } else if (options.corePath) {
+      // Core path like ".../cores/mednafen_psx_hw_libretro.dylib" → "mednafen_psx_hw"
+      const coreFilename = path.basename(options.corePath);
+      this.activeCoreId = coreFilename.replace(/_libretro\..+$/, "");
+    } else {
+      this.activeCoreId = null;
+    }
+
     if (extraArgs) {
       options.extraArgs = extraArgs;
     }
@@ -294,7 +307,7 @@ export class EmulatorManager extends EventEmitter {
       nds: ["desmume_libretro"],
       nes: ["fceumm_libretro", "nestopia_libretro", "mesen_libretro"],
       psp: ["ppsspp_libretro"],
-      psx: ["pcsx_rearmed_libretro", "beetle_psx_libretro"],
+      psx: ["pcsx_rearmed_libretro", "mednafen_psx_hw_libretro"],
       saturn: ["mednafen_saturn_libretro", "yabause_libretro"],
       snes: ["snes9x_libretro", "bsnes_libretro"],
     };
@@ -424,6 +437,15 @@ export class EmulatorManager extends EventEmitter {
   }
 
   /**
+   * Get the identifier of the currently active libretro core
+   * (e.g. "mednafen_psx_hw", "pcsx_rearmed", "duckstation").
+   * Returns null when no game is running.
+   */
+  getActiveCoreId(): string | null {
+    return this.activeCoreId;
+  }
+
+  /**
    * Save state to a specific slot
    */
   async saveState(slot: number): Promise<void> {
@@ -546,6 +568,7 @@ export class EmulatorManager extends EventEmitter {
     if (this.currentEmulator?.isActive()) {
       await this.currentEmulator.terminate();
       this.currentEmulator = null;
+      this.activeCoreId = null;
     }
   }
 
