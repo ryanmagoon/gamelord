@@ -727,6 +727,37 @@ export const LibraryView: React.FC<{
     return result;
   }, [filteredGames]);
 
+  // All games as UiGame for the command palette (unfiltered by system tab).
+  // Reuses the same cache so games already mapped by `uiGames` aren't recreated.
+  const allUiGames = useMemo<Array<UiGame>>(() => {
+    if (!selectedSystem) {
+      return uiGames; // no filter active, same list
+    }
+    const cache = uiGameCacheRef.current;
+    return games.map((game) => {
+      const cached = cache.get(game);
+      if (cached) {
+        return cached;
+      }
+      return {
+        id: game.id,
+        title: game.title,
+        platform: game.system,
+        systemId: game.systemId,
+        genre: game.metadata?.genre,
+        coverArt: game.coverArt,
+        coverArtAspectRatio: game.coverArtAspectRatio,
+        romPath: game.romPath,
+        lastPlayed: game.lastPlayed,
+        playTime: game.playTime,
+        favorite: game.favorite,
+        discGroup: game.discGroup,
+        discNumber: game.discNumber,
+        discTotal: game.discTotal,
+      };
+    });
+  }, [games, selectedSystem, uiGames]);
+
   // Build command palette actions: library-level actions + parent-provided actions
   const allPaletteActions = useMemo<Array<CommandAction>>(() => {
     const libraryActions: Array<CommandAction> = [
@@ -980,7 +1011,7 @@ export const LibraryView: React.FC<{
       <CommandPalette
         open={commandPaletteOpen}
         onOpenChange={handleCommandPaletteOpenChange}
-        games={uiGames}
+        games={allUiGames}
         onSelectGame={(game) => {
           playSfx("confirm");
           void handlePlayUiGame(game);
