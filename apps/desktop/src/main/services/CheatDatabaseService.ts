@@ -152,6 +152,87 @@ export function parseDuckStationChtFile(content: string): Array<CheatEntry> {
 }
 
 // ---------------------------------------------------------------------------
+// MiSTer .gg binary parser (pure function, no side effects — easy to test)
+// ---------------------------------------------------------------------------
+
+/**
+ * A single raw code entry from a MiSTer .gg binary cheat file.
+ * Each entry is 16 bytes: four little-endian uint32 values.
+ */
+export interface GgRawCode {
+  /** 0 = no compare (unconditional write), 1 = compare before write */
+  compareFlag: number;
+  /** Memory address to patch */
+  address: number;
+  /** Value to compare against (only used when compareFlag is 1) */
+  compareValue: number;
+  /** Value to write at the address */
+  replaceValue: number;
+}
+
+/**
+ * Parse a MiSTer .gg binary cheat file into structured code entries.
+ *
+ * Format: each code is exactly 16 bytes (all uint32 little-endian):
+ * ```
+ * [0-3]   compareFlag   — 0x00000000 = no compare, 0x00000001 = compare
+ * [4-7]   address       — memory address
+ * [8-11]  compareValue  — value to compare against
+ * [12-15] replaceValue  — value to write
+ * ```
+ *
+ * Trailing bytes that don't form a complete 16-byte entry are ignored.
+ */
+export function parseGgBinary(buffer: Buffer): Array<GgRawCode> {
+  const ENTRY_SIZE = 16;
+  const entryCount = Math.floor(buffer.length / ENTRY_SIZE);
+  const codes: Array<GgRawCode> = [];
+
+  for (let i = 0; i < entryCount; i++) {
+    const offset = i * ENTRY_SIZE;
+    codes.push({
+      compareFlag: buffer.readUInt32LE(offset),
+      address: buffer.readUInt32LE(offset + 4),
+      compareValue: buffer.readUInt32LE(offset + 8),
+      replaceValue: buffer.readUInt32LE(offset + 12),
+    });
+  }
+
+  return codes;
+}
+
+/**
+ * Convert a MiSTer .gg raw code to PSX GameShark format.
+ *
+ * GameShark format: `PPAAAAAA VVVV`
+ * - PP: prefix (30 = 8-bit write, 80 = 16-bit write, D0 = 16-bit conditional)
+ * - AAAAAA: 24-bit address (PSX RAM base 0x80000000 is masked off)
+ * - VVVV: 4-hex value
+ *
+ * When the compare flag is set, produces a two-line conditional code:
+ * `D0AAAAAA CCCC+80AAAAAA VVVV`
+ */
+export function ggToGameShark(code: GgRawCode): string {
+  // Mask off PSX RAM base address (0x80000000) to get the 24-bit offset
+  const addr = code.address & 0x00_ff_ff_ff;
+  const addrHex = addr.toString(16).toUpperCase().padStart(6, "0");
+  const replaceHex = (code.replaceValue & 0xff_ff).toString(16).toUpperCase().padStart(4, "0");
+
+  if (code.compareFlag !== 0) {
+    // Conditional: compare + write
+    const compareHex = (code.compareValue & 0xff_ff).toString(16).toUpperCase().padStart(4, "0");
+    return `D0${addrHex} ${compareHex}+80${addrHex} ${replaceHex}`;
+  }
+
+  // Unconditional 16-bit write. The .gg binary format doesn't encode whether
+  // the original code was an 8-bit or 16-bit write, so we always emit 80
+  // (16-bit). This is safe because a 16-bit write of 0x00XX is equivalent to
+  // writing XX to the target byte + 0x00 to the adjacent byte, which is the
+  // correct behaviour for the vast majority of PSX GameShark codes.
+  return `80${addrHex} ${replaceHex}`;
+}
+
+// ---------------------------------------------------------------------------
 // Code compatibility filtering
 // ---------------------------------------------------------------------------
 
