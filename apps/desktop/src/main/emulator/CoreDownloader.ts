@@ -37,13 +37,14 @@ const SYSTEM_CORES: Record<string, Array<string>> = {
   nds: ["desmume_libretro"],
   nes: ["fceumm_libretro", "nestopia_libretro", "mesen_libretro"],
   psp: ["ppsspp_libretro"],
-  psx: ["pcsx_rearmed_libretro", "mednafen_psx_hw_libretro"],
+  psx: ["pcsx_rearmed_libretro", "mednafen_psx_hw_libretro", "swanstation_libretro"],
   saturn: ["mednafen_saturn_libretro", "yabause_libretro"],
   snes: ["snes9x_libretro", "bsnes_libretro"],
 };
 
 /** Human-readable display names for cores. */
 const CORE_DISPLAY_NAMES: Record<string, string> = {
+  swanstation_libretro: "SwanStation",
   mednafen_psx_hw_libretro: "Beetle PSX HW",
   bsnes_libretro: "bsnes",
   desmume_libretro: "DeSmuME",
@@ -68,6 +69,8 @@ const CORE_DISPLAY_NAMES: Record<string, string> = {
 /** Short descriptions for cores. */
 const CORE_DESCRIPTIONS: Record<string, string> = {
   bsnes_libretro: "Cycle-accurate. Perfect accuracy, higher CPU usage.",
+  swanstation_libretro:
+    "High-accuracy PSX emulation with full chtdb cheat support including extended code types.",
   fceumm_libretro: "Accurate and fast NES emulation.",
   gambatte_libretro: "Accurate Game Boy/Color emulation.",
   genesis_plus_gx_libretro: "Accurate Genesis/Mega Drive emulation.",

@@ -55,6 +55,7 @@ private:
   Napi::Value SwapDisc(const Napi::CallbackInfo &info);
   Napi::Value GetCurrentDiscIndex(const Napi::CallbackInfo &info);
   Napi::Value GetDiscCount(const Napi::CallbackInfo &info);
+  Napi::Value GetDiscLabel(const Napi::CallbackInfo &info);
 
   // Internal
   void CloseCore();

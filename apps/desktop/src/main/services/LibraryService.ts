@@ -86,6 +86,8 @@ export class LibraryService extends EventEmitter {
   private romsCacheDir: string;
   /** Tracks whether batched updates need flushing to disk. */
   private dirty = false;
+  /** Resolves once the library JSON has been loaded from disk. */
+  private libraryLoaded: Promise<void>;
 
   constructor() {
     super();
@@ -103,9 +105,14 @@ export class LibraryService extends EventEmitter {
     this.loadConfig().catch((error: unknown) => {
       libraryLog.error("Failed to load config:", error);
     });
-    this.loadLibrary().catch((error: unknown) => {
+    this.libraryLoaded = this.loadLibrary().catch((error: unknown) => {
       libraryLog.error("Failed to load library:", error);
     });
+  }
+
+  /** Wait for the library to finish loading from disk. */
+  whenReady(): Promise<void> {
+    return this.libraryLoaded;
   }
 
   private async loadConfig(): Promise<void> {

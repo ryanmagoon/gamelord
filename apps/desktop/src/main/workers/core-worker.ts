@@ -33,6 +33,7 @@ import { filterForwardableLogs, extractSerialFromLog } from "./core-worker-proto
 let native: NativeLibretroCore | null = null;
 let isRunning = false;
 let isPaused = false;
+let serialDetected = false;
 let loopTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Paths received from main process during init
@@ -223,12 +224,29 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
     throw new Error(`Failed to load game: ${romPath}`);
   }
 
-  // Check for CD-ROM serial in post-load log messages (PSX cores)
+  // Detect CD-ROM serial. Strategy (in priority order):
+  // 1. Parse from post-load log messages (Beetle PSX / PCSX ReARMed)
+  // 2. Query the disc control ext callback's get_image_label (SwanStation)
+  // 3. Check during emulation loop for late log messages (see drainLogs)
   for (const entry of native.getLogMessages()) {
     const serial = extractSerialFromLog(entry.message);
     if (serial) {
       send({ type: "serialDetected", serial });
+      serialDetected = true;
       break;
+    }
+  }
+
+  // Fallback: ask the core for the disc label via disc control ext callback.
+  // SwanStation returns the game serial (e.g. "SLUS-00170") as the label.
+  if (!serialDetected) {
+    const label = native.getDiscLabel(0);
+    if (label) {
+      const serial = label.match(/[A-Za-z]{4}-?\d{5}/)?.[0];
+      if (serial) {
+        send({ type: "serialDetected", serial });
+        serialDetected = true;
+      }
     }
   }
 
@@ -338,6 +356,25 @@ function startEmulationLoop(): void {
   const basePeriod = 1000 / targetFps;
   let nextFrameTime = performance.now() + basePeriod;
 
+  /** Drain buffered log messages. Also checks for late serial detection
+   *  (some cores like SwanStation log the disc serial during the first
+   *  retro_run call rather than during retro_load_game). */
+  const drainLogs = () => {
+    if (!native) {
+      return;
+    }
+    for (const entry of filterForwardableLogs(native.getLogMessages())) {
+      if (!serialDetected) {
+        const serial = extractSerialFromLog(entry.message);
+        if (serial) {
+          send({ type: "serialDetected", serial });
+          serialDetected = true;
+        }
+      }
+      send({ type: "log", level: entry.level, message: entry.message });
+    }
+  };
+
   const scheduleNext = () => {
     if (!isRunning) {
       return;
@@ -437,10 +474,7 @@ function startEmulationLoop(): void {
       }
     }
 
-    // Drain buffered log messages, dropping debug-level noise.
-    for (const entry of filterForwardableLogs(native.getLogMessages())) {
-      send({ type: "log", level: entry.level, message: entry.message });
-    }
+    drainLogs();
 
     scheduleNext();
   };
@@ -507,10 +541,7 @@ function startEmulationLoop(): void {
         }
       }
 
-      // Drain buffered log messages, dropping debug-level noise.
-      for (const entry of filterForwardableLogs(native.getLogMessages())) {
-        send({ type: "log", level: entry.level, message: entry.message });
-      }
+      drainLogs();
     }
 
     scheduleNext();
