@@ -346,6 +346,22 @@ const SYSTEM_CHT_FOLDERS: Record<string, Array<string>> = {
 };
 
 // ---------------------------------------------------------------------------
+// gamehacking.org system mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps GameLord system IDs to the system code used in gamehacking.org's
+ * MiSTer cheat pack filenames (`mister_{code}_YYYYMMDD.zip`).
+ *
+ * PSX-only for now — expand to other systems as needed.
+ */
+const GAMEHACKING_SYSTEM_CODES: Record<string, string> = {
+  psx: "psx",
+};
+
+const GAMEHACKING_BASE_URL = "https://gamehacking.org/mister";
+
+// ---------------------------------------------------------------------------
 // Download progress
 // ---------------------------------------------------------------------------
 
@@ -363,6 +379,8 @@ interface CheatDatabaseMetadata {
   lastDownloaded: number; // ms since epoch
   /** Timestamp of last chtdb download (undefined = never downloaded). */
   chtdbLastDownloaded?: number;
+  /** Timestamp of last gamehacking.org download (undefined = never downloaded). */
+  gamehackingLastDownloaded?: number;
 }
 
 const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -392,7 +410,7 @@ export class CheatDatabaseService extends EventEmitter {
     this.metadataPath = path.join(this.cheatsDir, "metadata.json");
   }
 
-  /** Ensure both cheat databases exist. Downloads if missing or stale. Non-blocking. */
+  /** Ensure all cheat databases exist. Downloads if missing or stale. Non-blocking. */
   async ensureDatabase(): Promise<void> {
     if (this.downloading) {
       return;
@@ -400,19 +418,23 @@ export class CheatDatabaseService extends EventEmitter {
 
     const libreFresh = this.isDatabaseFresh("libretro");
     const chtdbFresh = this.isDatabaseFresh("chtdb");
+    const ghFresh = this.isDatabaseFresh("gamehacking");
 
-    if (libreFresh && chtdbFresh) {
+    if (libreFresh && chtdbFresh && ghFresh) {
       return;
     }
 
     try {
-      // Download both databases in parallel when both are stale
+      // Download all stale databases in parallel
       const downloads: Array<Promise<void>> = [];
       if (!libreFresh) {
         downloads.push(this.downloadLibretroDatabase());
       }
       if (!chtdbFresh) {
         downloads.push(this.downloadChtdb());
+      }
+      if (!ghFresh) {
+        downloads.push(this.downloadGamehacking());
       }
       this.downloading = true;
       await Promise.all(downloads);
@@ -426,11 +448,9 @@ export class CheatDatabaseService extends EventEmitter {
   }
 
   /**
-   * Get cheats for a specific game, merging both databases.
+   * Get cheats for a specific game, merging all databases.
    *
-   * When a serial is provided and the active core supports DuckStation's
-   * extended cheat format, chtdb results are included with priority.
-   * Otherwise only libretro-database cheats are returned.
+   * Merge priority: chtdb > gamehacking > libretro.
    *
    * @param coreId - The libretro core identifier (e.g. "mednafen_psx_hw",
    *   "swanstation"). When set to "swanstation", chtdb cheats are included
@@ -449,12 +469,15 @@ export class CheatDatabaseService extends EventEmitter {
     const useChtdb = serial && coreId === "swanstation";
     const chtdbCheats = useChtdb ? this.getCheatsFromChtdb(serial) : [];
 
+    // gamehacking.org cheats — matched by serial or title, standard GameShark format
+    const ghCheats = this.getCheatsFromGamehacking(systemId, romFilename, serial);
+
     // Filename-matched libretro cheats (works with all cores)
     const libreCheats = this.getCheatsFromLibretro(systemId, romFilename);
 
-    // Merge: chtdb first (serial-matched = higher confidence), then
-    // libretro cheats that aren't duplicates.
-    return this.mergeCheats(chtdbCheats, libreCheats);
+    // Merge: chtdb first (serial-matched DuckStation format), then
+    // gamehacking (serial/title-matched GameShark), then libretro.
+    return this.mergeCheats(this.mergeCheats(chtdbCheats, ghCheats), libreCheats);
   }
 
   /** Look up cheats from the libretro-database by filename matching. */
@@ -527,8 +550,115 @@ export class CheatDatabaseService extends EventEmitter {
   }
 
   /**
-   * Merge chtdb and libretro cheats, deduplicating by normalised code string.
-   * Chtdb cheats take priority (they appear first and block libretro duplicates).
+   * Look up cheats from gamehacking.org's MiSTer cheat packs.
+   *
+   * Matching strategy (in priority order):
+   * 1. Serial match — directory name matches the formatted serial (e.g. "SLUS-00551")
+   * 2. Title match — base title of directory name matches base title of ROM filename
+   */
+  private getCheatsFromGamehacking(
+    systemId: string,
+    romFilename: string,
+    serial?: string,
+  ): Array<CheatEntry> {
+    const systemCode = GAMEHACKING_SYSTEM_CODES[systemId];
+    if (!systemCode) {
+      return [];
+    }
+
+    const systemDir = path.join(this.cheatsDir, "gamehacking", systemCode);
+    if (!fs.existsSync(systemDir)) {
+      return [];
+    }
+
+    let entries: Array<string>;
+    try {
+      entries = fs.readdirSync(systemDir);
+    } catch {
+      return [];
+    }
+
+    const romNameNoExt = path.basename(romFilename, path.extname(romFilename));
+    const formattedSerial = serial ? formatSerial(serial) : undefined;
+    const romBase = baseTitle(romNameNoExt);
+
+    // Find the matching game directory
+    let matchDir: string | undefined;
+
+    for (const entry of entries) {
+      const entryPath = path.join(systemDir, entry);
+      try {
+        if (!fs.statSync(entryPath).isDirectory()) {
+          continue;
+        }
+      } catch {
+        continue;
+      }
+
+      // Serial match (highest priority)
+      if (formattedSerial && entry.toUpperCase() === formattedSerial) {
+        matchDir = entryPath;
+        break;
+      }
+
+      // Title match
+      if (baseTitle(entry) === romBase) {
+        matchDir = entryPath;
+        // Don't break — a serial match could still come
+      }
+    }
+
+    if (!matchDir) {
+      return [];
+    }
+
+    return this.readGgDirectory(matchDir);
+  }
+
+  /**
+   * Read all .gg files from a directory and convert them to CheatEntry items.
+   * Each .gg file becomes one CheatEntry with the filename stem as description
+   * and all codes joined with `+`.
+   */
+  private readGgDirectory(dirPath: string): Array<CheatEntry> {
+    let files: Array<string>;
+    try {
+      files = fs.readdirSync(dirPath).filter((f) => f.toLowerCase().endsWith(".gg"));
+    } catch {
+      return [];
+    }
+
+    const cheats: Array<CheatEntry> = [];
+
+    for (const file of files) {
+      try {
+        const buffer = fs.readFileSync(path.join(dirPath, file));
+        const rawCodes = parseGgBinary(buffer);
+        if (rawCodes.length === 0) {
+          continue;
+        }
+
+        const gsLines = rawCodes.map(ggToGameShark);
+        const description = path.basename(file, ".gg");
+
+        cheats.push({
+          index: cheats.length,
+          description,
+          code: gsLines.join("+"),
+          enabled: false,
+          source: "gamehacking" as CheatSource,
+        });
+      } catch {
+        // Skip unreadable files
+      }
+    }
+
+    return cheats;
+  }
+
+  /**
+   * Merge cheats from two sources, deduplicating by normalised code string.
+   * Primary cheats take priority (they appear first and block secondary duplicates).
    */
   private mergeCheats(primary: Array<CheatEntry>, secondary: Array<CheatEntry>): Array<CheatEntry> {
     if (primary.length === 0) {
@@ -572,7 +702,7 @@ export class CheatDatabaseService extends EventEmitter {
   }
 
   /** Whether a specific database source has been downloaded and is not stale. */
-  private isDatabaseFresh(source: "libretro" | "chtdb"): boolean {
+  private isDatabaseFresh(source: "libretro" | "chtdb" | "gamehacking"): boolean {
     if (!fs.existsSync(this.metadataPath)) {
       return false;
     }
@@ -580,8 +710,12 @@ export class CheatDatabaseService extends EventEmitter {
     try {
       const raw = fs.readFileSync(this.metadataPath, "utf8");
       const metadata: CheatDatabaseMetadata = JSON.parse(raw);
-      const timestamp =
-        source === "libretro" ? metadata.lastDownloaded : metadata.chtdbLastDownloaded;
+      const timestampMap: Record<string, number | undefined> = {
+        libretro: metadata.lastDownloaded,
+        chtdb: metadata.chtdbLastDownloaded,
+        gamehacking: metadata.gamehackingLastDownloaded,
+      };
+      const timestamp = timestampMap[source];
       if (!timestamp) {
         return false;
       }
@@ -676,6 +810,109 @@ export class CheatDatabaseService extends EventEmitter {
     } finally {
       try {
         fs.unlinkSync(tarballPath);
+      } catch {
+        // Ignore
+      }
+    }
+  }
+
+  /**
+   * Download gamehacking.org MiSTer cheat packs for all configured systems.
+   *
+   * Flow:
+   * 1. Fetch the file listing from the MiSTer endpoint
+   * 2. Find the matching ZIP filename for each system (timestamped: mister_psx_YYYYMMDD.zip)
+   * 3. Download and extract each ZIP
+   * 4. Each outer ZIP contains per-game .zip files — extract those into per-game directories
+   */
+  private async downloadGamehacking(): Promise<void> {
+    const ghDir = path.join(this.cheatsDir, "gamehacking");
+    fs.mkdirSync(ghDir, { recursive: true });
+
+    // Fetch the list of available ZIP files
+    const listUrl = `${GAMEHACKING_BASE_URL}/?script=fetchcheats`;
+    const listPath = path.join(ghDir, "index.html");
+
+    try {
+      await this.downloadFile(listUrl, listPath, () => {
+        // Small request, no progress needed
+      });
+
+      const listing = fs.readFileSync(listPath, "utf8");
+
+      for (const [systemId, systemCode] of Object.entries(GAMEHACKING_SYSTEM_CODES)) {
+        // Find the matching ZIP filename (e.g. "mister_psx_20260321.zip")
+        const pattern = new RegExp(`mister_${systemCode}_\\d{8}\\.zip`);
+        const match = listing.match(pattern);
+        if (!match) {
+          continue;
+        }
+
+        const zipFilename = match[0];
+        const zipUrl = `${GAMEHACKING_BASE_URL}/${zipFilename}?script=fetchcheats`;
+        const zipPath = path.join(ghDir, zipFilename);
+        const systemDir = path.join(ghDir, systemId);
+
+        try {
+          await this.downloadFile(zipUrl, zipPath, () => {
+            // Progress is reported by the libretro download
+          });
+
+          // Clear previous data for this system and re-extract
+          fs.rmSync(systemDir, { recursive: true, force: true });
+          fs.mkdirSync(systemDir, { recursive: true });
+
+          // Extract the outer ZIP
+          await execFileAsync("unzip", ["-o", "-q", zipPath, "-d", systemDir]);
+
+          // The outer ZIP contains per-game .zip files. Extract each into
+          // a directory named after the game, then remove the per-game ZIP.
+          await this.extractPerGameZips(systemDir);
+        } finally {
+          try {
+            fs.unlinkSync(zipPath);
+          } catch {
+            // Ignore
+          }
+        }
+      }
+
+      const metadata = this.readMetadata();
+      metadata.gamehackingLastDownloaded = Date.now();
+      this.writeMetadata(metadata);
+    } finally {
+      try {
+        fs.unlinkSync(listPath);
+      } catch {
+        // Ignore
+      }
+    }
+  }
+
+  /**
+   * Extract per-game .zip files in a directory into subdirectories.
+   *
+   * Each `GameName.zip` is extracted into `GameName/` and the .zip is deleted.
+   * This pre-extraction avoids runtime unzip calls in getCheatsFromGamehacking.
+   */
+  private async extractPerGameZips(systemDir: string): Promise<void> {
+    const entries = fs.readdirSync(systemDir);
+    const zipFiles = entries.filter((e) => e.toLowerCase().endsWith(".zip"));
+
+    for (const zipFile of zipFiles) {
+      const zipPath = path.join(systemDir, zipFile);
+      const gameName = zipFile.slice(0, -4); // Strip .zip
+      const gameDir = path.join(systemDir, gameName);
+
+      try {
+        fs.mkdirSync(gameDir, { recursive: true });
+        await execFileAsync("unzip", ["-o", "-q", zipPath, "-d", gameDir]);
+      } catch {
+        // Skip games whose zip fails to extract
+      }
+
+      try {
+        fs.unlinkSync(zipPath);
       } catch {
         // Ignore
       }
