@@ -352,7 +352,7 @@ export class CheatDatabaseService extends EventEmitter {
    * Otherwise only libretro-database cheats are returned.
    *
    * @param coreId - The libretro core identifier (e.g. "mednafen_psx_hw",
-   *   "duckstation"). When set to "duckstation", chtdb cheats are included
+   *   "swanstation"). When set to "swanstation", chtdb cheats are included
    *   unfiltered. For all other cores, chtdb is skipped because its extended
    *   code types (A7, F4, 90, etc.) cause glitchy behaviour.
    */
@@ -362,10 +362,10 @@ export class CheatDatabaseService extends EventEmitter {
     serial?: string,
     coreId?: string,
   ): Array<CheatEntry> {
-    // Chtdb cheats are only safe with DuckStation's cheat engine — even
-    // "standard format" codes use DuckStation-specific activation semantics
-    // that cause incorrect behaviour on Beetle PSX.
-    const useChtdb = serial && coreId === "duckstation";
+    // Chtdb cheats are only safe with SwanStation's cheat engine (DuckStation
+    // fork) — even "standard format" codes use DuckStation-specific activation
+    // semantics that cause incorrect behaviour on Beetle PSX / PCSX ReARMed.
+    const useChtdb = serial && coreId === "swanstation";
     const chtdbCheats = useChtdb ? this.getCheatsFromChtdb(serial) : [];
 
     // Filename-matched libretro cheats (works with all cores)

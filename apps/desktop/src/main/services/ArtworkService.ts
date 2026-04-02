@@ -122,30 +122,32 @@ export class ArtworkService extends EventEmitter {
   }
 
   /**
-   * One-time backfill for games synced before ROM-level region tracking.
-   * Queries ScreenScraper by hash (no artwork download) to get romRegions,
-   * then re-derives the regional system display name. Skips games that
-   * already have romRegions or that lack metadata (never synced).
+   * Reconcile metadata for previously-synced games that are missing fields
+   * added after their original sync (e.g. serial, romRegions).
+   *
+   * Queries ScreenScraper by hash (no artwork download) and patches only
+   * the missing fields. Scoped to disc-based systems (PSX, Saturn) for
+   * serial, since that's the only field currently needing reconciliation.
+   *
    * Requires credentials — silently skips if unconfigured.
    */
   private async backfillRomRegions(): Promise<void> {
-    // Wait for config to load (fire-and-forget constructor)
+    // Wait for both config and library to load before checking games
     await this.configLoaded;
+    await this.libraryService.whenReady();
 
     if (!this.hasCredentials()) {
       return;
     }
 
     const games = this.libraryService.getGames();
-    const needsBackfill = games.filter(
-      (g) => g.metadata && (!g.romRegions || g.romRegions.length === 0),
-    );
+    const needsBackfill = games.filter((g) => g.metadata && this.hasMissingMetadata(g));
 
     if (needsBackfill.length === 0) {
       return;
     }
 
-    artworkLog.info(`Backfilling ROM regions for ${needsBackfill.length} game(s)`);
+    artworkLog.info(`Reconciling metadata for ${needsBackfill.length} game(s)`);
 
     let client: ScreenScraperClient;
     try {
@@ -165,12 +167,13 @@ export class ArtworkService extends EventEmitter {
         await this.waitForRateLimit();
         const gameInfo = await client.fetchByHash(game.romHashes.md5, game.systemId);
 
-        if (gameInfo && (gameInfo.romRegions?.length || gameInfo.gameId)) {
+        if (gameInfo && (gameInfo.romRegions?.length || gameInfo.gameId || gameInfo.romSerial)) {
           const effectiveRegion = gameInfo.romRegions?.[0];
           const regionalName = getRegionalSystemName(game.systemId, effectiveRegion ?? "");
           const updates: Partial<Game> = {
             ...(gameInfo.romRegions?.length ? { romRegions: gameInfo.romRegions } : {}),
             ...(regionalName ? { system: regionalName } : {}),
+            ...(gameInfo.romSerial ? { serial: gameInfo.romSerial } : {}),
           };
 
           // Backfill disc grouping if not already set by .m3u
@@ -253,6 +256,29 @@ export class ArtworkService extends EventEmitter {
   async setCredentials(userId: string, userPassword: string): Promise<void> {
     this.config.screenscraper = { userId, userPassword };
     await this.saveConfig();
+  }
+
+  /**
+   * Check whether a synced game is missing any metadata fields that
+   * ScreenScraper could provide. Used to decide which games need
+   * reconciliation on startup.
+   */
+  /**
+   * Check whether a previously-synced game is missing metadata fields that
+   * ScreenScraper could provide. Only returns true for games that have been
+   * successfully synced before (have cover art or populated metadata) but
+   * are missing fields added after the original sync.
+   */
+  private hasMissingMetadata(game: Game): boolean {
+    // Only reconcile games that were successfully synced (have cover art)
+    // and are disc-based systems that benefit from serial metadata.
+    if (!game.coverArt) {
+      return false;
+    }
+    if (!game.serial && (game.systemId === "psx" || game.systemId === "saturn")) {
+      return true;
+    }
+    return false;
   }
 
   /** Check whether user credentials are configured. */
@@ -400,6 +426,7 @@ export class ArtworkService extends EventEmitter {
       ...(coverArtAspectRatio !== undefined ? { coverArtAspectRatio } : {}),
       ...(regionalName ? { system: regionalName } : {}),
       ...(gameInfo.romRegions ? { romRegions: gameInfo.romRegions } : {}),
+      ...(gameInfo.romSerial ? { serial: gameInfo.romSerial } : {}),
       ...discUpdates,
       metadata: {
         developer: gameInfo.developer,

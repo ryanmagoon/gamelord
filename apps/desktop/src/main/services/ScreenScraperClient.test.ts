@@ -415,6 +415,42 @@ describe("ScreenScraperClient", () => {
     });
   });
 
+  describe("ROM serial extraction", () => {
+    it("extracts romSerial from jeu.rom.romserial", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: { id: "1234", romserial: "SLUS-00551" },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).romSerial).toBe("SLUS-00551");
+    });
+
+    it("trims whitespace from romSerial", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: { id: "1234", romserial: "  SLUS-00170  " },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).romSerial).toBe("SLUS-00170");
+    });
+
+    it("omits romSerial when jeu.rom is absent", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture();
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).romSerial).toBeUndefined();
+    });
+
+    it("omits romSerial when romserial is empty string", () => {
+      const client = new ScreenScraperClient(dummyCredentials);
+      const fixture = makeGameResponseFixture({
+        rom: { id: "1234", romserial: "" },
+      });
+      const result = client.parseGameResponse(fixture);
+      expect(assertDefined(result).romSerial).toBeUndefined();
+    });
+  });
+
   describe("media selection", () => {
     it("returns undefined when no media of requested type exists", () => {
       const client = new ScreenScraperClient(dummyCredentials);
