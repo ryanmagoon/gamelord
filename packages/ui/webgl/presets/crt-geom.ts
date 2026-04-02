@@ -5,6 +5,11 @@ export const crtGeomPreset: ShaderPresetDefinition = {
   id: "crt-geom",
   label: "CRT Geom",
   luts: [],
+  parameters: {
+    u_scanlineWeight: 0.35,
+    u_maskStrength: 0.25,
+    u_sharper: 1.0,
+  },
   passes: [
     {
       index: 0,

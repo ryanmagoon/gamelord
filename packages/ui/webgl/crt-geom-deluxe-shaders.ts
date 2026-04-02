@@ -28,18 +28,15 @@ const float overscan_y     = 0.98;
 const float aspect_x       = 1.0;
 const float aspect_y       = 0.75;
 
-// Scanlines & bloom
-const float scanline_weight = 0.3;
+// Scanlines & bloom (scanline_weight is a uniform set from preset parameters)
 const float geom_lum        = 0.0;
 const float halation         = 0.1;
 const float rasterbloom_raw  = 0.0;
 const float rasterbloom      = rasterbloom_raw / 10.0;
 const float width            = 2.0;
 
-// Mask
+// Mask (aperture_strength, aperture_brightboost are uniforms set from preset parameters)
 const int   mask_type           = 1;
-const float aperture_strength   = 0.4;
-const float aperture_brightboost = 0.4;
 
 // Toggles
 const float curvature        = 1.0;
@@ -410,7 +407,9 @@ void main() {
   v_cosangle = cos(angle);
   v_stretch = maxscale(v_sinangle, v_cosangle);
 
-  v_ilfac = vec2(1.0, clamp(floor(u_textureSize.y / 200.0), 1.0, 2.0));
+  // Interlace detection disabled: libretro cores deliver deinterlaced progressive
+  // frames, so the shader should not skip scanlines for >200-line content.
+  v_ilfac = vec2(1.0, 1.0);
   v_one = v_ilfac / u_textureSize;
 
   v_mod_factor = a_texCoord.x * u_textureSize.x * u_resolution.x / u_textureSize.x;
@@ -426,6 +425,11 @@ uniform vec2 u_resolution;
 uniform vec2 u_textureSize;
 uniform vec2 u_originalSize;
 uniform int u_frameCount;
+
+// Tunable parameters (set from preset)
+uniform float u_scanlineWeight;
+uniform float u_apertureStrength;
+uniform float u_apertureBrightboost;
 
 in vec2 v_texCoord;
 in vec2 v_sinangle;
@@ -485,7 +489,7 @@ float corner(vec2 coord) {
 
 vec4 scanlineWeights(float distance_, vec4 color) {
   vec4 wid = 2.0 + 2.0 * pow(color, vec4(4.0));
-  vec4 weights = vec4(distance_ / scanline_weight);
+  vec4 weights = vec4(distance_ / u_scanlineWeight);
   return (geom_lum + 1.4) * exp(-pow(weights * inversesqrt(0.5 * wid), wid)) / (0.6 + 0.2 * wid);
 }
 
@@ -521,7 +525,7 @@ void main() {
   // Save xy after rbloom for halation lookup (before Lanczos snapping)
   vec2 xy0 = xy;
 
-  // Interlace factor
+  // Interlace factor (always 1.0 — cores deliver progressive frames)
   vec2 ilfac = v_ilfac;
 
   // Sub-texel position
@@ -586,8 +590,8 @@ void main() {
   vec2 u_tex_size1 = u_resolution / v_TextureSize;
   float nbright = 255.0 - 255.0 * mask.a;
   float fbright = nbright / (u_tex_size1.x * u_tex_size1.y);
-  float aperture_average = mix(1.0 - aperture_strength * (1.0 - aperture_brightboost), 1.0, fbright);
-  vec3 clow = vec3(1.0 - aperture_strength) * mul_res + vec3(aperture_strength * aperture_brightboost) * mul_res * mul_res;
+  float aperture_average = mix(1.0 - u_apertureStrength * (1.0 - u_apertureBrightboost), 1.0, fbright);
+  vec3 clow = vec3(1.0 - u_apertureStrength) * mul_res + vec3(u_apertureStrength * u_apertureBrightboost) * mul_res * mul_res;
   float ifbright = 1.0 / fbright;
   vec3 chi = vec3(ifbright * aperture_average) * mul_res - vec3(ifbright - 1.0) * clow;
   vec3 cout = mix(clow, chi, mask.rgb);

@@ -14,6 +14,11 @@ export const crtGeomDeluxePreset: ShaderPresetDefinition = {
   id: "crt-geom-deluxe",
   label: "CRT Geom Deluxe",
   luts: [],
+  parameters: {
+    u_scanlineWeight: 0.35,
+    u_apertureStrength: 0.35,
+    u_apertureBrightboost: 0.4,
+  },
   passes: [
     {
       index: 0,

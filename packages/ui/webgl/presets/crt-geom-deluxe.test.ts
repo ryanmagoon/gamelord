@@ -6,7 +6,7 @@ describe("crt-geom-deluxe preset", () => {
   it("is registered in PRESET_LIST", () => {
     const found = PRESET_LIST.find((p) => p.id === "crt-geom-deluxe");
     expect(found).toBeDefined();
-    expect(found!.label).toBe("CRT Geom Deluxe");
+    expect(found?.label).toBe("CRT Geom Deluxe");
   });
 
   it("is registered in PRESET_MAP", () => {
@@ -144,5 +144,33 @@ describe("crt-geom-deluxe GLSL sources", () => {
   it("pass 1 fragment shader references u_feedback for self-feedback", () => {
     const pass1 = crtGeomDeluxePreset.passes[1];
     expect(pass1.fragmentSource).toContain("u_feedback");
+  });
+});
+
+describe("crt-geom-deluxe parameters", () => {
+  it("exposes tunable parameters", () => {
+    expect(crtGeomDeluxePreset.parameters).toBeDefined();
+  });
+
+  it("has scanline weight tuned for text legibility", () => {
+    expect(crtGeomDeluxePreset.parameters?.u_scanlineWeight).toBe(0.35);
+  });
+
+  it("has aperture strength softer than original default", () => {
+    expect(crtGeomDeluxePreset.parameters?.u_apertureStrength).toBe(0.35);
+  });
+
+  it("has aperture bright boost matching original default", () => {
+    expect(crtGeomDeluxePreset.parameters?.u_apertureBrightboost).toBe(0.4);
+  });
+
+  it("pass 4 fragment shader declares uniform for scanline weight", () => {
+    const pass4 = crtGeomDeluxePreset.passes[4];
+    expect(pass4.fragmentSource).toContain("uniform float u_scanlineWeight");
+  });
+
+  it("pass 4 fragment shader declares uniform for aperture strength", () => {
+    const pass4 = crtGeomDeluxePreset.passes[4];
+    expect(pass4.fragmentSource).toContain("uniform float u_apertureStrength");
   });
 });
