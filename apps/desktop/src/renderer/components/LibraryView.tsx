@@ -912,7 +912,6 @@ export const LibraryView: React.FC<{
             scrollContainerRef={scrollContainerRef}
             onReady={handleGridReady}
             isRevealing={isRevealing}
-            onSearchClick={() => handleCommandPaletteOpenChange(true)}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
