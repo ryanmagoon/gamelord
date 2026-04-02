@@ -152,6 +152,32 @@ describe("EmulatorManager — power save blocker", () => {
   });
 });
 
+describe("EmulatorManager — activeCoreId normalization", () => {
+  let manager: EmulatorManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    manager = new EmulatorManager();
+  });
+
+  it("strips _libretro suffix when coreName is explicitly provided", async () => {
+    await manager.launchGame("/rom.cue", "psx", undefined, undefined, "swanstation_libretro");
+    expect(manager.getActiveCoreId()).toBe("swanstation");
+  });
+
+  it("strips _libretro suffix for other cores too", async () => {
+    await manager.launchGame("/rom.nes", "nes", undefined, undefined, "fceumm_libretro");
+    expect(manager.getActiveCoreId()).toBe("fceumm");
+  });
+
+  it("extracts core ID from path when no coreName is provided", async () => {
+    // When no coreName is given, the mock returns "/tmp/cores/test_libretro.dylib"
+    // which should be extracted to "test"
+    await manager.launchGame("/rom.nes", "nes");
+    expect(manager.getActiveCoreId()).toBe("test");
+  });
+});
+
 describe("EmulatorManager — BIOS validation", () => {
   let manager: EmulatorManager;
 

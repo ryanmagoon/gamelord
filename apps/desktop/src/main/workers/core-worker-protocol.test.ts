@@ -99,17 +99,17 @@ describe("extractSerialFromLog", () => {
   it("extracts serial from SwanStation 'Inserted media' log", () => {
     expect(
       extractSerialFromLog(
-        'Inserted media from /path/to/Resident Evil (USA).cue (SLUS-00170, Resident Evil)',
+        "Inserted media from /path/to/Resident Evil (USA).cue (SLUS-00170, Resident Evil)",
       ),
     ).toBe("SLUS-00170");
   });
 
   it("extracts serial from SwanStation log with various prefixes", () => {
-    expect(
-      extractSerialFromLog('Inserted media from /rom.cue (SCES-00001, Some Game)'),
-    ).toBe("SCES-00001");
-    expect(
-      extractSerialFromLog('Inserted media from /rom.cue (SCPS-10001, JP Game)'),
-    ).toBe("SCPS-10001");
+    expect(extractSerialFromLog("Inserted media from /rom.cue (SCES-00001, Some Game)")).toBe(
+      "SCES-00001",
+    );
+    expect(extractSerialFromLog("Inserted media from /rom.cue (SCPS-10001, JP Game)")).toBe(
+      "SCPS-10001",
+    );
   });
 });
