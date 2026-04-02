@@ -122,11 +122,11 @@ export class ArtworkService extends EventEmitter {
   }
 
   /**
-   * One-time backfill for games synced before ROM-level region tracking.
-   * Queries ScreenScraper by hash (no artwork download) to get romRegions,
-   * then re-derives the regional system display name. Skips games that
-   * already have romRegions or that lack metadata (never synced).
-   * Requires credentials — silently skips if unconfigured.
+   * One-time backfill for games synced before ROM-level region/serial tracking.
+   * Queries ScreenScraper by hash (no artwork download) to get romRegions
+   * and romSerial, then re-derives the regional system display name.
+   * Skips games that already have both romRegions and serial, or that lack
+   * metadata (never synced). Requires credentials — silently skips if unconfigured.
    */
   private async backfillRomRegions(): Promise<void> {
     // Wait for config to load (fire-and-forget constructor)
@@ -138,14 +138,14 @@ export class ArtworkService extends EventEmitter {
 
     const games = this.libraryService.getGames();
     const needsBackfill = games.filter(
-      (g) => g.metadata && (!g.romRegions || g.romRegions.length === 0),
+      (g) => g.metadata && (!g.romRegions || g.romRegions.length === 0 || !g.serial),
     );
 
     if (needsBackfill.length === 0) {
       return;
     }
 
-    artworkLog.info(`Backfilling ROM regions for ${needsBackfill.length} game(s)`);
+    artworkLog.info(`Backfilling ROM metadata for ${needsBackfill.length} game(s)`);
 
     let client: ScreenScraperClient;
     try {
