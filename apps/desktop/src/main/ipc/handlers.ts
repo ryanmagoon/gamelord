@@ -345,8 +345,19 @@ export class IPCHandlers {
           // Chtdb cheats are only included when the active core is SwanStation,
           // since its extended code types are incompatible with other cores.
           const workerClient = this.emulatorManager.getWorkerClient();
-          const serial = workerClient?.getDetectedSerial() ?? undefined;
+          const runtimeSerial = workerClient?.getDetectedSerial() ?? undefined;
           const coreId = this.emulatorManager.getActiveCoreId() ?? undefined;
+
+          // Fall back to the serial stored in the game's metadata (from ScreenScraper)
+          // when the core doesn't expose it at runtime (e.g. SwanStation).
+          let serial = runtimeSerial;
+          if (!serial) {
+            const game = this.libraryService
+              .getGames(systemId)
+              .find((g) => g.romPath.endsWith(romFilename));
+            serial = game?.serial;
+          }
+
           const cheats = this.cheatDatabaseService.getCheatsForGame(
             systemId,
             romFilename,
@@ -903,7 +914,7 @@ export class IPCHandlers {
    */
   private async autoApplyCheats(workerClient: EmulationWorkerClient, game: Game): Promise<void> {
     const romFilename = game.romPath.split("/").pop() || game.romPath;
-    const serial = workerClient.getDetectedSerial() ?? undefined;
+    const serial = workerClient.getDetectedSerial() ?? game.serial;
     const coreId = this.emulatorManager.getActiveCoreId() ?? undefined;
     const enabledCheats = this.cheatPersistenceService.getEnabledCheats(
       game.id,

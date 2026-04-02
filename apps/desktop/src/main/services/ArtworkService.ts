@@ -165,12 +165,13 @@ export class ArtworkService extends EventEmitter {
         await this.waitForRateLimit();
         const gameInfo = await client.fetchByHash(game.romHashes.md5, game.systemId);
 
-        if (gameInfo && (gameInfo.romRegions?.length || gameInfo.gameId)) {
+        if (gameInfo && (gameInfo.romRegions?.length || gameInfo.gameId || gameInfo.romSerial)) {
           const effectiveRegion = gameInfo.romRegions?.[0];
           const regionalName = getRegionalSystemName(game.systemId, effectiveRegion ?? "");
           const updates: Partial<Game> = {
             ...(gameInfo.romRegions?.length ? { romRegions: gameInfo.romRegions } : {}),
             ...(regionalName ? { system: regionalName } : {}),
+            ...(gameInfo.romSerial ? { serial: gameInfo.romSerial } : {}),
           };
 
           // Backfill disc grouping if not already set by .m3u
@@ -400,6 +401,7 @@ export class ArtworkService extends EventEmitter {
       ...(coverArtAspectRatio !== undefined ? { coverArtAspectRatio } : {}),
       ...(regionalName ? { system: regionalName } : {}),
       ...(gameInfo.romRegions ? { romRegions: gameInfo.romRegions } : {}),
+      ...(gameInfo.romSerial ? { serial: gameInfo.romSerial } : {}),
       ...discUpdates,
       metadata: {
         developer: gameInfo.developer,
