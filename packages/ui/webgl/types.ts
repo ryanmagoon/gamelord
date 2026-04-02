@@ -47,5 +47,10 @@ export interface ShaderPresetDefinition {
   id: string;
   label: string;
   luts: Array<LutDefinition>;
+  /**
+   * Shader uniform overrides set once per frame for every pass.
+   * Keys are GLSL uniform names (e.g. `u_scanlineWeight`), values are floats.
+   */
+  parameters?: Record<string, number>;
   passes: Array<ShaderPassDefinition>;
 }
