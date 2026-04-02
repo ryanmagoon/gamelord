@@ -342,7 +342,7 @@ describe("IPCHandlers", () => {
 
     it("registers exactly the expected number of handle channels", () => {
       const handleCalls = vi.mocked(ipcMain.handle).mock.calls;
-      expect(handleCalls).toHaveLength(49);
+      expect(handleCalls).toHaveLength(50);
     });
   });
 
@@ -439,6 +439,8 @@ describe("IPCHandlers", () => {
         sramDir: "/saves",
         saveStatesDir: "/savestates",
         addonPath: "/fake/addon.node",
+        discPaths: undefined,
+        initialDiscIndex: undefined,
       });
       expect(emulatorManagerInstance.setWorkerClient).toHaveBeenCalledWith(workerClientInstance);
       expect(gameWindowManagerInstance.createNativeGameWindow).toHaveBeenCalledWith(
@@ -446,6 +448,7 @@ describe("IPCHandlers", () => {
         workerClientInstance,
         fakeAvInfo,
         false,
+        undefined,
         undefined,
       );
       expect(result).toEqual({ success: true });
