@@ -12,6 +12,7 @@ export * from "./components/ui/switch";
 export * from "./components/ControllerConfig";
 export * from "./components/ControlsOverlay";
 export * from "./components/CheatPanel";
+export * from "./components/DiscSwapOverlay";
 export * from "./components/CoreDownloadBanner";
 export * from "./components/UpdateNotification";
 export * from "./components/GameCard";
