@@ -212,6 +212,11 @@ export class ScreenScraperClient {
       ? (romRegionsRaw as Array<string>).filter((r) => typeof r === "string" && r.length > 0)
       : undefined;
 
+    // jeu.rom.romserial — disc serial (e.g. "SLUS-00551") for disc-based systems
+    const romSerialRaw = rom?.romserial;
+    const romSerial =
+      typeof romSerialRaw === "string" && romSerialRaw.length > 0 ? romSerialRaw.trim() : undefined;
+
     // jeu.rom.discnum — 1-indexed disc number for multi-disc games (e.g. "2")
     const discNumRaw = rom?.discnum;
     const discNumParsed =
@@ -231,6 +236,7 @@ export class ScreenScraperClient {
       region,
       releaseDate,
       ...(romRegions && romRegions.length > 0 ? { romRegions } : {}),
+      ...(romSerial ? { romSerial } : {}),
       synopsis,
       title,
     };

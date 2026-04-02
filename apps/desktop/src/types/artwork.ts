@@ -85,6 +85,12 @@ export interface ScreenScraperGameInfo {
    * Only present for hash-based lookups where ScreenScraper matches a known ROM.
    */
   romRegions?: Array<string>;
+  /**
+   * Disc serial from the matched ROM entry (e.g. "SLUS-00551").
+   * Present for disc-based systems (PSX, Saturn, etc.) when ScreenScraper
+   * has the serial for the matched ROM dump.
+   */
+  romSerial?: string;
   releaseDate?: string;
   synopsis?: string;
   title: string;

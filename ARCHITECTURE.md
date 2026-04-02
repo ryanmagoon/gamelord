@@ -42,6 +42,7 @@ apps/desktop/src/preload.ts   - Renderer API bridge
 ## Supported Cores
 
 - **NES:** fceumm (primary), nestopia, mesen
+- **PSX:** pcsx_rearmed (PCSX ReARMed, primary), mednafen_psx_hw (Beetle PSX HW), swanstation (SwanStation) — requires BIOS file (`scph5501.bin`). SwanStation (DuckStation fork) enables full chtdb cheat support including extended code types.
 - **Sega Saturn:** mednafen_saturn (Beetle Saturn, primary), yabause — requires BIOS files (`sega_101.bin`, `mpr-17933.bin`)
 - Cores located at: `~/Library/Application Support/GameLord/cores/`
 - BIOS files located at: `~/Library/Application Support/GameLord/BIOS/` (created automatically on startup, mirrors OpenEmu convention)

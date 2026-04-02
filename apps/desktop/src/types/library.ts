@@ -67,6 +67,12 @@ export interface Game {
   romMtime?: number;
   romPath: string;
   /**
+   * Disc serial (e.g. "SLUS-00551") from ScreenScraper's `rom.romserial`.
+   * Present for disc-based systems (PSX, Saturn) after artwork sync.
+   * Used for chtdb cheat lookup when the core doesn't expose the serial at runtime.
+   */
+  serial?: string;
+  /**
    * Region codes from the matched ROM entry in ScreenScraper (e.g. ["jp"], ["us", "eu"]).
    * Set during artwork sync from rom.regions.regions_shortname. Used to derive the
    * regional system display name (e.g. "Super Famicom" for JP SNES ROMs).

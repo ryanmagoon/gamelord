@@ -39,6 +39,7 @@ Napi::Object LibretroCore::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("swapDisc", &LibretroCore::SwapDisc),
     InstanceMethod("getCurrentDiscIndex", &LibretroCore::GetCurrentDiscIndex),
     InstanceMethod("getDiscCount", &LibretroCore::GetDiscCount),
+    InstanceMethod("getDiscLabel", &LibretroCore::GetDiscLabel),
   });
 
   Napi::FunctionReference *constructor = new Napi::FunctionReference();
@@ -590,6 +591,27 @@ Napi::Value LibretroCore::GetDiscCount(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
   uint32_t count = s_instance ? static_cast<uint32_t>(s_instance->disc_paths_.size()) : 0;
   return Napi::Number::New(env, count);
+}
+
+Napi::Value LibretroCore::GetDiscLabel(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (!s_instance || !s_instance->has_disc_control_ext_ ||
+      !s_instance->disc_control_ext_cb_.get_image_label) {
+    return env.Null();
+  }
+
+  unsigned index = 0;
+  if (info.Length() > 0 && info[0].IsNumber()) {
+    index = info[0].As<Napi::Number>().Uint32Value();
+  }
+
+  char label[256] = {};
+  bool ok = s_instance->disc_control_ext_cb_.get_image_label(index, label, sizeof(label));
+  if (!ok || label[0] == '\0') {
+    return env.Null();
+  }
+
+  return Napi::String::New(env, label);
 }
 
 // ---------------------------------------------------------------------------

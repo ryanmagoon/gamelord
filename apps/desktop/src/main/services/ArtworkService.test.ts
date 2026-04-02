@@ -98,6 +98,7 @@ function createMockLibraryService(games: Array<Game> = []): LibraryService {
       }
     }),
     flushSave: vi.fn(async () => {}),
+    whenReady: vi.fn(async () => {}),
   } as unknown as LibraryService;
 }
 
