@@ -6,9 +6,14 @@ import crypto from "node:crypto";
 import zlib from "node:zlib";
 import { execFileSync } from "node:child_process";
 
-// Mock electron before importing LibraryService
+// Mock electron before importing LibraryService.
+// Each test gets its own userData subdirectory to prevent cross-test
+// interference from async writes that haven't settled between tests.
+// Two concurrent LibraryService instances writing to the same .tmp path
+// causes ENOENT races in atomicWriteJSON.
 const TEST_DIR = path.join(os.tmpdir(), "gamelord-library-service-test-" + Date.now());
-const USER_DATA_DIR = path.join(TEST_DIR, "userData");
+let userDataSeq = 0;
+let USER_DATA_DIR = path.join(TEST_DIR, "userData-0");
 const HOME_DIR = path.join(TEST_DIR, "home");
 const ROMS_DIR = path.join(TEST_DIR, "roms");
 
@@ -46,24 +51,37 @@ import type { GameSystem, Game } from "../../types/library";
  */
 async function createService(): Promise<LibraryService> {
   const service = new LibraryService();
-  // Allow the constructor's async calls (loadConfig, loadLibrary) to settle
+  // The constructor fires loadConfig() and loadLibrary() without awaiting them.
+  // loadConfig triggers a chain of async operations (backfill, repair, migrate,
+  // scaffold), each calling saveConfig(). We must wait for the entire chain.
+  //
+  // Poll until the config file on disk stops changing — this signals the last
+  // saveConfig() in the chain has completed.
+  let lastMtime = 0;
+  let stableCount = 0;
   await vi.waitFor(
-    async () => {
-      // Config is loaded when systems array is populated (default config has DEFAULT_SYSTEMS)
-      // or the config file was read successfully
-      const config = service.getConfig();
-      if (
-        config.systems.length === 0 &&
-        !fs.existsSync(path.join(USER_DATA_DIR, "library-config.json"))
-      ) {
-        // Still loading — config hasn't been written yet
-        throw new Error("Config not yet loaded");
+    () => {
+      const configPath = path.join(USER_DATA_DIR, "library-config.json");
+      if (!fs.existsSync(configPath)) {
+        throw new Error("Config file not yet written to disk");
+      }
+      const mtime = fs.statSync(configPath).mtimeMs;
+      if (mtime !== lastMtime) {
+        lastMtime = mtime;
+        stableCount = 0;
+        throw new Error("Config file still being written");
+      }
+      stableCount++;
+      // Require 5 consecutive stable polls (~100ms) to confirm no more writes.
+      // The init chain runs multiple saveConfig() calls in sequence — each one
+      // does stringify + writeFile + rename, so they can land within the same
+      // mtime granularity window on some filesystems.
+      if (stableCount < 5) {
+        throw new Error("Waiting for config to stabilize");
       }
     },
-    { interval: 10, timeout: 2000 },
+    { interval: 20, timeout: 5000 },
   );
-  // Extra tick to ensure saveConfig completes on first-run path
-  await new Promise((resolve) => setTimeout(resolve, 50));
   return service;
 }
 
@@ -114,7 +132,6 @@ const TEST_GB_SYSTEM: GameSystem = {
 };
 
 beforeAll(() => {
-  fs.mkdirSync(USER_DATA_DIR, { recursive: true });
   fs.mkdirSync(HOME_DIR, { recursive: true });
   fs.mkdirSync(ROMS_DIR, { recursive: true });
 });
@@ -124,20 +141,12 @@ afterAll(() => {
 });
 
 beforeEach(() => {
-  // Clean userData files between tests so each test starts fresh
-  for (const file of [
-    "library-config.json",
-    "library-config.json.bak",
-    "library-config.json.tmp",
-    "library.json",
-    "library.json.bak",
-    "library.json.tmp",
-  ]) {
-    const filePath = path.join(USER_DATA_DIR, file);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  }
+  // Give each test a fresh userData directory so two concurrent
+  // LibraryService instances (previous test's unsettled async + current
+  // test's new instance) never race on the same .tmp file path.
+  userDataSeq++;
+  USER_DATA_DIR = path.join(TEST_DIR, `userData-${userDataSeq}`);
+  fs.mkdirSync(USER_DATA_DIR, { recursive: true });
 });
 
 // ---------------------------------------------------------------------------
