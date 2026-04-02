@@ -224,16 +224,29 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
     throw new Error(`Failed to load game: ${romPath}`);
   }
 
-  // Check for CD-ROM serial in post-load log messages (PSX cores).
-  // Some cores (e.g. SwanStation) may log the serial during the first
-  // retro_run call rather than during retro_load_game, so the emulation
-  // loop also checks (see drainLogsAndDetectSerial).
+  // Detect CD-ROM serial. Strategy (in priority order):
+  // 1. Parse from post-load log messages (Beetle PSX / PCSX ReARMed)
+  // 2. Query the disc control ext callback's get_image_label (SwanStation)
+  // 3. Check during emulation loop for late log messages (see drainLogs)
   for (const entry of native.getLogMessages()) {
     const serial = extractSerialFromLog(entry.message);
     if (serial) {
       send({ type: "serialDetected", serial });
       serialDetected = true;
       break;
+    }
+  }
+
+  // Fallback: ask the core for the disc label via disc control ext callback.
+  // SwanStation returns the game serial (e.g. "SLUS-00170") as the label.
+  if (!serialDetected) {
+    const label = native.getDiscLabel(0);
+    if (label) {
+      const serial = label.match(/[A-Za-z]{4}-?\d{5}/)?.[0];
+      if (serial) {
+        send({ type: "serialDetected", serial });
+        serialDetected = true;
+      }
     }
   }
 

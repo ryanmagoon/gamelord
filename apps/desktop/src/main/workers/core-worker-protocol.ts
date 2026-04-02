@@ -46,6 +46,7 @@ export interface NativeLibretroCore {
   swapDisc(index: number): boolean;
   getCurrentDiscIndex(): number;
   getDiscCount(): number;
+  getDiscLabel(index?: number): string | null;
 }
 
 export interface NativeAddon {
