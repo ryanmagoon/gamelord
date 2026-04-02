@@ -80,11 +80,6 @@ export interface GameLibraryProps {
    * the #root opacity fade. Set to false after the fade completes.
    */
   isRevealing?: boolean;
-  /**
-   * When provided, replaces the inline search input with a clickable
-   * Cmd+K trigger button that calls this callback on click.
-   */
-  onSearchClick?: () => void;
 }
 
 type ViewMode = "grid" | "list";
@@ -123,7 +118,6 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   scrollContainerRef,
   onReady,
   isRevealing,
-  onSearchClick,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
@@ -408,30 +402,19 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
          z-indices so they don't escape above the header/system tabs. */}
       <div className="sticky -top-4 z-20 bg-background -mx-4 px-4 pt-4 pb-4 space-y-4">
         <div className="flex flex-col sm:flex-row gap-4">
-          {/* Search — either inline input or Cmd+K trigger */}
-          {onSearchClick ? (
-            <button
-              type="button"
-              onClick={onSearchClick}
-              className="relative flex-1 flex items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
-            >
-              <Search className="h-4 w-4 shrink-0" />
-              <span>Search games...</span>
-              <kbd className="ml-auto hidden shrink-0 select-none rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium sm:inline-block">
-                {modifierKey()}K
-              </kbd>
-            </button>
-          ) : (
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                className="pl-10"
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search games..."
-                value={searchQuery}
-              />
-            </div>
-          )}
+          {/* Search — inline input with Cmd+K hint for command palette */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-10 pr-16"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search games..."
+              value={searchQuery}
+            />
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden shrink-0 select-none rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-block pointer-events-none">
+              {modifierKey()}K
+            </kbd>
+          </div>
 
           {/* Filters */}
           <div className="flex gap-2">
