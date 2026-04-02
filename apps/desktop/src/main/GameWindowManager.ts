@@ -53,6 +53,7 @@ export class GameWindowManager extends EventEmitter {
     avInfo: AVInfo,
     shouldResume = false,
     cardScreenBounds?: { x: number; y: number; width: number; height: number },
+    discInfo?: { paths: Array<string>; initialIndex: number },
   ): BrowserWindow {
     const existingWindow = this.gameWindows.get(game.id);
     if (existingWindow && !existingWindow.isDestroyed()) {
@@ -156,6 +157,12 @@ export class GameWindowManager extends EventEmitter {
       gameWindow.webContents.send("game:loaded", game);
       gameWindow.webContents.send("game:mode", "native");
       gameWindow.webContents.send("game:av-info", avInfo);
+      if (discInfo) {
+        gameWindow.webContents.send("game:disc-info", {
+          total: discInfo.paths.length,
+          currentIndex: discInfo.initialIndex,
+        });
+      }
 
       // If no hero transition, tell renderer to start boot animation immediately
       // and focus the window so keyboard input works right away.

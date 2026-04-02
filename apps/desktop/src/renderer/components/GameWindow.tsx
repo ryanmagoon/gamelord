@@ -5,6 +5,8 @@ import {
   type CheatItem,
   type CustomCheatItem,
   ControlsOverlay,
+  DiscSwapOverlay,
+  type DiscInfo,
   type KeyboardBinding,
   filterBindingsForSystem,
   WebGLRenderer,
@@ -149,6 +151,12 @@ export const GameWindow: React.FC = () => {
   const [showControlsHint, setShowControlsHint] = useState(() => {
     return localStorage.getItem("gamelord:controlsHintDismissed") !== "true";
   });
+
+  // Multi-disc state
+  const [discTotal, setDiscTotal] = useState(0);
+  const [currentDiscIndex, setCurrentDiscIndex] = useState(0);
+  const [showDiscSwapOverlay, setShowDiscSwapOverlay] = useState(false);
+  const [swappingDiscIndex, setSwappingDiscIndex] = useState<number | undefined>(undefined);
 
   // Auto-dismiss the controls hint after 8 seconds and persist the dismissal
   useEffect(() => {
@@ -485,6 +493,8 @@ export const GameWindow: React.FC = () => {
     api.removeAllListeners("game:prepare-close");
     api.removeAllListeners("game:ready-for-boot");
     api.removeAllListeners("emulator:speedChanged");
+    api.removeAllListeners("emulator:discChanged");
+    api.removeAllListeners("game:disc-info");
     api.removeAllListeners("game:emulation-error");
 
     // Register for SharedArrayBuffer delivery via MessagePort bridge.
@@ -548,6 +558,21 @@ export const GameWindow: React.FC = () => {
       // Reset audio scheduling anchor so leftover scheduling offsets from the
       // previous speed don't cause buffer overlap during the transition.
       audioNextTimeRef.current = 0;
+    });
+
+    api.on("emulator:discChanged", (raw: unknown) => {
+      const data = raw as { index: number; total: number };
+      setCurrentDiscIndex(data.index);
+      setDiscTotal(data.total);
+      setSwappingDiscIndex(undefined);
+      // Auto-close the overlay after a successful swap
+      setShowDiscSwapOverlay(false);
+    });
+
+    api.on("game:disc-info", (raw: unknown) => {
+      const data = raw as { total: number; currentIndex: number };
+      setDiscTotal(data.total);
+      setCurrentDiscIndex(data.currentIndex);
     });
 
     api.on("game:emulation-error", (raw: unknown) => {
@@ -934,6 +959,20 @@ export const GameWindow: React.FC = () => {
         e.preventDefault();
         void handleToggleFastForward();
       }
+      if (e.key === "F6" && discTotal > 1) {
+        e.preventDefault();
+        setShowDiscSwapOverlay((prev) => {
+          const willOpen = !prev;
+          if (willOpen && !isPaused) {
+            pausedByOverlayRef.current = true;
+            api.emulation.pause().catch(console.error);
+          } else if (!willOpen && pausedByOverlayRef.current) {
+            pausedByOverlayRef.current = false;
+            api.emulation.resume().catch(console.error);
+          }
+          return willOpen;
+        });
+      }
       if (e.key === "?" || e.key === "F1") {
         e.preventDefault();
         setShowControlsOverlay((prev) => {
@@ -956,7 +995,14 @@ export const GameWindow: React.FC = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPaused, selectedSlot, speedMultiplier, preferredFastForwardSpeed, showControlsHint]);
+  }, [
+    isPaused,
+    selectedSlot,
+    speedMultiplier,
+    preferredFastForwardSpeed,
+    showControlsHint,
+    discTotal,
+  ]);
 
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOverControlsRef = useRef(false);
@@ -1577,6 +1623,36 @@ export const GameWindow: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Disc swap overlay (multi-disc games only) */}
+      {discTotal > 1 && (
+        <DiscSwapOverlay
+          open={showDiscSwapOverlay}
+          onClose={() => {
+            setShowDiscSwapOverlay(false);
+            if (pausedByOverlayRef.current) {
+              pausedByOverlayRef.current = false;
+              api.emulation.resume().catch(console.error);
+            }
+          }}
+          onSwap={(index) => {
+            setSwappingDiscIndex(index);
+            api.emulation.swapDisc(index).catch((error) => {
+              console.error("Disc swap failed:", error);
+              setSwappingDiscIndex(undefined);
+            });
+          }}
+          discs={Array.from(
+            { length: discTotal },
+            (_, i): DiscInfo => ({
+              index: i,
+              label: `Disc ${i + 1}`,
+              status: i === currentDiscIndex ? "current" : "available",
+            }),
+          )}
+          swappingIndex={swappingDiscIndex}
+        />
+      )}
 
       {/* Controls reference overlay */}
       <ControlsOverlay

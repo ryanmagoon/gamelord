@@ -426,6 +426,7 @@ export class EmulatorManager extends EventEmitter {
       client.on("reset", () => this.emit("emulator:reset"));
       client.on("error", (error) => this.emit("emulator:error", error));
       client.on("speedChanged", (data) => this.emit("emulator:speedChanged", data));
+      client.on("discChanged", (data) => this.emit("emulator:discChanged", data));
     }
   }
 
@@ -512,6 +513,16 @@ export class EmulatorManager extends EventEmitter {
       throw new Error("No emulator is currently running");
     }
     await this.currentEmulator.resume();
+  }
+
+  /**
+   * Swap the active disc in a multi-disc game.
+   */
+  async swapDisc(index: number): Promise<void> {
+    if (!this.workerClient?.isRunning()) {
+      throw new Error("No emulator is currently running");
+    }
+    await this.workerClient.swapDisc(index);
   }
 
   /**

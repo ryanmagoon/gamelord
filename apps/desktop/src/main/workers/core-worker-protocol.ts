@@ -85,6 +85,10 @@ export type WorkerCommand =
       sramDir: string;
       saveStatesDir: string;
       addonPath: string;
+      /** All disc paths for multi-disc games, ordered by disc number. */
+      discPaths?: Array<string>;
+      /** 0-indexed disc to start on (defaults to 0). */
+      initialDiscIndex?: number;
     }
   | { action: "pause" }
   | { action: "resume" }
@@ -111,7 +115,8 @@ export type WorkerCommand =
       enabled: boolean;
       code: string;
       requestId: string;
-    };
+    }
+  | { action: "swapDisc"; index: number; requestId: string };
 
 // ---------------------------------------------------------------------------
 // Libretro log levels (from libretro.h RETRO_LOG_*)
@@ -183,4 +188,5 @@ export type WorkerEvent =
       success: boolean;
       error?: string;
       data?: unknown;
-    };
+    }
+  | { type: "discChanged"; index: number; total: number };

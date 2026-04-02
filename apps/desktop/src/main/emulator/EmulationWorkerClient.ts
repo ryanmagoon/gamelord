@@ -25,6 +25,10 @@ export interface EmulationWorkerInitOptions {
   saveStatesDir: string;
   sramDir: string;
   systemDir: string;
+  /** All disc paths for multi-disc games, ordered by disc number. */
+  discPaths?: Array<string>;
+  /** 0-indexed disc to start on (defaults to 0). */
+  initialDiscIndex?: number;
 }
 
 interface PendingRequest {
@@ -194,6 +198,10 @@ export class EmulationWorkerClient extends EventEmitter {
 
   async cheatSet(index: number, enabled: boolean, code: string): Promise<void> {
     await this.sendRequest({ action: "cheatSet", index, enabled, code });
+  }
+
+  async swapDisc(index: number): Promise<void> {
+    await this.sendRequest({ action: "swapDisc", index });
   }
 
   /**
@@ -406,6 +414,10 @@ export class EmulationWorkerClient extends EventEmitter {
       case "serialDetected":
         this.detectedSerial = event.serial;
         libretroLog.info(`CD-ROM serial detected: ${event.serial}`);
+        break;
+
+      case "discChanged":
+        this.emit("discChanged", { index: event.index, total: event.total });
         break;
 
       case "ready":

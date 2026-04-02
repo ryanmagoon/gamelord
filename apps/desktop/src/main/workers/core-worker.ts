@@ -42,6 +42,9 @@ let sramDir = "";
 let saveStatesDir = "";
 let screenshotDir = "";
 
+// Multi-disc: when set, SRAM derives from the group base name instead of romPath
+let sramBaseName: string | null = null;
+
 // Timing
 let targetFps = 60;
 let speedMultiplier = 1;
@@ -83,7 +86,8 @@ function getRomName(): string {
 }
 
 function getSramPath(): string {
-  return path.join(sramDir, `${getRomName()}.srm`);
+  const name = sramBaseName ?? getRomName();
+  return path.join(sramDir, `${name}.srm`);
 }
 
 function getStatePath(slot: number): string {
@@ -247,6 +251,20 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
         send({ type: "serialDetected", serial });
         serialDetected = true;
       }
+    }
+  }
+
+  // Set up multi-disc support
+  if (command.discPaths && command.discPaths.length > 1) {
+    native.setDiscPaths(command.discPaths);
+
+    // Derive SRAM base name from the first disc path (strip disc suffix like " (Disc 1)")
+    const firstDiscName = path.basename(command.discPaths[0], path.extname(command.discPaths[0]));
+    sramBaseName = firstDiscName.replace(/\s*\(Disc\s*\d+\)/i, "").trim();
+
+    // If launching from a non-first disc, swap to it
+    if (command.initialDiscIndex && command.initialDiscIndex > 0) {
+      native.swapDisc(command.initialDiscIndex);
     }
   }
 
@@ -706,6 +724,30 @@ function handleMessage(command: WorkerCommand): void {
       try {
         native?.cheatSet(command.index, command.enabled, command.code);
         sendResponse(command.requestId, true);
+      } catch (error) {
+        sendResponse(
+          command.requestId,
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      break;
+
+    case "swapDisc":
+      try {
+        if (!native) {
+          throw new Error("No core loaded");
+        }
+        const swapSuccess = native.swapDisc(command.index);
+        if (!swapSuccess) {
+          throw new Error(`Failed to swap to disc ${command.index}`);
+        }
+        sendResponse(command.requestId, true);
+        send({
+          type: "discChanged",
+          index: command.index,
+          total: native.getDiscCount(),
+        });
       } catch (error) {
         sendResponse(
           command.requestId,
