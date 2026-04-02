@@ -122,30 +122,32 @@ export class ArtworkService extends EventEmitter {
   }
 
   /**
-   * One-time backfill for games synced before ROM-level region/serial tracking.
-   * Queries ScreenScraper by hash (no artwork download) to get romRegions
-   * and romSerial, then re-derives the regional system display name.
-   * Skips games that already have both romRegions and serial, or that lack
-   * metadata (never synced). Requires credentials — silently skips if unconfigured.
+   * Reconcile metadata for previously-synced games that are missing fields
+   * added after their original sync (e.g. serial, romRegions).
+   *
+   * Queries ScreenScraper by hash (no artwork download) and patches only
+   * the missing fields. Scoped to disc-based systems (PSX, Saturn) for
+   * serial, since that's the only field currently needing reconciliation.
+   *
+   * Requires credentials — silently skips if unconfigured.
    */
   private async backfillRomRegions(): Promise<void> {
-    // Wait for config to load (fire-and-forget constructor)
+    // Wait for both config and library to load before checking games
     await this.configLoaded;
+    await this.libraryService.whenReady();
 
     if (!this.hasCredentials()) {
       return;
     }
 
     const games = this.libraryService.getGames();
-    const needsBackfill = games.filter(
-      (g) => g.metadata && (!g.romRegions || g.romRegions.length === 0 || !g.serial),
-    );
+    const needsBackfill = games.filter((g) => g.metadata && this.hasMissingMetadata(g));
 
     if (needsBackfill.length === 0) {
       return;
     }
 
-    artworkLog.info(`Backfilling ROM metadata for ${needsBackfill.length} game(s)`);
+    artworkLog.info(`Reconciling metadata for ${needsBackfill.length} game(s)`);
 
     let client: ScreenScraperClient;
     try {
@@ -254,6 +256,29 @@ export class ArtworkService extends EventEmitter {
   async setCredentials(userId: string, userPassword: string): Promise<void> {
     this.config.screenscraper = { userId, userPassword };
     await this.saveConfig();
+  }
+
+  /**
+   * Check whether a synced game is missing any metadata fields that
+   * ScreenScraper could provide. Used to decide which games need
+   * reconciliation on startup.
+   */
+  /**
+   * Check whether a previously-synced game is missing metadata fields that
+   * ScreenScraper could provide. Only returns true for games that have been
+   * successfully synced before (have cover art or populated metadata) but
+   * are missing fields added after the original sync.
+   */
+  private hasMissingMetadata(game: Game): boolean {
+    // Only reconcile games that were successfully synced (have cover art)
+    // and are disc-based systems that benefit from serial metadata.
+    if (!game.coverArt) {
+      return false;
+    }
+    if (!game.serial && (game.systemId === "psx" || game.systemId === "saturn")) {
+      return true;
+    }
+    return false;
   }
 
   /** Check whether user credentials are configured. */
