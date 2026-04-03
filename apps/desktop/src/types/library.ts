@@ -1,5 +1,5 @@
 /** Where a cheat entry was sourced from. */
-export type CheatSource = "libretro" | "chtdb";
+export type CheatSource = "libretro" | "chtdb" | "gamehacking";
 
 /** A single cheat code parsed from a cheat database file. */
 export interface CheatEntry {
