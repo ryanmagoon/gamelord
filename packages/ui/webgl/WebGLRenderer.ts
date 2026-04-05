@@ -332,6 +332,16 @@ export class WebGLRenderer {
       gl.uniform1f(gl.getUniformLocation(program, "u_time"), performance.now() / 1000.0);
       gl.uniform1i(gl.getUniformLocation(program, "u_frameCount"), this.frameCount);
 
+      // Set preset-level shader parameters as uniforms
+      if (this.currentPreset?.parameters) {
+        for (const [name, value] of Object.entries(this.currentPreset.parameters)) {
+          const loc = gl.getUniformLocation(program, name);
+          if (loc) {
+            gl.uniform1f(loc, value);
+          }
+        }
+      }
+
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
       // For feedback passes that are also the last pass, re-draw to screen.

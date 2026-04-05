@@ -189,6 +189,22 @@ export class IPCHandlers {
             // Spawn the emulation worker process
             const workerClient = new EmulationWorkerClient();
             const addonPath = resolveAddonPath();
+
+            // Build disc paths for multi-disc games
+            let discPaths: string[] | undefined;
+            let initialDiscIndex: number | undefined;
+            if (game.discGroup) {
+              const allGames = this.libraryService.getGames(systemId);
+              const groupGames = allGames
+                .filter((g) => g.discGroup === game.discGroup)
+                .sort((a, b) => (a.discNumber ?? 0) - (b.discNumber ?? 0));
+              if (groupGames.length > 1) {
+                discPaths = groupGames.map((g) => g.romPath);
+                const launchedIndex = groupGames.findIndex((g) => g.id === game.id);
+                initialDiscIndex = launchedIndex >= 0 ? launchedIndex : 0;
+              }
+            }
+
             const avInfo = await workerClient.init({
               corePath: nativeCore.getCorePath(),
               romPath: nativeCore.getRomPath(),
@@ -197,6 +213,8 @@ export class IPCHandlers {
               sramDir: nativeCore.getSramDir(),
               saveStatesDir: nativeCore.getSaveStatesDir(),
               addonPath,
+              discPaths,
+              initialDiscIndex,
             });
 
             // Store the worker client on the emulator manager for control routing
@@ -213,6 +231,7 @@ export class IPCHandlers {
               avInfo,
               shouldResume,
               cardScreenBounds,
+              discPaths ? { paths: discPaths, initialIndex: initialDiscIndex ?? 0 } : undefined,
             );
           } else {
             // Legacy overlay mode: external RetroArch process
@@ -300,6 +319,16 @@ export class IPCHandlers {
         return { success: true };
       } catch (error) {
         ipcLog.error("Failed to set fast-forward audio:", error);
+        return { success: false, error: errorMessage(error) };
+      }
+    });
+
+    ipcMain.handle("emulation:swapDisc", async (_event, index: number) => {
+      try {
+        await this.emulatorManager.swapDisc(index);
+        return { success: true };
+      } catch (error) {
+        ipcLog.error("Failed to swap disc:", error);
         return { success: false, error: errorMessage(error) };
       }
     });
@@ -513,6 +542,9 @@ export class IPCHandlers {
     this.emulatorManager.on("emulator:reset", () => forwardEvent("emulator:reset"));
     this.emulatorManager.on("emulator:speedChanged", (data) =>
       forwardEvent("emulator:speedChanged", data),
+    );
+    this.emulatorManager.on("emulator:discChanged", (data) =>
+      forwardEvent("emulator:discChanged", data),
     );
     this.emulatorManager.on("emulator:terminated", () => {
       forwardEvent("emulator:terminated");

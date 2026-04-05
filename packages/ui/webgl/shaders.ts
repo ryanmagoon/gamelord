@@ -294,6 +294,11 @@ uniform vec2 u_resolution;
 uniform vec2 u_textureSize;
 uniform int u_frameCount;
 
+// Tunable parameters (set from preset)
+uniform float u_scanlineWeight;
+uniform float u_maskStrength;
+uniform float u_sharper;
+
 in vec2 v_texCoord;
 out vec4 fragColor;
 
@@ -305,9 +310,6 @@ const float cornersize = 0.03;
 const float cornersmooth = 1000.0;
 const float overscan_x = 100.0;
 const float overscan_y = 100.0;
-const float DOTMASK = 0.3;
-const float SHARPER = 1.0;
-const float scanline_weight = 0.3;
 const float lum = 0.0;
 const float SATURATION = 1.0;
 
@@ -327,7 +329,7 @@ float corner(vec2 coord) {
 
 vec4 scanlineWeights(float distance, vec4 color) {
   vec4 wid = 2.0 + 2.0 * pow(color, vec4(4.0));
-  vec4 weights = vec4(distance / scanline_weight);
+  vec4 weights = vec4(distance / u_scanlineWeight);
   return (lum + 1.4) * exp(-pow(weights * inversesqrt(0.5 * wid), wid)) / (0.6 + 0.2 * wid);
 }
 
@@ -346,19 +348,22 @@ void main() {
 
   float cval = corner(xy);
 
-  // Interlace factor (detect interlaced content > 200 lines)
-  vec2 ilfac = vec2(1.0, clamp(floor(u_textureSize.y / 200.0), 1.0, 2.0));
+  // Interlace detection disabled: libretro cores deliver deinterlaced progressive
+  // frames, so the shader should not skip scanlines for >200-line content.
+  // The original crt-geom interlace logic halved vertical resolution for 480i,
+  // which destroyed text on the PS1 boot screen (640x480 output).
+  vec2 ilfac = vec2(1.0, 1.0);
 
   // Texel size accounting for sharpness
-  vec2 one = ilfac / vec2(SHARPER * u_textureSize.x, u_textureSize.y);
+  vec2 one = ilfac / vec2(u_sharper * u_textureSize.x, u_textureSize.y);
 
   // Sub-texel position within the current scanline pair
-  vec2 ratio_scale = (xy * u_textureSize - vec2(0.5)) / ilfac;
+  vec2 ratio_scale = xy * u_textureSize - vec2(0.5);
   float filter_ = u_textureSize.y / u_resolution.y;
   vec2 uv_ratio = fract(ratio_scale);
 
   // Snap to texel center
-  xy = (floor(ratio_scale) * ilfac + vec2(0.5)) / u_textureSize;
+  xy = (floor(ratio_scale) + vec2(0.5)) / u_textureSize;
 
   // Lanczos2 horizontal coefficients
   vec4 coeffs = PI * vec4(1.0 + uv_ratio.x, uv_ratio.x, 1.0 - uv_ratio.x, 2.0 - uv_ratio.x);
@@ -398,14 +403,14 @@ void main() {
   // Dot mask: alternate green-tinted and magenta-tinted columns
   float mod_factor = v_texCoord.x * u_textureSize.x * u_resolution.x / u_textureSize.x;
   vec3 dotMaskWeights = mix(
-    vec3(1.0, 1.0 - DOTMASK, 1.0),
-    vec3(1.0 - DOTMASK, 1.0, 1.0 - DOTMASK),
+    vec3(1.0, 1.0 - u_maskStrength, 1.0),
+    vec3(1.0 - u_maskStrength, 1.0, 1.0 - u_maskStrength),
     vec3(floor(mod(mod_factor, 2.0)))
   );
   mul_res *= dotMaskWeights;
 
   // Gamma correction — compensate for scanline + mask embedded gamma
-  vec3 pwr = vec3(1.0 / ((-0.7 * (1.0 - scanline_weight) + 1.0) * (-0.5 * DOTMASK + 1.0)) - 1.25);
+  vec3 pwr = vec3(1.0 / ((-0.7 * (1.0 - u_scanlineWeight) + 1.0) * (-0.5 * u_maskStrength + 1.0)) - 1.25);
   vec3 cir = mul_res - 1.0;
   cir *= cir;
   mul_res = mix(sqrt(mul_res), sqrt(1.0 - cir), pwr);
