@@ -6,6 +6,8 @@ import {
   parseDuckStationChtFile,
   formatSerial,
   isBeetleCompatible,
+  parseGgBinary,
+  ggToGameShark,
 } from "./CheatDatabaseService";
 
 describe("parseChtFile", () => {
@@ -407,5 +409,215 @@ describe("isBeetleCompatible", () => {
     // 2F/FFFF patterns from extended DuckStation format
     expect(isBeetleCompatible("2F004010 00000000")).toBe(false);
     expect(isBeetleCompatible("FFFFFFFF FFFFFFFF")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MiSTer .gg binary parser
+// ---------------------------------------------------------------------------
+
+/**
+ * Helper to build a .gg binary buffer from structured entries.
+ * Each entry is 16 bytes: compareFlag(u32LE), address(u32LE),
+ * compareValue(u32LE), replaceValue(u32LE).
+ */
+function buildGgBuffer(
+  entries: Array<{
+    compareFlag: number;
+    address: number;
+    compareValue: number;
+    replaceValue: number;
+  }>,
+): Buffer {
+  const buf = Buffer.alloc(entries.length * 16);
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]!;
+    buf.writeUInt32LE(entry.compareFlag, i * 16);
+    buf.writeUInt32LE(entry.address, i * 16 + 4);
+    buf.writeUInt32LE(entry.compareValue, i * 16 + 8);
+    buf.writeUInt32LE(entry.replaceValue, i * 16 + 12);
+  }
+  return buf;
+}
+
+describe("parseGgBinary", () => {
+  it("returns empty array for empty buffer", () => {
+    expect(parseGgBinary(Buffer.alloc(0))).toEqual([]);
+  });
+
+  it("parses a single 16-byte entry without compare", () => {
+    const buf = buildGgBuffer([
+      { compareFlag: 0, address: 0x0c_51_ac, compareValue: 0, replaceValue: 0x00_8c },
+    ]);
+    const codes = parseGgBinary(buf);
+
+    expect(codes).toHaveLength(1);
+    expect(codes[0]).toEqual({
+      compareFlag: 0,
+      address: 0x0c_51_ac,
+      compareValue: 0,
+      replaceValue: 0x00_8c,
+    });
+  });
+
+  it("parses a single entry with compare flag set", () => {
+    const buf = buildGgBuffer([
+      { compareFlag: 1, address: 0xff_1c_a0, compareValue: 0xb5, replaceValue: 0xff },
+    ]);
+    const codes = parseGgBinary(buf);
+
+    expect(codes).toHaveLength(1);
+    expect(codes[0]).toEqual({
+      compareFlag: 1,
+      address: 0xff_1c_a0,
+      compareValue: 0xb5,
+      replaceValue: 0xff,
+    });
+  });
+
+  it("parses multiple entries (32 bytes = 2 codes)", () => {
+    const buf = buildGgBuffer([
+      { compareFlag: 0, address: 0x0c_51_ac, compareValue: 0, replaceValue: 0x00_8c },
+      { compareFlag: 1, address: 0x0c_f8_44, compareValue: 0x00_10, replaceValue: 0x00_c8 },
+    ]);
+    const codes = parseGgBinary(buf);
+
+    expect(codes).toHaveLength(2);
+    expect(codes[0]!.compareFlag).toBe(0);
+    expect(codes[1]!.compareFlag).toBe(1);
+  });
+
+  it("ignores trailing bytes that don't form a complete 16-byte entry", () => {
+    // 20 bytes = 1 full entry + 4 leftover bytes
+    const full = buildGgBuffer([
+      { compareFlag: 0, address: 0x0c_51_ac, compareValue: 0, replaceValue: 0x00_8c },
+    ]);
+    const buf = Buffer.concat([full, Buffer.from([0xde, 0xad, 0xbe, 0xef])]);
+
+    const codes = parseGgBinary(buf);
+    expect(codes).toHaveLength(1);
+  });
+
+  it("returns empty array for buffer smaller than 16 bytes", () => {
+    expect(parseGgBinary(Buffer.alloc(15))).toEqual([]);
+  });
+
+  it("handles addresses with PSX RAM base (0x80_00_00_00)", () => {
+    const buf = buildGgBuffer([
+      { compareFlag: 0, address: 0x80_0c_51_ac, compareValue: 0, replaceValue: 0x00_8c },
+    ]);
+    const codes = parseGgBinary(buf);
+
+    expect(codes).toHaveLength(1);
+    expect(codes[0]!.address).toBe(0x80_0c_51_ac);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// .gg → GameShark conversion
+// ---------------------------------------------------------------------------
+
+describe("ggToGameShark", () => {
+  it("converts a 16-bit write (no compare, value > 0xFF)", () => {
+    const result = ggToGameShark({
+      compareFlag: 0,
+      address: 0x0c_51_ac,
+      compareValue: 0,
+      replaceValue: 0x00_8c,
+    });
+    // 16-bit write: 80 prefix + 24-bit address + 4-hex value
+    expect(result).toBe("800C51AC 008C");
+  });
+
+  it("uses 16-bit write even for small values (format is not recoverable from .gg)", () => {
+    const result = ggToGameShark({
+      compareFlag: 0,
+      address: 0x0c_87_14,
+      compareValue: 0,
+      replaceValue: 0x3f,
+    });
+    // Always 80 prefix — the .gg format doesn't encode 8-bit vs 16-bit
+    expect(result).toBe("800C8714 003F");
+  });
+
+  it("converts a conditional write (compare flag set)", () => {
+    const result = ggToGameShark({
+      compareFlag: 1,
+      address: 0x0c_f8_44,
+      compareValue: 0x00_10,
+      replaceValue: 0x00_c8,
+    });
+    // Conditional: D0 compare line + 80 write line
+    expect(result).toBe("D00CF844 0010+800CF844 00C8");
+  });
+
+  it("masks off PSX RAM base address (0x80_00_00_00)", () => {
+    const result = ggToGameShark({
+      compareFlag: 0,
+      address: 0x80_0c_51_ac,
+      compareValue: 0,
+      replaceValue: 0x00_8c,
+    });
+    expect(result).toBe("800C51AC 008C");
+  });
+
+  it("handles address without PSX base correctly", () => {
+    const result = ggToGameShark({
+      compareFlag: 0,
+      address: 0x00_12_34,
+      compareValue: 0,
+      replaceValue: 0xab,
+    });
+    expect(result).toBe("80001234 00AB");
+  });
+
+  it("produces output that passes isBeetleCompatible for simple writes", () => {
+    const result = ggToGameShark({
+      compareFlag: 0,
+      address: 0x0c_51_ac,
+      compareValue: 0,
+      replaceValue: 0x00_8c,
+    });
+    expect(isBeetleCompatible(result)).toBe(true);
+  });
+
+  it("produces output where each line passes isBeetleCompatible for conditional writes", () => {
+    const result = ggToGameShark({
+      compareFlag: 1,
+      address: 0x0c_f8_44,
+      compareValue: 0x00_10,
+      replaceValue: 0x00_c8,
+    });
+    expect(isBeetleCompatible(result)).toBe(true);
+  });
+
+  it("zero-pads small values in 16-bit write format", () => {
+    const result = ggToGameShark({
+      compareFlag: 0,
+      address: 0x0c_87_14,
+      compareValue: 0,
+      replaceValue: 0,
+    });
+    expect(result).toBe("800C8714 0000");
+  });
+
+  it("handles max single-byte value as 16-bit write", () => {
+    const result = ggToGameShark({
+      compareFlag: 0,
+      address: 0x0c_87_14,
+      compareValue: 0,
+      replaceValue: 0xff,
+    });
+    expect(result).toBe("800C8714 00FF");
+  });
+
+  it("handles multi-byte value as 16-bit write", () => {
+    const result = ggToGameShark({
+      compareFlag: 0,
+      address: 0x0c_87_14,
+      compareValue: 0,
+      replaceValue: 0x01_00,
+    });
+    expect(result).toBe("800C8714 0100");
   });
 });
