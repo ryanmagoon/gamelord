@@ -1,6 +1,6 @@
 # GameLord
 
-A native emulation frontend for macOS. Loads libretro cores directly via a native Node addon — no external emulator processes, no RetroArch wrapper. Built with Electron, React, TypeScript, and shadcn/ui.
+An emulation frontend for macOS built with Electron, React, and TypeScript.
 
 <!-- TODO: Add screenshots/GIFs of library view, game window with CRT shader, save state UI -->
 
@@ -56,17 +56,6 @@ pnpm lint          # Lint
 pnpm typecheck     # Type check
 pnpm storybook     # Component browser
 ```
-
-## Project Structure
-
-This is a Turborepo monorepo:
-
-```
-apps/desktop/       Electron app — main process, renderer, native addon
-packages/ui/        Shared React components and Storybook stories
-```
-
-The native addon lives in `apps/desktop/native/` and implements the libretro frontend API in C++. The emulation loop runs in an Electron utility process with hybrid sleep+spin frame pacing for consistent frame delivery on 120Hz+ displays.
 
 ## Core & BIOS Paths
 
