@@ -38,7 +38,6 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 ## Testing
 
 - Colocate tests next to source files (e.g. `Foo.test.ts` next to `Foo.ts`)
-- Use happy-dom over jsdom when a simulated DOM is needed
 - Run `pnpm test` before pushing
 
 ## UI Components
