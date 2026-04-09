@@ -1,6 +1,6 @@
 # GameLord
 
-An emulation frontend for macOS built with Electron, React, and TypeScript.
+An emulation frontend built with Electron, React, and TypeScript.
 
 <!-- TODO: Add screenshots/GIFs of library view, game window with CRT shader, save state UI -->
 
@@ -36,10 +36,10 @@ More systems are on the way — the goal is to support any libretro-compatible c
 
 ### Prerequisites
 
-- macOS 12+
 - Node.js 18+
 - pnpm 9+
-- Xcode Command Line Tools (for the native addon)
+- **macOS:** Xcode Command Line Tools (for the native addon)
+- **Windows:** Visual Studio Build Tools with the C++ workload
 
 ### Setup
 
