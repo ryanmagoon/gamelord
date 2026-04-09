@@ -6,7 +6,7 @@ An emulation frontend for macOS built with Electron, React, and TypeScript.
 
 ## Features
 
-- **Native libretro integration** — Cores are loaded via `dlopen` in a dedicated utility process with sub-millisecond frame pacing
+- **Libretro core support** — Runs cores natively via a C++ addon
 - **WebGL rendering with CRT shaders** — Scanlines, curvature, bloom, and other retro effects via multi-pass WebGL2 shaders
 - **Library management** — Automatic ROM scanning, metadata lookup, and cover art sync
 - **Save states** — Multiple slots with autosave on close
