@@ -68,6 +68,16 @@ pnpm typecheck     # Type check
 pnpm storybook     # Component browser
 ```
 
+## Sponsors
+
+<a href="https://sentry.io">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/sentry-light.svg" />
+    <source media="(prefers-color-scheme: light)" srcset=".github/assets/sentry-dark.svg" />
+    <img alt="Sentry" src=".github/assets/sentry-dark.svg" width="160" />
+  </picture>
+</a>
+
 ## License
 
 [MIT](LICENSE)
