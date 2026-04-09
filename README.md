@@ -1,6 +1,10 @@
-# GameLord
+<p align="center">
+  <img src="apps/desktop/build/icon.png" alt="GameLord" width="128" />
+</p>
 
-An emulation frontend built with Electron, React, and TypeScript.
+<h1 align="center">GameLord</h1>
+
+<p align="center">A vibesmaxxed emulation frontend built with Electron, React, and TypeScript.</p>
 
 <!-- TODO: Add screenshots/GIFs of library view, game window with CRT shader, save state UI -->
 
