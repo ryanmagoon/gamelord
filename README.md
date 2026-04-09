@@ -1,140 +1,78 @@
 # GameLord
 
-A modern, elegant emulation frontend built as a spiritual successor to OpenEmu, featuring superior UI/UX polish and advanced features. Built with Electron, React, TypeScript, and shadcn/ui.
+A native emulation frontend for macOS. Loads libretro cores directly via a native Node addon — no external emulator processes, no RetroArch wrapper. Built with Electron, React, TypeScript, and shadcn/ui.
 
-![GameLord](./assets/banner.png)
+<!-- TODO: Add screenshots/GIFs of library view, game window with CRT shader, save state UI -->
 
 ## Features
 
-- 🎮 **Multi-System Support** - Powered by libretro cores for compatibility with multiple gaming systems
-- 🎨 **Beautiful Native UI** - Built with shadcn/ui for a polished, macOS-native appearance
-- 🚀 **High Performance** - WebGL rendering with shader effects and optimized frame timing
-- 🎯 **Library Management** - Automatic ROM scanning with multi-system detection, metadata and cover art
-- 💾 **Save State Management** - Quick save/load with multiple slots and autosave on close
-- 🌈 **Visual Effects** - CRT shaders, scanlines, and other retro visual enhancements via WebGL2
+- **Native libretro integration** — Cores are loaded via `dlopen` in a dedicated utility process with sub-millisecond frame pacing
+- **WebGL rendering with CRT shaders** — Scanlines, curvature, bloom, and other retro effects via multi-pass WebGL2 shaders
+- **Library management** — Automatic ROM scanning, metadata lookup, and cover art sync
+- **Save states** — Multiple slots with autosave on close
+- **Multi-disc swap** — Swap discs mid-game for multi-disc PSX titles
+- **Cheat support** — RetroArch `.cht` files and DuckStation chtdb database
+
+## Supported Systems
+
+GameLord aims to support any system with a libretro core. Currently implemented:
+
+| System | Cores |
+|--------|-------|
+| NES | fceumm, nestopia, mesen |
+| PlayStation | PCSX ReARMed, Beetle PSX HW, SwanStation |
+| Sega Saturn | Beetle Saturn, Yabause |
+
+More cores are being added — the architecture supports any libretro-compatible core.
 
 ## Getting Started
 
 ### Prerequisites
 
+- macOS 12+
 - Node.js 18+
-- pnpm 8+
-- macOS 11+ (for development)
+- pnpm 9+
+- Xcode Command Line Tools (for the native addon)
 
-### Installation
+### Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/gamelord.git
+git clone https://github.com/ryanmagoon/gamelord.git
 cd gamelord
-
-# Install dependencies
 pnpm install
 
-# Start development server
-pnpm start
+# Build the native addon (required for emulation)
+cd apps/desktop/native && npx node-gyp rebuild && cd ../../..
+
+# Start development
+pnpm dev
 ```
 
-### Development
+### Other Commands
 
 ```bash
-# Run in development mode
-pnpm start
-
-# Build for production
-pnpm run make
-
-# Run tests
-pnpm test
-
-# Lint code
-pnpm run lint
+pnpm test          # Run tests
+pnpm lint          # Lint
+pnpm typecheck     # Type check
+pnpm storybook     # Component browser
 ```
 
 ## Project Structure
 
+This is a Turborepo monorepo:
+
 ```
-gamelord/
-├── src/
-│   ├── main/              # Main process code
-│   │   ├── index.ts       # Main entry point
-│   │   ├── core/          # Core management
-│   │   └── ipc/           # IPC handlers
-│   ├── renderer/          # Renderer process (React app)
-│   │   ├── components/    # React components
-│   │   ├── hooks/         # Custom React hooks
-│   │   ├── stores/        # Zustand stores
-│   │   ├── lib/           # Utilities
-│   │   └── types/         # TypeScript types
-│   └── preload/           # Preload scripts
-├── assets/                # Static assets
-├── forge.config.ts        # Electron Forge config
-├── vite.*.config.ts       # Vite configurations
-└── package.json
+apps/desktop/       Electron app — main process, renderer, native addon
+packages/ui/        Shared React components and Storybook stories
 ```
 
-## Configuration
+The native addon lives in `apps/desktop/native/` and implements the libretro frontend API in C++. The emulation loop runs in an Electron utility process with hybrid sleep+spin frame pacing for consistent frame delivery on 120Hz+ displays.
 
-### Environment Variables
+## Core & BIOS Paths
 
-Create a `.env` file in the root directory:
-
-```env
-# Apple Developer Credentials (for code signing)
-APPLE_DEVELOPER_ID="Developer ID Application: Your Name (TEAMID)"
-APPLE_ID="your-apple-id@example.com"
-APPLE_ID_PASSWORD="app-specific-password"
-APPLE_TEAM_ID="TEAMID"
-```
-
-### Supported Systems
-
-GameLord supports the following systems through libretro cores:
-
-- Nintendo Entertainment System (NES)
-- Super Nintendo Entertainment System (SNES)
-- Game Boy / Game Boy Color
-- Game Boy Advance
-- Nintendo 64
-- Nintendo DS
-- Sega Genesis / Mega Drive
-- Sega Saturn
-- Sony PlayStation
-- And more...
-
-## Building
-
-### macOS
-
-```bash
-# Build for macOS
-pnpm run make
-
-# Build and sign for distribution
-pnpm run publish
-```
-
-The built application will be available in the `out` directory.
-
-### Code Signing
-
-For macOS distribution, you'll need:
-
-1. An Apple Developer account
-2. A valid Developer ID certificate
-3. Notarization credentials
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Guidelines
-
-- Follow the existing code style
-- Write tests for new features
-- Update documentation as needed
-- Create detailed pull requests
+- Cores: `~/Library/Application Support/GameLord/cores/` (`.dylib` files)
+- BIOS: `~/Library/Application Support/GameLord/BIOS/` (e.g. `scph5501.bin` for PSX)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+[MIT](LICENSE)
