@@ -57,11 +57,6 @@ pnpm typecheck     # Type check
 pnpm storybook     # Component browser
 ```
 
-## Core & BIOS Paths
-
-- Cores: `~/Library/Application Support/GameLord/cores/` (`.dylib` files)
-- BIOS: `~/Library/Application Support/GameLord/BIOS/` (e.g. `scph5501.bin` for PSX)
-
 ## License
 
 [MIT](LICENSE)
