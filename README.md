@@ -30,6 +30,8 @@ An emulation frontend for macOS built with Electron, React, and TypeScript.
 | Sega Saturn | Beetle Saturn, Yabause |
 | SNES | Snes9x, bsnes |
 
+More systems are on the way — the goal is to support any libretro-compatible core.
+
 ## Getting Started
 
 ### Prerequisites
