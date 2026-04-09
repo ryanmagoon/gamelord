@@ -15,15 +15,20 @@ An emulation frontend for macOS built with Electron, React, and TypeScript.
 
 ## Supported Systems
 
-GameLord aims to support any system with a libretro core. Currently implemented:
-
 | System | Cores |
 |--------|-------|
-| NES | fceumm, nestopia, mesen |
+| Arcade | MAME |
+| Game Boy | Gambatte, mGBA |
+| Game Boy Advance | mGBA, VBA Next |
+| Game Boy Color | Gambatte, mGBA |
+| Genesis / Mega Drive | Genesis Plus GX, PicoDrive |
+| N64 | Mupen64Plus Next, ParaLLEl N64 |
+| Nintendo DS | DeSmuME |
+| NES | fceumm, Nestopia, Mesen |
+| PSP | PPSSPP |
 | PlayStation | PCSX ReARMed, Beetle PSX HW, SwanStation |
 | Sega Saturn | Beetle Saturn, Yabause |
-
-More cores are being added — the architecture supports any libretro-compatible core.
+| SNES | Snes9x, bsnes |
 
 ## Getting Started
 
