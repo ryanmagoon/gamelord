@@ -151,6 +151,7 @@ export const GameWindow: React.FC = () => {
   const [showControlsHint, setShowControlsHint] = useState(() => {
     return localStorage.getItem("gamelord:controlsHintDismissed") !== "true";
   });
+  const [dismissingControlsHint, setDismissingControlsHint] = useState(false);
 
   // Multi-disc state
   const [discTotal, setDiscTotal] = useState(0);
@@ -158,17 +159,27 @@ export const GameWindow: React.FC = () => {
   const [showDiscSwapOverlay, setShowDiscSwapOverlay] = useState(false);
   const [swappingDiscIndex, setSwappingDiscIndex] = useState<number | undefined>(undefined);
 
-  // Auto-dismiss the controls hint after 8 seconds and persist the dismissal
-  useEffect(() => {
-    if (!showControlsHint) {
+  // Animate out the controls hint, then remove it from the DOM
+  const dismissControlsHint = useCallback(() => {
+    if (!showControlsHint || dismissingControlsHint) {
       return;
     }
-    const timer = setTimeout(() => {
+    setDismissingControlsHint(true);
+    localStorage.setItem("gamelord:controlsHintDismissed", "true");
+    setTimeout(() => {
       setShowControlsHint(false);
-      localStorage.setItem("gamelord:controlsHintDismissed", "true");
-    }, 8000);
+      setDismissingControlsHint(false);
+    }, 400); // matches the fade-out animation duration
+  }, [showControlsHint, dismissingControlsHint]);
+
+  // Auto-dismiss the controls hint after 8 seconds
+  useEffect(() => {
+    if (!showControlsHint || dismissingControlsHint) {
+      return;
+    }
+    const timer = setTimeout(dismissControlsHint, 8000);
     return () => clearTimeout(timer);
-  }, [showControlsHint]);
+  }, [showControlsHint, dismissingControlsHint, dismissControlsHint]);
 
   // Memoize power animation callbacks so they have stable references.
   // CRTAnimation's useEffect depends on `onComplete` — an inline arrow
@@ -987,8 +998,7 @@ export const GameWindow: React.FC = () => {
           return willOpen;
         });
         if (showControlsHint) {
-          setShowControlsHint(false);
-          localStorage.setItem("gamelord:controlsHintDismissed", "true");
+          dismissControlsHint();
         }
       }
     };
@@ -1001,6 +1011,7 @@ export const GameWindow: React.FC = () => {
     speedMultiplier,
     preferredFastForwardSpeed,
     showControlsHint,
+    dismissControlsHint,
     discTotal,
   ]);
 
@@ -1690,11 +1701,16 @@ export const GameWindow: React.FC = () => {
 
       {/* First-launch controls hint */}
       {showControlsHint && !showControlsOverlay && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-40 animate-[fade-in_500ms_ease-out_1s_both]">
+        <div
+          className={`absolute bottom-20 left-1/2 -translate-x-1/2 z-40 ${
+            dismissingControlsHint
+              ? "animate-[overlay-fade-out_400ms_ease-in_forwards]"
+              : "animate-[fade-in_500ms_ease-out_1s_both]"
+          }`}
+        >
           <button
             onClick={() => {
-              setShowControlsHint(false);
-              localStorage.setItem("gamelord:controlsHintDismissed", "true");
+              dismissControlsHint();
               setShowControlsOverlay(true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-black/80 border border-white/15 rounded-lg text-sm text-white/70 hover:text-white/90 hover:bg-black/90 transition-colors cursor-pointer"
