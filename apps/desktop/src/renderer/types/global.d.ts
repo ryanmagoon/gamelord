@@ -44,8 +44,8 @@ export interface GamelordAPI {
     swapDisc: (index: number) => Promise<{ success: boolean; error?: string }>;
   };
   saveState: {
-    save: (slot: number) => Promise<{ success: boolean }>;
-    load: (slot: number) => Promise<{ success: boolean }>;
+    save: (slot: number) => Promise<{ success: boolean; error?: string }>;
+    load: (slot: number) => Promise<{ success: boolean; error?: string }>;
   };
   cheats: {
     listForGame: (

@@ -13,7 +13,9 @@ import {
   SHADER_PRESETS,
   SHADER_LABELS,
   isHdrCapable,
+  Toaster,
 } from "@gamelord/ui";
+import { toast } from "sonner";
 import {
   Play,
   Pause,
@@ -895,12 +897,22 @@ export const GameWindow: React.FC = () => {
 
   const handleSaveState = async () => {
     playSfx("saveState");
-    await api.saveState.save(selectedSlot);
+    const result = await api.saveState.save(selectedSlot);
+    if (result.success) {
+      toast.success(`Saved to slot ${selectedSlot}`);
+    } else {
+      toast.error(result.error ?? "Failed to save state");
+    }
   };
 
   const handleLoadState = async () => {
-    playSfx("loadState");
-    await api.saveState.load(selectedSlot);
+    const result = await api.saveState.load(selectedSlot);
+    if (result.success) {
+      playSfx("loadState");
+      toast.success(`Loaded slot ${selectedSlot}`);
+    } else {
+      toast.error(result.error ?? "No save in this slot");
+    }
   };
 
   const handleScreenshot = async () => {
@@ -1732,6 +1744,22 @@ export const GameWindow: React.FC = () => {
         onClose={() => {
           setEmulationError(null);
           api.gameWindow.readyToClose();
+        }}
+      />
+
+      <Toaster
+        position="bottom-center"
+        theme="dark"
+        duration={2000}
+        offset={80}
+        toastOptions={{
+          style: {
+            background: "rgba(0, 0, 0, 0.8)",
+            border: "none",
+            color: "white",
+            fontSize: "13px",
+            backdropFilter: "none",
+          },
         }}
       />
     </div>
