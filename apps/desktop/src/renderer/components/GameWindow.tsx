@@ -323,6 +323,8 @@ export const GameWindow: React.FC = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioNextTimeRef = useRef(0);
   const gainNodeRef = useRef<GainNode | null>(null);
+  /** When true, the next audio chunk gets a per-sample fade-in ramp (0→1). */
+  const audioFadeInRef = useRef(false);
   const pendingFrameRef = useRef<VideoFrame | null>(null);
   /** Gate: don't render frames until the boot animation overlay is in place. */
   const bootReadyRef = useRef(false);
@@ -436,7 +438,6 @@ export const GameWindow: React.FC = () => {
     const maxSamples = Math.floor(MAX_CHUNK_S * sampleRate) * 2; // stereo
     let useSamples = samples;
     if (samples.length > maxSamples) {
-      // Keep only the most recent samples (the tail of the buffer)
       useSamples = samples.subarray(samples.length - maxSamples);
     }
 
@@ -448,6 +449,20 @@ export const GameWindow: React.FC = () => {
     for (let i = 0; i < useFrames; i++) {
       leftChannel[i] = useSamples[i * 2] / 32_768;
       rightChannel[i] = useSamples[i * 2 + 1] / 32_768;
+    }
+
+    // Apply per-sample fade-in ramp when resuming from a speed transition.
+    // This eliminates clicks/pops at the waveform level — the same technique
+    // DAWs use for crossfades. We ramp over ~20ms (960 frames @ 48kHz) which
+    // is long enough to be inaudible but short enough to feel instant.
+    if (audioFadeInRef.current) {
+      audioFadeInRef.current = false;
+      const fadeSamples = Math.min(useFrames, Math.ceil(sampleRate * 0.02));
+      for (let i = 0; i < fadeSamples; i++) {
+        const gain = i / fadeSamples;
+        leftChannel[i] *= gain;
+        rightChannel[i] *= gain;
+      }
     }
 
     const source = ctx.createBufferSource();
@@ -580,12 +595,19 @@ export const GameWindow: React.FC = () => {
     });
 
     api.on("emulator:paused", () => setIsPaused(true));
-    api.on("emulator:resumed", () => setIsPaused(false));
+    api.on("emulator:resumed", () => {
+      setIsPaused(false);
+      // Fade in the first audio chunk after unpause to eliminate pops.
+      audioFadeInRef.current = true;
+      audioNextTimeRef.current = 0;
+    });
     api.on("emulator:speedChanged", (raw: unknown) => {
       setSpeedMultiplier((raw as { multiplier: number }).multiplier);
       // Reset audio scheduling anchor so leftover scheduling offsets from the
       // previous speed don't cause buffer overlap during the transition.
       audioNextTimeRef.current = 0;
+      // Fade in the first audio chunk after the transition to eliminate pops.
+      audioFadeInRef.current = true;
     });
 
     api.on("emulator:discChanged", (raw: unknown) => {
@@ -827,21 +849,10 @@ export const GameWindow: React.FC = () => {
   // Sync gain node with volume/mute state and persist.
   // During fast-forward, multiple frames' audio samples overlap additively —
   // divide gain by the speed multiplier to normalize perceived volume.
-  // When returning to 1x, ramp gain smoothly to avoid a sharp volume pop
-  // from any residual buffered audio.
   useEffect(() => {
-    if (gainNodeRef.current && audioContextRef.current) {
+    if (gainNodeRef.current) {
       const baseGain = isMuted ? 0 : volume;
-      const targetGain = speedMultiplier > 1 ? baseGain / speedMultiplier : baseGain;
-      const gain = gainNodeRef.current.gain;
-      const now = audioContextRef.current.currentTime;
-
-      // Use a short ramp when transitioning to avoid audible pops.
-      // setValueAtTime anchors the ramp start; without it the ramp
-      // behavior is undefined per the Web Audio spec.
-      gain.cancelScheduledValues(now);
-      gain.setValueAtTime(gain.value, now);
-      gain.linearRampToValueAtTime(targetGain, now + 0.08);
+      gainNodeRef.current.gain.value = speedMultiplier > 1 ? baseGain / speedMultiplier : baseGain;
     }
     localStorage.setItem("gamelord:volume", String(volume));
     localStorage.setItem("gamelord:muted", String(isMuted));
