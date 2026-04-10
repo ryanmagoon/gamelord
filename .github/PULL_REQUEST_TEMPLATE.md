@@ -1,8 +1,7 @@
 ## Related Issue
 
-<!-- If this PR implements a feature or fixes a bug with an existing issue, link it below. -->
+<!-- Every PR must reference a GitHub issue. Create one first if it doesn't exist. -->
 <!-- Use "Closes #123" for features or "Fixes #123" for bugs — this auto-closes the issue on merge. -->
-<!-- If no issue exists and the work is non-trivial, create one first. -->
 
 Closes #
 
