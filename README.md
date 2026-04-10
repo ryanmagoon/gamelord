@@ -6,7 +6,13 @@
 
 <p align="center">A vibesmaxxed emulation frontend built with Electron, React, and TypeScript.</p>
 
-<!-- TODO: Add screenshots/GIFs of library view, game window with CRT shader, save state UI -->
+<p align="center">
+  <img src=".github/assets/screenshot-library.jpg" alt="GameLord library view" width="800" />
+</p>
+
+<p align="center">
+  <img src=".github/assets/screenshot-gameplay.jpg" alt="GameLord gameplay with CRT shaders" width="800" />
+</p>
 
 ## Features
 
