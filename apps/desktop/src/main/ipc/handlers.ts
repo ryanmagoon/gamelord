@@ -354,6 +354,16 @@ export class IPCHandlers {
       }
     });
 
+    ipcMain.handle("savestate:list", async () => {
+      try {
+        const states = await this.emulatorManager.listSaveStates();
+        return { success: true, states };
+      } catch (error) {
+        ipcLog.error("Failed to list save states:", error);
+        return { success: false, states: [], error: errorMessage(error) };
+      }
+    });
+
     // Screenshot
     ipcMain.handle("emulation:screenshot", async (event, outputPath?: string) => {
       try {

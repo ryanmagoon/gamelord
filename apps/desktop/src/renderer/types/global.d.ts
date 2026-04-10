@@ -6,6 +6,16 @@ import type {
   GameCheatState,
 } from "../../types/library";
 
+export interface SaveStateMetadata {
+  slot: number;
+  createdAt: string;
+  coreName: string;
+  coreVersion: string;
+  playTimeSeconds: number | null;
+  romName: string;
+  stateSize: number;
+}
+
 export interface CoreInfo {
   name: string;
   displayName: string;
@@ -46,6 +56,11 @@ export interface GamelordAPI {
   saveState: {
     save: (slot: number) => Promise<{ success: boolean; error?: string }>;
     load: (slot: number) => Promise<{ success: boolean; error?: string }>;
+    list: () => Promise<{
+      success: boolean;
+      states: Array<SaveStateMetadata>;
+      error?: string;
+    }>;
   };
   cheats: {
     listForGame: (

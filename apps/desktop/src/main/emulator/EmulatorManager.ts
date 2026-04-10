@@ -4,6 +4,7 @@ import { EmulatorCore, EmulatorInfo, EmulatorLaunchOptions } from "./EmulatorCor
 import { RetroArchCore } from "./RetroArchCore";
 import { LibretroNativeCore } from "./LibretroNativeCore";
 import { EmulationWorkerClient } from "./EmulationWorkerClient";
+import type { SaveStateMetadata } from "../workers/core-worker-protocol";
 import { CoreDownloader, CoreInfo } from "./CoreDownloader";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -472,6 +473,16 @@ export class EmulatorManager extends EventEmitter {
       throw new Error("No emulator is currently running");
     }
     await this.currentEmulator.loadState(slot);
+  }
+
+  /**
+   * List save state metadata for the current game
+   */
+  async listSaveStates(): Promise<Array<SaveStateMetadata>> {
+    if (this.workerClient?.isRunning()) {
+      return await this.workerClient.listSaveStates();
+    }
+    throw new Error("No emulator is currently running");
   }
 
   /**

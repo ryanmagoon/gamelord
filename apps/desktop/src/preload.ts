@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld("gamelord", {
   saveState: {
     save: (slot: number) => ipcRenderer.invoke("savestate:save", slot),
     load: (slot: number) => ipcRenderer.invoke("savestate:load", slot),
+    list: () => ipcRenderer.invoke("savestate:list"),
   },
 
   // Cheats

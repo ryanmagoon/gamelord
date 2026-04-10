@@ -15,6 +15,7 @@ import type {
   WorkerCommand,
   WorkerEvent,
   AVInfo,
+  SaveStateMetadata,
 } from "./core-worker-protocol";
 import {
   CTRL_ACTIVE_BUFFER,
@@ -154,6 +155,19 @@ function saveState(slot: number): void {
   const statePath = getStatePath(slot);
   fs.mkdirSync(path.dirname(statePath), { recursive: true });
   fs.writeFileSync(statePath, Buffer.from(stateData.buffer));
+
+  const systemInfo = native.getSystemInfo();
+  const metadata: SaveStateMetadata = {
+    slot,
+    createdAt: new Date().toISOString(),
+    coreName: systemInfo?.libraryName ?? "Unknown",
+    coreVersion: systemInfo?.libraryVersion ?? "Unknown",
+    playTimeSeconds: null,
+    romName: getRomName(),
+    stateSize: stateData.byteLength,
+  };
+  const metaPath = statePath.replace(/\.sav$/, ".json");
+  fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
 }
 
 function loadState(slot: number): void {
@@ -172,6 +186,63 @@ function loadState(slot: number): void {
   if (!native.unserializeState(stateData)) {
     throw new Error("Failed to restore state");
   }
+}
+
+function listSaveStates(): Array<SaveStateMetadata> {
+  const romName = getRomName();
+  const dir = path.join(saveStatesDir, romName);
+
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(dir);
+  const states: Array<SaveStateMetadata> = [];
+
+  for (const entry of entries) {
+    if (!entry.endsWith(".sav")) {
+      continue;
+    }
+
+    const savPath = path.join(dir, entry);
+    const metaPath = savPath.replace(/\.sav$/, ".json");
+
+    // Derive slot number from filename
+    let slot: number;
+    if (entry === "autosave.sav") {
+      slot = 99;
+    } else {
+      const match = entry.match(/^state-(\d+)\.sav$/);
+      if (!match) {
+        continue;
+      }
+      slot = Number.parseInt(match[1], 10);
+    }
+
+    if (fs.existsSync(metaPath)) {
+      try {
+        const raw = fs.readFileSync(metaPath, "utf8");
+        states.push(JSON.parse(raw) as SaveStateMetadata);
+        continue;
+      } catch {
+        // Fall through to stat-based fallback
+      }
+    }
+
+    // Fallback for legacy saves without metadata sidecar
+    const stat = fs.statSync(savPath);
+    states.push({
+      slot,
+      createdAt: stat.mtime.toISOString(),
+      coreName: "Unknown",
+      coreVersion: "Unknown",
+      playTimeSeconds: null,
+      romName,
+      stateSize: stat.size,
+    });
+  }
+
+  return states.sort((a, b) => a.slot - b.slot);
 }
 
 // ---------------------------------------------------------------------------
@@ -748,6 +819,19 @@ function handleMessage(command: WorkerCommand): void {
           index: command.index,
           total: native.getDiscCount(),
         });
+      } catch (error) {
+        sendResponse(
+          command.requestId,
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      break;
+
+    case "listSaveStates":
+      try {
+        const states = listSaveStates();
+        sendResponse(command.requestId, true, undefined, { states });
       } catch (error) {
         sendResponse(
           command.requestId,
