@@ -14,8 +14,8 @@ import {
   SHADER_LABELS,
   isHdrCapable,
   Toaster,
+  toast,
 } from "@gamelord/ui";
-import { toast } from "sonner";
 import {
   Play,
   Pause,
