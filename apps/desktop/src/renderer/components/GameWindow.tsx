@@ -13,6 +13,8 @@ import {
   SHADER_PRESETS,
   SHADER_LABELS,
   isHdrCapable,
+  Toaster,
+  toast,
 } from "@gamelord/ui";
 import {
   Play,
@@ -507,7 +509,6 @@ export const GameWindow: React.FC = () => {
     api.removeAllListeners("emulator:discChanged");
     api.removeAllListeners("game:disc-info");
     api.removeAllListeners("game:emulation-error");
-
     // Register for SharedArrayBuffer delivery via MessagePort bridge.
     // The main process sends SABs through a MessagePort because contextBridge
     // cannot transfer SharedArrayBuffer directly.
@@ -895,12 +896,24 @@ export const GameWindow: React.FC = () => {
 
   const handleSaveState = async () => {
     playSfx("saveState");
-    await api.saveState.save(selectedSlot);
+    const result = await api.saveState.save(selectedSlot);
+    if (result.success) {
+      toast.success(`Saved to slot ${selectedSlot}`);
+    } else {
+      toast.error(result.error ?? "Failed to save state");
+    }
   };
 
   const handleLoadState = async () => {
-    playSfx("loadState");
-    await api.saveState.load(selectedSlot);
+    const result = await api.saveState.load(selectedSlot);
+    if (result.success) {
+      playSfx("loadState");
+      toast.success(`Loaded slot ${selectedSlot}`);
+    } else if (result.errorCode === "empty_slot") {
+      toast(`No save in slot ${selectedSlot}`);
+    } else {
+      toast.error(result.error ?? "Failed to load state");
+    }
   };
 
   const handleScreenshot = async () => {
@@ -1732,6 +1745,22 @@ export const GameWindow: React.FC = () => {
         onClose={() => {
           setEmulationError(null);
           api.gameWindow.readyToClose();
+        }}
+      />
+
+      <Toaster
+        position="bottom-center"
+        theme="dark"
+        duration={2000}
+        offset={80}
+        toastOptions={{
+          style: {
+            background: "rgba(0, 0, 0, 0.8)",
+            border: "none",
+            color: "white",
+            fontSize: "13px",
+            backdropFilter: "none",
+          },
         }}
       />
     </div>

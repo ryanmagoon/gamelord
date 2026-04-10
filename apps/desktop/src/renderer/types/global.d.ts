@@ -6,6 +6,16 @@ import type {
   GameCheatState,
 } from "../../types/library";
 
+export interface SaveStateMetadata {
+  slot: number;
+  createdAt: string;
+  coreName: string;
+  coreVersion: string;
+  playTimeSeconds: number | null;
+  romName: string;
+  stateSize: number;
+}
+
 export interface CoreInfo {
   name: string;
   displayName: string;
@@ -44,8 +54,17 @@ export interface GamelordAPI {
     swapDisc: (index: number) => Promise<{ success: boolean; error?: string }>;
   };
   saveState: {
-    save: (slot: number) => Promise<{ success: boolean }>;
-    load: (slot: number) => Promise<{ success: boolean }>;
+    save: (slot: number) => Promise<{ success: boolean; error?: string }>;
+    load: (slot: number) => Promise<{
+      success: boolean;
+      error?: string;
+      errorCode?: "empty_slot" | "load_failed";
+    }>;
+    list: () => Promise<{
+      success: boolean;
+      states: Array<SaveStateMetadata>;
+      error?: string;
+    }>;
   };
   cheats: {
     listForGame: (

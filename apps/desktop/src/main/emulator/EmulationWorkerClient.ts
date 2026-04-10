@@ -2,7 +2,12 @@ import { utilityProcess, UtilityProcess } from "electron";
 import { EventEmitter } from "node:events";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
-import type { WorkerCommand, WorkerEvent, AVInfo } from "../workers/core-worker-protocol";
+import type {
+  WorkerCommand,
+  WorkerEvent,
+  AVInfo,
+  SaveStateMetadata,
+} from "../workers/core-worker-protocol";
 import {
   RETRO_LOG_DEBUG,
   RETRO_LOG_INFO,
@@ -188,8 +193,15 @@ export class EmulationWorkerClient extends EventEmitter {
   }
 
   async screenshot(outputPath?: string): Promise<string> {
-    const result = await this.sendRequest({ action: "screenshot", outputPath });
-    return (result as { path: string }).path;
+    const result = await this.sendRequest<{ path: string }>({ action: "screenshot", outputPath });
+    return result.path;
+  }
+
+  async listSaveStates(): Promise<Array<SaveStateMetadata>> {
+    const result = await this.sendRequest<{ states: Array<SaveStateMetadata> }>({
+      action: "listSaveStates",
+    });
+    return result.states;
   }
 
   async cheatReset(): Promise<void> {
@@ -321,10 +333,10 @@ export class EmulationWorkerClient extends EventEmitter {
    * Send a command that expects a response, identified by `requestId`.
    * Returns a Promise that resolves/rejects when the worker responds.
    */
-  private sendRequest(
+  private sendRequest<T = void>(
     command: Record<string, unknown> & { action: string },
     timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
-  ): Promise<unknown> {
+  ): Promise<T> {
     const requestId = crypto.randomUUID();
 
     return new Promise((resolve, reject) => {
@@ -340,7 +352,7 @@ export class EmulationWorkerClient extends EventEmitter {
         },
         resolve: (data?: unknown) => {
           clearTimeout(timeout);
-          resolve(data);
+          resolve(data as T);
         },
         timeout,
       });

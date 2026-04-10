@@ -8,6 +8,7 @@ export * from "./components/ui/input";
 export * from "./components/ui/select";
 export * from "./components/ui/dropdown-menu";
 export * from "./components/ui/switch";
+export * from "./components/ui/sonner";
 
 export * from "./components/ControllerConfig";
 export * from "./components/ControlsOverlay";
