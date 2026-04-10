@@ -15,6 +15,7 @@ export * from "./components/CheatPanel";
 export * from "./components/DiscSwapOverlay";
 export * from "./components/CoreDownloadBanner";
 export * from "./components/UpdateNotification";
+export * from "./components/SaveStateToast";
 export * from "./components/GameCard";
 export * from "./components/CommandPalette";
 export * from "./components/GameLibrary";

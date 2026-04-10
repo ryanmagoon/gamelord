@@ -13,6 +13,8 @@ import {
   SHADER_PRESETS,
   SHADER_LABELS,
   isHdrCapable,
+  SaveStateToast,
+  type SaveStateToastStatus,
 } from "@gamelord/ui";
 import {
   Play,
@@ -158,6 +160,11 @@ export const GameWindow: React.FC = () => {
   const [currentDiscIndex, setCurrentDiscIndex] = useState(0);
   const [showDiscSwapOverlay, setShowDiscSwapOverlay] = useState(false);
   const [swappingDiscIndex, setSwappingDiscIndex] = useState<number | undefined>(undefined);
+
+  // Save/load state toast
+  const [toastStatus, setToastStatus] = useState<SaveStateToastStatus>("idle");
+  const [toastSlot, setToastSlot] = useState<number | undefined>(undefined);
+  const [toastError, setToastError] = useState<string | undefined>(undefined);
 
   // Animate out the controls hint, then remove it from the DOM
   const dismissControlsHint = useCallback(() => {
@@ -507,6 +514,8 @@ export const GameWindow: React.FC = () => {
     api.removeAllListeners("emulator:discChanged");
     api.removeAllListeners("game:disc-info");
     api.removeAllListeners("game:emulation-error");
+    api.removeAllListeners("emulator:stateSaved");
+    api.removeAllListeners("emulator:stateLoaded");
 
     // Register for SharedArrayBuffer delivery via MessagePort bridge.
     // The main process sends SABs through a MessagePort because contextBridge
@@ -589,6 +598,23 @@ export const GameWindow: React.FC = () => {
     api.on("game:emulation-error", (raw: unknown) => {
       const data = raw as { message: string };
       setEmulationError(data.message || "An unknown error occurred");
+    });
+
+    // Surface save/load state results as toast notifications.
+    // The IPC handler already returns { success, error } from savestate:save/load;
+    // these events are forwarded from the emulator for the success path.
+    api.on("emulator:stateSaved", (raw: unknown) => {
+      const data = raw as { slot: number };
+      setToastSlot(data.slot + 1);
+      setToastError(undefined);
+      setToastStatus("save-success");
+    });
+
+    api.on("emulator:stateLoaded", (raw: unknown) => {
+      const data = raw as { slot: number };
+      setToastSlot(data.slot + 1);
+      setToastError(undefined);
+      setToastStatus("load-success");
     });
 
     api.on("game:prepare-close", () => {
@@ -895,12 +921,33 @@ export const GameWindow: React.FC = () => {
 
   const handleSaveState = async () => {
     playSfx("saveState");
-    await api.saveState.save(selectedSlot);
+    const result = await api.saveState.save(selectedSlot) as { success: boolean; error?: string };
+    setToastSlot(selectedSlot + 1);
+    if (result.success) {
+      setToastError(undefined);
+      setToastStatus("save-success");
+    } else {
+      setToastError(result.error);
+      setToastStatus("error");
+    }
   };
 
   const handleLoadState = async () => {
     playSfx("loadState");
-    await api.saveState.load(selectedSlot);
+    const result = await api.saveState.load(selectedSlot) as { success: boolean; error?: string };
+    setToastSlot(selectedSlot + 1);
+    if (result.success) {
+      setToastError(undefined);
+      setToastStatus("load-success");
+    } else {
+      const isEmpty =
+        !result.error ||
+        result.error.toLowerCase().includes("no state") ||
+        result.error.toLowerCase().includes("not found") ||
+        result.error.toLowerCase().includes("does not exist");
+      setToastError(isEmpty ? undefined : result.error);
+      setToastStatus(isEmpty ? "empty-slot" : "error");
+    }
   };
 
   const handleScreenshot = async () => {
@@ -1724,6 +1771,14 @@ export const GameWindow: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Save/load state toast — bottom-center, auto-dismisses after 2s */}
+      <SaveStateToast
+        status={toastStatus}
+        slot={toastSlot}
+        errorMessage={toastError}
+        onDismiss={() => setToastStatus("idle")}
+      />
 
       {/* Fatal emulation error dialog */}
       <EmulationErrorDialog
