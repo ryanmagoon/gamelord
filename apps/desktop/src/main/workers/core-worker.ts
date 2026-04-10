@@ -22,6 +22,7 @@ import {
   CTRL_FRAME_WIDTH,
   CTRL_FRAME_HEIGHT,
   CTRL_AUDIO_WRITE_POS,
+  CTRL_AUDIO_READ_POS,
   CTRL_AUDIO_SAMPLE_RATE,
 } from "./shared-frame-protocol";
 import { filterForwardableLogs, extractSerialFromLog } from "./core-worker-protocol";
@@ -632,6 +633,21 @@ function handleMessage(command: WorkerCommand): void {
           loopTimer = null;
         }
       }
+
+      // When slowing down from fast-forward, flush the native audio ring
+      // buffer to prevent a burst of stale accumulated samples from being
+      // scheduled all at once on the first 1x tick.
+      if (newMultiplier < speedMultiplier && native) {
+        native.getAudioBuffer();
+
+        // Also flush the SAB audio ring so the renderer doesn't drain
+        // stale samples on the next rAF.
+        if (controlView) {
+          const writePos = Atomics.load(controlView, CTRL_AUDIO_WRITE_POS);
+          Atomics.store(controlView, CTRL_AUDIO_READ_POS, writePos);
+        }
+      }
+
       speedMultiplier = newMultiplier;
       send({ type: "speedChanged", multiplier: speedMultiplier });
       if (wasRunning) {

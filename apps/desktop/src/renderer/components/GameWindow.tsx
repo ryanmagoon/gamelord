@@ -423,13 +423,31 @@ export const GameWindow: React.FC = () => {
       return;
     }
 
-    const buffer = ctx.createBuffer(2, frames, sampleRate);
+    const PRE_BUFFER_S = 0.06;
+    const MAX_LOOKAHEAD_S = 0.12;
+    // Maximum audio we'll accept in a single drain. Anything beyond this is
+    // stale buffer accumulation (e.g. from pause, FF exit, GC stall) and
+    // should be discarded to prevent a loud burst.
+    const MAX_CHUNK_S = 0.05;
+
+    // If the chunk represents more audio than one frame's worth (~17ms at
+    // 60fps), it's accumulated backlog. Trim to just the tail so we get a
+    // clean start instead of dumping a burst.
+    const maxSamples = Math.floor(MAX_CHUNK_S * sampleRate) * 2; // stereo
+    let useSamples = samples;
+    if (samples.length > maxSamples) {
+      // Keep only the most recent samples (the tail of the buffer)
+      useSamples = samples.subarray(samples.length - maxSamples);
+    }
+
+    const useFrames = useSamples.length / 2;
+    const buffer = ctx.createBuffer(2, useFrames, sampleRate);
     const leftChannel = buffer.getChannelData(0);
     const rightChannel = buffer.getChannelData(1);
 
-    for (let i = 0; i < frames; i++) {
-      leftChannel[i] = samples[i * 2] / 32_768;
-      rightChannel[i] = samples[i * 2 + 1] / 32_768;
+    for (let i = 0; i < useFrames; i++) {
+      leftChannel[i] = useSamples[i * 2] / 32_768;
+      rightChannel[i] = useSamples[i * 2 + 1] / 32_768;
     }
 
     const source = ctx.createBufferSource();
@@ -440,14 +458,13 @@ export const GameWindow: React.FC = () => {
     }
     source.connect(gainNode);
 
-    const PRE_BUFFER_S = 0.06;
-    const MAX_LOOKAHEAD_S = 0.12;
-
     const now = ctx.currentTime;
     if (audioNextTimeRef.current === 0) {
       audioNextTimeRef.current = now + PRE_BUFFER_S;
     } else if (audioNextTimeRef.current < now) {
-      audioNextTimeRef.current = now;
+      // We've fallen behind — skip ahead rather than playing stale audio
+      // at `now` which would overlap with subsequent chunks.
+      audioNextTimeRef.current = now + PRE_BUFFER_S;
     } else if (audioNextTimeRef.current > now + MAX_LOOKAHEAD_S) {
       audioNextTimeRef.current = now + PRE_BUFFER_S;
     }
@@ -810,10 +827,21 @@ export const GameWindow: React.FC = () => {
   // Sync gain node with volume/mute state and persist.
   // During fast-forward, multiple frames' audio samples overlap additively —
   // divide gain by the speed multiplier to normalize perceived volume.
+  // When returning to 1x, ramp gain smoothly to avoid a sharp volume pop
+  // from any residual buffered audio.
   useEffect(() => {
-    if (gainNodeRef.current) {
+    if (gainNodeRef.current && audioContextRef.current) {
       const baseGain = isMuted ? 0 : volume;
-      gainNodeRef.current.gain.value = speedMultiplier > 1 ? baseGain / speedMultiplier : baseGain;
+      const targetGain = speedMultiplier > 1 ? baseGain / speedMultiplier : baseGain;
+      const gain = gainNodeRef.current.gain;
+      const now = audioContextRef.current.currentTime;
+
+      // Use a short ramp when transitioning to avoid audible pops.
+      // setValueAtTime anchors the ramp start; without it the ramp
+      // behavior is undefined per the Web Audio spec.
+      gain.cancelScheduledValues(now);
+      gain.setValueAtTime(gain.value, now);
+      gain.linearRampToValueAtTime(targetGain, now + 0.08);
     }
     localStorage.setItem("gamelord:volume", String(volume));
     localStorage.setItem("gamelord:muted", String(isMuted));
