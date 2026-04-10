@@ -7,6 +7,13 @@
 <p align="center">A vibesmaxxed emulation frontend built with Electron, React, and TypeScript.</p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/stage-alpha-orange" alt="Alpha" />
+  <a href="https://github.com/ryanmagoon/gamelord/actions/workflows/ci.yml"><img src="https://github.com/ryanmagoon/gamelord/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/ryanmagoon/gamelord/releases?q=nightly&expanded=true"><img src="https://img.shields.io/badge/download-nightly-blue" alt="Nightly Build" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" /></a>
+</p>
+
+<p align="center">
   <img src=".github/assets/screenshot-library.jpg" alt="GameLord library view" width="800" />
 </p>
 
@@ -73,6 +80,10 @@ pnpm lint          # Lint
 pnpm typecheck     # Type check
 pnpm storybook     # Component browser
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and development workflow. For a deep dive into how the app is structured, check out [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Sponsors
 
