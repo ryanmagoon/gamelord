@@ -509,9 +509,6 @@ export const GameWindow: React.FC = () => {
     api.removeAllListeners("emulator:discChanged");
     api.removeAllListeners("game:disc-info");
     api.removeAllListeners("game:emulation-error");
-    api.removeAllListeners("emulator:stateSaved");
-    api.removeAllListeners("emulator:stateLoaded");
-
     // Register for SharedArrayBuffer delivery via MessagePort bridge.
     // The main process sends SABs through a MessagePort because contextBridge
     // cannot transfer SharedArrayBuffer directly.
@@ -593,16 +590,6 @@ export const GameWindow: React.FC = () => {
     api.on("game:emulation-error", (raw: unknown) => {
       const data = raw as { message: string };
       setEmulationError(data.message || "An unknown error occurred");
-    });
-
-    api.on("emulator:stateSaved", (raw: unknown) => {
-      const data = raw as { slot: number };
-      toast.success(`Saved to slot ${data.slot + 1}`);
-    });
-
-    api.on("emulator:stateLoaded", (raw: unknown) => {
-      const data = raw as { slot: number };
-      toast.success(`Loaded slot ${data.slot + 1}`);
     });
 
     api.on("game:prepare-close", () => {
