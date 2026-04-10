@@ -702,7 +702,22 @@ describe("IPCHandlers", () => {
       const handler = getHandler("savestate:load");
       const result = await handler(fakeEvent, 0);
 
-      expect(result).toEqual({ success: false, error: "Slot empty" });
+      expect(result).toEqual({ success: false, error: "Slot empty", errorCode: "load_failed" });
+    });
+
+    it("returns empty_slot errorCode for missing save state", async () => {
+      emulatorManagerInstance.loadState.mockRejectedValue(
+        new Error("No save state in slot 2"),
+      );
+
+      const handler = getHandler("savestate:load");
+      const result = await handler(fakeEvent, 2);
+
+      expect(result).toEqual({
+        success: false,
+        error: "No save state in slot 2",
+        errorCode: "empty_slot",
+      });
     });
   });
 

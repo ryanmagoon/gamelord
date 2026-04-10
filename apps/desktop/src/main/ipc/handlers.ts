@@ -349,8 +349,16 @@ export class IPCHandlers {
         await this.emulatorManager.loadState(slot);
         return { success: true };
       } catch (error) {
-        ipcLog.error("Failed to load state:", error);
-        return { success: false, error: errorMessage(error) };
+        const msg = errorMessage(error);
+        const isEmptySlot = msg.includes("No save state in slot");
+        if (!isEmptySlot) {
+          ipcLog.error("Failed to load state:", error);
+        }
+        return {
+          success: false,
+          error: msg,
+          errorCode: isEmptySlot ? ("empty_slot" as const) : ("load_failed" as const),
+        };
       }
     });
 

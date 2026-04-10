@@ -55,7 +55,11 @@ export interface GamelordAPI {
   };
   saveState: {
     save: (slot: number) => Promise<{ success: boolean; error?: string }>;
-    load: (slot: number) => Promise<{ success: boolean; error?: string }>;
+    load: (slot: number) => Promise<{
+      success: boolean;
+      error?: string;
+      errorCode?: "empty_slot" | "load_failed";
+    }>;
     list: () => Promise<{
       success: boolean;
       states: Array<SaveStateMetadata>;

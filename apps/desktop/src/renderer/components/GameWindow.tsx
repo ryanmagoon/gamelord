@@ -909,16 +909,10 @@ export const GameWindow: React.FC = () => {
     if (result.success) {
       playSfx("loadState");
       toast.success(`Loaded slot ${selectedSlot}`);
+    } else if (result.errorCode === "empty_slot") {
+      toast(`No save in slot ${selectedSlot}`);
     } else {
-      const msg = result.error?.toLowerCase() ?? "";
-      const isEmpty =
-        !result.error ||
-        msg.includes("no state") ||
-        msg.includes("not found") ||
-        msg.includes("does not exist");
-      toast(isEmpty ? `No save in slot ${selectedSlot}` : `Failed: ${result.error}`, {
-        icon: isEmpty ? undefined : "⚠️",
-      });
+      toast.error(result.error ?? "Failed to load state");
     }
   };
 
