@@ -72,6 +72,20 @@ export interface AVInfo {
 }
 
 // ---------------------------------------------------------------------------
+// Save state metadata
+// ---------------------------------------------------------------------------
+
+export interface SaveStateMetadata {
+  slot: number;
+  createdAt: string;
+  coreName: string;
+  coreVersion: string;
+  playTimeSeconds: number | null;
+  romName: string;
+  stateSize: number;
+}
+
+// ---------------------------------------------------------------------------
 // Main → Worker commands
 // ---------------------------------------------------------------------------
 
@@ -116,7 +130,8 @@ export type WorkerCommand =
       code: string;
       requestId: string;
     }
-  | { action: "swapDisc"; index: number; requestId: string };
+  | { action: "swapDisc"; index: number; requestId: string }
+  | { action: "listSaveStates"; requestId: string };
 
 // ---------------------------------------------------------------------------
 // Libretro log levels (from libretro.h RETRO_LOG_*)
