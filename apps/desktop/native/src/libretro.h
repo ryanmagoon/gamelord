@@ -62,6 +62,50 @@ extern "C" {
 #define RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL 68
 #define RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK 69
 #define RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE 64
+#define RETRO_ENVIRONMENT_SET_HW_RENDER 14
+/* SET_HW_SHARED_CONTEXT uses the experimental flag (0x10000) to avoid
+   colliding with SET_SERIALIZATION_QUIRKS which is also 44. */
+#define RETRO_ENVIRONMENT_SET_HW_SHARED_CONTEXT (44 | 0x10000)
+
+/* Special pointer value passed to video_refresh when the core rendered to
+   the hardware framebuffer instead of a software buffer. */
+#define RETRO_HW_FRAME_BUFFER_VALID ((void*)(intptr_t)-1)
+
+/* Hardware rendering context types */
+enum retro_hw_context_type {
+  RETRO_HW_CONTEXT_NONE             = 0,
+  RETRO_HW_CONTEXT_OPENGL           = 1,
+  RETRO_HW_CONTEXT_OPENGLES2        = 2,
+  RETRO_HW_CONTEXT_OPENGL_CORE      = 3,
+  RETRO_HW_CONTEXT_OPENGLES3        = 4,
+  RETRO_HW_CONTEXT_OPENGLES_VERSION = 5,
+  RETRO_HW_CONTEXT_VULKAN           = 6,
+  RETRO_HW_CONTEXT_DIRECT3D         = 7,
+  RETRO_HW_CONTEXT_DUMMY            = INT32_MAX
+};
+
+/* Hardware rendering callback function types */
+typedef void (*retro_hw_context_reset_t)(void);
+typedef uintptr_t (*retro_hw_get_current_framebuffer_t)(void);
+
+/* retro_proc_address_t: generic function pointer returned by get_proc_address */
+typedef void (*retro_proc_address_t)(void);
+typedef retro_proc_address_t (*retro_hw_get_proc_address_t)(const char *sym);
+
+struct retro_hw_render_callback {
+  enum retro_hw_context_type context_type;
+  retro_hw_context_reset_t context_reset;
+  retro_hw_get_current_framebuffer_t get_current_framebuffer;
+  retro_hw_get_proc_address_t get_proc_address;
+  bool depth;
+  bool stencil;
+  bool bottom_left_origin;
+  unsigned version_major;
+  unsigned version_minor;
+  bool cache_context;
+  retro_hw_context_reset_t context_destroy;
+  bool debug_context;
+};
 
 /* Input device types */
 #define RETRO_DEVICE_NONE     0

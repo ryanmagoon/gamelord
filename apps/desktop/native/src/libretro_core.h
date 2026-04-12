@@ -10,6 +10,11 @@
 
 #ifdef __APPLE__
 #include <dlfcn.h>
+// Apple deprecated OpenGL in macOS 10.14 but it still works. We use it because
+// libretro cores (Dolphin, Flycast, etc.) require OpenGL for HW rendering.
+#define GL_SILENCE_DEPRECATION
+#include <OpenGL/OpenGL.h>
+#include <OpenGL/gl3.h>
 #elif defined(_WIN32)
 #include <windows.h>
 #else
@@ -60,6 +65,7 @@ private:
   // Internal
   void CloseCore();
   bool ResolveFunctions();
+  void ReadbackHWFrame(unsigned width, unsigned height);
 
   // Static disc control callbacks (called by the core into our frontend)
   static bool RETRO_CALLCONV DiskSetEjectState(bool ejected);
@@ -78,6 +84,10 @@ private:
   static void InputPollCallback();
   static int16_t InputStateCallback(unsigned port, unsigned device, unsigned index, unsigned id);
   static void LogCallback(enum retro_log_level level, const char *fmt, ...);
+
+  // Hardware rendering callbacks (called by cores that use GPU rendering)
+  static uintptr_t GetCurrentFramebuffer();
+  static retro_proc_address_t HWGetProcAddress(const char *sym);
 
   // Singleton instance pointer for static callbacks
   static LibretroCore *s_instance;
@@ -180,6 +190,37 @@ private:
   void ParseLegacyVariables(const struct retro_variable *vars);
   void ParseCoreOptionsV1(const struct retro_core_option_definition *defs);
   void ParseCoreOptionsV2(const struct retro_core_option_v2_definition *defs);
+
+  // Hardware-accelerated rendering state (OpenGL offscreen context + PBO readback)
+  struct HWRenderState {
+#ifdef __APPLE__
+    CGLContextObj cgl_context = nullptr;
+    CGLPixelFormatObj pixel_format = nullptr;
+#endif
+
+    GLuint fbo = 0;
+    GLuint color_rbo = 0;
+    GLuint depth_stencil_rbo = 0;
+
+    // PBO double-buffer for async GPU→CPU readback
+    GLuint pbo[2] = {0, 0};
+    int pbo_write_idx = 0;
+    int pbo_read_idx = -1;  // -1 = no PBO ready to read yet
+    bool pbo_first_frame = true;
+
+    unsigned fb_width = 0;
+    unsigned fb_height = 0;
+
+    struct retro_hw_render_callback hw_render_cb = {};
+    bool active = false;
+
+    bool CreateGLContext(unsigned version_major, unsigned version_minor,
+                         bool depth, bool stencil);
+    void DestroyGLContext();
+    void CreateFBO(unsigned width, unsigned height, bool depth, bool stencil);
+    void DestroyFBO();
+    void ResizeFBO(unsigned width, unsigned height);
+  } hw_render_;
 };
 
 #endif // LIBRETRO_CORE_H
