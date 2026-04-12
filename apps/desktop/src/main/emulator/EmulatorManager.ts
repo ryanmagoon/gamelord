@@ -11,6 +11,14 @@ import * as path from "node:path";
 import * as os from "node:os";
 
 /**
+ * Systems whose libretro cores require hardware-accelerated rendering
+ * (OpenGL/Vulkan via RETRO_ENVIRONMENT_SET_HW_RENDER). The native addon
+ * only supports software rendering, so these systems must use RetroArch
+ * which manages its own GPU context.
+ */
+const HW_RENDER_SYSTEMS = new Set(["gamecube"]);
+
+/**
  * Systems that require BIOS files to run. Maps system ID to an array of
  * required filenames that must be present in the BIOS directory.
  */
@@ -380,9 +388,13 @@ export class EmulatorManager extends EventEmitter {
   private selectBestEmulator(systemId: string): EmulatorInfo | undefined {
     // Prefer native libretro core loading (single-window, no external process).
     // Cores will be auto-downloaded if missing during the launch flow.
-    const native = this.availableEmulators.get("libretro-native");
-    if (native && native.supportedSystems.includes(systemId)) {
-      return native;
+    // Skip native mode for systems that require hardware-accelerated rendering
+    // (the native addon only supports software rendering).
+    if (!HW_RENDER_SYSTEMS.has(systemId)) {
+      const native = this.availableEmulators.get("libretro-native");
+      if (native && native.supportedSystems.includes(systemId)) {
+        return native;
+      }
     }
 
     // Fall back to RetroArch process mode
