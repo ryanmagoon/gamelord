@@ -8,6 +8,127 @@
 // Singleton for static callbacks
 LibretroCore *LibretroCore::s_instance = nullptr;
 
+// ---------------------------------------------------------------------------
+// HWRenderState — OpenGL offscreen context + PBO async readback (macOS)
+// ---------------------------------------------------------------------------
+
+#ifdef __APPLE__
+
+bool LibretroCore::HWRenderState::CreateGLContext(
+    unsigned version_major, unsigned version_minor,
+    bool depth, bool stencil) {
+  // Request OpenGL Core 3.3+ via CGL (offscreen, no window needed)
+  CGLPixelFormatAttribute attrs[] = {
+    kCGLPFAOpenGLProfile,
+    static_cast<CGLPixelFormatAttribute>(kCGLOGLPVersion_GL3_Core),
+    kCGLPFAColorSize, static_cast<CGLPixelFormatAttribute>(24),
+    kCGLPFAAlphaSize, static_cast<CGLPixelFormatAttribute>(8),
+    kCGLPFADepthSize,
+    static_cast<CGLPixelFormatAttribute>(depth ? 24 : 0),
+    kCGLPFAStencilSize,
+    static_cast<CGLPixelFormatAttribute>(stencil ? 8 : 0),
+    kCGLPFAAccelerated,
+    kCGLPFAAllowOfflineRenderers,
+    static_cast<CGLPixelFormatAttribute>(0)
+  };
+
+  GLint npix = 0;
+  CGLError err = CGLChoosePixelFormat(attrs, &pixel_format, &npix);
+  if (err != kCGLNoError || npix == 0) {
+    return false;
+  }
+
+  err = CGLCreateContext(pixel_format, nullptr, &cgl_context);
+  if (err != kCGLNoError) {
+    CGLDestroyPixelFormat(pixel_format);
+    pixel_format = nullptr;
+    return false;
+  }
+
+  CGLSetCurrentContext(cgl_context);
+  return true;
+}
+
+void LibretroCore::HWRenderState::DestroyGLContext() {
+  if (cgl_context) {
+    CGLSetCurrentContext(nullptr);
+    CGLDestroyContext(cgl_context);
+    cgl_context = nullptr;
+  }
+  if (pixel_format) {
+    CGLDestroyPixelFormat(pixel_format);
+    pixel_format = nullptr;
+  }
+}
+
+void LibretroCore::HWRenderState::CreateFBO(
+    unsigned width, unsigned height, bool depth, bool stencil) {
+  fb_width = width;
+  fb_height = height;
+
+  glGenFramebuffers(1, &fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+  // Color attachment (renderbuffer — we only read back, never sample as texture)
+  glGenRenderbuffers(1, &color_rbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, color_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, width, height);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                            GL_RENDERBUFFER, color_rbo);
+
+  // Depth/stencil attachment
+  if (depth || stencil) {
+    glGenRenderbuffers(1, &depth_stencil_rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, depth_stencil_rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                              GL_RENDERBUFFER, depth_stencil_rbo);
+  }
+
+  // Create PBOs for async readback
+  size_t pbo_size = static_cast<size_t>(width) * height * 4;
+  glGenBuffers(2, pbo);
+  for (int i = 0; i < 2; i++) {
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo[i]);
+    glBufferData(GL_PIXEL_PACK_BUFFER, pbo_size, nullptr, GL_STREAM_READ);
+  }
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  pbo_write_idx = 0;
+  pbo_read_idx = -1;
+  pbo_first_frame = true;
+}
+
+void LibretroCore::HWRenderState::DestroyFBO() {
+  if (fbo) {
+    glDeleteFramebuffers(1, &fbo);
+    fbo = 0;
+  }
+  if (color_rbo) {
+    glDeleteRenderbuffers(1, &color_rbo);
+    color_rbo = 0;
+  }
+  if (depth_stencil_rbo) {
+    glDeleteRenderbuffers(1, &depth_stencil_rbo);
+    depth_stencil_rbo = 0;
+  }
+  if (pbo[0] || pbo[1]) {
+    glDeleteBuffers(2, pbo);
+    pbo[0] = pbo[1] = 0;
+  }
+  pbo_write_idx = 0;
+  pbo_read_idx = -1;
+  pbo_first_frame = true;
+}
+
+void LibretroCore::HWRenderState::ResizeFBO(unsigned width, unsigned height) {
+  DestroyFBO();
+  CreateFBO(width, height, hw_render_cb.depth, hw_render_cb.stencil);
+}
+
+#endif // __APPLE__
+
 Napi::Object LibretroCore::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "LibretroCore", {
     InstanceMethod("loadCore", &LibretroCore::LoadCore),
@@ -202,6 +323,27 @@ Napi::Value LibretroCore::LoadGame(const Napi::CallbackInfo &info) {
   fn_get_system_av_info_(&av_info_);
   game_loaded_ = true;
 
+#ifdef __APPLE__
+  // If HW render is active, resize FBO to match loaded game's geometry
+  // and notify the core that the GL context is ready
+  if (hw_render_.active && hw_render_.cgl_context) {
+    CGLSetCurrentContext(hw_render_.cgl_context);
+
+    unsigned w = av_info_.geometry.max_width;
+    unsigned h = av_info_.geometry.max_height;
+    if (w == 0) w = av_info_.geometry.base_width;
+    if (h == 0) h = av_info_.geometry.base_height;
+
+    if (w != hw_render_.fb_width || h != hw_render_.fb_height) {
+      hw_render_.ResizeFBO(w, h);
+    }
+
+    if (hw_render_.hw_render_cb.context_reset) {
+      hw_render_.hw_render_cb.context_reset();
+    }
+  }
+#endif
+
   return Napi::Boolean::New(env, true);
 }
 
@@ -214,6 +356,14 @@ void LibretroCore::UnloadGame(const Napi::CallbackInfo &info) {
 
 void LibretroCore::Run(const Napi::CallbackInfo &info) {
   if (!game_loaded_ || !fn_run_) return;
+
+#ifdef __APPLE__
+  // Ensure GL context is current before the core renders (no-op if already current)
+  if (hw_render_.active && hw_render_.cgl_context) {
+    CGLSetCurrentContext(hw_render_.cgl_context);
+  }
+#endif
+
   fn_run_();
 }
 
@@ -667,6 +817,23 @@ void LibretroCore::CloseCore() {
     game_loaded_ = false;
   }
 
+#ifdef __APPLE__
+  // Tear down HW render resources after the core has unloaded the game
+  // but before we deinit the core (some cores access GL in deinit)
+  if (hw_render_.active) {
+    if (hw_render_.cgl_context) {
+      CGLSetCurrentContext(hw_render_.cgl_context);
+    }
+    if (hw_render_.hw_render_cb.context_destroy) {
+      hw_render_.hw_render_cb.context_destroy();
+    }
+    hw_render_.DestroyFBO();
+    hw_render_.DestroyGLContext();
+    hw_render_.active = false;
+    hw_render_.hw_render_cb = {};
+  }
+#endif
+
   if (core_loaded_ && fn_deinit_) {
     fn_deinit_();
     core_loaded_ = false;
@@ -962,6 +1129,58 @@ bool LibretroCore::EnvironmentCallback(unsigned cmd, void *data) {
       return true;
     }
 
+    case RETRO_ENVIRONMENT_SET_HW_RENDER: {
+#ifdef __APPLE__
+      struct retro_hw_render_callback *cb =
+        static_cast<struct retro_hw_render_callback *>(data);
+
+      // Only accept OpenGL contexts (Vulkan/D3D are follow-up work)
+      if (cb->context_type != RETRO_HW_CONTEXT_OPENGL_CORE &&
+          cb->context_type != RETRO_HW_CONTEXT_OPENGL) {
+        return false;
+      }
+
+      // Store the core's callback struct
+      self->hw_render_.hw_render_cb = *cb;
+
+      // Create the offscreen CGL context
+      if (!self->hw_render_.CreateGLContext(
+              cb->version_major, cb->version_minor,
+              cb->depth, cb->stencil)) {
+        return false;
+      }
+
+      // Create initial FBO sized from current AV geometry (or sensible default)
+      unsigned w = self->av_info_.geometry.max_width;
+      unsigned h = self->av_info_.geometry.max_height;
+      if (w == 0) w = self->av_info_.geometry.base_width;
+      if (h == 0) h = self->av_info_.geometry.base_height;
+      if (w == 0) w = 640;
+      if (h == 0) h = 528;
+      self->hw_render_.CreateFBO(w, h, cb->depth, cb->stencil);
+
+      // Fill in the function pointers the core will call back into
+      cb->get_current_framebuffer = GetCurrentFramebuffer;
+      cb->get_proc_address = HWGetProcAddress;
+
+      self->hw_render_.active = true;
+      return true;
+#else
+      // HW render not yet implemented on this platform
+      return false;
+#endif
+    }
+
+    case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER: {
+      unsigned *type = static_cast<unsigned *>(data);
+      *type = RETRO_HW_CONTEXT_OPENGL_CORE;
+      return true;
+    }
+
+    case RETRO_ENVIRONMENT_SET_HW_SHARED_CONTEXT:
+      // Acknowledge but no action needed — we use a single context
+      return true;
+
     default:
       return false;
   }
@@ -978,7 +1197,13 @@ void LibretroCore::VideoRefreshCallback(const void *data, unsigned width, unsign
     return;
   }
 
-  // Convert to RGBA8888 regardless of source format
+  // HW render path: core rendered to our FBO, read back via PBO
+  if (data == RETRO_HW_FRAME_BUFFER_VALID && self->hw_render_.active) {
+    self->ReadbackHWFrame(width, height);
+    return;
+  }
+
+  // SW render path: convert to RGBA8888 regardless of source format
   size_t out_size = width * height * 4;
 
   std::lock_guard<std::mutex> lock(self->video_mutex_);
@@ -1135,3 +1360,88 @@ Napi::Value LibretroCore::GetLogMessages(const Napi::CallbackInfo &info) {
 
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Hardware Rendering — static callbacks + PBO readback
+// ---------------------------------------------------------------------------
+
+uintptr_t LibretroCore::GetCurrentFramebuffer() {
+  if (!s_instance || !s_instance->hw_render_.active) {
+    return 0;
+  }
+  return static_cast<uintptr_t>(s_instance->hw_render_.fbo);
+}
+
+retro_proc_address_t LibretroCore::HWGetProcAddress(const char *sym) {
+  // On macOS, dlsym(RTLD_DEFAULT, sym) resolves OpenGL symbols from the
+  // linked OpenGL.framework. This works because we link -framework OpenGL.
+#ifdef __APPLE__
+  return reinterpret_cast<retro_proc_address_t>(dlsym(RTLD_DEFAULT, sym));
+#else
+  // Linux/Windows: implement platform-specific GL proc resolution here
+  (void)sym;
+  return nullptr;
+#endif
+}
+
+#ifdef __APPLE__
+void LibretroCore::ReadbackHWFrame(unsigned width, unsigned height) {
+  HWRenderState &hw = hw_render_;
+
+  // Resize FBO + PBOs if resolution changed
+  if (width != hw.fb_width || height != hw.fb_height) {
+    hw.ResizeFBO(width, height);
+  }
+
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, hw.fbo);
+
+  size_t frame_bytes = static_cast<size_t>(width) * height * 4;
+
+  // Step 1: Read back the PREVIOUS frame's PBO (async transfer completed)
+  if (!hw.pbo_first_frame) {
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, hw.pbo[hw.pbo_read_idx]);
+    void *mapped = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
+    if (mapped) {
+      std::lock_guard<std::mutex> lock(video_mutex_);
+      video_buffer_.resize(frame_bytes);
+      video_width_ = width;
+      video_height_ = height;
+
+      if (hw.hw_render_cb.bottom_left_origin) {
+        // Flip vertically during copy (OpenGL bottom-left → top-left)
+        const uint8_t *src = static_cast<const uint8_t *>(mapped);
+        uint8_t *dst = video_buffer_.data();
+        size_t row_bytes = static_cast<size_t>(width) * 4;
+        for (unsigned y = 0; y < height; y++) {
+          memcpy(dst + y * row_bytes,
+                 src + (height - 1 - y) * row_bytes,
+                 row_bytes);
+        }
+      } else {
+        memcpy(video_buffer_.data(), mapped, frame_bytes);
+      }
+
+      video_frame_ready_ = true;
+    }
+
+    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+  }
+
+  // Step 2: Kick off async readback of CURRENT frame into write PBO
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, hw.pbo[hw.pbo_write_idx]);
+  glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+  // Swap PBO indices for next frame
+  hw.pbo_read_idx = hw.pbo_write_idx;
+  hw.pbo_write_idx = (hw.pbo_write_idx + 1) % 2;
+  hw.pbo_first_frame = false;
+}
+#else
+void LibretroCore::ReadbackHWFrame(unsigned /*width*/, unsigned /*height*/) {
+  // Linux/Windows: not yet implemented
+}
+#endif
