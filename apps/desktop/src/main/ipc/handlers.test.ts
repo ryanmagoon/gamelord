@@ -441,7 +441,7 @@ describe("IPCHandlers", () => {
         addonPath: "/fake/addon.node",
         discPaths: undefined,
         initialDiscIndex: undefined,
-        forceHWSaveStates: false,
+        forceHWSaveStates: true,
       });
       expect(emulatorManagerInstance.setWorkerClient).toHaveBeenCalledWith(workerClientInstance);
       expect(gameWindowManagerInstance.createNativeGameWindow).toHaveBeenCalledWith(

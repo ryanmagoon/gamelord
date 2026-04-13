@@ -46,8 +46,6 @@ let screenshotDir = "";
 // Multi-disc: when set, SRAM derives from the group base name instead of romPath
 let sramBaseName: string | null = null;
 
-// Force-enable save states for HW-render cores (passed from main process)
-let forceHWSaveStates = false;
 
 // Timing
 let targetFps = 60;
@@ -150,12 +148,6 @@ function saveState(slot: number): void {
     throw new Error("No core loaded");
   }
 
-  // HW cores may segfault in retro_serialize (see #342). Guard unless
-  // explicitly enabled via GAMELORD_HW_SAVE_STATES=1.
-  if (native.isHWRendering() && process.env.GAMELORD_HW_SAVE_STATES !== "1") {
-    throw new Error("Save states are not yet supported for this system");
-  }
-
   const stateData = native.serializeState();
   if (!stateData) {
     throw new Error("Failed to serialize state");
@@ -182,10 +174,6 @@ function saveState(slot: number): void {
 function loadState(slot: number): void {
   if (!native) {
     throw new Error("No core loaded");
-  }
-
-  if (native.isHWRendering() && process.env.GAMELORD_HW_SAVE_STATES !== "1") {
-    throw new Error("Save states are not yet supported for this system");
   }
 
   const statePath = getStatePath(slot);
@@ -290,7 +278,6 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   romPath = command.romPath;
   sramDir = command.sramDir;
   saveStatesDir = command.saveStatesDir;
-  forceHWSaveStates = command.forceHWSaveStates ?? false;
   // Derive screenshot dir from saveStatesDir parent (userData)
   screenshotDir = path.join(path.dirname(saveStatesDir), "screenshots");
 
@@ -367,13 +354,7 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   isPaused = false;
   consecutiveErrors = 0;
 
-  // HW-rendered cores (Dolphin) segfault inside retro_serialize — the crash
-  // is confirmed to be in the core's own serializer, not our GL setup.
-  // Disable save states for HW cores by default. Set GAMELORD_HW_SAVE_STATES=1
-  // to force-enable for testing. See #342.
-  const saveStatesSupported = native
-    ? !native.isHWRendering() || forceHWSaveStates
-    : true;
+  const saveStatesSupported = true;
 
   send({ type: "ready", avInfo: avInfo as AVInfo, saveStatesSupported });
 
