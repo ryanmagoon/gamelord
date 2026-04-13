@@ -544,6 +544,12 @@ Napi::Value LibretroCore::GetSerializeSize(const Napi::CallbackInfo &info) {
     return Napi::Number::New(env, 0);
   }
 
+#ifdef __APPLE__
+  if (hw_render_.active && hw_render_.cgl_context) {
+    CGLSetCurrentContext(hw_render_.cgl_context);
+  }
+#endif
+
   return Napi::Number::New(env, static_cast<double>(fn_serialize_size_()));
 }
 
@@ -559,17 +565,23 @@ Napi::Value LibretroCore::SerializeState(const Napi::CallbackInfo &info) {
   // GPU state (texture cache, framebuffers) during serialization.
   if (hw_render_.active && hw_render_.cgl_context) {
     CGLSetCurrentContext(hw_render_.cgl_context);
+    // Ensure all pending GL operations complete before reading GPU state
+    glFinish();
   }
 #endif
 
   size_t size = fn_serialize_size_();
   if (size == 0) return env.Null();
 
-  Napi::ArrayBuffer ab = Napi::ArrayBuffer::New(env, size);
-  if (!fn_serialize_(ab.Data(), size)) {
+  // Dolphin states can be 100MB+. Use std::vector to avoid V8 heap pressure
+  // and copy into the N-API buffer only after serialization succeeds.
+  std::vector<uint8_t> buf(size);
+  if (!fn_serialize_(buf.data(), size)) {
     return env.Null();
   }
 
+  Napi::ArrayBuffer ab = Napi::ArrayBuffer::New(env, size);
+  memcpy(ab.Data(), buf.data(), size);
   return Napi::Uint8Array::New(env, size, ab, 0);
 }
 
@@ -589,6 +601,7 @@ Napi::Value LibretroCore::UnserializeState(const Napi::CallbackInfo &info) {
   // HW-rendered cores need GL context for GPU state restoration
   if (hw_render_.active && hw_render_.cgl_context) {
     CGLSetCurrentContext(hw_render_.cgl_context);
+    glFinish();
   }
 #endif
 
