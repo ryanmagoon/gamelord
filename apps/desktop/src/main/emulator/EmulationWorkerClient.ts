@@ -34,6 +34,8 @@ export interface EmulationWorkerInitOptions {
   discPaths?: Array<string>;
   /** 0-indexed disc to start on (defaults to 0). */
   initialDiscIndex?: number;
+  /** Force-enable save states for HW-render cores (for testing). */
+  forceHWSaveStates?: boolean;
 }
 
 interface PendingRequest {

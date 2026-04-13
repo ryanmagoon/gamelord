@@ -215,6 +215,7 @@ export class IPCHandlers {
               addonPath,
               discPaths,
               initialDiscIndex,
+              forceHWSaveStates: process.env.GAMELORD_HW_SAVE_STATES === "1",
             });
 
             // Store the worker client on the emulator manager for control routing

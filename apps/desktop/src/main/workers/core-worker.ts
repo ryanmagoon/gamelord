@@ -46,6 +46,9 @@ let screenshotDir = "";
 // Multi-disc: when set, SRAM derives from the group base name instead of romPath
 let sramBaseName: string | null = null;
 
+// Force-enable save states for HW-render cores (passed from main process)
+let forceHWSaveStates = false;
+
 // Timing
 let targetFps = 60;
 let speedMultiplier = 1;
@@ -287,6 +290,7 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   romPath = command.romPath;
   sramDir = command.sramDir;
   saveStatesDir = command.saveStatesDir;
+  forceHWSaveStates = command.forceHWSaveStates ?? false;
   // Derive screenshot dir from saveStatesDir parent (userData)
   screenshotDir = path.join(path.dirname(saveStatesDir), "screenshots");
 
@@ -367,7 +371,6 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   // is confirmed to be in the core's own serializer, not our GL setup.
   // Disable save states for HW cores by default. Set GAMELORD_HW_SAVE_STATES=1
   // to force-enable for testing. See #342.
-  const forceHWSaveStates = process.env.GAMELORD_HW_SAVE_STATES === "1";
   const saveStatesSupported = native
     ? !native.isHWRendering() || forceHWSaveStates
     : true;
