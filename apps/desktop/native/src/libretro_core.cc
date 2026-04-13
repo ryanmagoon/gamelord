@@ -554,6 +554,14 @@ Napi::Value LibretroCore::SerializeState(const Napi::CallbackInfo &info) {
     return env.Null();
   }
 
+#ifdef __APPLE__
+  // HW-rendered cores (Dolphin, etc.) need the GL context current to read
+  // GPU state (texture cache, framebuffers) during serialization.
+  if (hw_render_.active && hw_render_.cgl_context) {
+    CGLSetCurrentContext(hw_render_.cgl_context);
+  }
+#endif
+
   size_t size = fn_serialize_size_();
   if (size == 0) return env.Null();
 
@@ -576,6 +584,13 @@ Napi::Value LibretroCore::UnserializeState(const Napi::CallbackInfo &info) {
     Napi::TypeError::New(env, "Expected Uint8Array").ThrowAsJavaScriptException();
     return Napi::Boolean::New(env, false);
   }
+
+#ifdef __APPLE__
+  // HW-rendered cores need GL context for GPU state restoration
+  if (hw_render_.active && hw_render_.cgl_context) {
+    CGLSetCurrentContext(hw_render_.cgl_context);
+  }
+#endif
 
   Napi::Uint8Array arr = info[0].As<Napi::Uint8Array>();
   bool ok = fn_unserialize_(arr.Data(), arr.ByteLength());
