@@ -197,12 +197,13 @@ private:
   void ParseCoreOptionsV1(const struct retro_core_option_definition *defs);
   void ParseCoreOptionsV2(const struct retro_core_option_v2_definition *defs);
 
-  // Hardware-accelerated rendering state (OpenGL offscreen context + PBO readback)
+  // Hardware-accelerated rendering state (OpenGL offscreen context + PBO readback).
+  // Currently macOS-only (CGL). Linux/Windows stubs compile but hw_render_.active
+  // stays false, so all HW paths are no-ops on those platforms.
   struct HWRenderState {
 #ifdef __APPLE__
     CGLContextObj cgl_context = nullptr;
     CGLPixelFormatObj pixel_format = nullptr;
-#endif
 
     GLuint fbo = 0;
     GLuint color_rbo = 0;
@@ -217,15 +218,16 @@ private:
     unsigned fb_width = 0;
     unsigned fb_height = 0;
 
-    struct retro_hw_render_callback hw_render_cb = {};
-    bool active = false;
-
     bool CreateGLContext(unsigned version_major, unsigned version_minor,
                          bool depth, bool stencil);
     void DestroyGLContext();
     void CreateFBO(unsigned width, unsigned height, bool depth, bool stencil);
     void DestroyFBO();
     void ResizeFBO(unsigned width, unsigned height);
+#endif
+
+    struct retro_hw_render_callback hw_render_cb = {};
+    bool active = false;
   } hw_render_;
 };
 

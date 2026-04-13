@@ -109,34 +109,34 @@ export class EmulationWorkerClient extends EventEmitter {
             clearTimeout(initTimeout);
             this.workerProcess?.removeListener("message", onMessage);
             resolve({ avInfo: event.avInfo, saveStatesSupported: event.saveStatesSupported });
-        } else if (event.type === "error" && event.fatal) {
-          clearTimeout(initTimeout);
-          this.workerProcess?.removeListener("message", onMessage);
-          reject(new Error(event.message));
-        } else if (event.type === "serialDetected") {
-          // CD-ROM serial arrives before "ready" — capture it early
-          this.detectedSerial = event.serial;
-          libretroLog.info(`CD-ROM serial detected: ${event.serial}`);
+          } else if (event.type === "error" && event.fatal) {
+            clearTimeout(initTimeout);
+            this.workerProcess?.removeListener("message", onMessage);
+            reject(new Error(event.message));
+          } else if (event.type === "serialDetected") {
+            // CD-ROM serial arrives before "ready" — capture it early
+            this.detectedSerial = event.serial;
+            libretroLog.info(`CD-ROM serial detected: ${event.serial}`);
+          }
+        };
+
+        const proc = this.workerProcess;
+        if (!proc) {
+          reject(new Error("Worker process failed to spawn"));
+          return;
         }
-      };
 
-      const proc = this.workerProcess;
-      if (!proc) {
-        reject(new Error("Worker process failed to spawn"));
-        return;
-      }
+        proc.on("message", onMessage);
 
-      proc.on("message", onMessage);
+        // Timeout if worker doesn't become ready
+        const initTimeout = setTimeout(() => {
+          proc.removeListener("message", onMessage);
+          reject(new Error("Emulation worker did not become ready within 10 seconds"));
+        }, DEFAULT_REQUEST_TIMEOUT_MS);
 
-      // Timeout if worker doesn't become ready
-      const initTimeout = setTimeout(() => {
-        proc.removeListener("message", onMessage);
-        reject(new Error("Emulation worker did not become ready within 10 seconds"));
-      }, DEFAULT_REQUEST_TIMEOUT_MS);
-
-      // Send init command
-      const initCommand: WorkerCommand = { action: "init", ...options };
-      proc.postMessage(initCommand);
+        // Send init command
+        const initCommand: WorkerCommand = { action: "init", ...options };
+        proc.postMessage(initCommand);
       },
     );
 
