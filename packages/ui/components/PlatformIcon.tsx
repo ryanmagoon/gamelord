@@ -39,6 +39,15 @@ const platformIcons: Record<string, React.FC<{ className?: string }>> = {
       <rect x="15" y="9" width="1" height="1" />
     </svg>
   ),
+  GC: ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <rect x="5" y="6" width="14" height="14" rx="2" />
+      <rect x="9" y="3" width="6" height="3" rx="1" />
+      <circle cx="14" cy="14" r="2.5" />
+      <circle cx="14" cy="14" r="1" />
+      <circle cx="9" cy="11" r="1" />
+    </svg>
+  ),
   Genesis: ({ className }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
       <rect x="2" y="8" width="20" height="8" rx="1" />

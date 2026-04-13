@@ -11,6 +11,14 @@ import * as path from "node:path";
 import * as os from "node:os";
 
 /**
+ * Systems whose libretro cores require hardware-accelerated rendering
+ * (OpenGL/Vulkan via RETRO_ENVIRONMENT_SET_HW_RENDER). The native addon
+ * only supports software rendering, so these systems must use RetroArch
+ * which manages its own GPU context.
+ */
+const HW_RENDER_SYSTEMS = new Set(["gamecube"]);
+
+/**
  * Systems that require BIOS files to run. Maps system ID to an array of
  * required filenames that must be present in the BIOS directory.
  */
@@ -102,7 +110,18 @@ export class EmulatorManager extends EventEmitter {
         id: "retroarch",
         name: "RetroArch",
         path: retroarchPaths[0],
-        supportedSystems: ["nes", "snes", "genesis", "gb", "gbc", "gba", "n64", "psx", "saturn"],
+        supportedSystems: [
+          "nes",
+          "snes",
+          "genesis",
+          "gb",
+          "gbc",
+          "gba",
+          "n64",
+          "psx",
+          "saturn",
+          "gamecube",
+        ],
         type: "retroarch",
       });
     }
@@ -137,6 +156,7 @@ export class EmulatorManager extends EventEmitter {
           "saturn",
           "psp",
           "nds",
+          "gamecube",
           "arcade",
         ],
         type: "libretro-native",
@@ -303,6 +323,7 @@ export class EmulatorManager extends EventEmitter {
       gb: ["gambatte_libretro", "mgba_libretro"],
       gba: ["mgba_libretro", "vba_next_libretro"],
       gbc: ["gambatte_libretro", "mgba_libretro"],
+      gamecube: ["dolphin_libretro"],
       genesis: ["genesis_plus_gx_libretro", "picodrive_libretro"],
       n64: ["mupen64plus_next_libretro", "parallel_n64_libretro"],
       nds: ["desmume_libretro"],
@@ -367,9 +388,13 @@ export class EmulatorManager extends EventEmitter {
   private selectBestEmulator(systemId: string): EmulatorInfo | undefined {
     // Prefer native libretro core loading (single-window, no external process).
     // Cores will be auto-downloaded if missing during the launch flow.
-    const native = this.availableEmulators.get("libretro-native");
-    if (native && native.supportedSystems.includes(systemId)) {
-      return native;
+    // Skip native mode for systems that require hardware-accelerated rendering
+    // (the native addon only supports software rendering).
+    if (!HW_RENDER_SYSTEMS.has(systemId)) {
+      const native = this.availableEmulators.get("libretro-native");
+      if (native && native.supportedSystems.includes(systemId)) {
+        return native;
+      }
     }
 
     // Fall back to RetroArch process mode

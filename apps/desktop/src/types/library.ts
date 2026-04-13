@@ -175,6 +175,12 @@ export const DEFAULT_SYSTEMS: Array<GameSystem> = [
     shortName: "Saturn",
   },
   {
+    extensions: [".gcm", ".gcz", ".rvz", ".wbfs", ".iso", ".ciso", ".dol", ".elf"],
+    id: "gamecube",
+    name: "Nintendo GameCube",
+    shortName: "GC",
+  },
+  {
     extensions: [".zip", ".7z"],
     id: "arcade",
     name: "Arcade",
