@@ -157,6 +157,10 @@ export class EmulationWorkerClient extends EventEmitter {
     this.postCommand({ action: "input", id, port, pressed });
   }
 
+  setInputAnalog(port: number, index: number, id: number, value: number): void {
+    this.postCommand({ action: "inputAnalog", port, index, id, value });
+  }
+
   pause(): void {
     this.postCommand({ action: "pause" });
     this.emit("paused");

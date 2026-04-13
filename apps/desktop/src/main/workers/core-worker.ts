@@ -691,6 +691,10 @@ function handleMessage(command: WorkerCommand): void {
       native?.setInputState(command.port, command.id, command.pressed ? 1 : 0);
       break;
 
+    case "inputAnalog":
+      native?.setInputAnalog(command.port, command.index, command.id, command.value);
+      break;
+
     case "setSpeed": {
       const newMultiplier = Math.max(0.25, Math.min(command.multiplier, 16));
       const wasRunning = isRunning;

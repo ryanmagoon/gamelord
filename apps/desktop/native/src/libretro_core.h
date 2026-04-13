@@ -41,6 +41,7 @@ private:
   Napi::Value GetVideoFrame(const Napi::CallbackInfo &info);
   Napi::Value GetAudioBuffer(const Napi::CallbackInfo &info);
   void SetInputState(const Napi::CallbackInfo &info);
+  void SetInputAnalog(const Napi::CallbackInfo &info);
   Napi::Value SerializeState(const Napi::CallbackInfo &info);
   Napi::Value UnserializeState(const Napi::CallbackInfo &info);
   Napi::Value GetSerializeSize(const Napi::CallbackInfo &info);
@@ -148,8 +149,12 @@ private:
 
   // Input state (written by JS, read by callback)
   std::mutex input_mutex_;
-  // input_state_[port][id] = pressed
+  // Digital buttons: input_state_[port][id] = pressed (0 or 1)
   int16_t input_state_[2][16] = {};
+  // Analog axes: analog_state_[port][index][axis] = value (-32768..32767)
+  // index: 0=left stick, 1=right stick, 2=analog buttons
+  // axis: 0=X, 1=Y
+  int16_t analog_state_[2][3][2] = {};
 
   // Log message buffer (written by callback, read by JS)
   struct LogEntry {

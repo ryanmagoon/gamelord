@@ -585,6 +585,13 @@ export class GameWindowManager extends EventEmitter {
     ipcMain.on("game:input", (_event, port: number, id: number, pressed: boolean) => {
       this.activeWorkerClient?.setInput(port, id, pressed);
     });
+
+    ipcMain.on(
+      "game:input-analog",
+      (_event, port: number, index: number, id: number, value: number) => {
+        this.activeWorkerClient?.setInputAnalog(port, index, id, value);
+      },
+    );
   }
 
   destroy(): void {
@@ -605,5 +612,6 @@ export class GameWindowManager extends EventEmitter {
     ipcMain.removeAllListeners("game-window:set-traffic-light-visible");
     ipcMain.removeAllListeners("game-window:ready-to-close");
     ipcMain.removeAllListeners("game:input");
+    ipcMain.removeAllListeners("game:input-analog");
   }
 }

@@ -141,6 +141,7 @@ Napi::Object LibretroCore::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("getVideoFrame", &LibretroCore::GetVideoFrame),
     InstanceMethod("getAudioBuffer", &LibretroCore::GetAudioBuffer),
     InstanceMethod("setInputState", &LibretroCore::SetInputState),
+    InstanceMethod("setInputAnalog", &LibretroCore::SetInputAnalog),
     InstanceMethod("serializeState", &LibretroCore::SerializeState),
     InstanceMethod("unserializeState", &LibretroCore::UnserializeState),
     InstanceMethod("getSerializeSize", &LibretroCore::GetSerializeSize),
@@ -322,6 +323,14 @@ Napi::Value LibretroCore::LoadGame(const Napi::CallbackInfo &info) {
   // Get AV info after loading game
   fn_get_system_av_info_(&av_info_);
   game_loaded_ = true;
+
+  // Tell the core what controller type is plugged into each port.
+  // RETRO_DEVICE_JOYPAD is the standard digital gamepad; cores that also
+  // need analog sticks will query RETRO_DEVICE_ANALOG in InputStateCallback.
+  if (fn_set_controller_port_device_) {
+    fn_set_controller_port_device_(0, RETRO_DEVICE_JOYPAD);
+    fn_set_controller_port_device_(1, RETRO_DEVICE_JOYPAD);
+  }
 
 #ifdef __APPLE__
   // If HW render is active, resize FBO to match loaded game's geometry
@@ -506,6 +515,25 @@ void LibretroCore::SetInputState(const Napi::CallbackInfo &info) {
   if (port < 2 && id < 16) {
     std::lock_guard<std::mutex> lock(input_mutex_);
     input_state_[port][id] = value;
+  }
+}
+
+void LibretroCore::SetInputAnalog(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+
+  if (info.Length() < 4) {
+    Napi::TypeError::New(env, "Expected (port, index, id, value)").ThrowAsJavaScriptException();
+    return;
+  }
+
+  unsigned port = info[0].As<Napi::Number>().Uint32Value();
+  unsigned index = info[1].As<Napi::Number>().Uint32Value();  // 0=left, 1=right
+  unsigned id = info[2].As<Napi::Number>().Uint32Value();     // 0=X, 1=Y
+  int16_t value = static_cast<int16_t>(info[3].As<Napi::Number>().Int32Value());
+
+  if (port < 2 && index < 3 && id < 2) {
+    std::lock_guard<std::mutex> lock(input_mutex_);
+    analog_state_[port][index][id] = value;
   }
 }
 
@@ -1318,12 +1346,36 @@ void LibretroCore::InputPollCallback() {
 
 int16_t LibretroCore::InputStateCallback(unsigned port, unsigned device, unsigned index, unsigned id) {
   LibretroCore *self = s_instance;
-  if (!self) return 0;
-
-  if (device != RETRO_DEVICE_JOYPAD || port >= 2 || id >= 16) return 0;
+  if (!self || port >= 2) return 0;
 
   std::lock_guard<std::mutex> lock(self->input_mutex_);
-  return self->input_state_[port][id];
+
+  switch (device) {
+    case RETRO_DEVICE_JOYPAD:
+      if (id == RETRO_DEVICE_ID_JOYPAD_MASK) {
+        // Bitmask query: return all 16 buttons packed into a single int16
+        int16_t mask = 0;
+        for (unsigned i = 0; i < 16; i++) {
+          if (self->input_state_[port][i]) {
+            mask |= (1 << i);
+          }
+        }
+        return mask;
+      }
+      if (id < 16) {
+        return self->input_state_[port][id];
+      }
+      return 0;
+
+    case RETRO_DEVICE_ANALOG:
+      if (index < 3 && id < 2) {
+        return self->analog_state_[port][index][id];
+      }
+      return 0;
+
+    default:
+      return 0;
+  }
 }
 
 void LibretroCore::LogCallback(enum retro_log_level level, const char *fmt, ...) {

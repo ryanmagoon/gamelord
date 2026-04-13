@@ -345,6 +345,7 @@ export const GameWindow: React.FC = () => {
   // Gamepad polling — uses same api.gameInput() pipeline as keyboard
   const { connectedCount: connectedGamepads } = useGamepad({
     gameInput: api.gameInput,
+    gameInputAnalog: api.gameInputAnalog,
     enabled: mode === "native" && !isPaused,
   });
 

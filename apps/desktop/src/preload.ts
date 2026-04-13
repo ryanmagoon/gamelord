@@ -90,6 +90,8 @@ contextBridge.exposeInMainWorld("gamelord", {
   // Game input forwarding (native mode)
   gameInput: (port: number, id: number, pressed: boolean) =>
     ipcRenderer.send("game:input", port, id, pressed),
+  gameInputAnalog: (port: number, index: number, id: number, value: number) =>
+    ipcRenderer.send("game:input-analog", port, index, id, value),
 
   // Event listeners
   on: (channel: string, callback: (...args: Array<unknown>) => void) => {

@@ -133,6 +133,14 @@ struct retro_hw_render_callback {
 #define RETRO_DEVICE_ID_JOYPAD_R2    13
 #define RETRO_DEVICE_ID_JOYPAD_L3    14
 #define RETRO_DEVICE_ID_JOYPAD_R3    15
+#define RETRO_DEVICE_ID_JOYPAD_MASK  256
+
+/* Analog stick axes */
+#define RETRO_DEVICE_INDEX_ANALOG_LEFT   0
+#define RETRO_DEVICE_INDEX_ANALOG_RIGHT  1
+#define RETRO_DEVICE_INDEX_ANALOG_BUTTON 2
+#define RETRO_DEVICE_ID_ANALOG_X         0
+#define RETRO_DEVICE_ID_ANALOG_Y         1
 
 /* Memory regions */
 #define RETRO_MEMORY_SAVE_RAM 0
