@@ -19,7 +19,7 @@ import {
 } from "@gamelord/ui";
 import { useWebGLRenderer } from "./hooks/useWebGLRenderer";
 import { useSfx } from "./hooks/useSfx";
-import { AlertTriangle, Monitor, Tv, Cpu, Heart, Settings, SunMoon, Moon, Sun } from "lucide-react";
+import { AlertTriangle, Monitor, Tv, Cpu, Heart, ImageDown, Settings, SunMoon, Moon, Sun } from "lucide-react";
 import { DevAgentation } from "./components/DevAgentation";
 import { DevBranchBadge } from "./components/DevBranchBadge";
 import { LibraryView } from "./components/LibraryView";
@@ -498,8 +498,18 @@ function App() {
       onClick: () => void handleChangeCore(game),
     });
 
+    if (!game.coverArt) {
+      items.push({
+        label: "Download Artwork",
+        icon: <ImageDown className="h-4 w-4" />,
+        onClick: () => {
+          void api.artwork.syncGame(game.id);
+        },
+      });
+    }
+
     return items;
-  }, []);
+  }, [api]);
 
   const handleStop = async () => {
     try {
