@@ -562,17 +562,11 @@ Napi::Value LibretroCore::SerializeState(const Napi::CallbackInfo &info) {
   }
 
 #ifdef __APPLE__
+  // HW cores need the GL context current on the calling thread.
+  // Don't touch FBO bindings or flush — Dolphin tracks its own GL state
+  // internally and unbinding behind its back desyncs m_current_framebuffer.
   if (hw_render_.active && hw_render_.cgl_context) {
     CGLSetCurrentContext(hw_render_.cgl_context);
-
-    // Dolphin leaves GL state dirty after rendering (FBOs bound, etc.).
-    // Reset to a clean baseline so its serializer can do GL readbacks
-    // without hitting GL_INVALID_FRAMEBUFFER_OPERATION.
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glFinish();
-
-    // Drain any accumulated GL errors from rendering
-    while (glGetError() != GL_NO_ERROR) {}
   }
 #endif
 
@@ -606,9 +600,6 @@ Napi::Value LibretroCore::UnserializeState(const Napi::CallbackInfo &info) {
 #ifdef __APPLE__
   if (hw_render_.active && hw_render_.cgl_context) {
     CGLSetCurrentContext(hw_render_.cgl_context);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glFinish();
-    while (glGetError() != GL_NO_ERROR) {}
   }
 #endif
 
