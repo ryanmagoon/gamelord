@@ -142,6 +142,7 @@ Napi::Object LibretroCore::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("getAudioBuffer", &LibretroCore::GetAudioBuffer),
     InstanceMethod("setInputState", &LibretroCore::SetInputState),
     InstanceMethod("setInputAnalog", &LibretroCore::SetInputAnalog),
+    InstanceMethod("isHWRendering", &LibretroCore::IsHWRendering),
     InstanceMethod("serializeState", &LibretroCore::SerializeState),
     InstanceMethod("unserializeState", &LibretroCore::UnserializeState),
     InstanceMethod("getSerializeSize", &LibretroCore::GetSerializeSize),
@@ -618,6 +619,11 @@ void LibretroCore::Destroy(const Napi::CallbackInfo &info) {
 Napi::Value LibretroCore::IsLoaded(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
   return Napi::Boolean::New(env, core_loaded_.load() && game_loaded_.load());
+}
+
+Napi::Value LibretroCore::IsHWRendering(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  return Napi::Boolean::New(env, hw_render_.active);
 }
 
 void LibretroCore::SetSystemDirectory(const Napi::CallbackInfo &info) {

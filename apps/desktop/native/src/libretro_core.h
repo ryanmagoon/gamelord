@@ -42,6 +42,7 @@ private:
   Napi::Value GetAudioBuffer(const Napi::CallbackInfo &info);
   void SetInputState(const Napi::CallbackInfo &info);
   void SetInputAnalog(const Napi::CallbackInfo &info);
+  Napi::Value IsHWRendering(const Napi::CallbackInfo &info);
   Napi::Value SerializeState(const Napi::CallbackInfo &info);
   Napi::Value UnserializeState(const Napi::CallbackInfo &info);
   Napi::Value GetSerializeSize(const Napi::CallbackInfo &info);

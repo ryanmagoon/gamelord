@@ -147,6 +147,12 @@ function saveState(slot: number): void {
     throw new Error("No core loaded");
   }
 
+  // HW-rendered cores (Dolphin, etc.) segfault in retro_serialize — this is
+  // a known upstream bug. Block the attempt to prevent crashing the worker.
+  if (native.isHWRendering()) {
+    throw new Error("Save states are not yet supported for this system");
+  }
+
   const stateData = native.serializeState();
   if (!stateData) {
     throw new Error("Failed to serialize state");
@@ -173,6 +179,10 @@ function saveState(slot: number): void {
 function loadState(slot: number): void {
   if (!native) {
     throw new Error("No core loaded");
+  }
+
+  if (native.isHWRendering()) {
+    throw new Error("Save states are not yet supported for this system");
   }
 
   const statePath = getStatePath(slot);

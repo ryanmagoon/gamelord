@@ -28,6 +28,7 @@ export interface NativeLibretroCore {
   getAudioBuffer(): Int16Array | null;
   setInputState(port: number, id: number, value: number): void;
   setInputAnalog(port: number, index: number, id: number, value: number): void;
+  isHWRendering(): boolean;
   serializeState(): Uint8Array | null;
   unserializeState(data: Uint8Array): boolean;
   getSerializeSize(): number;
