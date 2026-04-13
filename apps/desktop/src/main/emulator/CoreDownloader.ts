@@ -16,6 +16,7 @@ const PREFERRED_CORES: Record<string, string> = {
   gb: "gambatte_libretro",
   gba: "mgba_libretro",
   gbc: "gambatte_libretro",
+  gamecube: "dolphin_libretro",
   genesis: "genesis_plus_gx_libretro",
   n64: "mupen64plus_next_libretro",
   nds: "desmume_libretro",
@@ -32,6 +33,7 @@ const SYSTEM_CORES: Record<string, Array<string>> = {
   gb: ["gambatte_libretro", "mgba_libretro"],
   gba: ["mgba_libretro", "vba_next_libretro"],
   gbc: ["gambatte_libretro", "mgba_libretro"],
+  gamecube: ["dolphin_libretro"],
   genesis: ["genesis_plus_gx_libretro", "picodrive_libretro"],
   n64: ["mupen64plus_next_libretro", "parallel_n64_libretro"],
   nds: ["desmume_libretro"],
@@ -48,6 +50,7 @@ const CORE_DISPLAY_NAMES: Record<string, string> = {
   mednafen_psx_hw_libretro: "Beetle PSX HW",
   bsnes_libretro: "bsnes",
   desmume_libretro: "DeSmuME",
+  dolphin_libretro: "Dolphin",
   fceumm_libretro: "FCEUmm",
   gambatte_libretro: "Gambatte",
   genesis_plus_gx_libretro: "Genesis Plus GX",
@@ -69,6 +72,7 @@ const CORE_DISPLAY_NAMES: Record<string, string> = {
 /** Short descriptions for cores. */
 const CORE_DESCRIPTIONS: Record<string, string> = {
   bsnes_libretro: "Cycle-accurate. Perfect accuracy, higher CPU usage.",
+  dolphin_libretro: "GameCube and Wii emulation. No BIOS files required.",
   swanstation_libretro:
     "High-accuracy PSX emulation with full chtdb cheat support including extended code types.",
   fceumm_libretro: "Accurate and fast NES emulation.",
