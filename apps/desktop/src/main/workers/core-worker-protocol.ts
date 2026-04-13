@@ -193,7 +193,7 @@ export function extractSerialFromLog(message: string): string | null {
 // ---------------------------------------------------------------------------
 
 export type WorkerEvent =
-  | { type: "ready"; avInfo: AVInfo }
+  | { type: "ready"; avInfo: AVInfo; saveStatesSupported: boolean }
   | { type: "videoFrame"; data: Buffer; width: number; height: number }
   | { type: "audioSamples"; samples: Buffer; sampleRate: number }
   | { type: "error"; message: string; fatal: boolean }

@@ -363,7 +363,11 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   isPaused = false;
   consecutiveErrors = 0;
 
-  send({ type: "ready", avInfo: avInfo as AVInfo });
+  // HW-rendered cores (Dolphin, etc.) segfault in retro_serialize — disable
+  // save states so the renderer can hide the UI entirely.
+  const saveStatesSupported = native ? !native.isHWRendering() : true;
+
+  send({ type: "ready", avInfo: avInfo as AVInfo, saveStatesSupported });
 
   startEmulationLoop();
 }

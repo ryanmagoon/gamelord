@@ -103,6 +103,7 @@ export const GameWindow: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(0);
+  const [saveStatesSupported, setSaveStatesSupported] = useState(true);
   const [mode, setMode] = useState<"overlay" | "native">("native");
   const [volume, setVolume] = useState(() => {
     const saved = localStorage.getItem("gamelord:volume");
@@ -560,6 +561,10 @@ export const GameWindow: React.FC = () => {
       // Controls start hidden; user reveals them by moving mouse
     });
 
+    api.on("game:save-states-supported", (raw: unknown) => {
+      setSaveStatesSupported(raw as boolean);
+    });
+
     api.on("overlay:show-controls", (raw: unknown) => {
       setShowControls(raw as boolean);
     });
@@ -966,11 +971,11 @@ export const GameWindow: React.FC = () => {
         return;
       }
 
-      if (e.key === "F5") {
+      if (e.key === "F5" && saveStatesSupported) {
         e.preventDefault();
         void handleSaveState();
       }
-      if (e.key === "F9") {
+      if (e.key === "F9" && saveStatesSupported) {
         e.preventDefault();
         void handleLoadState();
       }
@@ -1022,6 +1027,7 @@ export const GameWindow: React.FC = () => {
   }, [
     isPaused,
     selectedSlot,
+    saveStatesSupported,
     speedMultiplier,
     preferredFastForwardSpeed,
     showControlsHint,
@@ -1387,48 +1393,50 @@ export const GameWindow: React.FC = () => {
             </div>
           </div>
 
-          {/* Save state controls */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-white text-sm">Slot:</span>
-              <div className="flex gap-1">
-                {[0, 1, 2, 3, 4].map((slot) => (
-                  <button
-                    key={slot}
-                    onClick={() => {
-                      playSfx("click");
-                      setSelectedSlot(slot);
-                    }}
-                    className={`w-8 h-8 rounded flex items-center justify-center text-sm font-medium transition-colors ${
-                      selectedSlot === slot
-                        ? "bg-blue-500 text-white"
-                        : "bg-white/10 text-white/60 hover:bg-white/20"
-                    }`}
-                  >
-                    {slot}
-                  </button>
-                ))}
+          {/* Save state controls (hidden for HW-render cores like Dolphin) */}
+          {saveStatesSupported && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-white text-sm">Slot:</span>
+                <div className="flex gap-1">
+                  {[0, 1, 2, 3, 4].map((slot) => (
+                    <button
+                      key={slot}
+                      onClick={() => {
+                        playSfx("click");
+                        setSelectedSlot(slot);
+                      }}
+                      className={`w-8 h-8 rounded flex items-center justify-center text-sm font-medium transition-colors ${
+                        selectedSlot === slot
+                          ? "bg-blue-500 text-white"
+                          : "bg-white/10 text-white/60 hover:bg-white/20"
+                      }`}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSaveState}
+                className="text-white hover:bg-white/20 hover:text-white"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save (F5)
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLoadState}
+                className="text-white hover:bg-white/20 hover:text-white"
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Load (F9)
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSaveState}
-              className="text-white hover:bg-white/20 hover:text-white"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save (F5)
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLoadState}
-              className="text-white hover:bg-white/20 hover:text-white"
-            >
-              <FolderOpen className="h-4 w-4 mr-2" />
-              Load (F9)
-            </Button>
-          </div>
+          )}
 
           {/* Volume & additional controls */}
           <div className="flex items-center gap-2">

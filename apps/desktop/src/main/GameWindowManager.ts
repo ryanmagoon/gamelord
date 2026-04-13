@@ -54,6 +54,7 @@ export class GameWindowManager extends EventEmitter {
     shouldResume = false,
     cardScreenBounds?: { x: number; y: number; width: number; height: number },
     discInfo?: { paths: Array<string>; initialIndex: number },
+    saveStatesSupported = true,
   ): BrowserWindow {
     const existingWindow = this.gameWindows.get(game.id);
     if (existingWindow && !existingWindow.isDestroyed()) {
@@ -157,6 +158,7 @@ export class GameWindowManager extends EventEmitter {
       gameWindow.webContents.send("game:loaded", game);
       gameWindow.webContents.send("game:mode", "native");
       gameWindow.webContents.send("game:av-info", avInfo);
+      gameWindow.webContents.send("game:save-states-supported", saveStatesSupported);
       if (discInfo) {
         gameWindow.webContents.send("game:disc-info", {
           total: discInfo.paths.length,

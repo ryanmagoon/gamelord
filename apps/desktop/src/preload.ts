@@ -111,6 +111,7 @@ contextBridge.exposeInMainWorld("gamelord", {
       "game:loaded",
       "game:mode",
       "game:av-info",
+      "game:save-states-supported",
       "game:disc-info",
       "game:video-frame",
       "game:audio-samples",

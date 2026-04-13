@@ -75,7 +75,9 @@ export class EmulationWorkerClient extends EventEmitter {
    * Spawn the utility process, load the core and ROM, and start the
    * emulation loop. Resolves with AV info once the worker is ready.
    */
-  async init(options: EmulationWorkerInitOptions): Promise<AVInfo> {
+  async init(
+    options: EmulationWorkerInitOptions,
+  ): Promise<{ avInfo: AVInfo; saveStatesSupported: boolean }> {
     if (this.workerProcess) {
       await this.destroy();
     }
@@ -100,12 +102,13 @@ export class EmulationWorkerClient extends EventEmitter {
     });
 
     // Wait for the 'ready' event from the worker
-    const avInfo = await new Promise<AVInfo>((resolve, reject) => {
-      const onMessage = (event: WorkerEvent) => {
-        if (event.type === "ready") {
-          clearTimeout(initTimeout);
-          this.workerProcess?.removeListener("message", onMessage);
-          resolve(event.avInfo);
+    const initResult = await new Promise<{ avInfo: AVInfo; saveStatesSupported: boolean }>(
+      (resolve, reject) => {
+        const onMessage = (event: WorkerEvent) => {
+          if (event.type === "ready") {
+            clearTimeout(initTimeout);
+            this.workerProcess?.removeListener("message", onMessage);
+            resolve({ avInfo: event.avInfo, saveStatesSupported: event.saveStatesSupported });
         } else if (event.type === "error" && event.fatal) {
           clearTimeout(initTimeout);
           this.workerProcess?.removeListener("message", onMessage);
@@ -134,7 +137,10 @@ export class EmulationWorkerClient extends EventEmitter {
       // Send init command
       const initCommand: WorkerCommand = { action: "init", ...options };
       proc.postMessage(initCommand);
-    });
+      },
+    );
+
+    const { avInfo, saveStatesSupported } = initResult;
 
     // Set up the permanent message handler
     this.workerProcess.on("message", (event: WorkerEvent) => {
@@ -146,7 +152,7 @@ export class EmulationWorkerClient extends EventEmitter {
     this.setupSharedBuffers(avInfo);
 
     this.running = true;
-    return avInfo;
+    return { avInfo, saveStatesSupported };
   }
 
   /**
