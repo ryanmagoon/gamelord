@@ -1461,7 +1461,11 @@ uintptr_t LibretroCore::GetCurrentFramebuffer() {
   if (!s_instance || !s_instance->hw_render_.active) {
     return 0;
   }
+#ifdef __APPLE__
   return static_cast<uintptr_t>(s_instance->hw_render_.fbo);
+#else
+  return 0;
+#endif
 }
 
 retro_proc_address_t LibretroCore::HWGetProcAddress(const char *sym) {
