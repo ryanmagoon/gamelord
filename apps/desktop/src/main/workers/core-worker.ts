@@ -147,8 +147,7 @@ function saveState(slot: number): void {
     throw new Error("No core loaded");
   }
 
-  // HW-rendered cores (Dolphin, etc.) segfault in retro_serialize — this is
-  // a known upstream bug. Block the attempt to prevent crashing the worker.
+  // Defense-in-depth: HW cores segfault in retro_serialize (see #342)
   if (native.isHWRendering()) {
     throw new Error("Save states are not yet supported for this system");
   }
@@ -363,8 +362,9 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   isPaused = false;
   consecutiveErrors = 0;
 
-  // HW-rendered cores (Dolphin, etc.) segfault in retro_serialize — disable
-  // save states so the renderer can hide the UI entirely.
+  // HW-rendered cores (Dolphin) segfault inside retro_serialize — the crash
+  // is confirmed to be in the core's own serializer, not our GL setup.
+  // Disable save states for HW cores to prevent killing the worker. See #342.
   const saveStatesSupported = native ? !native.isHWRendering() : true;
 
   send({ type: "ready", avInfo: avInfo as AVInfo, saveStatesSupported });

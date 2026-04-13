@@ -562,22 +562,27 @@ Napi::Value LibretroCore::SerializeState(const Napi::CallbackInfo &info) {
   }
 
 #ifdef __APPLE__
-  // HW-rendered cores (Dolphin, etc.) need the GL context current to read
-  // GPU state (texture cache, framebuffers) during serialization.
   if (hw_render_.active && hw_render_.cgl_context) {
     CGLSetCurrentContext(hw_render_.cgl_context);
-    // Ensure all pending GL operations complete before reading GPU state
+
+    // Dolphin leaves GL state dirty after rendering (FBOs bound, etc.).
+    // Reset to a clean baseline so its serializer can do GL readbacks
+    // without hitting GL_INVALID_FRAMEBUFFER_OPERATION.
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glFinish();
+
+    // Drain any accumulated GL errors from rendering
+    while (glGetError() != GL_NO_ERROR) {}
   }
 #endif
 
   size_t size = fn_serialize_size_();
   if (size == 0) return env.Null();
 
-  // Dolphin states can be 100MB+. Use std::vector to avoid V8 heap pressure
-  // and copy into the N-API buffer only after serialization succeeds.
   std::vector<uint8_t> buf(size);
-  if (!fn_serialize_(buf.data(), size)) {
+  bool ok = fn_serialize_(buf.data(), size);
+
+  if (!ok) {
     return env.Null();
   }
 
@@ -599,10 +604,11 @@ Napi::Value LibretroCore::UnserializeState(const Napi::CallbackInfo &info) {
   }
 
 #ifdef __APPLE__
-  // HW-rendered cores need GL context for GPU state restoration
   if (hw_render_.active && hw_render_.cgl_context) {
     CGLSetCurrentContext(hw_render_.cgl_context);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glFinish();
+    while (glGetError() != GL_NO_ERROR) {}
   }
 #endif
 
