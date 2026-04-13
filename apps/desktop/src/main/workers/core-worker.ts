@@ -147,8 +147,9 @@ function saveState(slot: number): void {
     throw new Error("No core loaded");
   }
 
-  // Defense-in-depth: HW cores segfault in retro_serialize (see #342)
-  if (native.isHWRendering()) {
+  // HW cores may segfault in retro_serialize (see #342). Guard unless
+  // explicitly enabled via GAMELORD_HW_SAVE_STATES=1.
+  if (native.isHWRendering() && process.env.GAMELORD_HW_SAVE_STATES !== "1") {
     throw new Error("Save states are not yet supported for this system");
   }
 
@@ -180,7 +181,7 @@ function loadState(slot: number): void {
     throw new Error("No core loaded");
   }
 
-  if (native.isHWRendering()) {
+  if (native.isHWRendering() && process.env.GAMELORD_HW_SAVE_STATES !== "1") {
     throw new Error("Save states are not yet supported for this system");
   }
 
@@ -364,8 +365,12 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
 
   // HW-rendered cores (Dolphin) segfault inside retro_serialize — the crash
   // is confirmed to be in the core's own serializer, not our GL setup.
-  // Disable save states for HW cores to prevent killing the worker. See #342.
-  const saveStatesSupported = native ? !native.isHWRendering() : true;
+  // Disable save states for HW cores by default. Set GAMELORD_HW_SAVE_STATES=1
+  // to force-enable for testing. See #342.
+  const forceHWSaveStates = process.env.GAMELORD_HW_SAVE_STATES === "1";
+  const saveStatesSupported = native
+    ? !native.isHWRendering() || forceHWSaveStates
+    : true;
 
   send({ type: "ready", avInfo: avInfo as AVInfo, saveStatesSupported });
 
