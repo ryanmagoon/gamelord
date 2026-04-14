@@ -606,14 +606,26 @@ Napi::Value LibretroCore::UnserializeState(const Napi::CallbackInfo &info) {
   Napi::Uint8Array arr = info[0].As<Napi::Uint8Array>();
   bool ok = fn_unserialize_(arr.Data(), arr.ByteLength());
 
-#ifdef __APPLE__
-  // Reset PBO pipeline so the next ReadbackHWFrame doesn't read stale
-  // pre-restore data from the previous PBO (which causes a magenta flash).
   if (ok && hw_render_.active) {
+#ifdef __APPLE__
+    // Reset PBO double-buffer pipeline. Without this, ReadbackHWFrame would
+    // deliver stale pre-restore PBO data as the next frame (magenta flash).
     hw_render_.pbo_first_frame = true;
     hw_render_.pbo_read_idx = -1;
-  }
+
+    // Clear the FBO to black so if it gets read back before Dolphin renders
+    // its first post-restore frame, we get black instead of magenta.
+    glBindFramebuffer(GL_FRAMEBUFFER, hw_render_.fbo);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif
+
+    // Suppress the stale pre-restore video_buffer_ so GetVideoFrame returns
+    // null until a real post-restore frame arrives.
+    std::lock_guard<std::mutex> lock(video_mutex_);
+    video_frame_ready_ = false;
+  }
 
   return Napi::Boolean::New(env, ok);
 }
