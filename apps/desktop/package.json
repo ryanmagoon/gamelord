@@ -8,7 +8,7 @@
     "build:native": "cd native && node-gyp rebuild",
     "clean": "node -e \"const fs=require('fs');['out','dist'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true})}catch{}})\"",
     "build": "npm run clean && npm run build:native && electron-vite build",
-    "dev": "electron-vite dev",
+    "dev": "electron-vite dev --remote-debugging-port=9222",
     "start": "electron-vite preview",
     "package": "npm run build && electron-builder --dir",
     "make": "npm run build && electron-builder",
