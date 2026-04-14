@@ -137,6 +137,10 @@ private:
   std::vector<uint8_t> video_buffer_;
   unsigned video_width_ = 0;
   unsigned video_height_ = 0;
+
+  // After a state load, skip N frames from ReadbackHWFrame to avoid
+  // delivering magenta frames while Dolphin rebuilds its texture cache.
+  int hw_render_skip_frames_ = 0;
   bool video_frame_ready_ = false;
 
   // Audio ring buffer (single-threaded: callbacks and GetAudioBuffer run

@@ -608,23 +608,18 @@ Napi::Value LibretroCore::UnserializeState(const Napi::CallbackInfo &info) {
 
   if (ok && hw_render_.active) {
 #ifdef __APPLE__
-    // Reset PBO double-buffer pipeline. Without this, ReadbackHWFrame would
-    // deliver stale pre-restore PBO data as the next frame (magenta flash).
+    // Reset PBO pipeline so ReadbackHWFrame doesn't deliver stale data.
     hw_render_.pbo_first_frame = true;
     hw_render_.pbo_read_idx = -1;
-
-    // Clear the FBO to black so if it gets read back before Dolphin renders
-    // its first post-restore frame, we get black instead of magenta.
-    glBindFramebuffer(GL_FRAMEBUFFER, hw_render_.fbo);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif
 
-    // Suppress the stale pre-restore video_buffer_ so GetVideoFrame returns
-    // null until a real post-restore frame arrives.
-    std::lock_guard<std::mutex> lock(video_mutex_);
-    video_frame_ready_ = false;
+    // Keep video_frame_ready_ as-is so the renderer holds the last
+    // pre-restore frame. Dolphin's first post-restore frame may have
+    // magenta textures (texture cache was skipped during serialize).
+    // Holding the old frame for 1-2 ticks is less jarring than showing
+    // magenta or black. The skip_frames counter tells ReadbackHWFrame
+    // to discard the first N post-restore frames.
+    hw_render_skip_frames_ = 2;
   }
 
   return Napi::Boolean::New(env, ok);
@@ -1505,19 +1500,27 @@ void LibretroCore::ReadbackHWFrame(unsigned width, unsigned height) {
 
   size_t frame_bytes = static_cast<size_t>(width) * height * 4;
 
+  // After a state load, skip N frames to avoid delivering magenta while
+  // Dolphin rebuilds its texture cache (texture cache is not serialized).
+  bool skip = hw_render_skip_frames_ > 0;
+  if (skip) {
+    hw_render_skip_frames_--;
+  }
+
   // Step 1: Read back the PREVIOUS frame's PBO (async transfer completed)
   if (!hw.pbo_first_frame) {
     glBindBuffer(GL_PIXEL_PACK_BUFFER, hw.pbo[hw.pbo_read_idx]);
     void *mapped = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 
-    if (mapped) {
+    // Only copy to video_buffer_ if we're not skipping this frame.
+    // When skipping, the renderer keeps displaying the last good frame.
+    if (mapped && !skip) {
       std::lock_guard<std::mutex> lock(video_mutex_);
       video_buffer_.resize(frame_bytes);
       video_width_ = width;
       video_height_ = height;
 
       if (hw.hw_render_cb.bottom_left_origin) {
-        // Flip vertically during copy (OpenGL bottom-left → top-left)
         const uint8_t *src = static_cast<const uint8_t *>(mapped);
         uint8_t *dst = video_buffer_.data();
         size_t row_bytes = static_cast<size_t>(width) * 4;
@@ -1533,7 +1536,9 @@ void LibretroCore::ReadbackHWFrame(unsigned width, unsigned height) {
       video_frame_ready_ = true;
     }
 
-    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    if (mapped) {
+      glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    }
   }
 
   // Step 2: Kick off async readback of CURRENT frame into write PBO
