@@ -186,12 +186,6 @@ function loadState(slot: number): void {
   if (!native.unserializeState(stateData)) {
     throw new Error("Failed to restore state");
   }
-
-  // Run two frames so HW cores (Dolphin) fully flush the restored scene:
-  // Frame 1: renders into FBO, kicks off PBO async readback
-  // Frame 2: completes readback into video_buffer_ for GetVideoFrame
-  native.run();
-  native.run();
 }
 
 function listSaveStates(): Array<SaveStateMetadata> {
