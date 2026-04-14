@@ -46,7 +46,6 @@ let screenshotDir = "";
 // Multi-disc: when set, SRAM derives from the group base name instead of romPath
 let sramBaseName: string | null = null;
 
-
 // Timing
 let targetFps = 60;
 let speedMultiplier = 1;
