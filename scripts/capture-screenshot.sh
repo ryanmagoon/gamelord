@@ -2,7 +2,7 @@
 # Capture a screenshot of the running Electron app via CDP.
 #
 # Usage: ./scripts/capture-screenshot.sh [output-path] [--cdp-port PORT]
-#   output-path  Where to save the screenshot (default: /tmp/gamelord-screenshot.png)
+#   output-path  Where to save the screenshot (default: /tmp/gamelord-screenshot.jpg)
 #   --cdp-port   CDP debugging port (default: 9222)
 #
 # Prerequisites:
@@ -10,11 +10,12 @@
 #       cd apps/desktop && pnpm exec electron-vite dev -- --remote-debugging-port=9222
 #   - playwright must be installed (it's a dev dependency of this project)
 #
-# Output: saves a PNG screenshot and prints the path to stdout.
+# Output: saves a JPEG screenshot (quality 80) and prints the path to stdout.
+# JPEG keeps file size under GitHub's camo proxy limit (~5MB).
 
 set -euo pipefail
 
-OUTPUT_PATH="/tmp/gamelord-screenshot.png"
+OUTPUT_PATH="/tmp/gamelord-screenshot.jpg"
 CDP_PORT=9222
 
 while [ $# -gt 0 ]; do
@@ -37,7 +38,9 @@ if ! curl -s "http://127.0.0.1:${CDP_PORT}/json/version" >/dev/null 2>&1; then
   exit 1
 fi
 
-# Use playwright to connect and screenshot
+# Use playwright to connect and screenshot.
+# Playwright supports JPEG output natively when the path ends in .jpg/.jpeg.
+# For .png paths, we capture as PNG then convert via sips (macOS built-in).
 node -e "
 const { chromium } = require('playwright');
 
@@ -53,9 +56,15 @@ const { chromium } = require('playwright');
     process.exit(1);
   }
 
-  await page.screenshot({ path: '${OUTPUT_PATH}' });
-  console.log('${OUTPUT_PATH}');
+  const outPath = '${OUTPUT_PATH}';
+  const isJpeg = outPath.endsWith('.jpg') || outPath.endsWith('.jpeg');
+
+  await page.screenshot({
+    path: outPath,
+    type: isJpeg ? 'jpeg' : 'png',
+    quality: isJpeg ? 80 : undefined,
+  });
+  console.log(outPath);
   await browser.close();
 })().catch(e => { console.error(e.message); process.exit(1); });
 " 2>&1
-

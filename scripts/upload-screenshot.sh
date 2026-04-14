@@ -36,6 +36,14 @@ if ! command -v vercel &>/dev/null; then
   exit 1
 fi
 
+# GitHub's camo proxy rejects images over ~5MB. Warn early.
+FILE_SIZE=$(stat -f%z "$IMAGE_PATH" 2>/dev/null || stat -c%s "$IMAGE_PATH" 2>/dev/null)
+if [ "$FILE_SIZE" -gt 5000000 ]; then
+  echo "Warning: file is $(( FILE_SIZE / 1048576 ))MB — GitHub's camo proxy may reject it." >&2
+  echo "Use JPEG (capture-screenshot.sh defaults to .jpg) or compress with:" >&2
+  echo "  sips -s format jpeg -s formatOptions 80 $IMAGE_PATH --out ${IMAGE_PATH%.png}.jpg" >&2
+fi
+
 FILENAME="$(basename "$IMAGE_PATH")"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 

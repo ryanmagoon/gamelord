@@ -30,6 +30,7 @@ Connects to the running Electron app via CDP (playwright) and saves a PNG screen
 - Default output: `/tmp/gamelord-screenshot.png`
 - Default CDP port: `9222`
 - Requires the app to be running with `--remote-debugging-port=9222`
+- Outputs JPEG by default (quality 80) to stay under GitHub's ~5MB camo proxy limit
 - Uses `playwright` (project dev dependency)
 
 ### `scripts/upload-screenshot.sh <image-path> [pathname]`
