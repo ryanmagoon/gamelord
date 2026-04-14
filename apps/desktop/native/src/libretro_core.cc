@@ -606,6 +606,15 @@ Napi::Value LibretroCore::UnserializeState(const Napi::CallbackInfo &info) {
   Napi::Uint8Array arr = info[0].As<Napi::Uint8Array>();
   bool ok = fn_unserialize_(arr.Data(), arr.ByteLength());
 
+#ifdef __APPLE__
+  // Reset PBO pipeline so the next ReadbackHWFrame doesn't read stale
+  // pre-restore data from the previous PBO (which causes a magenta flash).
+  if (ok && hw_render_.active) {
+    hw_render_.pbo_first_frame = true;
+    hw_render_.pbo_read_idx = -1;
+  }
+#endif
+
   return Napi::Boolean::New(env, ok);
 }
 
