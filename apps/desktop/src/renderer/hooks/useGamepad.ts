@@ -7,8 +7,10 @@ import {
 import { loadMapping, mappingToArray } from "@gamelord/ui";
 
 interface UseGamepadOptions {
-  /** Function to send input state to the main process via IPC. */
+  /** Function to send digital button state to the main process via IPC. */
   gameInput: (port: number, id: number, pressed: boolean) => void;
+  /** Function to send analog axis values (sticks/triggers) to the main process via IPC. */
+  gameInputAnalog?: (port: number, index: number, id: number, value: number) => void;
   /** Whether gamepad polling is active. Set false when paused or not in native mode. */
   enabled: boolean;
 }
@@ -51,7 +53,7 @@ function getEffectiveMapping(gamepadId: string): Array<number | null> {
  *
  * @returns The number of currently connected gamepads for UI display.
  */
-export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
+export function useGamepad({ gameInput, gameInputAnalog, enabled }: UseGamepadOptions): {
   connectedCount: number;
 } {
   const [connectedCount, setConnectedCount] = useState(0);
@@ -66,11 +68,16 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
     enabledRef.current = enabled;
   }, [enabled]);
 
-  // Stable ref for gameInput to avoid restarting the polling loop on every render
+  // Stable refs for input callbacks to avoid restarting the polling loop on every render
   const gameInputRef = useRef(gameInput);
   useEffect(() => {
     gameInputRef.current = gameInput;
   }, [gameInput]);
+
+  const gameInputAnalogRef = useRef(gameInputAnalog);
+  useEffect(() => {
+    gameInputAnalogRef.current = gameInputAnalog;
+  }, [gameInputAnalog]);
 
   const releaseAllButtons = useCallback((port: number) => {
     const previousState = previousStatesRef.current.get(port);
@@ -182,6 +189,23 @@ export function useGamepad({ gameInput, enabled }: UseGamepadOptions): {
               );
             }
           }
+        }
+
+        // Send raw analog stick values for cores that need them (e.g. Dolphin)
+        if (gameInputAnalogRef.current) {
+          const analogFn = gameInputAnalogRef.current;
+
+          // Left stick (index 0): axes 0=X, 1=Y
+          const lx = Math.round((gamepad.axes[0] ?? 0) * 32_767);
+          const ly = Math.round((gamepad.axes[1] ?? 0) * 32_767);
+          analogFn(port, 0, 0, lx); // left stick X
+          analogFn(port, 0, 1, ly); // left stick Y
+
+          // Right stick (index 1): axes 2=X, 3=Y
+          const rx = Math.round((gamepad.axes[2] ?? 0) * 32_767);
+          const ry = Math.round((gamepad.axes[3] ?? 0) * 32_767);
+          analogFn(port, 1, 0, rx); // right stick X
+          analogFn(port, 1, 1, ry); // right stick Y
         }
       }
     }
