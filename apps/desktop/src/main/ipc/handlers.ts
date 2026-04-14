@@ -205,7 +205,7 @@ export class IPCHandlers {
               }
             }
 
-            const avInfo = await workerClient.init({
+            const { avInfo, saveStatesSupported } = await workerClient.init({
               corePath: nativeCore.getCorePath(),
               romPath: nativeCore.getRomPath(),
               systemDir: nativeCore.getSystemDir(),
@@ -215,6 +215,7 @@ export class IPCHandlers {
               addonPath,
               discPaths,
               initialDiscIndex,
+              forceHWSaveStates: true,
             });
 
             // Store the worker client on the emulator manager for control routing
@@ -232,6 +233,7 @@ export class IPCHandlers {
               shouldResume,
               cardScreenBounds,
               discPaths ? { paths: discPaths, initialIndex: initialDiscIndex ?? 0 } : undefined,
+              saveStatesSupported,
             );
           } else {
             // Legacy overlay mode: external RetroArch process

@@ -23,7 +23,8 @@
           },
           "libraries": [
             "-framework CoreAudio",
-            "-framework AudioToolbox"
+            "-framework AudioToolbox",
+            "-framework OpenGL"
           ]
         }],
         ["OS=='linux'", {
