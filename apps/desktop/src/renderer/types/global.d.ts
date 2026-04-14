@@ -177,6 +177,7 @@ export interface GamelordAPI {
 
   // Game input (native mode)
   gameInput: (port: number, id: number, pressed: boolean) => void;
+  gameInputAnalog: (port: number, index: number, id: number, value: number) => void;
 
   // SharedArrayBuffer delivery via MessagePort bridge
   framePort: {

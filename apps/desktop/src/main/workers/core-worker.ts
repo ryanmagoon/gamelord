@@ -353,7 +353,9 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   isPaused = false;
   consecutiveErrors = 0;
 
-  send({ type: "ready", avInfo: avInfo as AVInfo });
+  const saveStatesSupported = true;
+
+  send({ type: "ready", avInfo: avInfo as AVInfo, saveStatesSupported });
 
   startEmulationLoop();
 }
@@ -689,6 +691,10 @@ function handleMessage(command: WorkerCommand): void {
 
     case "input":
       native?.setInputState(command.port, command.id, command.pressed ? 1 : 0);
+      break;
+
+    case "inputAnalog":
+      native?.setInputAnalog(command.port, command.index, command.id, command.value);
       break;
 
     case "setSpeed": {

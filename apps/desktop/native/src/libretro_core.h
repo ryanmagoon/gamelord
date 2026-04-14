@@ -10,6 +10,11 @@
 
 #ifdef __APPLE__
 #include <dlfcn.h>
+// Apple deprecated OpenGL in macOS 10.14 but it still works. We use it because
+// libretro cores (Dolphin, Flycast, etc.) require OpenGL for HW rendering.
+#define GL_SILENCE_DEPRECATION
+#include <OpenGL/OpenGL.h>
+#include <OpenGL/gl3.h>
 #elif defined(_WIN32)
 #include <windows.h>
 #else
@@ -36,6 +41,8 @@ private:
   Napi::Value GetVideoFrame(const Napi::CallbackInfo &info);
   Napi::Value GetAudioBuffer(const Napi::CallbackInfo &info);
   void SetInputState(const Napi::CallbackInfo &info);
+  void SetInputAnalog(const Napi::CallbackInfo &info);
+  Napi::Value IsHWRendering(const Napi::CallbackInfo &info);
   Napi::Value SerializeState(const Napi::CallbackInfo &info);
   Napi::Value UnserializeState(const Napi::CallbackInfo &info);
   Napi::Value GetSerializeSize(const Napi::CallbackInfo &info);
@@ -60,6 +67,7 @@ private:
   // Internal
   void CloseCore();
   bool ResolveFunctions();
+  void ReadbackHWFrame(unsigned width, unsigned height);
 
   // Static disc control callbacks (called by the core into our frontend)
   static bool RETRO_CALLCONV DiskSetEjectState(bool ejected);
@@ -78,6 +86,10 @@ private:
   static void InputPollCallback();
   static int16_t InputStateCallback(unsigned port, unsigned device, unsigned index, unsigned id);
   static void LogCallback(enum retro_log_level level, const char *fmt, ...);
+
+  // Hardware rendering callbacks (called by cores that use GPU rendering)
+  static uintptr_t GetCurrentFramebuffer();
+  static retro_proc_address_t HWGetProcAddress(const char *sym);
 
   // Singleton instance pointer for static callbacks
   static LibretroCore *s_instance;
@@ -125,6 +137,10 @@ private:
   std::vector<uint8_t> video_buffer_;
   unsigned video_width_ = 0;
   unsigned video_height_ = 0;
+
+  // After a state load, skip N frames from ReadbackHWFrame to avoid
+  // delivering magenta frames while Dolphin rebuilds its texture cache.
+  int hw_render_skip_frames_ = 0;
   bool video_frame_ready_ = false;
 
   // Audio ring buffer (single-threaded: callbacks and GetAudioBuffer run
@@ -138,8 +154,12 @@ private:
 
   // Input state (written by JS, read by callback)
   std::mutex input_mutex_;
-  // input_state_[port][id] = pressed
+  // Digital buttons: input_state_[port][id] = pressed (0 or 1)
   int16_t input_state_[2][16] = {};
+  // Analog axes: analog_state_[port][index][axis] = value (-32768..32767)
+  // index: 0=left stick, 1=right stick, 2=analog buttons
+  // axis: 0=X, 1=Y
+  int16_t analog_state_[2][3][2] = {};
 
   // Log message buffer (written by callback, read by JS)
   struct LogEntry {
@@ -180,6 +200,39 @@ private:
   void ParseLegacyVariables(const struct retro_variable *vars);
   void ParseCoreOptionsV1(const struct retro_core_option_definition *defs);
   void ParseCoreOptionsV2(const struct retro_core_option_v2_definition *defs);
+
+  // Hardware-accelerated rendering state (OpenGL offscreen context + PBO readback).
+  // Currently macOS-only (CGL). Linux/Windows stubs compile but hw_render_.active
+  // stays false, so all HW paths are no-ops on those platforms.
+  struct HWRenderState {
+#ifdef __APPLE__
+    CGLContextObj cgl_context = nullptr;
+    CGLPixelFormatObj pixel_format = nullptr;
+
+    GLuint fbo = 0;
+    GLuint color_rbo = 0;
+    GLuint depth_stencil_rbo = 0;
+
+    // PBO double-buffer for async GPU→CPU readback
+    GLuint pbo[2] = {0, 0};
+    int pbo_write_idx = 0;
+    int pbo_read_idx = -1;  // -1 = no PBO ready to read yet
+    bool pbo_first_frame = true;
+
+    unsigned fb_width = 0;
+    unsigned fb_height = 0;
+
+    bool CreateGLContext(unsigned version_major, unsigned version_minor,
+                         bool depth, bool stencil);
+    void DestroyGLContext();
+    void CreateFBO(unsigned width, unsigned height, bool depth, bool stencil);
+    void DestroyFBO();
+    void ResizeFBO(unsigned width, unsigned height);
+#endif
+
+    struct retro_hw_render_callback hw_render_cb = {};
+    bool active = false;
+  } hw_render_;
 };
 
 #endif // LIBRETRO_CORE_H

@@ -111,11 +111,12 @@ describe("EmulationWorkerClient", () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
 
       // Worker responds with ready
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
 
-      const avInfo = await initPromise;
+      const result = await initPromise;
 
-      expect(avInfo).toEqual(TEST_AV_INFO);
+      expect(result.avInfo).toEqual(TEST_AV_INFO);
+      expect(result.saveStatesSupported).toBe(true);
       expect(mockPostMessage).toHaveBeenCalledWith(
         expect.objectContaining({ action: "init", corePath: TEST_INIT_OPTIONS.corePath }),
       );
@@ -153,7 +154,7 @@ describe("EmulationWorkerClient", () => {
   describe("fire-and-forget commands", () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
       await initPromise;
     });
 
@@ -186,7 +187,7 @@ describe("EmulationWorkerClient", () => {
   describe("request/response commands", () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
       await initPromise;
     });
 
@@ -269,7 +270,7 @@ describe("EmulationWorkerClient", () => {
   describe("event forwarding", () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
       await initPromise;
     });
 
@@ -329,7 +330,7 @@ describe("EmulationWorkerClient", () => {
   describe("shutdown", () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
       await initPromise;
     });
 
@@ -383,7 +384,7 @@ describe("EmulationWorkerClient", () => {
   describe("unexpected exit", () => {
     beforeEach(async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
       await initPromise;
     });
 
@@ -448,7 +449,7 @@ describe("EmulationWorkerClient", () => {
   describe("SharedArrayBuffer allocation", () => {
     it("allocates SABs and sends setupSharedBuffers command after init", async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
       await initPromise;
 
       const bufs = client.getSharedBuffers();
@@ -474,7 +475,7 @@ describe("EmulationWorkerClient", () => {
 
     it("initializes audio sample rate in control buffer", async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
       await initPromise;
 
       const bufs = client.getSharedBuffers();
@@ -488,7 +489,7 @@ describe("EmulationWorkerClient", () => {
 
     it("clears shared buffers on shutdown", async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
       await initPromise;
 
       expect(client.getSharedBuffers()).not.toBeNull();
@@ -517,7 +518,7 @@ describe("EmulationWorkerClient", () => {
 
     it("returns true after init", async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
       await initPromise;
 
       expect(client.isRunning()).toBe(true);
@@ -525,7 +526,7 @@ describe("EmulationWorkerClient", () => {
 
     it("returns false after shutdown", async () => {
       const initPromise = client.init(TEST_INIT_OPTIONS);
-      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO });
+      emitWorkerMessage({ type: "ready", avInfo: TEST_AV_INFO, saveStatesSupported: true });
       await initPromise;
 
       const shutdownPromise = client.shutdown();

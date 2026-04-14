@@ -208,7 +208,7 @@ beforeEach(() => {
   // Configure EmulationWorkerClient mock constructor
   vi.mocked(EmulationWorkerClient).mockImplementation(function (this: Record<string, unknown>) {
     workerClientInstance = Object.assign(this, {
-      init: vi.fn().mockResolvedValue(fakeAvInfo),
+      init: vi.fn().mockResolvedValue({ avInfo: fakeAvInfo, saveStatesSupported: true }),
       setInput: vi.fn(),
       pause: vi.fn(),
       resume: vi.fn(),
@@ -441,6 +441,7 @@ describe("IPCHandlers", () => {
         addonPath: "/fake/addon.node",
         discPaths: undefined,
         initialDiscIndex: undefined,
+        forceHWSaveStates: true,
       });
       expect(emulatorManagerInstance.setWorkerClient).toHaveBeenCalledWith(workerClientInstance);
       expect(gameWindowManagerInstance.createNativeGameWindow).toHaveBeenCalledWith(
@@ -450,6 +451,7 @@ describe("IPCHandlers", () => {
         false,
         undefined,
         undefined,
+        true,
       );
       expect(result).toEqual({ success: true });
     });
