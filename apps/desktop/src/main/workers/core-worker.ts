@@ -186,6 +186,11 @@ function loadState(slot: number): void {
   if (!native.unserializeState(stateData)) {
     throw new Error("Failed to restore state");
   }
+
+  // Run one frame so HW cores (Dolphin) re-render into the FBO. Without this,
+  // the frontend displays stale framebuffer contents (magenta flash) until the
+  // next emulation tick.
+  native.run();
 }
 
 function listSaveStates(): Array<SaveStateMetadata> {
