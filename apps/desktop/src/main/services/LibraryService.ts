@@ -264,7 +264,7 @@ export class LibraryService extends EventEmitter {
    */
   private stringifyInWorker(data: unknown): Promise<string> {
     return new Promise((resolve, reject) => {
-      const workerPath = path.join(__dirname, "../workers/json-stringify-worker.js");
+      const workerPath = path.join(__dirname, "workers/json-stringify-worker.js");
       let worker: Worker;
       try {
         worker = new Worker(workerPath);
