@@ -47,8 +47,15 @@ fi
 FILENAME="$(basename "$IMAGE_PATH")"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
+EXT="${FILENAME##*.}"
+
 if [ $# -ge 2 ]; then
-  PATHNAME="$2"
+  # Preserve the source file's extension if the custom pathname doesn't have one
+  CUSTOM="$2"
+  if [[ "$CUSTOM" != *.* ]]; then
+    CUSTOM="${CUSTOM}.${EXT}"
+  fi
+  PATHNAME="$CUSTOM"
 else
   PATHNAME="screenshots/${TIMESTAMP}-${FILENAME}"
 fi
