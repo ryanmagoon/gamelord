@@ -834,6 +834,79 @@ function handleMessage(command: WorkerCommand): void {
       }
       break;
 
+    case "getDiscInfo":
+      try {
+        if (!native) {
+          throw new Error("No core loaded");
+        }
+        const discCount = native.getDiscCount();
+        const discIndex = native.getCurrentDiscIndex();
+        const labels: Array<string | null> = [];
+        for (let i = 0; i < discCount; i++) {
+          labels.push(native.getDiscLabel(i));
+        }
+        sendResponse(command.requestId, true, undefined, {
+          total: discCount,
+          currentIndex: discIndex,
+          labels,
+        });
+      } catch (error) {
+        sendResponse(
+          command.requestId,
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      break;
+
+    case "replaceDiscImage":
+      try {
+        if (!native) {
+          throw new Error("No core loaded");
+        }
+        const replaceOk = native.replaceDiscImage(command.index, command.path);
+        if (!replaceOk) {
+          throw new Error(`Failed to replace disc image at index ${command.index}`);
+        }
+        sendResponse(command.requestId, true);
+        send({
+          type: "discChanged",
+          index: native.getCurrentDiscIndex(),
+          total: native.getDiscCount(),
+        });
+      } catch (error) {
+        sendResponse(
+          command.requestId,
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      break;
+
+    case "addDiscImage":
+      try {
+        if (!native) {
+          throw new Error("No core loaded");
+        }
+        const newIndex = native.addDiscImage(command.path);
+        if (newIndex < 0) {
+          throw new Error("Failed to add disc image");
+        }
+        sendResponse(command.requestId, true, undefined, { index: newIndex });
+        send({
+          type: "discChanged",
+          index: native.getCurrentDiscIndex(),
+          total: native.getDiscCount(),
+        });
+      } catch (error) {
+        sendResponse(
+          command.requestId,
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      break;
+
     case "listSaveStates":
       try {
         const states = listSaveStates();

@@ -14,9 +14,13 @@ export interface DiscSwapOverlayProps {
   open: boolean;
   onClose: () => void;
   onSwap: (index: number) => void;
+  /** Called when the user clicks "Browse..." on a missing disc. */
+  onBrowse?: (index: number) => void;
   discs: ReadonlyArray<DiscInfo>;
   /** Index of the disc currently being swapped to (shows loading state). */
   swappingIndex?: number;
+  /** Index of a disc currently being browsed for (shows loading state). */
+  browsingIndex?: number;
 }
 
 /**
@@ -30,8 +34,10 @@ export const DiscSwapOverlay: React.FC<DiscSwapOverlayProps> = ({
   open,
   onClose,
   onSwap,
+  onBrowse,
   discs,
   swappingIndex,
+  browsingIndex,
 }) => {
   // Delayed unmount: keep the DOM alive while exit animations play.
   const [mounted, setMounted] = useState(open);
@@ -81,7 +87,7 @@ export const DiscSwapOverlay: React.FC<DiscSwapOverlayProps> = ({
   }
 
   const closing = !open && mounted;
-  const isSwapping = swappingIndex !== undefined;
+  const isBusy = swappingIndex !== undefined || browsingIndex !== undefined;
 
   return (
     <div
@@ -93,7 +99,7 @@ export const DiscSwapOverlay: React.FC<DiscSwapOverlayProps> = ({
       <div
         className="absolute inset-0 bg-black/60"
         data-testid="disc-swap-overlay-backdrop"
-        onClick={closing || isSwapping ? undefined : onClose}
+        onClick={closing || isBusy ? undefined : onClose}
       />
 
       {/* Panel */}
@@ -113,20 +119,28 @@ export const DiscSwapOverlay: React.FC<DiscSwapOverlayProps> = ({
             const isCurrent = disc.status === "current";
             const isMissing = disc.status === "missing";
             const isThisSwapping = swappingIndex === disc.index;
-            const canClick = !isCurrent && !isMissing && !isSwapping;
+            const isThisBrowsing = browsingIndex === disc.index;
+            const canSwap = !isCurrent && !isMissing && !isBusy;
+            const canBrowse = isMissing && !isBusy && onBrowse !== undefined;
 
             return (
               <button
                 key={disc.index}
-                disabled={!canClick}
-                onClick={() => canClick && onSwap(disc.index)}
+                disabled={!canSwap && !canBrowse}
+                onClick={() => {
+                  if (canSwap) {
+                    onSwap(disc.index);
+                  } else if (canBrowse) {
+                    onBrowse(disc.index);
+                  }
+                }}
                 className={`
                   relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-left
                   transition-all duration-150
                   ${isCurrent ? "bg-white/10 border border-white/20" : "border border-transparent"}
-                  ${canClick ? "hover:bg-white/8 hover:border-white/15 cursor-pointer" : ""}
-                  ${isMissing ? "opacity-40 cursor-not-allowed" : ""}
-                  ${isThisSwapping ? "bg-white/5 border-white/15" : ""}
+                  ${canSwap || canBrowse ? "hover:bg-white/8 hover:border-white/15 cursor-pointer" : ""}
+                  ${isMissing && !canBrowse ? "opacity-40 cursor-not-allowed" : ""}
+                  ${isThisSwapping || isThisBrowsing ? "bg-white/5 border-white/15" : ""}
                 `}
                 data-testid={`disc-${disc.index}`}
               >
@@ -136,13 +150,17 @@ export const DiscSwapOverlay: React.FC<DiscSwapOverlayProps> = ({
                     flex items-center justify-center size-8 rounded-full text-xs font-bold
                     transition-colors duration-150
                     ${isCurrent ? "bg-white/20 text-white" : "bg-white/5 text-white/50"}
-                    ${isThisSwapping ? "bg-white/15 text-white/80" : ""}
+                    ${isThisSwapping || isThisBrowsing ? "bg-white/15 text-white/80" : ""}
                   `}
                 >
-                  {isThisSwapping ? <LoadingSpinner className="size-4" /> : disc.index + 1}
+                  {isThisSwapping || isThisBrowsing ? (
+                    <LoadingSpinner className="size-4" />
+                  ) : (
+                    disc.index + 1
+                  )}
                 </div>
 
-                {/* Label */}
+                {/* Label + status */}
                 <div className="flex-1 min-w-0">
                   <span
                     className={`text-sm ${isCurrent ? "text-white font-medium" : "text-white/70"}`}
@@ -154,9 +172,9 @@ export const DiscSwapOverlay: React.FC<DiscSwapOverlayProps> = ({
                       Current
                     </span>
                   )}
-                  {isMissing && (
+                  {isMissing && !isThisBrowsing && (
                     <span className="ml-2 text-[10px] uppercase tracking-wider text-red-400/60 font-medium">
-                      Missing
+                      {canBrowse ? "Browse\u2026" : "Missing"}
                     </span>
                   )}
                   {isThisSwapping && (
@@ -164,7 +182,17 @@ export const DiscSwapOverlay: React.FC<DiscSwapOverlayProps> = ({
                       Swapping...
                     </span>
                   )}
+                  {isThisBrowsing && (
+                    <span className="ml-2 text-[10px] uppercase tracking-wider text-white/40 font-medium">
+                      Locating...
+                    </span>
+                  )}
                 </div>
+
+                {/* Browse icon for missing discs */}
+                {isMissing && canBrowse && !isThisBrowsing && (
+                  <FolderIcon className="size-4 text-white/30" />
+                )}
               </button>
             );
           })}
@@ -195,6 +223,23 @@ function DiscIcon({ className }: { className?: string }) {
     >
       <circle cx="12" cy="12" r="10" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+/** Minimal folder icon for the browse action. */
+function FolderIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     </svg>
   );
 }
