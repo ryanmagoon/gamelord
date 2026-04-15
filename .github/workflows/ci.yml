@@ -142,6 +142,7 @@ jobs:
           exitZeroOnChanges: true
           autoAcceptChanges: main
 
+
   chromatic-skip:
     name: Visual Regression (Chromatic)
     needs: changes
