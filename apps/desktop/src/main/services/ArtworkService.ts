@@ -36,6 +36,9 @@ import { Game, getRegionalSystemName } from "../../types/library";
  */
 const ARTWORK_MAX_WIDTH = 640;
 
+/** Retry artworkNotFound games after 7 days in case the failure was transient. */
+const ARTWORK_NOT_FOUND_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
+
 /** Minimum delay between API requests in milliseconds. */
 const RATE_LIMIT_DELAY_MS = 1100;
 
@@ -62,6 +65,8 @@ export class ArtworkService extends EventEmitter {
   private gameplayActive = false;
   private lastRequestTime = 0;
   private configLoaded: Promise<void>;
+  /** Game IDs queued while a sync batch was already running. Drained after each batch. */
+  private pendingGameIds = new Set<string>();
 
   constructor(libraryService: LibraryService) {
     super();
@@ -461,7 +466,12 @@ export class ArtworkService extends EventEmitter {
     this.cancelled = false;
 
     const allGames = this.libraryService.getGames();
-    const gamesToSync = allGames.filter((game) => !game.coverArt && !game.artworkNotFound);
+    const now = Date.now();
+    const gamesToSync = allGames.filter(
+      (game) =>
+        !game.coverArt &&
+        (!game.artworkNotFound || now - game.artworkNotFound > ARTWORK_NOT_FOUND_RETRY_MS),
+    );
 
     return this.runSyncBatch(gamesToSync.map((game) => game.id));
   }
@@ -472,6 +482,10 @@ export class ArtworkService extends EventEmitter {
    */
   async syncGames(gameIds: Array<string>): Promise<ArtworkSyncStatus> {
     if (this.syncing) {
+      // Queue the IDs so they're processed after the current batch finishes
+      for (const id of gameIds) {
+        this.pendingGameIds.add(id);
+      }
       return { inProgress: true, processed: 0, total: 0, found: 0, notFound: 0, errors: 0 };
     }
 
@@ -487,9 +501,10 @@ export class ArtworkService extends EventEmitter {
     return this.runSyncBatch(filteredIds);
   }
 
-  /** Cancel an in-progress bulk sync. */
+  /** Cancel an in-progress bulk sync and discard any queued game IDs. */
   cancelSync(): void {
     this.cancelled = true;
+    this.pendingGameIds.clear();
   }
 
   /**
@@ -710,6 +725,20 @@ export class ArtworkService extends EventEmitter {
 
     // Final flush for any remaining batched updates
     await this.libraryService.flushSave();
+
+    // Drain any game IDs that were queued while this batch was running.
+    // Filter to games that still need artwork (the current batch may have covered some).
+    if (this.pendingGameIds.size > 0 && !this.cancelled) {
+      const queued = [...this.pendingGameIds];
+      this.pendingGameIds.clear();
+      const needsSync = queued.filter((id) => {
+        const game = this.libraryService.getGame(id);
+        return game && !game.coverArt;
+      });
+      if (needsSync.length > 0) {
+        return this.runSyncBatch(needsSync);
+      }
+    }
 
     this.syncing = false;
     this.gameplayActive = false;

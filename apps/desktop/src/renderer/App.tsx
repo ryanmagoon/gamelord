@@ -19,7 +19,18 @@ import {
 } from "@gamelord/ui";
 import { useWebGLRenderer } from "./hooks/useWebGLRenderer";
 import { useSfx } from "./hooks/useSfx";
-import { AlertTriangle, Monitor, Tv, Cpu, Heart, Settings, SunMoon, Moon, Sun } from "lucide-react";
+import {
+  AlertTriangle,
+  Monitor,
+  Tv,
+  Cpu,
+  Heart,
+  ImageDown,
+  Settings,
+  SunMoon,
+  Moon,
+  Sun,
+} from "lucide-react";
 import { DevAgentation } from "./components/DevAgentation";
 import { DevBranchBadge } from "./components/DevBranchBadge";
 import { LibraryView } from "./components/LibraryView";
@@ -481,25 +492,38 @@ function App() {
   };
 
   /** Returns dropdown menu items for a game card. */
-  const getMenuItems = useCallback((game: UiGame): Array<GameCardMenuItem> => {
-    const items: Array<GameCardMenuItem> = [];
+  const getMenuItems = useCallback(
+    (game: UiGame): Array<GameCardMenuItem> => {
+      const items: Array<GameCardMenuItem> = [];
 
-    items.push({
-      label: game.favorite ? "Unfavorite" : "Favorite",
-      icon: <Heart className={cn("h-4 w-4", game.favorite && "fill-current")} />,
-      onClick: () => {
-        api.library.updateGame(game.id, { favorite: !game.favorite });
-      },
-    });
+      items.push({
+        label: game.favorite ? "Unfavorite" : "Favorite",
+        icon: <Heart className={cn("h-4 w-4", game.favorite && "fill-current")} />,
+        onClick: () => {
+          api.library.updateGame(game.id, { favorite: !game.favorite });
+        },
+      });
 
-    items.push({
-      label: "Change Core",
-      icon: <Cpu className="h-4 w-4" />,
-      onClick: () => void handleChangeCore(game),
-    });
+      items.push({
+        label: "Change Core",
+        icon: <Cpu className="h-4 w-4" />,
+        onClick: () => void handleChangeCore(game),
+      });
 
-    return items;
-  }, []);
+      if (!game.coverArt) {
+        items.push({
+          label: "Download Artwork",
+          icon: <ImageDown className="h-4 w-4" />,
+          onClick: () => {
+            void api.artwork.syncGame(game.id);
+          },
+        });
+      }
+
+      return items;
+    },
+    [api],
+  );
 
   const handleStop = async () => {
     try {

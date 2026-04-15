@@ -248,12 +248,12 @@ describe("ArtworkService", () => {
       expect(status.total).toBe(0);
     });
 
-    it("skips games previously marked as artworkNotFound", async () => {
+    it("skips games marked artworkNotFound less than 7 days ago", async () => {
       const games = [
         makeGame({
-          id: "found-before",
-          title: "Previously Not Found",
-          artworkNotFound: Date.now(),
+          id: "recent-not-found",
+          title: "Recently Not Found",
+          artworkNotFound: Date.now() - 1000, // 1 second ago
         }),
         makeGame({ id: "never-synced", title: "Never Synced" }),
       ];
@@ -268,7 +268,37 @@ describe("ArtworkService", () => {
       // Only the never-synced game should be in the batch
       expect(status.total).toBe(1);
       const syncedIds = new Set(progressEvents.map((p) => p.gameId));
-      expect(syncedIds.has("found-before")).toBe(false);
+      expect(syncedIds.has("recent-not-found")).toBe(false);
+      expect(syncedIds.has("never-synced")).toBe(true);
+    });
+
+    it("retries games marked artworkNotFound more than 7 days ago", async () => {
+      const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
+      const games = [
+        makeGame({
+          id: "stale-not-found",
+          title: "Stale Not Found",
+          artworkNotFound: eightDaysAgo,
+        }),
+        makeGame({ id: "never-synced", title: "Never Synced" }),
+      ];
+      const service = new ArtworkService(createMockLibraryService(games));
+      await flushPromises();
+      await service.setCredentials("user1", "pass1");
+      await flushPromises();
+
+      mockFetchByHash.mockResolvedValue(null);
+      mockFetchByName.mockResolvedValue(null);
+
+      const progressEvents: Array<ArtworkProgress> = [];
+      service.on("progress", (p: ArtworkProgress) => progressEvents.push(p));
+
+      const status = await service.syncAllGames();
+
+      // Both games should be in the batch — the stale one is retried
+      expect(status.total).toBe(2);
+      const syncedIds = new Set(progressEvents.map((p) => p.gameId));
+      expect(syncedIds.has("stale-not-found")).toBe(true);
       expect(syncedIds.has("never-synced")).toBe(true);
     });
 
@@ -836,14 +866,103 @@ describe("ArtworkService", () => {
       expect(status.total).toBe(1);
     });
 
-    it("returns immediately if already syncing", async () => {
-      const service = new ArtworkService(createMockLibraryService([]));
+    it("queues game IDs when already syncing and processes them after batch completes", async () => {
+      const games = [
+        makeGame({ id: "game1", title: "Game 1" }),
+        makeGame({ id: "game2", title: "Game 2" }),
+        makeGame({ id: "game3", title: "Game 3" }),
+      ];
+      const lib = createMockLibraryService(games);
+      const service = new ArtworkService(lib);
       await flushPromises();
-      (service as unknown as Record<string, boolean>).syncing = true;
+      await service.setCredentials("user1", "pass1");
+      await flushPromises();
 
-      const status = await service.syncGames(["game1"]);
-      expect(status.inProgress).toBe(true);
-      expect(status.total).toBe(0);
+      mockFetchByHash.mockResolvedValue(null);
+      mockFetchByName.mockResolvedValue(null);
+
+      const progressEvents: Array<ArtworkProgress> = [];
+      service.on("progress", (p: ArtworkProgress) => progressEvents.push(p));
+
+      // Start syncing game1 — then while it's running, queue game3
+      let queuedDuringSync = false;
+      service.on("progress", (p: ArtworkProgress) => {
+        if (p.gameId === "game1" && p.phase === "querying" && !queuedDuringSync) {
+          queuedDuringSync = true;
+          // This should queue game3 since sync is in progress
+          void service.syncGames(["game3"]);
+        }
+      });
+
+      await service.syncGames(["game1"]);
+
+      // game3 should have been processed as part of the continuation batch
+      const syncedIds = new Set(progressEvents.map((p) => p.gameId));
+      expect(syncedIds.has("game1")).toBe(true);
+      expect(syncedIds.has("game3")).toBe(true);
+      expect(syncedIds.has("game2")).toBe(false);
+    });
+
+    it("skips already-covered games when draining pending queue", async () => {
+      const games = [
+        makeGame({ id: "game1", title: "Game 1" }),
+        makeGame({ id: "game2", title: "Game 2", coverArt: "artwork://game2.png" }),
+      ];
+      const lib = createMockLibraryService(games);
+      const service = new ArtworkService(lib);
+      await flushPromises();
+      await service.setCredentials("user1", "pass1");
+      await flushPromises();
+
+      mockFetchByHash.mockResolvedValue(null);
+      mockFetchByName.mockResolvedValue(null);
+
+      // Queue game2 (which has artwork) during game1's sync
+      service.on("progress", (p: ArtworkProgress) => {
+        if (p.gameId === "game1" && p.phase === "querying") {
+          void service.syncGames(["game2"]);
+        }
+      });
+
+      const progressEvents: Array<ArtworkProgress> = [];
+      service.on("progress", (p: ArtworkProgress) => progressEvents.push(p));
+
+      await service.syncGames(["game1"]);
+
+      // game2 should NOT have been processed since it already has artwork
+      const syncedIds = new Set(progressEvents.map((p) => p.gameId));
+      expect(syncedIds.has("game2")).toBe(false);
+    });
+
+    it("clears pending queue on cancel", async () => {
+      const games = [
+        makeGame({ id: "game1", title: "Game 1" }),
+        makeGame({ id: "game2", title: "Game 2" }),
+      ];
+      const service = new ArtworkService(createMockLibraryService(games));
+      await flushPromises();
+      await service.setCredentials("user1", "pass1");
+      await flushPromises();
+
+      mockFetchByHash.mockResolvedValue(null);
+      mockFetchByName.mockResolvedValue(null);
+
+      // Queue game2 then cancel during game1's sync
+      service.on("progress", (p: ArtworkProgress) => {
+        if (p.gameId === "game1" && p.phase === "querying") {
+          void service.syncGames(["game2"]);
+          service.cancelSync();
+        }
+      });
+
+      const progressEvents: Array<ArtworkProgress> = [];
+      service.on("progress", (p: ArtworkProgress) => progressEvents.push(p));
+
+      await service.syncGames(["game1"]);
+
+      // game2 should NOT have been processed because sync was cancelled
+      const syncedIds = new Set(progressEvents.map((p) => p.gameId));
+      expect(syncedIds.has("game2")).toBe(false);
     });
   });
 
