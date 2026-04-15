@@ -5,8 +5,8 @@ PR screenshots are hosted on Vercel Blob. Two scripts handle the full pipeline â
 ## Full workflow
 
 ```bash
-# 1. Start the Electron app with CDP enabled
-cd apps/desktop && pnpm exec electron-vite dev -- --remote-debugging-port=9222
+# 1. Start the Electron app with CDP enabled (default port 9222, configurable via CDP_PORT)
+cd apps/desktop && pnpm dev
 
 # 2. Capture a screenshot of the running app
 ./scripts/capture-screenshot.sh /tmp/library.png
@@ -28,8 +28,7 @@ gh pr edit <number> --body "${BODY}
 Connects to the running Electron app via CDP (playwright) and saves a PNG screenshot.
 
 - Default output: `/tmp/gamelord-screenshot.png`
-- Default CDP port: `9222`
-- Requires the app to be running with `--remote-debugging-port=9222`
+- Default CDP port: `9222` (reads `CDP_PORT` env var, then `--cdp-port` flag)
 - Outputs JPEG by default (quality 80) to stay under GitHub's ~5MB camo proxy limit
 - Uses `playwright` (project dev dependency)
 

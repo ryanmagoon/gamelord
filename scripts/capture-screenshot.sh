@@ -3,11 +3,11 @@
 #
 # Usage: ./scripts/capture-screenshot.sh [output-path] [--cdp-port PORT]
 #   output-path  Where to save the screenshot (default: /tmp/gamelord-screenshot.jpg)
-#   --cdp-port   CDP debugging port (default: 9222)
+#   --cdp-port   CDP debugging port (default: CDP_PORT env var, or 9222)
 #
 # Prerequisites:
-#   - The Electron app must be running with --remote-debugging-port=9222:
-#       cd apps/desktop && pnpm exec electron-vite dev -- --remote-debugging-port=9222
+#   - The Electron app must be running with CDP enabled:
+#       cd apps/desktop && pnpm dev
 #   - playwright must be installed (it's a dev dependency of this project)
 #
 # Output: saves a JPEG screenshot (quality 80) and prints the path to stdout.
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 OUTPUT_PATH="/tmp/gamelord-screenshot.jpg"
-CDP_PORT=9222
+CDP_PORT="${CDP_PORT:-9222}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
