@@ -228,6 +228,29 @@ export class EmulationWorkerClient extends EventEmitter {
     await this.sendRequest({ action: "swapDisc", index });
   }
 
+  async getDiscInfo(): Promise<{
+    total: number;
+    currentIndex: number;
+    labels: Array<string | null>;
+  }> {
+    return this.sendRequest<{
+      total: number;
+      currentIndex: number;
+      labels: Array<string | null>;
+    }>({ action: "getDiscInfo" });
+  }
+
+  async replaceDiscImage(index: number, path: string): Promise<void> {
+    await this.sendRequest({ action: "replaceDiscImage", index, path });
+  }
+
+  async addDiscImage(path: string): Promise<{ index: number }> {
+    return this.sendRequest<{ index: number }>({
+      action: "addDiscImage",
+      path,
+    });
+  }
+
   /**
    * Mark the worker as shutting down so that a process exit during the
    * async shutdown sequence doesn't emit an unexpected-exit error.

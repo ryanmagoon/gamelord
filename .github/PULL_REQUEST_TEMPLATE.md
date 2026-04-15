@@ -11,6 +11,12 @@ Closes #
 
 -
 
+## Screenshots / Video
+
+<!-- Required for UI changes, new features, and visual bug fixes. -->
+<!-- Skip for purely internal changes (refactors, deps, CI, docs). -->
+<!-- Capture from Storybook or the running app — see .claude/rules/pull-requests.md -->
+
 ## Test Plan
 
 <!-- How was this tested? Automated tests, manual verification, or both? -->

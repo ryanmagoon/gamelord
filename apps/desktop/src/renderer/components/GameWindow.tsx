@@ -33,6 +33,7 @@ import {
   ChevronDown,
   Keyboard,
   Code,
+  Disc3,
   Minus,
   Square,
   X,
@@ -159,8 +160,10 @@ export const GameWindow: React.FC = () => {
   // Multi-disc state
   const [discTotal, setDiscTotal] = useState(0);
   const [currentDiscIndex, setCurrentDiscIndex] = useState(0);
+  const [missingDiscIndices, setMissingDiscIndices] = useState<Set<number>>(new Set());
   const [showDiscSwapOverlay, setShowDiscSwapOverlay] = useState(false);
   const [swappingDiscIndex, setSwappingDiscIndex] = useState<number | undefined>(undefined);
+  const [browsingDiscIndex, setBrowsingDiscIndex] = useState<number | undefined>(undefined);
 
   // Animate out the controls hint, then remove it from the DOM
   const dismissControlsHint = useCallback(() => {
@@ -588,9 +591,16 @@ export const GameWindow: React.FC = () => {
     });
 
     api.on("game:disc-info", (raw: unknown) => {
-      const data = raw as { total: number; currentIndex: number };
+      const data = raw as {
+        total: number;
+        currentIndex: number;
+        missingIndices?: Array<number>;
+      };
       setDiscTotal(data.total);
       setCurrentDiscIndex(data.currentIndex);
+      if (data.missingIndices && data.missingIndices.length > 0) {
+        setMissingDiscIndices(new Set(data.missingIndices));
+      }
     });
 
     api.on("game:emulation-error", (raw: unknown) => {
@@ -1266,6 +1276,11 @@ export const GameWindow: React.FC = () => {
           <div className="flex items-center gap-3">
             <h1 className="text-white font-semibold">{game.title}</h1>
             <span className="text-gray-400 text-sm">{game.system}</span>
+            {discTotal > 1 && (
+              <span className="text-xs text-white/50 bg-white/10 rounded px-1.5 py-0.5">
+                Disc {currentDiscIndex + 1}
+              </span>
+            )}
             <div style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
               <DevBranchBadge variant="overlay" />
             </div>
@@ -1561,6 +1576,33 @@ export const GameWindow: React.FC = () => {
                     <Code className="h-3.5 w-3.5" />
                     <span>Cheats</span>
                   </button>
+                  {discTotal > 1 && (
+                    <button
+                      onClick={() => {
+                        playSfx("click");
+                        setShowSettingsMenu(false);
+                        setShowDiscSwapOverlay((prev) => {
+                          const willOpen = !prev;
+                          if (willOpen && !isPaused) {
+                            pausedByOverlayRef.current = true;
+                            api.emulation.pause().catch(console.error);
+                          } else if (!willOpen && pausedByOverlayRef.current) {
+                            pausedByOverlayRef.current = false;
+                            api.emulation.resume().catch(console.error);
+                          }
+                          return willOpen;
+                        });
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+                    >
+                      <Disc3 className="h-3.5 w-3.5" />
+                      <span>Swap Disc</span>
+                      <span className="ml-auto text-xs text-white/30">
+                        Disc {currentDiscIndex + 1}
+                      </span>
+                      <span className="text-xs text-white/30">F6</span>
+                    </button>
+                  )}
                   <div className="border-t border-white/10 my-1" />
                   <button
                     onClick={() => {
@@ -1675,15 +1717,42 @@ export const GameWindow: React.FC = () => {
               setSwappingDiscIndex(undefined);
             });
           }}
+          onBrowse={(index) => {
+            setBrowsingDiscIndex(index);
+            api.emulation
+              .browseForDisc(index)
+              .then((result) => {
+                if (result.success) {
+                  // Disc file was found and replaced — mark it as available
+                  setMissingDiscIndices((prev) => {
+                    const next = new Set(prev);
+                    next.delete(index);
+                    return next;
+                  });
+                }
+              })
+              .catch((error) => {
+                console.error("Browse for disc failed:", error);
+              })
+              .finally(() => {
+                setBrowsingDiscIndex(undefined);
+              });
+          }}
           discs={Array.from(
             { length: discTotal },
             (_, i): DiscInfo => ({
               index: i,
               label: `Disc ${i + 1}`,
-              status: i === currentDiscIndex ? "current" : "available",
+              status:
+                i === currentDiscIndex
+                  ? "current"
+                  : missingDiscIndices.has(i)
+                    ? "missing"
+                    : "available",
             }),
           )}
           swappingIndex={swappingDiscIndex}
+          browsingIndex={browsingDiscIndex}
         />
       )}
 

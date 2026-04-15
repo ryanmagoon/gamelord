@@ -53,7 +53,7 @@ export class GameWindowManager extends EventEmitter {
     avInfo: AVInfo,
     shouldResume = false,
     cardScreenBounds?: { x: number; y: number; width: number; height: number },
-    discInfo?: { paths: Array<string>; initialIndex: number },
+    discInfo?: { paths: Array<string>; initialIndex: number; missingIndices?: Array<number> },
     saveStatesSupported = true,
   ): BrowserWindow {
     const existingWindow = this.gameWindows.get(game.id);
@@ -163,6 +163,7 @@ export class GameWindowManager extends EventEmitter {
         gameWindow.webContents.send("game:disc-info", {
           total: discInfo.paths.length,
           currentIndex: discInfo.initialIndex,
+          missingIndices: discInfo.missingIndices ?? [],
         });
       }
 
