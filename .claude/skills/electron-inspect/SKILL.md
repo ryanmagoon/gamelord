@@ -5,7 +5,7 @@ description: Inspect and interact with the running GameLord Electron app using a
 
 # Electron App Inspection with agent-browser
 
-GameLord's dev server exposes Chrome DevTools Protocol on port 9222 (`--remote-debugging-port=9222` in the dev script). Use `agent-browser` to connect, take screenshots, inspect the DOM, interact with UI elements, and record videos — all without leaving the terminal.
+GameLord's dev server exposes Chrome DevTools Protocol on port 9222 by default (configurable via `CDP_PORT` env var). Use `agent-browser` to connect, take screenshots, inspect the DOM, interact with UI elements, and record videos — all without leaving the terminal.
 
 ## Prerequisites
 
@@ -131,5 +131,5 @@ agent-browser network requests
 - **Re-snapshot after interactions** — refs change when the DOM updates.
 - **Use `agent-browser tab list`** when the app has multiple windows open — the game window is a separate target.
 - **Screenshots go to `/tmp/`** to keep the repo clean. Use descriptive filenames.
-- **The port 9222 is always available** in dev mode — no special flags needed.
+- **CDP port defaults to 9222** — override with `CDP_PORT=9223 pnpm dev` when running multiple instances.
 - **For PR screenshots**, capture specific component states and include them in the PR body.
