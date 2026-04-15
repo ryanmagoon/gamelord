@@ -9,9 +9,19 @@ Before creating a PR, evaluate whether the changes would benefit from a screensh
 - **When helpful** for bug fixes with a visual symptom: before/after screenshots make the fix obvious.
 - **Skip** for purely internal changes: refactors, dependency bumps, test-only changes, CI config, docs-only changes.
 
+## Storybook vs app screenshots
+
+Choose the capture method based on what the change actually needs to prove:
+
+- **Storybook is sufficient** when the component's visual states are fully representable as stories. This covers new component states, styling changes, loading/error/empty states, and prop-driven variations. If the reviewer can evaluate the visual change from isolated stories alone, Storybook screenshots are enough.
+- **App screenshots are needed** when the surrounding context matters: layout within the game window, interaction with adjacent UI, integration behavior that depends on IPC or real data, or when the change affects how the component looks in situ (positioning, z-index stacking, backdrop effects over the game canvas).
+- **Both** when the change adds new component states (show them isolated in Storybook) *and* changes how the component fits into the app (show it in context).
+
+When in doubt, Storybook screenshots are the baseline — they're fast to capture, reproducible, and cover the visual diff. Add app screenshots when they'd tell the reviewer something Storybook can't.
+
 ## Capture screenshots yourself
 
-If the changes are visible in Storybook or a dev server preview, **capture the screenshots yourself using preview tools before creating the PR.** Don't ask the user for screenshots when you can take them.
+**Capture screenshots using preview tools before creating the PR.** Don't ask the user for screenshots when you can take them.
 
 1. Start the relevant preview server (Storybook for component stories, desktop dev for full app)
 2. Navigate to the relevant story/page
