@@ -51,6 +51,36 @@ Uploads an image to Vercel Blob and prints the public URL.
    ```
 4. In worktrees, run `./scripts/setup-worktree.sh` to symlink the `.env` file
 
+## Storybook screenshots (component-level)
+
+For UI component changes visible in Storybook, capture directly with Playwright:
+
+```bash
+# Storybook must be running (pnpm --filter @gamelord/ui exec storybook dev -p 6009 --ci)
+node -e "
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 400, height: 500 } });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('http://localhost:6009/iframe.html?id=<story-id>&viewMode=story');
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: '/tmp/component.jpg', type: 'jpeg', quality: 80 });
+  await browser.close();
+})();
+"
+
+# Upload
+export \$(grep BLOB_READ_WRITE_TOKEN apps/desktop/.env)
+URL=\$(./scripts/upload-screenshot.sh /tmp/component.jpg)
+```
+
+Use the iframe URL (`/iframe.html?id=...&viewMode=story`) for clean captures without Storybook chrome. Find story IDs in the Storybook sidebar or derive from the story file (e.g., `components-discswapoverlay--missing-disc-with-browse`).
+
+## App screenshots (full Electron runtime)
+
+For changes requiring the running app (IPC, game window, full integration), use the CDP-based capture script — see "Full workflow" above.
+
 ## When to use
 
 Follow the guidance in `pull-requests.md` for when screenshots are needed. Use this workflow whenever you need to include screenshots in a PR.

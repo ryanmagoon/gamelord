@@ -21,7 +21,7 @@ If the changes are visible in Storybook or a dev server preview, **capture the s
 
 Only ask the user for media when the state can't be reproduced in a preview server (e.g., requires real hardware, real network conditions, or the full Electron runtime with IPC).
 
-After capturing screenshots, upload them to Vercel Blob using `scripts/upload-screenshot.sh` and embed the returned URL in the PR body. See `screenshot-hosting.md` for the full workflow.
+After capturing screenshots, upload them to Vercel Blob using `scripts/upload-screenshot.sh` and embed the returned URL in the PR body. The script requires `BLOB_READ_WRITE_TOKEN` — source it from `apps/desktop/.env` before calling. See `screenshot-hosting.md` for the full workflow (includes both Storybook and app capture methods).
 
 If the user provides media, embed it in the PR body using GitHub markdown (`![description](url)` or a `<video>` tag). If screenshots can't be captured or provided, note in the PR body that a visual is pending.
 
