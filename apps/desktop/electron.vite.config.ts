@@ -4,7 +4,6 @@ import { config as loadDotenv } from "dotenv";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
-import { reactDevtools } from "agent-react-devtools/vite";
 import type { Plugin } from "vite";
 
 // Load .env at config time so values are available for build-time injection.
@@ -127,7 +126,7 @@ export default defineConfig({
     optimizeDeps: {
       exclude: ["@gamelord/ui"],
     },
-    plugins: [react(), ...(isDev ? [reactDevtools()] : []), devGitInfoPlugin(), ...sentryPlugins()],
+    plugins: [react(), devGitInfoPlugin(), ...sentryPlugins()],
     resolve: {
       // Ensure pnpm workspace symlinks (e.g. @gamelord/ui → packages/ui)
       // resolve to their real paths, so Node module resolution walks up from
