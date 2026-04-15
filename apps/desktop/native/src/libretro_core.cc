@@ -163,6 +163,8 @@ Napi::Object LibretroCore::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod("getCurrentDiscIndex", &LibretroCore::GetCurrentDiscIndex),
     InstanceMethod("getDiscCount", &LibretroCore::GetDiscCount),
     InstanceMethod("getDiscLabel", &LibretroCore::GetDiscLabel),
+    InstanceMethod("replaceDiscImage", &LibretroCore::ReplaceDiscImage),
+    InstanceMethod("addDiscImage", &LibretroCore::AddDiscImage),
   });
 
   Napi::FunctionReference *constructor = new Napi::FunctionReference();
@@ -837,6 +839,89 @@ Napi::Value LibretroCore::GetDiscLabel(const Napi::CallbackInfo &info) {
   }
 
   return Napi::String::New(env, label);
+}
+
+Napi::Value LibretroCore::ReplaceDiscImage(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (!s_instance) return Napi::Boolean::New(env, false);
+
+  if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsString()) {
+    Napi::TypeError::New(env, "Expected (index: number, path: string)").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  unsigned index = info[0].As<Napi::Number>().Uint32Value();
+  std::string filePath = info[1].As<Napi::String>().Utf8Value();
+
+  if (index >= s_instance->disc_paths_.size()) {
+    return Napi::Boolean::New(env, false);
+  }
+
+  // Update the internal path
+  s_instance->disc_paths_[index] = filePath;
+
+  // Notify the core via the replace_image_index callback
+  if (s_instance->has_disc_control_ext_ && s_instance->disc_control_ext_cb_.replace_image_index) {
+    retro_game_info game_info = {};
+    game_info.path = filePath.c_str();
+    game_info.data = nullptr;
+    game_info.size = 0;
+    game_info.meta = nullptr;
+    s_instance->disc_control_ext_cb_.replace_image_index(index, &game_info);
+  } else if (s_instance->has_disc_control_ && s_instance->disc_control_cb_.replace_image_index) {
+    retro_game_info game_info = {};
+    game_info.path = filePath.c_str();
+    game_info.data = nullptr;
+    game_info.size = 0;
+    game_info.meta = nullptr;
+    s_instance->disc_control_cb_.replace_image_index(index, &game_info);
+  }
+
+  return Napi::Boolean::New(env, true);
+}
+
+Napi::Value LibretroCore::AddDiscImage(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (!s_instance) return Napi::Number::New(env, -1);
+
+  if (info.Length() < 1 || !info[0].IsString()) {
+    Napi::TypeError::New(env, "Expected (path: string)").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  std::string filePath = info[0].As<Napi::String>().Utf8Value();
+
+  // Add a new slot via the core callback
+  if (s_instance->has_disc_control_ext_ && s_instance->disc_control_ext_cb_.add_image_index) {
+    s_instance->disc_control_ext_cb_.add_image_index();
+  } else if (s_instance->has_disc_control_ && s_instance->disc_control_cb_.add_image_index) {
+    s_instance->disc_control_cb_.add_image_index();
+  }
+
+  unsigned newIndex = static_cast<unsigned>(s_instance->disc_paths_.size() - 1);
+
+  // The add_image_index callback already pushed an empty string to disc_paths_
+  // via our static DiskAddImageIndex. Now replace it with the actual path.
+  s_instance->disc_paths_[newIndex] = filePath;
+
+  // Notify the core of the actual file path
+  if (s_instance->has_disc_control_ext_ && s_instance->disc_control_ext_cb_.replace_image_index) {
+    retro_game_info game_info = {};
+    game_info.path = filePath.c_str();
+    game_info.data = nullptr;
+    game_info.size = 0;
+    game_info.meta = nullptr;
+    s_instance->disc_control_ext_cb_.replace_image_index(newIndex, &game_info);
+  } else if (s_instance->has_disc_control_ && s_instance->disc_control_cb_.replace_image_index) {
+    retro_game_info game_info = {};
+    game_info.path = filePath.c_str();
+    game_info.data = nullptr;
+    game_info.size = 0;
+    game_info.meta = nullptr;
+    s_instance->disc_control_cb_.replace_image_index(newIndex, &game_info);
+  }
+
+  return Napi::Number::New(env, static_cast<int32_t>(newIndex));
 }
 
 // ---------------------------------------------------------------------------

@@ -50,10 +50,27 @@ type Story = StoryObj<typeof DiscSwapOverlay>;
 /** 3-disc game, currently on Disc 1. */
 export const ThreeDiscGame: Story = {};
 
-/** Incomplete set — Disc 2 is missing from the library. */
-export const MissingDisc: Story = {
+/** Incomplete set — Disc 2 is missing, no browse handler (legacy). */
+export const MissingDiscNoBrowse: Story = {
   args: {
     discs: INCOMPLETE_SET,
+  },
+};
+
+/** Incomplete set — Disc 2 is missing, browse available. */
+export const MissingDiscWithBrowse: Story = {
+  args: {
+    discs: INCOMPLETE_SET,
+    onBrowse: fn(),
+  },
+};
+
+/** Browse in progress — loading indicator on the missing disc. */
+export const BrowseInProgress: Story = {
+  args: {
+    discs: INCOMPLETE_SET,
+    onBrowse: fn(),
+    browsingIndex: 1,
   },
 };
 

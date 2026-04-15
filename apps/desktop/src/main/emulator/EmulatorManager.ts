@@ -558,6 +558,40 @@ export class EmulatorManager extends EventEmitter {
   }
 
   /**
+   * Query runtime disc info from the running core.
+   */
+  async getDiscInfo(): Promise<{
+    total: number;
+    currentIndex: number;
+    labels: Array<string | null>;
+  }> {
+    if (!this.workerClient?.isRunning()) {
+      throw new Error("No emulator is currently running");
+    }
+    return this.workerClient.getDiscInfo();
+  }
+
+  /**
+   * Replace a disc image path at the given index (for adding missing discs).
+   */
+  async replaceDiscImage(index: number, path: string): Promise<void> {
+    if (!this.workerClient?.isRunning()) {
+      throw new Error("No emulator is currently running");
+    }
+    await this.workerClient.replaceDiscImage(index, path);
+  }
+
+  /**
+   * Add a new disc image to the end of the disc list.
+   */
+  async addDiscImage(path: string): Promise<{ index: number }> {
+    if (!this.workerClient?.isRunning()) {
+      throw new Error("No emulator is currently running");
+    }
+    return this.workerClient.addDiscImage(path);
+  }
+
+  /**
    * Set emulation speed multiplier (1 = normal, 2 = 2x, etc.)
    */
   setSpeed(multiplier: number): void {

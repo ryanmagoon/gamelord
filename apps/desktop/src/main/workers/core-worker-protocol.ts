@@ -49,6 +49,8 @@ export interface NativeLibretroCore {
   getCurrentDiscIndex(): number;
   getDiscCount(): number;
   getDiscLabel(index?: number): string | null;
+  replaceDiscImage(index: number, path: string): boolean;
+  addDiscImage(path: string): number;
 }
 
 export interface NativeAddon {
@@ -136,6 +138,9 @@ export type WorkerCommand =
       requestId: string;
     }
   | { action: "swapDisc"; index: number; requestId: string }
+  | { action: "getDiscInfo"; requestId: string }
+  | { action: "replaceDiscImage"; index: number; path: string; requestId: string }
+  | { action: "addDiscImage"; path: string; requestId: string }
   | { action: "listSaveStates"; requestId: string };
 
 // ---------------------------------------------------------------------------

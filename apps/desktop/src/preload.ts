@@ -51,6 +51,21 @@ contextBridge.exposeInMainWorld("gamelord", {
     setFastForwardAudio: (enabled: boolean) =>
       ipcRenderer.invoke("emulation:setFastForwardAudio", enabled),
     swapDisc: (index: number) => ipcRenderer.invoke("emulation:swapDisc", index),
+    getDiscInfo: () =>
+      ipcRenderer.invoke("emulation:getDiscInfo") as Promise<{
+        success: boolean;
+        total?: number;
+        currentIndex?: number;
+        labels?: Array<string | null>;
+        error?: string;
+      }>,
+    browseForDisc: (index: number) =>
+      ipcRenderer.invoke("emulation:browseForDisc", index) as Promise<{
+        success: boolean;
+        canceled?: boolean;
+        path?: string;
+        error?: string;
+      }>,
   },
 
   // Save states
