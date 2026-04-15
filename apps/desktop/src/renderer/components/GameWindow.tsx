@@ -160,8 +160,10 @@ export const GameWindow: React.FC = () => {
   // Multi-disc state
   const [discTotal, setDiscTotal] = useState(0);
   const [currentDiscIndex, setCurrentDiscIndex] = useState(0);
+  const [missingDiscIndices, setMissingDiscIndices] = useState<Set<number>>(new Set());
   const [showDiscSwapOverlay, setShowDiscSwapOverlay] = useState(false);
   const [swappingDiscIndex, setSwappingDiscIndex] = useState<number | undefined>(undefined);
+  const [browsingDiscIndex, setBrowsingDiscIndex] = useState<number | undefined>(undefined);
 
   // Animate out the controls hint, then remove it from the DOM
   const dismissControlsHint = useCallback(() => {
@@ -589,9 +591,16 @@ export const GameWindow: React.FC = () => {
     });
 
     api.on("game:disc-info", (raw: unknown) => {
-      const data = raw as { total: number; currentIndex: number };
+      const data = raw as {
+        total: number;
+        currentIndex: number;
+        missingIndices?: Array<number>;
+      };
       setDiscTotal(data.total);
       setCurrentDiscIndex(data.currentIndex);
+      if (data.missingIndices && data.missingIndices.length > 0) {
+        setMissingDiscIndices(new Set(data.missingIndices));
+      }
     });
 
     api.on("game:emulation-error", (raw: unknown) => {
@@ -1708,15 +1717,42 @@ export const GameWindow: React.FC = () => {
               setSwappingDiscIndex(undefined);
             });
           }}
+          onBrowse={(index) => {
+            setBrowsingDiscIndex(index);
+            api.emulation
+              .browseForDisc(index)
+              .then((result) => {
+                if (result.success) {
+                  // Disc file was found and replaced — mark it as available
+                  setMissingDiscIndices((prev) => {
+                    const next = new Set(prev);
+                    next.delete(index);
+                    return next;
+                  });
+                }
+              })
+              .catch((error) => {
+                console.error("Browse for disc failed:", error);
+              })
+              .finally(() => {
+                setBrowsingDiscIndex(undefined);
+              });
+          }}
           discs={Array.from(
             { length: discTotal },
             (_, i): DiscInfo => ({
               index: i,
               label: `Disc ${i + 1}`,
-              status: i === currentDiscIndex ? "current" : "available",
+              status:
+                i === currentDiscIndex
+                  ? "current"
+                  : missingDiscIndices.has(i)
+                    ? "missing"
+                    : "available",
             }),
           )}
           swappingIndex={swappingDiscIndex}
+          browsingIndex={browsingDiscIndex}
         />
       )}
 
