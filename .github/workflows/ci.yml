@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -135,7 +135,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Run Chromatic
-        id: chromatic
         uses: chromaui/action@latest
         with:
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
@@ -143,43 +142,6 @@ jobs:
           exitZeroOnChanges: true
           autoAcceptChanges: main
 
-      - name: Comment Storybook link on PR
-        if: github.event_name == 'pull_request' && steps.chromatic.outputs.storybookUrl
-        uses: actions/github-script@v7
-        env:
-          STORYBOOK_URL: ${{ steps.chromatic.outputs.storybookUrl }}
-          BUILD_URL: ${{ steps.chromatic.outputs.buildUrl }}
-        with:
-          script: |
-            const marker = '<!-- chromatic-storybook-link -->';
-            const body = [
-              marker,
-              `📖 **Storybook Preview:** ${process.env.STORYBOOK_URL}`,
-              `🔍 **Visual Review:** ${process.env.BUILD_URL}`,
-            ].join('\n');
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const existing = comments.find(c => c.body.includes(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
 
   chromatic-skip:
     name: Visual Regression (Chromatic)
