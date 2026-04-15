@@ -52,6 +52,19 @@ export interface GamelordAPI {
     setSpeed: (multiplier: number) => Promise<{ success: boolean; error?: string }>;
     setFastForwardAudio: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
     swapDisc: (index: number) => Promise<{ success: boolean; error?: string }>;
+    getDiscInfo: () => Promise<{
+      success: boolean;
+      total?: number;
+      currentIndex?: number;
+      labels?: Array<string | null>;
+      error?: string;
+    }>;
+    browseForDisc: (index: number) => Promise<{
+      success: boolean;
+      canceled?: boolean;
+      path?: string;
+      error?: string;
+    }>;
   };
   saveState: {
     save: (slot: number) => Promise<{ success: boolean; error?: string }>;
@@ -177,6 +190,7 @@ export interface GamelordAPI {
 
   // Game input (native mode)
   gameInput: (port: number, id: number, pressed: boolean) => void;
+  gameInputAnalog: (port: number, index: number, id: number, value: number) => void;
 
   // SharedArrayBuffer delivery via MessagePort bridge
   framePort: {

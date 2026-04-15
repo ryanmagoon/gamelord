@@ -34,6 +34,8 @@ export interface EmulationWorkerInitOptions {
   discPaths?: Array<string>;
   /** 0-indexed disc to start on (defaults to 0). */
   initialDiscIndex?: number;
+  /** Force-enable save states for HW-render cores (for testing). */
+  forceHWSaveStates?: boolean;
 }
 
 interface PendingRequest {
@@ -75,7 +77,9 @@ export class EmulationWorkerClient extends EventEmitter {
    * Spawn the utility process, load the core and ROM, and start the
    * emulation loop. Resolves with AV info once the worker is ready.
    */
-  async init(options: EmulationWorkerInitOptions): Promise<AVInfo> {
+  async init(
+    options: EmulationWorkerInitOptions,
+  ): Promise<{ avInfo: AVInfo; saveStatesSupported: boolean }> {
     if (this.workerProcess) {
       await this.destroy();
     }
@@ -100,41 +104,45 @@ export class EmulationWorkerClient extends EventEmitter {
     });
 
     // Wait for the 'ready' event from the worker
-    const avInfo = await new Promise<AVInfo>((resolve, reject) => {
-      const onMessage = (event: WorkerEvent) => {
-        if (event.type === "ready") {
-          clearTimeout(initTimeout);
-          this.workerProcess?.removeListener("message", onMessage);
-          resolve(event.avInfo);
-        } else if (event.type === "error" && event.fatal) {
-          clearTimeout(initTimeout);
-          this.workerProcess?.removeListener("message", onMessage);
-          reject(new Error(event.message));
-        } else if (event.type === "serialDetected") {
-          // CD-ROM serial arrives before "ready" — capture it early
-          this.detectedSerial = event.serial;
-          libretroLog.info(`CD-ROM serial detected: ${event.serial}`);
+    const initResult = await new Promise<{ avInfo: AVInfo; saveStatesSupported: boolean }>(
+      (resolve, reject) => {
+        const onMessage = (event: WorkerEvent) => {
+          if (event.type === "ready") {
+            clearTimeout(initTimeout);
+            this.workerProcess?.removeListener("message", onMessage);
+            resolve({ avInfo: event.avInfo, saveStatesSupported: event.saveStatesSupported });
+          } else if (event.type === "error" && event.fatal) {
+            clearTimeout(initTimeout);
+            this.workerProcess?.removeListener("message", onMessage);
+            reject(new Error(event.message));
+          } else if (event.type === "serialDetected") {
+            // CD-ROM serial arrives before "ready" — capture it early
+            this.detectedSerial = event.serial;
+            libretroLog.info(`CD-ROM serial detected: ${event.serial}`);
+          }
+        };
+
+        const proc = this.workerProcess;
+        if (!proc) {
+          reject(new Error("Worker process failed to spawn"));
+          return;
         }
-      };
 
-      const proc = this.workerProcess;
-      if (!proc) {
-        reject(new Error("Worker process failed to spawn"));
-        return;
-      }
+        proc.on("message", onMessage);
 
-      proc.on("message", onMessage);
+        // Timeout if worker doesn't become ready
+        const initTimeout = setTimeout(() => {
+          proc.removeListener("message", onMessage);
+          reject(new Error("Emulation worker did not become ready within 10 seconds"));
+        }, DEFAULT_REQUEST_TIMEOUT_MS);
 
-      // Timeout if worker doesn't become ready
-      const initTimeout = setTimeout(() => {
-        proc.removeListener("message", onMessage);
-        reject(new Error("Emulation worker did not become ready within 10 seconds"));
-      }, DEFAULT_REQUEST_TIMEOUT_MS);
+        // Send init command
+        const initCommand: WorkerCommand = { action: "init", ...options };
+        proc.postMessage(initCommand);
+      },
+    );
 
-      // Send init command
-      const initCommand: WorkerCommand = { action: "init", ...options };
-      proc.postMessage(initCommand);
-    });
+    const { avInfo, saveStatesSupported } = initResult;
 
     // Set up the permanent message handler
     this.workerProcess.on("message", (event: WorkerEvent) => {
@@ -146,7 +154,7 @@ export class EmulationWorkerClient extends EventEmitter {
     this.setupSharedBuffers(avInfo);
 
     this.running = true;
-    return avInfo;
+    return { avInfo, saveStatesSupported };
   }
 
   /**
@@ -155,6 +163,10 @@ export class EmulationWorkerClient extends EventEmitter {
    */
   setInput(port: number, id: number, pressed: boolean): void {
     this.postCommand({ action: "input", id, port, pressed });
+  }
+
+  setInputAnalog(port: number, index: number, id: number, value: number): void {
+    this.postCommand({ action: "inputAnalog", port, index, id, value });
   }
 
   pause(): void {
@@ -214,6 +226,29 @@ export class EmulationWorkerClient extends EventEmitter {
 
   async swapDisc(index: number): Promise<void> {
     await this.sendRequest({ action: "swapDisc", index });
+  }
+
+  async getDiscInfo(): Promise<{
+    total: number;
+    currentIndex: number;
+    labels: Array<string | null>;
+  }> {
+    return this.sendRequest<{
+      total: number;
+      currentIndex: number;
+      labels: Array<string | null>;
+    }>({ action: "getDiscInfo" });
+  }
+
+  async replaceDiscImage(index: number, path: string): Promise<void> {
+    await this.sendRequest({ action: "replaceDiscImage", index, path });
+  }
+
+  async addDiscImage(path: string): Promise<{ index: number }> {
+    return this.sendRequest<{ index: number }>({
+      action: "addDiscImage",
+      path,
+    });
   }
 
   /**

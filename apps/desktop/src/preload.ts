@@ -51,6 +51,21 @@ contextBridge.exposeInMainWorld("gamelord", {
     setFastForwardAudio: (enabled: boolean) =>
       ipcRenderer.invoke("emulation:setFastForwardAudio", enabled),
     swapDisc: (index: number) => ipcRenderer.invoke("emulation:swapDisc", index),
+    getDiscInfo: () =>
+      ipcRenderer.invoke("emulation:getDiscInfo") as Promise<{
+        success: boolean;
+        total?: number;
+        currentIndex?: number;
+        labels?: Array<string | null>;
+        error?: string;
+      }>,
+    browseForDisc: (index: number) =>
+      ipcRenderer.invoke("emulation:browseForDisc", index) as Promise<{
+        success: boolean;
+        canceled?: boolean;
+        path?: string;
+        error?: string;
+      }>,
   },
 
   // Save states
@@ -90,6 +105,8 @@ contextBridge.exposeInMainWorld("gamelord", {
   // Game input forwarding (native mode)
   gameInput: (port: number, id: number, pressed: boolean) =>
     ipcRenderer.send("game:input", port, id, pressed),
+  gameInputAnalog: (port: number, index: number, id: number, value: number) =>
+    ipcRenderer.send("game:input-analog", port, index, id, value),
 
   // Event listeners
   on: (channel: string, callback: (...args: Array<unknown>) => void) => {
@@ -109,6 +126,7 @@ contextBridge.exposeInMainWorld("gamelord", {
       "game:loaded",
       "game:mode",
       "game:av-info",
+      "game:save-states-supported",
       "game:disc-info",
       "game:video-frame",
       "game:audio-samples",

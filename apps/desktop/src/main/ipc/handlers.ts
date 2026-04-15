@@ -14,6 +14,7 @@ import type { AutoUpdaterService } from "../services/AutoUpdaterService";
 import { Game, GameSystem } from "../../types/library";
 import type { AmbiguousRomFile } from "../services/LibraryService";
 import { ipcLog } from "../logger";
+import fs from "node:fs";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -190,22 +191,63 @@ export class IPCHandlers {
             const workerClient = new EmulationWorkerClient();
             const addonPath = resolveAddonPath();
 
-            // Build disc paths for multi-disc games
+            // Build disc paths for multi-disc games.
+            // Strategy: use .m3u paths (includes missing files) or library entries.
             let discPaths: string[] | undefined;
             let initialDiscIndex: number | undefined;
-            if (game.discGroup) {
+            let missingDiscIndices: Array<number> | undefined;
+            if (game.m3uPath) {
+              // .m3u knows about all discs, even ones not in the library
+              const m3uPaths = await this.libraryService.parseM3uPlaylist(game.m3uPath);
+              if (m3uPaths.length > 1) {
+                discPaths = m3uPaths;
+                // Find which disc the user launched
+                const launchedIdx = m3uPaths.indexOf(game.romPath);
+                initialDiscIndex = launchedIdx >= 0 ? launchedIdx : 0;
+                // Check which disc files are missing from disk
+                const missing: Array<number> = [];
+                for (let i = 0; i < m3uPaths.length; i++) {
+                  if (!fs.existsSync(m3uPaths[i])) {
+                    missing.push(i);
+                  }
+                }
+                if (missing.length > 0) {
+                  missingDiscIndices = missing;
+                }
+              }
+            } else if (game.discGroup) {
               const allGames = this.libraryService.getGames(systemId);
               const groupGames = allGames
                 .filter((g) => g.discGroup === game.discGroup)
                 .sort((a, b) => (a.discNumber ?? 0) - (b.discNumber ?? 0));
-              if (groupGames.length > 1) {
-                discPaths = groupGames.map((g) => g.romPath);
-                const launchedIndex = groupGames.findIndex((g) => g.id === game.id);
-                initialDiscIndex = launchedIndex >= 0 ? launchedIndex : 0;
+
+              // If we have a discTotal but fewer library entries, create
+              // placeholder slots for missing discs so the UI can show browse
+              const knownTotal = game.discTotal ?? groupGames.length;
+              if (knownTotal > 1) {
+                discPaths = new Array<string>(knownTotal).fill("");
+                const missing: Array<number> = [];
+                for (const g of groupGames) {
+                  const idx = (g.discNumber ?? 1) - 1;
+                  if (idx >= 0 && idx < knownTotal) {
+                    discPaths[idx] = g.romPath;
+                  }
+                }
+                for (let i = 0; i < knownTotal; i++) {
+                  if (!discPaths[i]) {
+                    missing.push(i);
+                  }
+                }
+                if (missing.length > 0) {
+                  missingDiscIndices = missing;
+                }
+                const launchedIdx = groupGames.findIndex((g) => g.id === game.id);
+                initialDiscIndex =
+                  launchedIdx >= 0 ? (groupGames[launchedIdx].discNumber ?? 1) - 1 : 0;
               }
             }
 
-            const avInfo = await workerClient.init({
+            const { avInfo, saveStatesSupported } = await workerClient.init({
               corePath: nativeCore.getCorePath(),
               romPath: nativeCore.getRomPath(),
               systemDir: nativeCore.getSystemDir(),
@@ -215,6 +257,7 @@ export class IPCHandlers {
               addonPath,
               discPaths,
               initialDiscIndex,
+              forceHWSaveStates: true,
             });
 
             // Store the worker client on the emulator manager for control routing
@@ -231,7 +274,14 @@ export class IPCHandlers {
               avInfo,
               shouldResume,
               cardScreenBounds,
-              discPaths ? { paths: discPaths, initialIndex: initialDiscIndex ?? 0 } : undefined,
+              discPaths
+                ? {
+                    paths: discPaths,
+                    initialIndex: initialDiscIndex ?? 0,
+                    missingIndices: missingDiscIndices,
+                  }
+                : undefined,
+              saveStatesSupported,
             );
           } else {
             // Legacy overlay mode: external RetroArch process
@@ -329,6 +379,42 @@ export class IPCHandlers {
         return { success: true };
       } catch (error) {
         ipcLog.error("Failed to swap disc:", error);
+        return { success: false, error: errorMessage(error) };
+      }
+    });
+
+    ipcMain.handle("emulation:getDiscInfo", async () => {
+      try {
+        const info = await this.emulatorManager.getDiscInfo();
+        return { success: true, ...info };
+      } catch (error) {
+        ipcLog.error("Failed to get disc info:", error);
+        return { success: false, error: errorMessage(error) };
+      }
+    });
+
+    ipcMain.handle("emulation:browseForDisc", async (_event, index: number) => {
+      try {
+        const result = await dialog.showOpenDialog({
+          title: `Select Disc ${index + 1}`,
+          filters: [
+            {
+              name: "Disc Images",
+              extensions: ["bin", "cue", "iso", "img", "chd", "pbp", "mdf", "ccd"],
+            },
+          ],
+          properties: ["openFile"],
+        });
+
+        if (result.canceled || result.filePaths.length === 0) {
+          return { success: false, canceled: true };
+        }
+
+        const filePath = result.filePaths[0];
+        await this.emulatorManager.replaceDiscImage(index, filePath);
+        return { success: true, path: filePath };
+      } catch (error) {
+        ipcLog.error("Failed to browse for disc:", error);
         return { success: false, error: errorMessage(error) };
       }
     });

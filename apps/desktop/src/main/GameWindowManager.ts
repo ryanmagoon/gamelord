@@ -53,7 +53,8 @@ export class GameWindowManager extends EventEmitter {
     avInfo: AVInfo,
     shouldResume = false,
     cardScreenBounds?: { x: number; y: number; width: number; height: number },
-    discInfo?: { paths: Array<string>; initialIndex: number },
+    discInfo?: { paths: Array<string>; initialIndex: number; missingIndices?: Array<number> },
+    saveStatesSupported = true,
   ): BrowserWindow {
     const existingWindow = this.gameWindows.get(game.id);
     if (existingWindow && !existingWindow.isDestroyed()) {
@@ -157,10 +158,12 @@ export class GameWindowManager extends EventEmitter {
       gameWindow.webContents.send("game:loaded", game);
       gameWindow.webContents.send("game:mode", "native");
       gameWindow.webContents.send("game:av-info", avInfo);
+      gameWindow.webContents.send("game:save-states-supported", saveStatesSupported);
       if (discInfo) {
         gameWindow.webContents.send("game:disc-info", {
           total: discInfo.paths.length,
           currentIndex: discInfo.initialIndex,
+          missingIndices: discInfo.missingIndices ?? [],
         });
       }
 
@@ -585,6 +588,13 @@ export class GameWindowManager extends EventEmitter {
     ipcMain.on("game:input", (_event, port: number, id: number, pressed: boolean) => {
       this.activeWorkerClient?.setInput(port, id, pressed);
     });
+
+    ipcMain.on(
+      "game:input-analog",
+      (_event, port: number, index: number, id: number, value: number) => {
+        this.activeWorkerClient?.setInputAnalog(port, index, id, value);
+      },
+    );
   }
 
   destroy(): void {
@@ -605,5 +615,6 @@ export class GameWindowManager extends EventEmitter {
     ipcMain.removeAllListeners("game-window:set-traffic-light-visible");
     ipcMain.removeAllListeners("game-window:ready-to-close");
     ipcMain.removeAllListeners("game:input");
+    ipcMain.removeAllListeners("game:input-analog");
   }
 }

@@ -85,6 +85,10 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, "src/main.ts"),
           "workers/core-worker": resolve(__dirname, "src/main/workers/core-worker.ts"),
+          "workers/json-stringify-worker": resolve(
+            __dirname,
+            "src/main/workers/json-stringify-worker.ts",
+          ),
         },
         external: [/\.node$/],
       },

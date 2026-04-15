@@ -16,8 +16,6 @@ import * as os from "node:os";
  * only supports software rendering, so these systems must use RetroArch
  * which manages its own GPU context.
  */
-const HW_RENDER_SYSTEMS = new Set(["gamecube"]);
-
 /**
  * Systems that require BIOS files to run. Maps system ID to an array of
  * required filenames that must be present in the BIOS directory.
@@ -388,13 +386,11 @@ export class EmulatorManager extends EventEmitter {
   private selectBestEmulator(systemId: string): EmulatorInfo | undefined {
     // Prefer native libretro core loading (single-window, no external process).
     // Cores will be auto-downloaded if missing during the launch flow.
-    // Skip native mode for systems that require hardware-accelerated rendering
-    // (the native addon only supports software rendering).
-    if (!HW_RENDER_SYSTEMS.has(systemId)) {
-      const native = this.availableEmulators.get("libretro-native");
-      if (native && native.supportedSystems.includes(systemId)) {
-        return native;
-      }
+    // HW-rendered cores (GameCube, etc.) are supported via the native addon's
+    // OpenGL offscreen context + PBO readback pipeline.
+    const native = this.availableEmulators.get("libretro-native");
+    if (native && native.supportedSystems.includes(systemId)) {
+      return native;
     }
 
     // Fall back to RetroArch process mode
@@ -559,6 +555,40 @@ export class EmulatorManager extends EventEmitter {
       throw new Error("No emulator is currently running");
     }
     await this.workerClient.swapDisc(index);
+  }
+
+  /**
+   * Query runtime disc info from the running core.
+   */
+  async getDiscInfo(): Promise<{
+    total: number;
+    currentIndex: number;
+    labels: Array<string | null>;
+  }> {
+    if (!this.workerClient?.isRunning()) {
+      throw new Error("No emulator is currently running");
+    }
+    return this.workerClient.getDiscInfo();
+  }
+
+  /**
+   * Replace a disc image path at the given index (for adding missing discs).
+   */
+  async replaceDiscImage(index: number, path: string): Promise<void> {
+    if (!this.workerClient?.isRunning()) {
+      throw new Error("No emulator is currently running");
+    }
+    await this.workerClient.replaceDiscImage(index, path);
+  }
+
+  /**
+   * Add a new disc image to the end of the disc list.
+   */
+  async addDiscImage(path: string): Promise<{ index: number }> {
+    if (!this.workerClient?.isRunning()) {
+      throw new Error("No emulator is currently running");
+    }
+    return this.workerClient.addDiscImage(path);
   }
 
   /**

@@ -27,6 +27,8 @@ export interface NativeLibretroCore {
   getVideoFrame(): { data: Uint8Array; width: number; height: number } | null;
   getAudioBuffer(): Int16Array | null;
   setInputState(port: number, id: number, value: number): void;
+  setInputAnalog(port: number, index: number, id: number, value: number): void;
+  isHWRendering(): boolean;
   serializeState(): Uint8Array | null;
   unserializeState(data: Uint8Array): boolean;
   getSerializeSize(): number;
@@ -47,6 +49,8 @@ export interface NativeLibretroCore {
   getCurrentDiscIndex(): number;
   getDiscCount(): number;
   getDiscLabel(index?: number): string | null;
+  replaceDiscImage(index: number, path: string): boolean;
+  addDiscImage(path: string): number;
 }
 
 export interface NativeAddon {
@@ -103,11 +107,14 @@ export type WorkerCommand =
       discPaths?: Array<string>;
       /** 0-indexed disc to start on (defaults to 0). */
       initialDiscIndex?: number;
+      /** Force-enable save states for HW-render cores (for testing). */
+      forceHWSaveStates?: boolean;
     }
   | { action: "pause" }
   | { action: "resume" }
   | { action: "reset" }
   | { action: "input"; port: number; id: number; pressed: boolean }
+  | { action: "inputAnalog"; port: number; index: number; id: number; value: number }
   | { action: "saveState"; slot: number; requestId: string }
   | { action: "loadState"; slot: number; requestId: string }
   | { action: "saveSram"; requestId: string }
@@ -131,6 +138,9 @@ export type WorkerCommand =
       requestId: string;
     }
   | { action: "swapDisc"; index: number; requestId: string }
+  | { action: "getDiscInfo"; requestId: string }
+  | { action: "replaceDiscImage"; index: number; path: string; requestId: string }
+  | { action: "addDiscImage"; path: string; requestId: string }
   | { action: "listSaveStates"; requestId: string };
 
 // ---------------------------------------------------------------------------
@@ -190,7 +200,7 @@ export function extractSerialFromLog(message: string): string | null {
 // ---------------------------------------------------------------------------
 
 export type WorkerEvent =
-  | { type: "ready"; avInfo: AVInfo }
+  | { type: "ready"; avInfo: AVInfo; saveStatesSupported: boolean }
   | { type: "videoFrame"; data: Buffer; width: number; height: number }
   | { type: "audioSamples"; samples: Buffer; sampleRate: number }
   | { type: "error"; message: string; fatal: boolean }

@@ -353,7 +353,9 @@ function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   isPaused = false;
   consecutiveErrors = 0;
 
-  send({ type: "ready", avInfo: avInfo as AVInfo });
+  const saveStatesSupported = true;
+
+  send({ type: "ready", avInfo: avInfo as AVInfo, saveStatesSupported });
 
   startEmulationLoop();
 }
@@ -691,6 +693,10 @@ function handleMessage(command: WorkerCommand): void {
       native?.setInputState(command.port, command.id, command.pressed ? 1 : 0);
       break;
 
+    case "inputAnalog":
+      native?.setInputAnalog(command.port, command.index, command.id, command.value);
+      break;
+
     case "setSpeed": {
       const newMultiplier = Math.max(0.25, Math.min(command.multiplier, 16));
       const wasRunning = isRunning;
@@ -817,6 +823,79 @@ function handleMessage(command: WorkerCommand): void {
         send({
           type: "discChanged",
           index: command.index,
+          total: native.getDiscCount(),
+        });
+      } catch (error) {
+        sendResponse(
+          command.requestId,
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      break;
+
+    case "getDiscInfo":
+      try {
+        if (!native) {
+          throw new Error("No core loaded");
+        }
+        const discCount = native.getDiscCount();
+        const discIndex = native.getCurrentDiscIndex();
+        const labels: Array<string | null> = [];
+        for (let i = 0; i < discCount; i++) {
+          labels.push(native.getDiscLabel(i));
+        }
+        sendResponse(command.requestId, true, undefined, {
+          total: discCount,
+          currentIndex: discIndex,
+          labels,
+        });
+      } catch (error) {
+        sendResponse(
+          command.requestId,
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      break;
+
+    case "replaceDiscImage":
+      try {
+        if (!native) {
+          throw new Error("No core loaded");
+        }
+        const replaceOk = native.replaceDiscImage(command.index, command.path);
+        if (!replaceOk) {
+          throw new Error(`Failed to replace disc image at index ${command.index}`);
+        }
+        sendResponse(command.requestId, true);
+        send({
+          type: "discChanged",
+          index: native.getCurrentDiscIndex(),
+          total: native.getDiscCount(),
+        });
+      } catch (error) {
+        sendResponse(
+          command.requestId,
+          false,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      break;
+
+    case "addDiscImage":
+      try {
+        if (!native) {
+          throw new Error("No core loaded");
+        }
+        const newIndex = native.addDiscImage(command.path);
+        if (newIndex < 0) {
+          throw new Error("Failed to add disc image");
+        }
+        sendResponse(command.requestId, true, undefined, { index: newIndex });
+        send({
+          type: "discChanged",
+          index: native.getCurrentDiscIndex(),
           total: native.getDiscCount(),
         });
       } catch (error) {
