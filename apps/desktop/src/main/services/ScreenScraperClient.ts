@@ -166,7 +166,7 @@ export class ScreenScraperClient {
   parseSearchResponse(json: unknown): ScreenScraperGameInfo | null {
     const data = json as Record<string, unknown>;
     const response = data?.response as Record<string, unknown> | undefined;
-    const jeux = response?.jeux as Record<string, unknown>[] | undefined;
+    const jeux = response?.jeux as Array<Record<string, unknown>> | undefined;
 
     if (!jeux || jeux.length === 0) {
       return null;
@@ -179,23 +179,23 @@ export class ScreenScraperClient {
    * Extract normalized game info from a ScreenScraper `jeu` object.
    */
   private extractGameInfo(jeu: Record<string, unknown>): ScreenScraperGameInfo {
-    const titleResult = this.selectRegionText(jeu.noms as LocalizedEntry[] | undefined);
+    const titleResult = this.selectRegionText(jeu.noms as Array<LocalizedEntry> | undefined);
     const title = titleResult?.text ?? "Unknown";
     const region = titleResult?.region;
 
     // Game-level ID — shared across all discs of the same title
     const gameId = typeof jeu.id === "string" && jeu.id.length > 0 ? jeu.id : undefined;
-    const synopsis = this.selectLanguageText(jeu.synopsis as LocalizedEntry[] | undefined);
+    const synopsis = this.selectLanguageText(jeu.synopsis as Array<LocalizedEntry> | undefined);
     const developer = (jeu.developpeur as TextEntry | undefined)?.text;
     const publisher = (jeu.editeur as TextEntry | undefined)?.text;
-    const genre = this.extractGenre(jeu.genres as GenreEntry[] | undefined);
+    const genre = this.extractGenre(jeu.genres as Array<GenreEntry> | undefined);
     const playersText = (jeu.joueurs as TextEntry | undefined)?.text;
     const players = playersText ? Number.parseInt(playersText, 10) || undefined : undefined;
     const ratingText = (jeu.note as TextEntry | undefined)?.text;
     const rating = ratingText ? Number.parseFloat(ratingText) / 20 : undefined;
-    const releaseDate = this.selectRegionText(jeu.dates as LocalizedEntry[] | undefined)?.text;
+    const releaseDate = this.selectRegionText(jeu.dates as Array<LocalizedEntry> | undefined)?.text;
 
-    const medias = jeu.medias as MediaEntry[] | undefined;
+    const medias = jeu.medias as Array<MediaEntry> | undefined;
     const media = {
       boxArt2d: this.selectMedia(medias, "box-2D"),
       boxArt3d: this.selectMedia(medias, "box-3D"),
@@ -247,7 +247,7 @@ export class ScreenScraperClient {
    * Returns both the selected text and the winning region code.
    */
   private selectRegionText(
-    entries: LocalizedEntry[] | undefined,
+    entries: Array<LocalizedEntry> | undefined,
   ): { region: string; text: string } | undefined {
     if (!entries || entries.length === 0) {
       return undefined;
@@ -272,7 +272,7 @@ export class ScreenScraperClient {
   /**
    * Select the best text entry from a language-tagged array.
    */
-  private selectLanguageText(entries: LocalizedEntry[] | undefined): string | undefined {
+  private selectLanguageText(entries: Array<LocalizedEntry> | undefined): string | undefined {
     if (!entries || entries.length === 0) {
       return undefined;
     }
@@ -290,13 +290,13 @@ export class ScreenScraperClient {
   /**
    * Extract the primary genre name from the genres array.
    */
-  private extractGenre(genres: GenreEntry[] | undefined): string | undefined {
+  private extractGenre(genres: Array<GenreEntry> | undefined): string | undefined {
     if (!genres || genres.length === 0) {
       return undefined;
     }
 
     const firstGenre = genres[0];
-    const noms = firstGenre?.noms as LocalizedEntry[] | undefined;
+    const noms = firstGenre?.noms as Array<LocalizedEntry> | undefined;
     if (!noms) {
       return undefined;
     }
@@ -315,7 +315,7 @@ export class ScreenScraperClient {
   /**
    * Select the best media URL for a given type, preferring US region.
    */
-  private selectMedia(medias: MediaEntry[] | undefined, type: string): string | undefined {
+  private selectMedia(medias: Array<MediaEntry> | undefined, type: string): string | undefined {
     if (!medias) {
       return undefined;
     }
