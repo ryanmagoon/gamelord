@@ -20,6 +20,12 @@ export default defineConfig({
     // by design. Needs refactoring to satisfy the React 19 compiler.
     "react-hooks-js/refs": "off",
 
+    // The React Compiler can't preserve manual useCallback/useMemo
+    // memoization in some hooks (e.g. useControllerConfig). The hooks
+    // are still functionally correct; rewriting them to be
+    // compiler-friendly is a separate refactor.
+    "react-hooks-js/preserve-manual-memoization": "off",
+
     // Many effects intentionally omit deps (audio scheduling, IPC
     // listeners). Fixing requires useEffectEvent or ref-based patterns.
     "react-hooks-js/set-state-in-effect": "off",

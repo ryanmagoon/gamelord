@@ -193,7 +193,7 @@ export class IPCHandlers {
 
             // Build disc paths for multi-disc games.
             // Strategy: use .m3u paths (includes missing files) or library entries.
-            let discPaths: string[] | undefined;
+            let discPaths: Array<string> | undefined;
             let initialDiscIndex: number | undefined;
             let missingDiscIndices: Array<number> | undefined;
             if (game.m3uPath) {
