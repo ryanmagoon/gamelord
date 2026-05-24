@@ -17,6 +17,22 @@ Never give advice about what to work on next, or start new work, from a stale br
 - `ARCHITECTURE.md` — How the app works, key files, supported cores.
 - **GitHub Issues** — Source of truth for project state. Use parent issues with sub-issues for multi-part work. Close issues via PRs (`Closes #123`). Create new issues when discovering work.
 
+## Agent skills
+
+This repo uses the engineering skills from [mattpocock/skills](https://github.com/mattpocock/skills) (installed under `.claude/skills/`). The skills read the docs below to know how this repo operates.
+
+### Issue tracker
+
+GitHub Issues at [ryanmagoon/gamelord](https://github.com/ryanmagoon/gamelord). See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Canonical 5-state vocabulary, names match the defaults. See [docs/agents/triage-labels.md](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context. `CONTEXT.md` + `docs/adr/` live at the repo root if/when they're created (lazily by `/grill-with-docs`). See [docs/agents/domain.md](docs/agents/domain.md).
+
 ## Package Manager
 
 This project uses **pnpm**. Always use `pnpm` for installing dependencies, running scripts, etc. — never `npm` or `yarn`.
