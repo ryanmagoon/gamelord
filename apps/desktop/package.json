@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "GameLord desktop application",
-  "main": "./out/main/index.js",
+  "main": "./out/main/index.mjs",
   "scripts": {
     "build:native": "cd native && node-gyp rebuild",
     "clean": "node -e \"const fs=require('fs');['out','dist'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true})}catch{}})\"",
