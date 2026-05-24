@@ -19,7 +19,7 @@ jobs:
     name: Build macOS DMG
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create and push tag (manual dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -34,9 +34,9 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
@@ -113,7 +113,7 @@ jobs:
     name: Build Windows Installer
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create and push tag (manual dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -129,9 +129,9 @@ jobs:
           # Tag may already exist from the macOS job — skip if so
           git tag "$TAG" 2>/dev/null || true
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
