@@ -11,6 +11,7 @@ export * from "./components/ui/switch";
 export * from "./components/ui/sonner";
 
 export * from "./components/ControllerConfig";
+export * from "./components/Controller3D";
 export * from "./components/ControlsOverlay";
 export * from "./components/CheatPanel";
 export * from "./components/DiscSwapOverlay";

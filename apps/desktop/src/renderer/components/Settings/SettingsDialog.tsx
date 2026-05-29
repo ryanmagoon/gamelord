@@ -14,6 +14,7 @@ import {
   SHADER_LABELS,
   SHADER_PRESETS,
   ControllerConfig,
+  Controller3D,
   detectHdrCapabilities,
 } from "@gamelord/ui";
 import {
@@ -33,9 +34,11 @@ import {
   FolderSearch,
   Joystick,
   RefreshCw,
+  FlaskConical,
 } from "lucide-react";
 import { useSfx } from "../../hooks/useSfx";
 import { useControllerConfig } from "../../hooks/useControllerConfig";
+import { useExperimentalFlag } from "../../hooks/useExperimentalFlag";
 import type { GamelordAPI } from "../../types/global";
 import type { GameSystem } from "../../../types/library";
 
@@ -168,6 +171,7 @@ const GeneralTab: React.FC<{
   onThemeChange: (mode: ThemeMode) => void;
 }> = ({ themeMode, onThemeChange }) => {
   const { preferences, setEnabled, setVolume, play } = useSfx();
+  const [controller3dEnabled, setController3dEnabled] = useExperimentalFlag("controller3d");
 
   const handleThemeChange = (value: string) => {
     play("click");
@@ -243,6 +247,28 @@ const GeneralTab: React.FC<{
           </SettingRow>
         )}
       </div>
+
+      <div>
+        <SectionHeading>
+          <span className="flex items-center gap-1.5">
+            <FlaskConical className="h-3.5 w-3.5 text-muted-foreground" />
+            Experimental
+          </span>
+        </SectionHeading>
+        <SettingRow
+          label="3D controller view"
+          description="Show a staged 3D controller in the Controllers tab. Work in progress."
+        >
+          <Toggle
+            checked={controller3dEnabled}
+            onChange={(v) => {
+              setController3dEnabled(v);
+              play(v ? "toggleOn" : "click");
+            }}
+            aria-label="Toggle 3D controller view"
+          />
+        </SettingRow>
+      </div>
     </div>
   );
 };
@@ -265,21 +291,29 @@ const ControllersTab: React.FC = () => {
     changeBinding,
     resetDefaults,
   } = useControllerConfig();
+  const [controller3dEnabled] = useExperimentalFlag("controller3d");
 
   return (
-    <ControllerConfig
-      controllers={controllers}
-      mapping={mapping}
-      onBindingChange={changeBinding}
-      onResetDefaults={resetDefaults}
-      selectedControllerIndex={selectedControllerIndex}
-      onSelectController={selectController}
-      buttonStates={buttonStates}
-      axisValues={axisValues}
-      remappingButton={remappingButton}
-      onStartRemap={startRemap}
-      onCancelRemap={cancelRemap}
-    />
+    <div className="space-y-5">
+      {controller3dEnabled && (
+        <div className="h-56 -mx-2 -mt-2 rounded-lg overflow-hidden bg-gradient-to-b from-muted/40 to-background animate-in fade-in duration-300">
+          <Controller3D />
+        </div>
+      )}
+      <ControllerConfig
+        controllers={controllers}
+        mapping={mapping}
+        onBindingChange={changeBinding}
+        onResetDefaults={resetDefaults}
+        selectedControllerIndex={selectedControllerIndex}
+        onSelectController={selectController}
+        buttonStates={buttonStates}
+        axisValues={axisValues}
+        remappingButton={remappingButton}
+        onStartRemap={startRemap}
+        onCancelRemap={cancelRemap}
+      />
+    </div>
   );
 };
 
