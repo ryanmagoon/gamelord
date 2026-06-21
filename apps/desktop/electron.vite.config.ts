@@ -90,7 +90,23 @@ export default defineConfig({
             "src/main/workers/json-stringify-worker.ts",
           ),
         },
-        external: [/\.node$/],
+        // `electron` must stay external — it's provided by the runtime. Bundling
+        // its npm shim breaks `getElectronPath()` (it reads `path.txt` relative
+        // to its own dir). electron-vite's externalize plugin doesn't reliably
+        // catch it under rolldown-vite, so list it explicitly.
+        external: ["electron", /^electron\/.+/, /\.node$/],
+        output: {
+          format: "es",
+          // electron-vite 5 + Vite 8 emit the main process as ESM (`.mjs`),
+          // where `__dirname`/`__filename` don't exist. The main source and
+          // bundled CJS deps (e.g. electron's index.js shim) rely on them, so
+          // recreate them per-file from `import.meta.url`.
+          banner:
+            "import { fileURLToPath as __gl_fileURLToPath } from 'node:url';\n" +
+            "import { dirname as __gl_dirname } from 'node:path';\n" +
+            "const __filename = __gl_fileURLToPath(import.meta.url);\n" +
+            "const __dirname = __gl_dirname(__filename);",
+        },
       },
     },
     define: {
@@ -108,6 +124,17 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, "src/preload.ts"),
+        },
+        // Keep `electron` external here too — bundling its shim makes the
+        // sandboxed preload throw on load, so `contextBridge` never runs and
+        // the renderer never receives `window.gamelord`.
+        external: ["electron", /^electron\/.+/, /\.node$/],
+        output: {
+          // Sandboxed preload scripts must be CommonJS — Electron does not
+          // support ESM preloads when `sandbox: true`. Force `.cjs` output so
+          // the preload loads and `contextBridge` exposes the renderer API.
+          format: "cjs",
+          entryFileNames: "[name].cjs",
         },
       },
     },
