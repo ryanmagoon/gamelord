@@ -84,7 +84,7 @@ export class EmulationWorkerClient extends EventEmitter {
       await this.destroy();
     }
 
-    const workerPath = path.join(__dirname, "workers/core-worker.js");
+    const workerPath = path.join(__dirname, "workers/core-worker.mjs");
 
     this.workerProcess = utilityProcess.fork(workerPath, [], {
       serviceName: "LibretroCore",

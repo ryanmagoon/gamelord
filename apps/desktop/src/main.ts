@@ -68,7 +68,7 @@ const createWindow = () => {
           },
         }),
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
+      preload: path.join(__dirname, "../preload/index.cjs"),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -189,7 +189,7 @@ app.on("ready", () => {
   });
 
   // Initialize IPC handlers before creating window
-  const preloadPath = path.join(__dirname, "../preload/index.js");
+  const preloadPath = path.join(__dirname, "../preload/index.cjs");
   ipcHandlers = new IPCHandlers(preloadPath);
   setupAppMenu();
   createWindow();

@@ -1,4 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// CheatDatabaseService imports `app` from "electron" at module load. Mock it
+// so importing the module (even for its pure parsing helpers) doesn't trigger
+// electron's getElectronPath(), which throws when the binary isn't installed
+// (CI). A file-level mock is required — module mocks declared in setupFiles
+// don't reliably intercept `electron` for this suite.
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn(() => "/tmp/gamelord-test"),
+  },
+}));
+
 import {
   parseChtFile,
   matchChtFilename,
