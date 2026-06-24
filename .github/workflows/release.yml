@@ -19,7 +19,7 @@ jobs:
     name: Build macOS DMG
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Create and push tag (manual dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -113,7 +113,7 @@ jobs:
     name: Build Windows Installer
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Create and push tag (manual dispatch)
         if: github.event_name == 'workflow_dispatch'
