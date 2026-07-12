@@ -30,9 +30,10 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
-    "@storybook/addon-docs": "^10.2.10",
-    "@storybook/addon-onboarding": "^10.2.10",
-    "@storybook/react-vite": "^10.2.10",
+    "@storybook/addon-docs": "^10.5.0",
+    "@storybook/addon-onboarding": "^10.5.0",
+    "@storybook/addon-vitest": "^10.5.0",
+    "@storybook/react-vite": "^10.5.0",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/vite": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
@@ -41,16 +42,18 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/browser-playwright": "^4.1.10",
     "agentation": "^2.2.1",
     "autoprefixer": "^10.4.21",
     "chromatic": "^17.0.0",
     "happy-dom": "^20.8.9",
+    "playwright": "^1.61.1",
     "postcss": "^8.5.10",
     "prop-types": "^15.8.1",
-    "storybook": "^10.4.1",
+    "storybook": "^10.5.0",
     "tailwindcss": "^4.1.11",
     "typescript": "~5.8.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.10"
   },
   "peerDependencies": {
     "react": "^19.0.0",
