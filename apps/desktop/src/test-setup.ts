@@ -9,7 +9,60 @@
  * prevents transitive import failures (e.g. when a test imports logger.ts →
  * electron-log/main → electron).
  */
-import { vi } from "vitest";
+import { beforeEach, afterEach, vi } from "vitest";
+
+/**
+ * Spec-compliant in-memory Storage. vitest 4's happy-dom environment installs a
+ * file-backed `localStorage` stub (logs `--localstorage-file was provided
+ * without a valid path`) missing `getItem`/`removeItem`/`clear`, so any code
+ * under test that touches `localStorage` throws. Replace it with a full
+ * implementation and reset between tests for isolation.
+ */
+class MemoryStorage implements Storage {
+  private store = new Map<string, string>();
+
+  get length(): number {
+    return this.store.size;
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+
+  getItem(key: string): string | null {
+    return this.store.has(key) ? (this.store.get(key) ?? null) : null;
+  }
+
+  key(index: number): string | null {
+    return Array.from(this.store.keys())[index] ?? null;
+  }
+
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value));
+  }
+}
+
+beforeEach(() => {
+  Object.defineProperty(globalThis, "localStorage", {
+    value: new MemoryStorage(),
+    configurable: true,
+    writable: true,
+  });
+  Object.defineProperty(globalThis, "sessionStorage", {
+    value: new MemoryStorage(),
+    configurable: true,
+    writable: true,
+  });
+});
+
+afterEach(() => {
+  globalThis.localStorage?.clear();
+  globalThis.sessionStorage?.clear();
+});
 
 vi.mock("@sentry/electron/main", () => ({
   init: vi.fn(),

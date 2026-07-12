@@ -47,7 +47,9 @@ function createMockGamepad(
     mapping: "standard",
     timestamp: performance.now(),
     vibrationActuator: null as unknown as GamepadHapticActuator,
-  } as Gamepad;
+    // The lib.dom Gamepad interface carries version-dependent members a test
+    // mock can't supply; cast through unknown rather than implement them all.
+  } as unknown as Gamepad;
 }
 
 describe("useGamepad", () => {

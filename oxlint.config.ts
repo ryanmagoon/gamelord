@@ -58,4 +58,17 @@ export default defineConfig({
     // doesn't apply to built-in types.
     "@nkzw/no-instanceof": "off",
   },
+  overrides: [
+    {
+      // react-three-fiber renders three.js objects through JSX intrinsics whose
+      // props are valid r3f attributes, not DOM properties. In particular
+      // `<primitive object={…} scale={…} />` trips react/no-unknown-property,
+      // which has no awareness of r3f's element namespace. Known r3f + linter
+      // interaction: https://github.com/pmndrs/react-three-fiber/discussions/2487
+      files: ["**/Controller3D/**"],
+      rules: {
+        "react/no-unknown-property": "off",
+      },
+    },
+  ],
 });
