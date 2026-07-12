@@ -36,7 +36,7 @@ export const Controller3D: React.FC<Controller3DProps> = ({
       <Canvas
         shadows
         dpr={[1, 2]}
-        camera={{ position: [0, 3.4, 5.2], fov: 36 }}
+        camera={{ position: [0, 4.9, 3.2], fov: 36 }}
         gl={{
           antialias: true,
           powerPreference: "high-performance",
@@ -46,11 +46,12 @@ export const Controller3D: React.FC<Controller3DProps> = ({
           preserveDrawingBuffer: true,
         }}
       >
-        {/* Key + fill + rim lighting for crisp plastic readout. */}
-        <ambientLight intensity={0.5} />
+        {/* Key + fill + rim lighting for crisp plastic readout. The key is
+            kept moderate so broad speculars don't wash out the button caps. */}
+        <ambientLight intensity={0.65} />
         <directionalLight
           position={[4, 6, 3]}
-          intensity={2.1}
+          intensity={1.5}
           castShadow
           shadow-mapSize={[1024, 1024]}
           shadow-bias={-0.0001}

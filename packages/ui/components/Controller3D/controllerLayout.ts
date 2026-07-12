@@ -44,13 +44,15 @@ export interface PillButtonSpec {
   label: string;
 }
 
-/** Body dimensions for the controller shell. */
+/**
+ * Body dimensions for the controller shell, proportioned to the real
+ * controller (~14.5cm × 6.3cm × 2.2cm scaled so width = 3.6 units). The shell
+ * is an extruded stadium outline whose end lobes have radius `depth / 2`.
+ */
 export const BODY = {
   width: 3.6,
-  depth: 1.7,
-  height: 0.34,
-  /** Corner rounding radius for the shell. */
-  radius: 0.22,
+  depth: 1.56,
+  height: 0.52,
 } as const;
 
 /**
