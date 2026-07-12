@@ -104,6 +104,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Install Playwright Chromium (Storybook story tests)
+        run: pnpm --filter @gamelord/ui exec playwright install chromium --with-deps
+
       - name: Run tests
         run: pnpm test
 
