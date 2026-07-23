@@ -11,19 +11,26 @@ if (isChromatic()) {
   tvStaticManager.setDeterministic(true);
 }
 
+// Skip the Agentation annotation toolbar when stories run as Vitest tests —
+// it fetches its session endpoint on mount, which just logs noise in CI.
+// `__vitest_browser__` is set on the window by Vitest browser mode at runtime.
+const isVitest = Boolean(globalThis.__vitest_browser__);
+
 /** @type { import('@storybook/react-vite').Preview } */
 const preview = {
   decorators: [
     (Story) =>
-      React.createElement(
-        React.Fragment,
-        null,
-        React.createElement(Story),
-        React.createElement(Agentation, {
-          endpoint: "http://localhost:4747",
-          copyToClipboard: true,
-        }),
-      ),
+      isVitest
+        ? React.createElement(Story)
+        : React.createElement(
+            React.Fragment,
+            null,
+            React.createElement(Story),
+            React.createElement(Agentation, {
+              endpoint: "http://localhost:4747",
+              copyToClipboard: true,
+            }),
+          ),
   ],
   parameters: {
     controls: {
