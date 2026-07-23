@@ -2,6 +2,10 @@
 
 All UI components with loading, error, or transitional states **must** have Storybook stories representing each state. This makes states easy to polish, iterate on, and visually verify without needing to reproduce them in the running app. Examples: artwork sync phases (hashing, querying, downloading, done, error, not-found), empty/loading library, form validation errors.
 
+## Stories Are Tests
+
+Every story runs as a component test in the Vitest `storybook` project (`pnpm --filter @gamelord/ui test`, via `@storybook/addon-vitest` in headless Chromium) and **must pass there**. A component's definition of done for a visual state is a story that *executes* in CI — and for interactive behavior, a `play` function with assertions. A render-only story is documentation, not a test: if a component has behavior worth demonstrating, write the `play` function that would fail if it broke.
+
 ## Presentational Extraction
 
 UI that has multiple visual states (progress, error, loading, empty, etc.) **must** be a standalone presentational component in `packages/ui/`, even if it's only used in one place. Electron-coupled parent components pass data and callbacks via props — the presentational component has zero IPC or `window.gamelord` dependencies.
