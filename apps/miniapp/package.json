@@ -1,0 +1,41 @@
+{
+  "name": "@gamelord/miniapp",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm run build:miniapp",
+    "build:miniapp": "tap-miniapp build",
+    "build:preview": "rsbuild build",
+    "build:target": "rslib build",
+    "dev": "tap-miniapp dev",
+    "dev:preview": "rsbuild dev",
+    "format": "oxfmt --write src/ *.ts *.mjs",
+    "format:check": "oxfmt --check src/ *.ts *.mjs",
+    "lint": "oxlint -c ../../oxlint.config.ts src/ *.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@theaiplatform/miniapp-sdk": "0.7.0",
+    "jsnes": "2.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@module-federation/rsbuild-plugin": "2.8.1",
+    "@rsbuild/core": "^2.1.5",
+    "@rsbuild/plugin-react": "2.1.0",
+    "@rslib/core": "^0.23.2",
+    "@rspack/core": "2.1.10",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0"
+  },
+  "tapMiniapp": {
+    "output": "dist"
+  }
+}

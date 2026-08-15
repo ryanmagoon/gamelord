@@ -1,0 +1,128 @@
+{
+  "$schema": "./node_modules/@theaiplatform/miniapp-sdk/config-schema.json",
+  "descriptorVersion": 1,
+  "package": {
+    "packageId": "tap_pkg_29aa6ef1a5a212baa574752baf7c04cf",
+    "publisherId": "publisher_319f804e9b078ad571bc3db12ddde106",
+    "organizationId": "organization_064f8ebafa56adc27fadddb17dc3848e",
+    "namespace": "gamelord-miniapp",
+    "slug": "gamelord"
+  },
+  "release": {
+    "releaseId": "tap_pkg_29aa6ef1a5a212baa574752baf7c04cf@0.3.0",
+    "version": "0.3.0",
+    "contentDigest": "pending"
+  },
+  "presentation": {
+    "name": "GameLord",
+    "description": "Play your own NES cartridges and a focused homebrew collection without leaving your workspace.",
+    "iconAssets": ["assets/gamelord.svg"],
+    "assets": [
+      {
+        "role": "app-icon",
+        "mediaType": "image/svg+xml",
+        "path": "assets/gamelord.svg",
+        "integrity": "pending",
+        "sizes": ["any"],
+        "theme": "any"
+      }
+    ]
+  },
+  "compatibility": {
+    "tapSdk": "0.7.0",
+    "tapHost": ">=0.1.0"
+  },
+  "targets": {
+    "desktop": {
+      "remoteName": "gamelord_miniapp_desktop",
+      "remoteEntry": "remoteEntry.mjs",
+      "remoteEntryIntegrity": "pending",
+      "manifest": "mf-manifest.json",
+      "manifestIntegrity": "pending",
+      "assetLock": "tap.package.lock.json",
+      "assetLockIntegrity": "pending",
+      "libraryType": "module",
+      "exposes": {
+        "./tap/lifecycle": {
+          "integrity": "pending",
+          "runtime": "webview"
+        },
+        "./ui/desktop": {
+          "integrity": "pending",
+          "runtime": "webview"
+        }
+      }
+    }
+  },
+  "contributions": [
+    {
+      "kind": "ui.surface",
+      "id": "gamelord-surface",
+      "apiVersion": 1,
+      "targets": {
+        "desktop": {
+          "expose": "./ui/desktop",
+          "runtime": "webview"
+        }
+      },
+      "authorization": {
+        "allOf": ["gamelord.play"],
+        "effects": [{ "kind": "storage", "resources": ["gamelord"] }]
+      },
+      "lifecycleScope": "mount",
+      "options": {
+        "displayName": "GameLord",
+        "description": "Open the GameLord homebrew arcade.",
+        "placement": "workspace-left",
+        "scope": "workspace",
+        "instancePolicy": "per-workspace",
+        "persistence": "retained",
+        "iconAssets": ["assets/gamelord.svg"]
+      }
+    },
+    {
+      "kind": "miniapp",
+      "id": "gamelord-app",
+      "apiVersion": 1,
+      "options": {
+        "contributionIds": ["gamelord-surface"]
+      }
+    },
+    {
+      "kind": "permission.catalog",
+      "id": "gamelord-permissions",
+      "apiVersion": 1,
+      "options": {
+        "actions": [
+          {
+            "id": "gamelord.play",
+            "resource": "tap.gamelord:play",
+            "scopes": ["workspace"],
+            "directActors": ["human"],
+            "delegatedActors": [],
+            "autonomyCeiling": "do",
+            "consent": "none",
+            "risk": "write"
+          }
+        ],
+        "levels": [
+          {
+            "id": "player",
+            "actions": ["gamelord.play"],
+            "assignableTo": ["human"]
+          }
+        ],
+        "roleRecommendations": [
+          { "actor": "human", "workspaceRole": "member", "level": "player" }
+        ]
+      }
+    }
+  ],
+  "events": {
+    "publishes": []
+  },
+  "lifecycle": {
+    "checkpoint": "retained",
+    "lifecycleExpose": "./tap/lifecycle"
+  }
+}

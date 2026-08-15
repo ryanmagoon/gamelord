@@ -1,0 +1,865 @@
+@font-face {
+  font-family: "Geist Pixel";
+  src: url("../../desktop/src/assets/fonts/geist-pixel/GeistPixel-Square.woff2") format("woff2");
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background: #090a0d;
+  color: #f7f5ef;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  background:
+    radial-gradient(circle at 78% 12%, rgba(255, 95, 60, 0.12), transparent 28rem),
+    linear-gradient(145deg, #101115 0%, #07080a 60%);
+}
+
+button {
+  font: inherit;
+}
+
+button:focus-visible {
+  outline: 2px solid #ff765e;
+  outline-offset: 4px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.library-shell,
+.player-shell {
+  width: min(100%, 1180px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 64px);
+}
+
+.library-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+.library-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: clamp(24px, 4vw, 44px);
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 14px;
+  color: #ff765e;
+  font-family: "Geist Pixel", monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+}
+
+.library-header h1 {
+  margin: 0;
+  font-family: "Geist Pixel", monospace;
+  font-size: clamp(48px, 9vw, 112px);
+  font-weight: 500;
+  letter-spacing: -0.075em;
+  line-height: 0.82;
+}
+
+.library-header h1 span {
+  color: #ff765e;
+}
+
+.library-header p {
+  max-width: 520px;
+  margin: 28px 0 0;
+  color: #a5a3a0;
+  font-size: clamp(15px, 2vw, 19px);
+  line-height: 1.5;
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border: 1px solid #2e3036;
+  border-radius: 999px;
+  color: #9e9f9e;
+  font-family: "Geist Pixel", monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.status-pill span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7fda83;
+  box-shadow: 0 0 12px rgba(127, 218, 131, 0.75);
+}
+
+.status-pill-loading span {
+  background: #f4b94f;
+  box-shadow: 0 0 12px rgba(244, 185, 79, 0.7);
+  animation: pulse 900ms ease-in-out infinite alternate;
+}
+
+.status-pill-error span {
+  background: #ff765e;
+  box-shadow: 0 0 12px rgba(255, 118, 94, 0.7);
+}
+
+.library-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.import-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 13px;
+  overflow: hidden;
+  border: 1px solid #ff765e;
+  border-radius: 999px;
+  background: #ff765e;
+  color: #17100e;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.import-button:hover {
+  background: #ff8e79;
+}
+
+.import-button:active {
+  transform: scale(0.98);
+}
+
+.import-button:has(input:focus-visible) {
+  outline: 2px solid #ff765e;
+  outline-offset: 4px;
+}
+
+.import-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.import-button-disabled {
+  opacity: 0.55;
+}
+
+.library-message {
+  min-height: 20px;
+  margin: 0 0 24px;
+  color: #777980;
+  font-size: 12px;
+}
+
+.continue-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 clamp(28px, 4vw, 44px);
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 118, 94, 0.3);
+  border-radius: 16px;
+  background: linear-gradient(100deg, rgba(255, 118, 94, 0.12), rgba(18, 19, 24, 0.82));
+}
+
+.collection-section + .collection-section {
+  margin-top: clamp(42px, 7vw, 72px);
+}
+
+.collection-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.collection-heading .eyebrow {
+  margin-bottom: 6px;
+  font-size: 9px;
+}
+
+.collection-heading h2 {
+  margin: 0;
+  font-size: clamp(20px, 3vw, 28px);
+  letter-spacing: -0.025em;
+}
+
+.collection-heading > small {
+  padding-bottom: 3px;
+  color: #66686e;
+  font-family: "Geist Pixel", monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.continue-panel > div {
+  display: grid;
+  gap: 5px;
+}
+
+.continue-panel .eyebrow {
+  margin: 0 0 2px;
+  font-size: 9px;
+}
+
+.continue-panel strong {
+  font-size: 18px;
+}
+
+.continue-panel small {
+  color: #86878b;
+  font-size: 11px;
+}
+
+.continue-panel button {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 9px;
+  background: #ff765e;
+  color: #17100e;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(14px, 2.4vw, 28px);
+}
+
+.game-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  padding: 12px 12px 18px;
+  overflow: hidden;
+  border: 1px solid #292b30;
+  border-radius: 20px;
+  background: #121318;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: card-enter 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--card-index) * 70ms);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.game-card:hover {
+  z-index: 1;
+  border-color: color-mix(in srgb, var(--game-accent) 55%, #292b30);
+  background: #18191f;
+  transform: translateY(-7px);
+}
+
+.cover-frame {
+  position: relative;
+  grid-column: 1 / -1;
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #090a0d;
+}
+
+.cover-frame::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+
+.cover-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+  transition:
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 300ms ease;
+}
+
+.game-card:hover img {
+  filter: saturate(1.15) contrast(1.05);
+  transform: scale(1.035);
+}
+
+.imported-card-shell {
+  position: relative;
+  min-width: 0;
+}
+
+.imported-card-shell .game-card {
+  width: 100%;
+  height: 100%;
+}
+
+.imported-cover {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(
+      circle at 72% 28%,
+      color-mix(in srgb, var(--game-accent) 35%, transparent),
+      transparent 38%
+    ),
+    linear-gradient(145deg, #20242c, #0d0f13 72%);
+}
+
+.cartridge-art {
+  position: relative;
+  display: flex;
+  width: 42%;
+  min-width: 104px;
+  aspect-ratio: 0.78;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #777b83;
+  border-radius: 7px 7px 14px 14px;
+  background: linear-gradient(135deg, #97999e, #565961 70%);
+  box-shadow: 12px 16px 30px rgba(0, 0, 0, 0.35);
+  color: #24262b;
+  font-family: "Geist Pixel", monospace;
+  transform: rotate(4deg);
+}
+
+.cartridge-art::before {
+  position: absolute;
+  top: 12%;
+  width: 72%;
+  height: 18%;
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, #3c3f46 0 3px, #64676e 3px 6px);
+  content: "";
+}
+
+.cartridge-art span {
+  position: absolute;
+  top: 37%;
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.16em;
+}
+
+.cartridge-art strong {
+  width: 70%;
+  padding: 8px 4px;
+  border: 2px solid #2b2d32;
+  background: color-mix(in srgb, var(--game-accent) 70%, #d7d8da);
+  font-size: clamp(8px, 1vw, 11px);
+  text-align: center;
+}
+
+.remove-rom-button {
+  position: absolute;
+  z-index: 2;
+  top: 22px;
+  left: 22px;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  background: rgba(8, 9, 12, 0.78);
+  color: #c5c5c2;
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0;
+  backdrop-filter: blur(8px);
+  transition:
+    opacity 160ms ease,
+    background 160ms ease;
+}
+
+.imported-card-shell:hover .remove-rom-button,
+.remove-rom-button:focus-visible {
+  opacity: 1;
+}
+
+.remove-rom-button:hover:not(:disabled) {
+  background: #7c2f2a;
+}
+
+.play-chip {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: var(--game-accent);
+  color: #0b0b0d;
+  font-family: "Geist Pixel", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  transform: translateY(5px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.game-card:hover .play-chip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.game-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.game-copy strong {
+  overflow: hidden;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-copy small {
+  overflow: hidden;
+  color: #86878b;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-arrow {
+  align-self: center;
+  padding-right: 4px;
+  color: #66686e;
+  font-size: 20px;
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.game-card:hover .card-arrow {
+  color: var(--game-accent);
+  transform: translate(2px, -2px);
+}
+
+.library-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: clamp(40px, 8vw, 84px);
+  color: #55575c;
+  font-family: "Geist Pixel", monospace;
+  font-size: 9px;
+  letter-spacing: 0.11em;
+}
+
+.player-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(22px, 4vw, 40px);
+}
+
+.player-toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.icon-button,
+.toolbar-button {
+  border: 1px solid #2e3036;
+  background: #121318;
+  color: #dfded9;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.icon-button:hover,
+.toolbar-button:hover:not(:disabled) {
+  border-color: #555861;
+  background: #191b21;
+}
+
+.icon-button:active,
+.toolbar-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.icon-button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 20px;
+}
+
+.player-title-group {
+  min-width: 0;
+}
+
+.player-title-group .eyebrow {
+  margin-bottom: 5px;
+}
+
+.player-title-group h1 {
+  overflow: hidden;
+  margin: 0;
+  font-size: clamp(18px, 3vw, 28px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.save-indicator {
+  min-width: 72px;
+  color: #777980;
+  font-family: "Geist Pixel", monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.save-indicator-saved,
+.save-indicator-restored {
+  color: #7fda83;
+}
+
+.save-indicator-error {
+  color: #ff9482;
+}
+
+.toolbar-button {
+  padding: 10px 14px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.toolbar-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.toolbar-button-primary {
+  border-color: #ff765e;
+  background: #ff765e;
+  color: #17100e;
+}
+
+.toolbar-button-primary:hover:not(:disabled) {
+  border-color: #ff8e79;
+  background: #ff8e79;
+}
+
+.console-stage {
+  position: relative;
+  display: grid;
+  min-height: 0;
+  place-items: center;
+}
+
+.console-glow {
+  position: absolute;
+  width: min(62vw, 640px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--game-accent) 20%, transparent);
+  filter: blur(90px);
+  opacity: 0.55;
+}
+
+.screen-bezel {
+  position: relative;
+  width: min(100%, 820px);
+  aspect-ratio: 4 / 3;
+  padding: clamp(10px, 2vw, 20px);
+  border: 1px solid #363840;
+  border-radius: clamp(18px, 3vw, 32px);
+  background: linear-gradient(145deg, #202228, #0f1014 70%);
+  box-shadow:
+    0 38px 90px rgba(0, 0, 0, 0.48),
+    inset 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.nes-mount {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: clamp(10px, 2vw, 18px);
+  background: #000;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+}
+
+.nes-mount:focus-visible {
+  outline: 2px solid var(--game-accent);
+  outline-offset: 5px;
+}
+
+.nes-mount canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.player-message {
+  position: absolute;
+  inset: clamp(10px, 2vw, 20px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: clamp(10px, 2vw, 18px);
+  background: rgba(6, 7, 9, 0.92);
+  color: #b9bab9;
+  font-family: "Geist Pixel", monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--game-accent);
+  animation: pulse 900ms ease-in-out infinite alternate;
+}
+
+.paused-message {
+  background: rgba(6, 7, 9, 0.72);
+  color: #fff;
+  font-size: clamp(18px, 4vw, 34px);
+}
+
+.error-message {
+  flex-direction: column;
+  padding: 24px;
+  color: #ff9482;
+  text-align: center;
+}
+
+.error-message span {
+  max-width: 520px;
+  color: #aaa;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.5;
+  text-transform: none;
+}
+
+.controls-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 3vw, 28px);
+  color: #777980;
+  font-size: 10px;
+}
+
+.controls-strip div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+kbd {
+  min-width: 26px;
+  padding: 5px 7px;
+  border: 1px solid #34363d;
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: #15161b;
+  color: #c5c5c2;
+  font-family: inherit;
+  font-size: 10px;
+  text-align: center;
+}
+
+.controller-note {
+  padding-left: 12px;
+  border-left: 1px solid #2e3036;
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  from {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@media (max-width: 780px) {
+  .game-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .game-card {
+    grid-template-columns: minmax(120px, 34%) 1fr auto;
+    align-items: center;
+    padding: 10px;
+  }
+
+  .cover-frame {
+    grid-column: auto;
+  }
+
+  .library-header {
+    margin-bottom: 38px;
+  }
+
+  .library-footer,
+  .controller-note {
+    display: none;
+  }
+
+  .player-shell {
+    padding: 18px;
+  }
+
+  .controls-strip {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .library-shell {
+    padding: 24px 16px;
+  }
+
+  .library-header {
+    display: block;
+  }
+
+  .library-actions {
+    justify-content: space-between;
+    margin-top: 24px;
+  }
+
+  .game-card {
+    grid-template-columns: 92px 1fr auto;
+  }
+
+  .player-toolbar {
+    grid-template-columns: auto 1fr;
+  }
+
+  .player-actions {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .save-indicator {
+    flex: 1 0 100%;
+    margin-right: auto;
+    text-align: left;
+  }
+
+  .continue-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .continue-panel button {
+    justify-content: space-between;
+  }
+
+  .collection-heading > small {
+    display: none;
+  }
+
+  .controls-strip div:nth-child(n + 4) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
