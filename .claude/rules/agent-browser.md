@@ -20,6 +20,16 @@ agent-browser screenshot /tmp/x.png # capture state
 
 Always re-snapshot after interactions — element refs change when the DOM updates.
 
+For motion or interaction that a still image cannot show clearly, record a short walkthrough:
+
+```bash
+agent-browser record start /tmp/feature-walkthrough.webm
+# Perform the changed interaction
+agent-browser record stop
+```
+
+Generated screenshots and recordings are verification evidence, not repository source files. Keep them outside the worktree (for example, under `/tmp`), upload them externally, and embed their URLs in the PR's `Screenshots / Video` section. Never commit generated media to the branch.
+
 ## Port Conflict
 
 If port 9222 is in use (e.g. another app instance or Chrome debugging), set `CDP_PORT` to use a different port:
