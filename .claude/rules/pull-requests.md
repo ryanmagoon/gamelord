@@ -31,7 +31,11 @@ When in doubt, Storybook screenshots are the baseline — they're fast to captur
 
 Only ask the user for media when the state can't be reproduced in a preview server (e.g., requires real hardware, real network conditions, or the full Electron runtime with IPC).
 
+For Electron UI changes, use `agent-browser` against the running app as documented in `agent-browser.md`. Capture screenshots for meaningful visual states. Record a short video when motion, animation, or interaction cannot be shown clearly with still images.
+
 After capturing screenshots, upload them to Vercel Blob using `scripts/upload-screenshot.sh` and embed the returned URL in the PR body. The script requires `BLOB_READ_WRITE_TOKEN` — source it from `apps/desktop/.env` before calling. See `screenshot-hosting.md` for the full workflow (includes both Storybook and app capture methods).
+
+Generated screenshots and videos belong in the PR body, not the Git diff. Save them outside the repository (for example, under `/tmp`), upload them externally, and embed the resulting URLs under `Screenshots / Video`. Never commit generated verification media to the branch.
 
 If the user provides media, embed it in the PR body using GitHub markdown (`![description](url)` or a `<video>` tag). If screenshots can't be captured or provided, note in the PR body that a visual is pending.
 
