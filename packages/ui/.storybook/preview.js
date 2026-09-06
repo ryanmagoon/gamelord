@@ -3,7 +3,8 @@ import isChromatic from "chromatic/isChromatic";
 import { Agentation } from "agentation";
 import { tvStaticManager } from "../components/TVStaticManager";
 import "../index.css";
-// index.css imports tailwindcss and theme for Storybook
+import "../theme.css";
+// Load Tailwind/component styles first, then the shared app theme.
 
 // In Chromatic's capture environment, make canvas noise deterministic (seeded
 // PRNG, single frame) so screenshots are pixel-identical across runs.
