@@ -1738,19 +1738,16 @@ export const GameWindow: React.FC = () => {
                 setBrowsingDiscIndex(undefined);
               });
           }}
-          discs={Array.from(
-            { length: discTotal },
-            (_, i): DiscInfo => ({
-              index: i,
-              label: `Disc ${i + 1}`,
-              status:
-                i === currentDiscIndex
-                  ? "current"
-                  : missingDiscIndices.has(i)
-                    ? "missing"
-                    : "available",
-            }),
-          )}
+          discs={Array.from({ length: discTotal }, (_, i): DiscInfo => ({
+            index: i,
+            label: `Disc ${i + 1}`,
+            status:
+              i === currentDiscIndex
+                ? "current"
+                : missingDiscIndices.has(i)
+                  ? "missing"
+                  : "available",
+          }))}
           swappingIndex={swappingDiscIndex}
           browsingIndex={browsingDiscIndex}
         />
