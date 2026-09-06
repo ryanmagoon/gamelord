@@ -8,9 +8,21 @@ updates:
       time: "09:00"
       timezone: America/New_York
     groups:
+      # Sentry's SDKs pin @sentry/core to an exact version, so @sentry/electron
+      # and @sentry/react must move together or their cores diverge and the SDK's
+      # own version guard fails typecheck. Grouping them alone keeps them in
+      # lockstep instead of each resolving to its own latest. See #447.
+      sentry:
+        patterns:
+          - "@sentry/*"
+        update-types:
+          - patch
+          - minor
       npm_and_yarn:
         patterns:
           - "*"
+        exclude-patterns:
+          - "@sentry/*"
         update-types:
           - patch
           - minor
