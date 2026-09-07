@@ -78,6 +78,7 @@ export const Loading: Story = {
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("status")).toHaveTextContent("Loading 3D controller");
+    await expect(canvas.getByRole("status")).toHaveStyle({ color: "rgb(163, 163, 163)" });
   },
 };
 export const Unavailable: Story = {

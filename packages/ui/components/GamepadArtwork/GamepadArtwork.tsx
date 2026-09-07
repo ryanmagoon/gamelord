@@ -137,7 +137,7 @@ export function GamepadSceneStatus({ error = false }: { error?: boolean }) {
   return (
     <div
       role="status"
-      className="flex h-full items-center justify-center text-sm text-muted-foreground"
+      className="flex h-full items-center justify-center text-sm text-[color:var(--muted-foreground)]"
     >
       {error ? "3D controller unavailable." : "Loading 3D controller…"}
     </div>
