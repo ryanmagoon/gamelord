@@ -22,6 +22,7 @@ const meta = {
   decorators: [
     (Story) => (
       <div
+        className="dark"
         style={{
           width: 660,
           padding: 40,
