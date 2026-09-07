@@ -548,6 +548,12 @@ export class GameWindowManager extends EventEmitter {
       }
     });
 
+    ipcMain.on("game-window:set-fullscreen", (event, value: boolean) => {
+      if (typeof value === "boolean") {
+        BrowserWindow.fromWebContents(event.sender)?.setFullScreen(value);
+      }
+    });
+
     ipcMain.on("game-window:set-click-through", (event, clickThrough: boolean) => {
       const window = BrowserWindow.fromWebContents(event.sender);
       if (window) {
@@ -611,6 +617,7 @@ export class GameWindowManager extends EventEmitter {
     ipcMain.removeAllListeners("game-window:maximize");
     ipcMain.removeAllListeners("game-window:close");
     ipcMain.removeAllListeners("game-window:toggle-fullscreen");
+    ipcMain.removeAllListeners("game-window:set-fullscreen");
     ipcMain.removeAllListeners("game-window:set-click-through");
     ipcMain.removeAllListeners("game-window:set-traffic-light-visible");
     ipcMain.removeAllListeners("game-window:ready-to-close");

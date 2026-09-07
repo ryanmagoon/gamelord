@@ -50,6 +50,7 @@ export function useControllerConfig(): UseControllerConfigResult {
 
   const animationFrameRef = useRef<number | null>(null);
   const remappingRef = useRef<number | null>(null);
+  const remapReady = useRef(false);
 
   // Keep ref in sync
   useEffect(() => {
@@ -116,7 +117,19 @@ export function useControllerConfig(): UseControllerConfigResult {
 
       // Handle remap: capture first button press
       if (remappingRef.current !== null) {
-        for (let i = 0; i < gp.buttons.length; i++) {
+        if (!gp.buttons.some((button) => button.pressed)) {
+          remapReady.current = true;
+        }
+        if (!remapReady.current) {
+          animationFrameRef.current = requestAnimationFrame(poll);
+          return;
+        }
+        if (gp.buttons[16]?.pressed) {
+          setRemappingButton(null);
+          animationFrameRef.current = requestAnimationFrame(poll);
+          return;
+        }
+        for (let i = 0; i < Math.min(16, gp.buttons.length); i++) {
           if (gp.buttons[i].pressed) {
             const retroId = remappingRef.current;
             changeBindingDirect(retroId, i);
@@ -189,8 +202,17 @@ export function useControllerConfig(): UseControllerConfigResult {
   );
 
   const startRemap = useCallback((retroId: number) => {
+    remapReady.current = false;
     setRemappingButton(retroId);
   }, []);
+
+  useEffect(() => {
+    if (remappingButton === null) {
+      return;
+    }
+    const timeout = setTimeout(() => setRemappingButton(null), 10_000);
+    return () => clearTimeout(timeout);
+  }, [remappingButton]);
 
   const cancelRemap = useCallback(() => {
     setRemappingButton(null);

@@ -60,13 +60,9 @@ export function useGamepad({ gameInput, gameInputAnalog, enabled }: UseGamepadOp
   const previousStatesRef = useRef<Map<number, GamepadButtonState>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
   const enabledRef = useRef(enabled);
+  const waitForNeutral = useRef(false);
   /** Cached mappings per gamepad index to avoid reading localStorage every frame. */
   const mappingCacheRef = useRef<Map<number, Array<number | null>>>(new Map());
-
-  // Keep ref in sync so the rAF loop reads the latest value without restarting
-  useEffect(() => {
-    enabledRef.current = enabled;
-  }, [enabled]);
 
   // Stable refs for input callbacks to avoid restarting the polling loop on every render
   const gameInputRef = useRef(gameInput);
@@ -107,9 +103,40 @@ export function useGamepad({ gameInput, gameInputAnalog, enabled }: UseGamepadOp
     previousStatesRef.current.delete(port);
   }, []);
 
+  // Keep ref in sync so the rAF loop reads the latest value without restarting
+  useEffect(() => {
+    enabledRef.current = enabled;
+    if (!enabled) {
+      waitForNeutral.current = true;
+      for (const port of previousStatesRef.current.keys()) {
+        releaseAllButtons(port);
+        for (const stick of [0, 1]) {
+          for (const axis of [0, 1]) {
+            gameInputAnalogRef.current?.(port, stick, axis, 0);
+          }
+        }
+      }
+      previousStatesRef.current.clear();
+    }
+  }, [enabled, releaseAllButtons]);
+
   const pollGamepads = useCallback(() => {
     if (enabledRef.current) {
       const gamepads = navigator.getGamepads();
+      if (waitForNeutral.current) {
+        const held = Array.from(gamepads).some(
+          (pad) =>
+            pad &&
+            pad.index < 2 &&
+            (pad.buttons.some((button) => button.pressed) ||
+              pad.axes.some((axis) => Math.abs(axis) > ANALOG_DEADZONE)),
+        );
+        if (held) {
+          animationFrameRef.current = requestAnimationFrame(pollGamepads);
+          return;
+        }
+        waitForNeutral.current = false;
+      }
 
       for (
         let gamepadIndex = 0;

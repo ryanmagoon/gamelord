@@ -1,3 +1,4 @@
+import "../controller-navigation.css";
 import { initSentryRenderer } from "./sentry";
 
 // Initialize Sentry before React mounts so it captures all errors.

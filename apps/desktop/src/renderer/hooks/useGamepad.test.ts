@@ -306,4 +306,23 @@ describe("useGamepad", () => {
     expect(calledIds).toHaveLength(16);
     expect(new Set(calledIds).size).toBe(16);
   });
+  it("releases game inputs when a controller menu takes ownership", () => {
+    mockGamepads[0] = createMockGamepad(0, { buttons: [{ pressed: true, value: 1 }] });
+    const { rerender } = renderHook(({ enabled }) => useGamepad({ enabled, gameInput }), {
+      initialProps: { enabled: true },
+    });
+    act(() => tickPolling());
+    gameInput.mockClear();
+    rerender({ enabled: false });
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.B, false);
+    gameInput.mockClear();
+    rerender({ enabled: true });
+    act(() => tickPolling());
+    expect(gameInput).not.toHaveBeenCalled();
+    mockGamepads[0] = createMockGamepad(0);
+    act(() => tickPolling());
+    mockGamepads[0] = createMockGamepad(0, { buttons: [{ pressed: true, value: 1 }] });
+    act(() => tickPolling());
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.B, true);
+  });
 });

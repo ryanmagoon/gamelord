@@ -60,8 +60,8 @@ describe("ControllerConfig", () => {
     );
     expect(screen.getByText("PlayStation")).toBeInTheDocument();
     // PlayStation-specific button labels in the binding rows
-    expect(screen.getByText("Cross")).toBeInTheDocument();
-    expect(screen.getByText("Circle")).toBeInTheDocument();
+    expect(screen.getAllByText("Cross")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Circle")[0]).toBeInTheDocument();
   });
 
   it("renders all 16 button bindings", () => {
@@ -115,7 +115,7 @@ describe("ControllerConfig", () => {
   it("shows remap prompt when remapping a button", () => {
     render(<ControllerConfig {...defaultProps} remappingButton={8} />);
     expect(
-      screen.getByText("Press the button you want to bind, or Escape to cancel"),
+      screen.getByText("Release all buttons, then press a button to bind. Home or Escape cancels."),
     ).toBeInTheDocument();
     expect(screen.getByText("Press a button…")).toBeInTheDocument();
   });
@@ -131,7 +131,9 @@ describe("ControllerConfig", () => {
   it("shows button tester", () => {
     render(<ControllerConfig {...defaultProps} />);
     expect(screen.getByText("Button Tester")).toBeInTheDocument();
-    expect(screen.getByText("Press buttons to test your controller")).toBeInTheDocument();
+    expect(
+      screen.getByText("Press buttons or move the sticks to test your controller."),
+    ).toBeInTheDocument();
   });
 
   it("does not show button tester when controller is disconnected", () => {

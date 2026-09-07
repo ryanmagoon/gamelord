@@ -180,6 +180,7 @@ export interface GamelordAPI {
     maximize: () => void;
     close: () => void;
     toggleFullscreen: () => void;
+    setFullscreen: (value: boolean) => void;
     setClickThrough: (value: boolean) => void;
     setTrafficLightVisible: (visible: boolean) => void;
     readyToClose: () => void;

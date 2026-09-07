@@ -1,3 +1,4 @@
+import { ControllerPreferences } from "../ControllerNavigation/ControllerPreferences";
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -77,13 +78,18 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden" hideCloseButton>
         <div className="flex h-[480px]">
           {/* Sidebar */}
-          <nav className="w-44 shrink-0 border-r bg-muted/30 p-3 flex flex-col gap-1">
+          <nav
+            data-controller-region
+            className="w-44 shrink-0 border-r bg-muted/30 p-3 flex flex-col gap-1"
+          >
             <DialogTitle className="px-2 pb-2 text-sm font-semibold text-muted-foreground">
               Settings
             </DialogTitle>
             {TAB_CONFIG.map((tab) => (
               <button
                 key={tab.id}
+                data-controller-tab
+                data-active={activeTab === tab.id}
                 onClick={() => handleTabChange(tab.id)}
                 className={cn(
                   "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors text-left",
@@ -99,7 +105,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           </nav>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div data-controller-region className="flex-1 overflow-y-auto p-6">
             {activeTab === "general" && (
               <GeneralTab themeMode={themeMode} onThemeChange={onThemeChange} />
             )}
@@ -267,19 +273,22 @@ const ControllersTab: React.FC = () => {
   } = useControllerConfig();
 
   return (
-    <ControllerConfig
-      controllers={controllers}
-      mapping={mapping}
-      onBindingChange={changeBinding}
-      onResetDefaults={resetDefaults}
-      selectedControllerIndex={selectedControllerIndex}
-      onSelectController={selectController}
-      buttonStates={buttonStates}
-      axisValues={axisValues}
-      remappingButton={remappingButton}
-      onStartRemap={startRemap}
-      onCancelRemap={cancelRemap}
-    />
+    <>
+      <ControllerConfig
+        controllers={controllers}
+        mapping={mapping}
+        onBindingChange={changeBinding}
+        onResetDefaults={resetDefaults}
+        selectedControllerIndex={selectedControllerIndex}
+        onSelectController={selectController}
+        buttonStates={buttonStates}
+        axisValues={axisValues}
+        remappingButton={remappingButton}
+        onStartRemap={startRemap}
+        onCancelRemap={cancelRemap}
+      />
+      <ControllerPreferences controllerId={controllers[selectedControllerIndex]?.id} />
+    </>
   );
 };
 
