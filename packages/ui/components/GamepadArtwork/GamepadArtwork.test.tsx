@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { detectGamepadModel, GamepadArtwork, physicalButtonLabel } from "./GamepadArtwork";
 describe("physical controller graphics", () => {
+  it("handles long repeated device names without a backtracking pattern", () => {
+    expect(detectGamepadModel("054c".repeat(20_000))).toBe("generic");
+    expect(detectGamepadModel("switch".repeat(20_000))).toBe("generic");
+    expect(detectGamepadModel("057e".repeat(20_000))).toBe("generic");
+  });
   it("distinguishes Sony models by product ID without inventing an unknown model", () => {
     expect(detectGamepadModel("Wireless Controller (Vendor: 054c Product: 0ce6)")).toBe(
       "dualsense",

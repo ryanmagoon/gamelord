@@ -3,16 +3,26 @@ import { useId } from "react";
 export type GamepadModel = "xbox" | "dualsense" | "dualshock" | "switch" | "generic";
 export function detectGamepadModel(id: string): GamepadModel {
   const name = id.toLowerCase();
-  if (/dualsense|054c.*(0ce6|0df2)/.test(name)) {
+  if (
+    name.includes("dualsense") ||
+    (name.includes("054c") && (name.includes("0ce6") || name.includes("0df2")))
+  ) {
     return "dualsense";
   }
-  if (/dualshock|054c.*(05c4|09cc)/.test(name)) {
+  if (
+    name.includes("dualshock") ||
+    (name.includes("054c") && (name.includes("05c4") || name.includes("09cc")))
+  ) {
     return "dualshock";
   }
-  if (/xbox|xinput|045e/.test(name)) {
+  if (name.includes("xbox") || name.includes("xinput") || name.includes("045e")) {
     return "xbox";
   }
-  if (/switch.*pro|pro controller|057e.*2009/.test(name)) {
+  if (
+    (name.includes("switch") && name.includes("pro")) ||
+    name.includes("pro controller") ||
+    (name.includes("057e") && name.includes("2009"))
+  ) {
     return "switch";
   }
   return "generic";
