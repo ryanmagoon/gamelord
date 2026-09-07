@@ -51,13 +51,16 @@ export function ControllerMenu({
       }}
     >
       <DialogContent
-        className="controller-game-menu sm:max-w-md border-white/15 bg-[#171b22] text-white"
+        className="dark controller-game-menu sm:max-w-md border-white/15 bg-[#171b22] text-white"
         hideCloseButton
       >
         <DialogHeader>
           <DialogTitle className="text-2xl">Game paused</DialogTitle>
           <DialogDescription className="text-white/60">{title}</DialogDescription>
         </DialogHeader>
+        <p className="text-xs text-white/60">
+          During play, press Home or Select + Start together to open this menu.
+        </p>
         <div className="grid gap-2 mt-3">
           <Button onClick={onResume} className="h-12 justify-start gap-3">
             <Play size={18} /> Resume game
@@ -68,10 +71,10 @@ export function ControllerMenu({
                 <SelectTrigger aria-label="Save slot">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="dark">
                   {[0, 1, 2, 3, 4].map((i) => (
                     <SelectItem key={i} value={String(i)}>
-                      Save slot {i + 1}
+                      Save slot {i}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -62,8 +62,20 @@ export function remapUIBinding(
   return result;
 }
 
-export function pressedCommands(pad: Gamepad, bindings: UIBindings): Set<UICommand> {
+export function pressedCommands(
+  pad: Gamepad,
+  bindings: UIBindings,
+  gameplay = false,
+): Set<UICommand> {
   const pressed = new Set<UICommand>();
+  if (gameplay) {
+    // Start and Select belong to the game individually. This fixed chord keeps
+    // the overlay reachable when the OS intercepts Guide, regardless of remaps.
+    if (pad.buttons[16]?.pressed || (pad.buttons[8]?.pressed && pad.buttons[9]?.pressed)) {
+      pressed.add("menu");
+    }
+    return pressed;
+  }
   for (const command of Object.keys(bindings) as Array<UICommand>) {
     if (pad.buttons[bindings[command]]?.pressed) {
       pressed.add(command);
@@ -91,8 +103,15 @@ interface DeviceState {
 export class GamepadCommands {
   private devices = new Map<number, DeviceState>();
   private enabled = false;
+  private gameplay = false;
 
-  sample(pads: ArrayLike<Gamepad | null>, now: number, enabled: boolean, bindings: UIBindings) {
+  sample(
+    pads: ArrayLike<Gamepad | null>,
+    now: number,
+    enabled: boolean,
+    bindings: UIBindings,
+    gameplay = false,
+  ) {
     const events: Array<{ command: UICommand; controllerId: string }> = [];
     const connected = new Set<number>();
     for (const pad of Array.from(pads)) {
@@ -101,12 +120,13 @@ export class GamepadCommands {
       }
       connected.add(pad.index);
       let device = this.devices.get(pad.index);
-      const seed = !device || device.id !== pad.id || enabled !== this.enabled;
+      const seed =
+        !device || device.id !== pad.id || enabled !== this.enabled || gameplay !== this.gameplay;
       if (!device || device.id !== pad.id) {
         device = { id: pad.id, held: new Map() };
         this.devices.set(pad.index, device);
       }
-      const pressed = pressedCommands(pad, bindings);
+      const pressed = pressedCommands(pad, bindings, gameplay);
       for (const command of device.held.keys()) {
         if (!pressed.has(command)) {
           device.held.delete(command);
@@ -131,6 +151,7 @@ export class GamepadCommands {
       }
     }
     this.enabled = enabled;
+    this.gameplay = gameplay;
     return events;
   }
 }

@@ -32,6 +32,7 @@ import { filterForwardableLogs, extractSerialFromLog } from "./core-worker-proto
 // ---------------------------------------------------------------------------
 
 let native: NativeLibretroCore | null = null;
+let displayedFrame: ReturnType<NativeLibretroCore["getVideoFrame"]> = null;
 let isRunning = false;
 let isPaused = false;
 let serialDetected = false;
@@ -254,7 +255,9 @@ function takeScreenshot(outputPath?: string): string {
     throw new Error("No core loaded");
   }
 
-  const frame = native.getVideoFrame();
+  // getVideoFrame consumes the native frame-ready flag. The render loop owns
+  // that read, so screenshots use the same frame that was sent to the display.
+  const frame = displayedFrame;
   if (!frame) {
     throw new Error("No frame available");
   }
@@ -262,7 +265,7 @@ function takeScreenshot(outputPath?: string): string {
   const dir = screenshotDir;
   fs.mkdirSync(dir, { recursive: true });
   const filePath = outputPath || path.join(dir, `screenshot-${Date.now()}.raw`);
-  fs.writeFileSync(filePath, Buffer.from(frame.data.buffer));
+  fs.writeFileSync(filePath, Buffer.from(frame.data));
   return filePath;
 }
 
@@ -272,6 +275,7 @@ function takeScreenshot(outputPath?: string): string {
 
 function initialize(command: Extract<WorkerCommand, { action: "init" }>): void {
   const { addonPath, corePath, systemDir, saveDir } = command;
+  displayedFrame = null;
 
   // Store paths for later use
   romPath = command.romPath;
@@ -546,6 +550,7 @@ function startEmulationLoop(): void {
     // Send only the last frame from the batch
     const frame = native.getVideoFrame();
     if (frame) {
+      displayedFrame = frame;
       if (useSharedBuffers) {
         writeVideoToSAB(frame);
       } else {
@@ -615,6 +620,7 @@ function startEmulationLoop(): void {
       // Send video frame
       const frame = native.getVideoFrame();
       if (frame) {
+        displayedFrame = frame;
         if (useSharedBuffers) {
           writeVideoToSAB(frame);
         } else {
@@ -923,6 +929,7 @@ function handleMessage(command: WorkerCommand): void {
     case "shutdown":
       try {
         stopEmulationLoop();
+        displayedFrame = null;
         saveSram();
         if (native) {
           native.destroy();

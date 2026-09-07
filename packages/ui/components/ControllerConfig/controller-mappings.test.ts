@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
+  subscribeMappingChanges,
   detectControllerType,
   getControllerDisplayName,
   getButtonLabel,
@@ -202,4 +203,54 @@ describe("localStorage persistence", () => {
     );
     expect(loadMapping(testControllerId)).toBeNull();
   });
+});
+
+describe("system mapping persistence", () => {
+  beforeEach(() => localStorage.clear());
+  const custom = (button: number) => ({
+    bindings: [{ retroId: 8, label: "A", gamepadButtonIndex: button }],
+  });
+  it("isolates saves and resets while retaining legacy mappings on migration", () => {
+    saveMapping("pad:with:colon", custom(3));
+    expect(loadMapping("pad:with:colon", "nes")).toEqual(custom(3));
+    saveMapping("pad:with:colon", custom(4), "nes");
+    expect(loadMapping("pad:with:colon", "snes")).toEqual(custom(3));
+    expect(loadMapping("pad:with:colon", "nes")).toEqual(custom(4));
+    clearMapping("pad:with:colon", "nes");
+    expect(loadMapping("pad:with:colon", "nes")).toEqual(getDefaultMapping());
+    expect(loadMapping("pad:with:colon", "snes")).toEqual(custom(3));
+    expect(loadMapping("pad:with:colon")).toEqual(custom(3));
+  });
+  it("reports same-window and cross-window system identity without splitting controller IDs", () => {
+    const changes: Array<[string | null, string | undefined]> = [];
+    const unsubscribe = subscribeMappingChanges((id, system) => changes.push([id, system]));
+    saveMapping("pad:with:colon", custom(2), "psx");
+    const key = localStorage.key(0);
+    window.dispatchEvent(new StorageEvent("storage", { key }));
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "gamelord:controller-mapping:pad:with:colon" }),
+    );
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "gamelord:system-controller-mapping:invalid" }),
+    );
+    expect(changes).toEqual([
+      ["pad:with:colon", "psx"],
+      ["pad:with:colon", "psx"],
+      ["pad:with:colon", undefined],
+    ]);
+    unsubscribe();
+  });
+});
+
+it("adds remappable N64 C targets to new and legacy mappings", () => {
+  localStorage.clear();
+  const targets = getDefaultMapping("n64").bindings.filter((binding) => binding.retroId >= 16);
+  expect(targets.map((binding) => [binding.retroId, binding.gamepadButtonIndex])).toEqual([
+    [16, null],
+    [17, null],
+    [18, null],
+    [19, null],
+  ]);
+  saveMapping("n64-pad", getDefaultMapping());
+  expect(loadMapping("n64-pad", "n64")?.bindings.slice(-4)).toEqual(targets);
 });

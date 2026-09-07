@@ -27,7 +27,8 @@
     "cmdk": "^1.1.1",
     "lucide-react": "^1.39.0",
     "sonner": "^2.0.8",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "three": "0.185.1"
   },
   "devDependencies": {
     "@storybook/addon-docs": "^10.6.0",
@@ -41,6 +42,7 @@
     "@testing-library/user-event": "^14.6.7",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
+    "@types/three": "0.185.4",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/browser-playwright": "^4.1.11",
     "agentation": "^2.2.1",

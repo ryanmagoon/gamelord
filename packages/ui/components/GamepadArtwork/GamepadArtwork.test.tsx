@@ -21,11 +21,20 @@ describe("physical controller graphics", () => {
     expect(physicalButtonLabel(0, "xbox")).toBe("A");
     expect(physicalButtonLabel(0, "dualsense")).toBe("Cross");
   });
+  it("names the reported auxiliary controls by physical family", () => {
+    expect(physicalButtonLabel(17, "dualsense")).toBe("Touchpad");
+    expect(physicalButtonLabel(18, "dualsense")).toBe("Mute");
+    expect(physicalButtonLabel(17, "xbox")).toBe("Share");
+    expect(physicalButtonLabel(17, "switch")).toBe("Capture");
+    expect(physicalButtonLabel(17, "generic")).toBe("Button 17");
+  });
   it("exposes the active physical button in live input artwork", () => {
-    render(<GamepadArtwork model="dualsense" buttonStates={{ 0: true }} />);
-    expect(screen.getByLabelText("Cross pressed")).toBeInTheDocument();
+    render(<GamepadArtwork systemId="snes" buttonStates={{ 0: true }} />);
+    expect(screen.getByLabelText("B pressed")).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "DualSense, live button and stick display" }),
+      screen.getByRole("img", {
+        name: "Super Nintendo Controller · SNS-005, live control display",
+      }),
     ).toBeInTheDocument();
   });
 });

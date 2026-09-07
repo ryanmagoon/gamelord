@@ -62,3 +62,9 @@ export {
   type GamepadModel,
 } from "./components/GamepadArtwork/GamepadArtwork";
 export { useConsoleMode } from "./hooks/useConsoleMode";
+
+export {
+  RETRO_SYSTEMS,
+  retroSystem,
+  type RetroSystemId,
+} from "./components/GamepadArtwork/retroSystems";

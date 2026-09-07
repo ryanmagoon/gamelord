@@ -53,3 +53,44 @@ it("updates visible glyphs immediately after menu bindings change", () => {
   expect(within(prompts).getByRole("img", { name: "Square" })).toBeDefined();
   expect(within(prompts).queryByRole("img", { name: "Cross" })).toBeNull();
 });
+
+it("keeps Start in gameplay and opens the overlay with Select plus Start", () => {
+  const menu = vi.fn();
+  const { rerender } = render(<ControllerNavigation enabled gameplay onMenu={menu} />);
+  act(() => frame(0));
+  act(() => {
+    (pad.buttons[9] as { pressed: boolean }).pressed = true;
+    frame(1);
+  });
+  expect(menu).not.toHaveBeenCalled();
+  act(() => {
+    (pad.buttons[0] as { pressed: boolean }).pressed = true;
+    (pad.buttons[8] as { pressed: boolean }).pressed = true;
+    frame(2);
+  });
+  expect(menu).toHaveBeenCalledOnce();
+  rerender(<ControllerNavigation enabled gameplay={false} onMenu={menu} />);
+  act(() => frame(3));
+  expect(menu).toHaveBeenCalledOnce();
+});
+
+it.each([true, false])("keeps Home available with gameplay=%s", (gameplay) => {
+  const menu = vi.fn();
+  render(<ControllerNavigation enabled gameplay={gameplay} onMenu={menu} />);
+  act(() => frame(0));
+  act(() => {
+    (pad.buttons[16] as { pressed: boolean }).pressed = true;
+    frame(1);
+  });
+  expect(menu).toHaveBeenCalledOnce();
+});
+it("keeps the configured single-button menu shortcut in the library", () => {
+  const menu = vi.fn();
+  render(<ControllerNavigation enabled onMenu={menu} />);
+  act(() => frame(0));
+  act(() => {
+    (pad.buttons[9] as { pressed: boolean }).pressed = true;
+    frame(1);
+  });
+  expect(menu).toHaveBeenCalledOnce();
+});

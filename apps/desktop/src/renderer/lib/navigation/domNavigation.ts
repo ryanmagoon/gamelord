@@ -2,10 +2,12 @@ import { findNextFocusable, type Direction } from "@gamelord/ui";
 
 const focusableSelector =
   'button, a[href], input, select, textarea, [tabindex], [role="menuitem"], [role="option"]';
+const closedOverlaySelector =
+  '[role="dialog"][data-state="closed"], [role="alertdialog"][data-state="closed"], [role="menu"][data-state="closed"], [role="listbox"][data-state="closed"]';
 export function isAvailable(element: HTMLElement): boolean {
   return (
     !element.closest(
-      '[inert], [hidden], [aria-hidden="true"], [aria-disabled="true"], [disabled]',
+      `[inert], [hidden], [aria-hidden="true"], [aria-disabled="true"], [disabled], ${closedOverlaySelector}`,
     ) &&
     element.getClientRects().length > 0 &&
     getComputedStyle(element).visibility !== "hidden"

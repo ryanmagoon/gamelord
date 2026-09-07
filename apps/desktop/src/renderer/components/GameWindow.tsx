@@ -361,6 +361,7 @@ export const GameWindow: React.FC = () => {
 
   // Gamepad polling — uses same api.gameInput() pipeline as keyboard
   const { connectedCount: connectedGamepads } = useGamepad({
+    systemId: game?.systemId,
     gameInput: api.gameInput,
     gameInputAnalog: api.gameInputAnalog,
     enabled: mode === "native" && !isPaused && !controllerMenuOpen && !controllerSettingsOpen,
@@ -956,8 +957,17 @@ export const GameWindow: React.FC = () => {
   };
 
   const handleScreenshot = async () => {
-    playSfx("screenshot");
-    await api.emulation.screenshot();
+    try {
+      const result = await api.emulation.screenshot();
+      if (result.success) {
+        playSfx("screenshot");
+        toast.success("Screenshot saved");
+      } else {
+        toast.error(result.error ?? "Failed to take screenshot");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to take screenshot");
+    }
   };
 
   const handleReset = async () => {
@@ -1258,6 +1268,7 @@ export const GameWindow: React.FC = () => {
         savesSupported={saveStatesSupported}
       />
       <SettingsDialog
+        gameSystemId={game.systemId}
         open={controllerSettingsOpen}
         onOpenChange={controllerMenu.changeSettings}
         themeMode={controllerTheme}

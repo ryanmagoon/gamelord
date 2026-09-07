@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import { getDefaultMapping, saveMapping, clearMapping } from "@gamelord/ui";
 import { useGamepad } from "./useGamepad";
 import { LIBRETRO_BUTTON } from "../lib/gamepad/mappings";
 
@@ -47,6 +48,7 @@ function createMockGamepad(
     mapping: "standard",
     timestamp: performance.now(),
     vibrationActuator: null as unknown as GamepadHapticActuator,
+    hapticActuators: [],
   } as Gamepad;
 }
 
@@ -57,6 +59,7 @@ describe("useGamepad", () => {
   let rafIdCounter: number;
 
   beforeEach(() => {
+    localStorage.clear();
     mockGamepads = [null, null, null, null];
     gameInput = vi.fn<GameInputFn>();
     rafCallbacks = [];
@@ -97,6 +100,172 @@ describe("useGamepad", () => {
       callback(performance.now());
     }
   }
+
+  function swapFaceButtons() {
+    const mapping = getDefaultMapping();
+    for (const binding of mapping.bindings) {
+      if (binding.gamepadButtonIndex === 0) {
+        binding.gamepadButtonIndex = 1;
+      } else if (binding.gamepadButtonIndex === 1) {
+        binding.gamepadButtonIndex = 0;
+      }
+    }
+    return mapping;
+  }
+
+  it.each([
+    [8, LIBRETRO_BUTTON.SELECT],
+    [9, LIBRETRO_BUTTON.START],
+  ])(
+    "passes a short physical button %i press and release directly to gameplay",
+    (physical, retro) => {
+      mockGamepads[0] = createMockGamepad(0);
+      renderHook(() => useGamepad({ enabled: true, gameInput }));
+      act(() => tickPolling());
+      const buttons = Array.from({ length: 16 }, (_, index) => ({
+        pressed: index === physical,
+        value: index === physical ? 1 : 0,
+      }));
+      mockGamepads[0] = createMockGamepad(0, { buttons });
+      act(() => tickPolling());
+      mockGamepads[0] = createMockGamepad(0);
+      act(() => tickPolling());
+      expect(gameInput.mock.calls).toEqual([
+        [0, retro, true],
+        [0, retro, false],
+      ]);
+    },
+  );
+
+  it("uses a saved mapping on the next press without reconnecting", () => {
+    mockGamepads[0] = createMockGamepad(0);
+    renderHook(() => useGamepad({ enabled: true, gameInput }));
+    act(() => tickPolling());
+    act(() => saveMapping("Mock Gamepad 0", swapFaceButtons()));
+    mockGamepads[0] = createMockGamepad(0, { buttons: [null, { pressed: true, value: 1 }] });
+    act(() => tickPolling());
+    expect(gameInput.mock.calls).toEqual([[0, LIBRETRO_BUTTON.B, true]]);
+  });
+
+  it("releases the old binding and analog output, then waits for only that controller to be neutral", () => {
+    const analog = vi.fn();
+    mockGamepads[0] = createMockGamepad(0, {
+      buttons: [{ pressed: true, value: 1 }],
+      axes: [0.8, 0, 0, 0],
+    });
+    mockGamepads[1] = createMockGamepad(1);
+    renderHook(() => useGamepad({ enabled: true, gameInput, gameInputAnalog: analog }));
+    act(() => tickPolling());
+    gameInput.mockClear();
+    analog.mockClear();
+    act(() => saveMapping("Mock Gamepad 0", swapFaceButtons()));
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.B, false);
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.RIGHT, false);
+    expect(analog).toHaveBeenCalledWith(0, 0, 0, 0);
+    gameInput.mockClear();
+    mockGamepads[1] = createMockGamepad(1, { buttons: [null, { pressed: true, value: 1 }] });
+    act(() => tickPolling());
+    expect(gameInput.mock.calls).toEqual([[1, LIBRETRO_BUTTON.A, true]]);
+    gameInput.mockClear();
+    mockGamepads[0] = createMockGamepad(0);
+    act(() => tickPolling());
+    mockGamepads[0] = createMockGamepad(0, { buttons: [{ pressed: true, value: 1 }] });
+    act(() => tickPolling());
+    expect(gameInput.mock.calls).toEqual([[0, LIBRETRO_BUTTON.A, true]]);
+  });
+
+  it("applies reset defaults without reconnecting", () => {
+    saveMapping("Mock Gamepad 0", swapFaceButtons());
+    mockGamepads[0] = createMockGamepad(0);
+    renderHook(() => useGamepad({ enabled: true, gameInput }));
+    act(() => tickPolling());
+    act(() => clearMapping("Mock Gamepad 0"));
+    mockGamepads[0] = createMockGamepad(0, { buttons: [{ pressed: true, value: 1 }] });
+    act(() => tickPolling());
+    expect(gameInput.mock.calls).toEqual([[0, LIBRETRO_BUTTON.B, true]]);
+  });
+
+  it("applies mappings changed in another app window", () => {
+    mockGamepads[0] = createMockGamepad(0);
+    renderHook(() => useGamepad({ enabled: true, gameInput }));
+    act(() => tickPolling());
+    const key = "gamelord:controller-mapping:Mock Gamepad 0";
+    localStorage.setItem(key, JSON.stringify(swapFaceButtons()));
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key })));
+    mockGamepads[0] = createMockGamepad(0, { buttons: [null, { pressed: true, value: 1 }] });
+    act(() => tickPolling());
+    expect(gameInput.mock.calls).toEqual([[0, LIBRETRO_BUTTON.B, true]]);
+  });
+
+  it("keeps a direction held until both the stick and physical dpad release it", () => {
+    mockGamepads[0] = createMockGamepad(0, { axes: [0.8, 0, 0, 0] });
+    renderHook(() => useGamepad({ enabled: true, gameInput }));
+    act(() => tickPolling());
+    gameInput.mockClear();
+    const buttons = Array.from({ length: 16 }, (_, index) => ({
+      pressed: index === 15,
+      value: index === 15 ? 1 : 0,
+    }));
+    mockGamepads[0] = createMockGamepad(0, { axes: [0.8, 0, 0, 0], buttons });
+    act(() => tickPolling());
+    mockGamepads[0] = createMockGamepad(0, { axes: [0.8, 0, 0, 0] });
+    act(() => tickPolling());
+    expect(gameInput).not.toHaveBeenCalled();
+    mockGamepads[0] = createMockGamepad(0);
+    act(() => tickPolling());
+    expect(gameInput.mock.calls).toEqual([[0, LIBRETRO_BUTTON.RIGHT, false]]);
+  });
+
+  it("does not suppress analog direction when the physical dpad has another binding", () => {
+    const mapping = getDefaultMapping();
+    for (const binding of mapping.bindings) {
+      if (binding.retroId === LIBRETRO_BUTTON.B) {
+        binding.gamepadButtonIndex = 15;
+      } else if (binding.gamepadButtonIndex === 15) {
+        binding.gamepadButtonIndex = null;
+      }
+    }
+    saveMapping("Mock Gamepad 0", mapping);
+    const buttons = Array.from({ length: 16 }, (_, index) => ({
+      pressed: index === 15,
+      value: index === 15 ? 1 : 0,
+    }));
+    mockGamepads[0] = createMockGamepad(0, { axes: [0.8, 0, 0, 0], buttons });
+    renderHook(() => useGamepad({ enabled: true, gameInput }));
+    act(() => tickPolling());
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.B, true);
+    expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.RIGHT, true);
+    expect(gameInput).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["disconnect", "unmount", "disable"] as const)(
+    "zeros all analog axes on %s",
+    (reason) => {
+      const analog = vi.fn();
+      mockGamepads[0] = createMockGamepad(0, { axes: [0.8, -0.7, 0.4, -0.2] });
+      const { unmount, rerender } = renderHook(
+        ({ enabled }) => useGamepad({ enabled, gameInput, gameInputAnalog: analog }),
+        { initialProps: { enabled: true } },
+      );
+      act(() => tickPolling());
+      analog.mockClear();
+      if (reason === "disconnect") {
+        act(() =>
+          window.dispatchEvent(createGamepadEvent("gamepaddisconnected", createMockGamepad(0))),
+        );
+      } else if (reason === "unmount") {
+        unmount();
+      } else {
+        rerender({ enabled: false });
+      }
+      expect(analog.mock.calls).toEqual([
+        [0, 0, 0, 0],
+        [0, 0, 1, 0],
+        [0, 1, 0, 0],
+        [0, 1, 1, 0],
+      ]);
+    },
+  );
 
   it("returns 0 connected gamepads initially when none are connected", () => {
     const { result } = renderHook(() => useGamepad({ enabled: true, gameInput }));
@@ -324,5 +493,87 @@ describe("useGamepad", () => {
     mockGamepads[0] = createMockGamepad(0, { buttons: [{ pressed: true, value: 1 }] });
     act(() => tickPolling());
     expect(gameInput).toHaveBeenCalledWith(0, LIBRETRO_BUTTON.B, true);
+  });
+  it("uses the active system and ignores other systems' mapping changes", () => {
+    mockGamepads[0] = createMockGamepad(0, { buttons: [{ pressed: true }] });
+    const custom = {
+      bindings: [{ retroId: LIBRETRO_BUTTON.A, label: "A", gamepadButtonIndex: 0 }],
+    };
+    saveMapping("Mock Gamepad 0", custom, "nes");
+    const { rerender } = renderHook(
+      ({ systemId }) => useGamepad({ gameInput, enabled: true, systemId }),
+      { initialProps: { systemId: "nes" } },
+    );
+    act(() => tickPolling());
+    expect(gameInput).toHaveBeenLastCalledWith(0, LIBRETRO_BUTTON.A, true);
+    gameInput.mockClear();
+    act(() => saveMapping("Mock Gamepad 0", custom, "snes"));
+    act(() => tickPolling());
+    expect(gameInput).not.toHaveBeenCalled();
+    act(() => clearMapping("Mock Gamepad 0", "nes"));
+    expect(gameInput).toHaveBeenLastCalledWith(0, LIBRETRO_BUTTON.A, false);
+    mockGamepads[0] = createMockGamepad(0);
+    act(() => tickPolling());
+    mockGamepads[0] = createMockGamepad(0, { buttons: [{ pressed: true }] });
+    act(() => tickPolling());
+    expect(gameInput).toHaveBeenLastCalledWith(0, LIBRETRO_BUTTON.B, true);
+    rerender({ systemId: "snes" });
+    expect(gameInput).toHaveBeenLastCalledWith(0, LIBRETRO_BUTTON.B, false);
+    mockGamepads[0] = createMockGamepad(0);
+    act(() => tickPolling());
+    mockGamepads[0] = createMockGamepad(0, { buttons: [{ pressed: true }] });
+    act(() => tickPolling());
+    expect(gameInput).toHaveBeenLastCalledWith(0, LIBRETRO_BUTTON.A, true);
+  });
+
+  it("turns N64 C targets into analog input and combines physical stick sources", () => {
+    const gameInputAnalog = vi.fn();
+    const mapping = getDefaultMapping("n64");
+    mapping.bindings = mapping.bindings.map((binding) => ({
+      ...binding,
+      gamepadButtonIndex: binding.retroId >= 16 ? binding.retroId - 16 : null,
+    }));
+    saveMapping("Mock Gamepad 0", mapping, "n64");
+    mockGamepads[0] = createMockGamepad(0, { buttons: [{ pressed: true }], axes: [0, 0, 0, -0.6] });
+    const { unmount } = renderHook(() =>
+      useGamepad({ gameInput, gameInputAnalog, enabled: true, systemId: "n64" }),
+    );
+    act(() => tickPolling());
+    expect(gameInput).not.toHaveBeenCalled();
+    expect(gameInputAnalog).toHaveBeenLastCalledWith(0, 1, 1, -32_767);
+    mockGamepads[0] = createMockGamepad(0, { axes: [0, 0, 0, -0.6] });
+    act(() => tickPolling());
+    expect(gameInputAnalog).toHaveBeenLastCalledWith(0, 1, 1, Math.round(-0.6 * 32_767));
+    mockGamepads[0] = createMockGamepad(0, {
+      buttons: [{ pressed: true }, { pressed: true }, { pressed: true }, { pressed: true }],
+    });
+    act(() => tickPolling());
+    expect(gameInputAnalog).toHaveBeenLastCalledWith(0, 1, 1, 0);
+    expect(gameInputAnalog).toHaveBeenCalledWith(0, 1, 0, 0);
+    mockGamepads[0] = createMockGamepad(0, { buttons: [null, null, null, { pressed: true }] });
+    act(() => tickPolling());
+    expect(gameInputAnalog).toHaveBeenCalledWith(0, 1, 0, 32_767);
+    gameInputAnalog.mockClear();
+    unmount();
+    expect(gameInputAnalog).toHaveBeenCalledWith(0, 1, 0, 0);
+    expect(gameInputAnalog).toHaveBeenCalledWith(0, 1, 1, 0);
+  });
+
+  it("reloads a scoped mapping changed by another window", () => {
+    mockGamepads[0] = createMockGamepad(0);
+    saveMapping("Mock Gamepad 0", getDefaultMapping(), "nes");
+    renderHook(() => useGamepad({ gameInput, enabled: true, systemId: "nes" }));
+    act(() => tickPolling());
+    const key = localStorage.key(0)!;
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        bindings: [{ retroId: LIBRETRO_BUTTON.A, label: "A", gamepadButtonIndex: 0 }],
+      }),
+    );
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key })));
+    mockGamepads[0] = createMockGamepad(0, { buttons: [{ pressed: true }] });
+    act(() => tickPolling());
+    expect(gameInput).toHaveBeenLastCalledWith(0, LIBRETRO_BUTTON.A, true);
   });
 });

@@ -18,7 +18,7 @@ interface Props {
   enabled: boolean;
   onMenu: () => void;
   onBack?: () => void;
-  /** During gameplay only Guide/Menu is routed to UI. */
+  /** During gameplay only Home or Select + Start opens the UI. */
   gameplay?: boolean;
 }
 
@@ -172,6 +172,7 @@ export function ControllerNavigation({ enabled, onMenu, onBack, gameplay = false
         performance.now(),
         options.current.enabled && document.hasFocus() && !capturing,
         bindings,
+        options.current.gameplay,
       );
       for (const event of events) {
         input("gamepad");

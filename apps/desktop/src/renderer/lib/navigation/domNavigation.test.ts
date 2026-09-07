@@ -19,6 +19,11 @@ describe("controller DOM navigation", () => {
     expect(focusables(activeScope()).map((el) => el.textContent)).toEqual(["Choice"]);
     expect(focusables(document.querySelector('[role="dialog"]')!)).toHaveLength(1);
   });
+  it("ignores controls in closed overlays but keeps closed-state triggers available", () => {
+    document.body.innerHTML =
+      '<button id="live">Live</button><button id="trigger" role="combobox" data-state="closed">Select</button><div role="alertdialog" data-state="closed"><button id="stale">Stale</button></div>';
+    expect(focusables(document.body).map((element) => element.id)).toEqual(["live", "trigger"]);
+  });
   it("forwards arrows to composite widgets instead of escaping their scope", () => {
     document.body.innerHTML = '<div role="listbox"><button role="option">Choice</button></div>';
     const choice = document.querySelector("button")!;
