@@ -58,6 +58,7 @@ export interface GamelordAPI {
     maximize: () => void;
     close: () => void;
     toggleFullscreen: () => void;
+    setFullscreen: (value: boolean) => void;
     setClickThrough: (value: boolean) => void;
   };
   on: (channel: string, callback: (...args: Array<any>) => void) => void;

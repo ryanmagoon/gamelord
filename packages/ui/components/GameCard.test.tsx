@@ -23,6 +23,15 @@ function storeWithPhase(phase: ArtworkSyncPhase): ArtworkSyncStore {
 }
 
 describe("GameCard", () => {
+  it("does not launch when Enter activates the nested options button", async () => {
+    const onPlay = vi.fn();
+    const onOptions = vi.fn();
+    render(<GameCard game={mockGame} onPlay={onPlay} onOptions={onOptions} />);
+    screen.getByRole("button", { name: /options for/i }).focus();
+    await userEvent.setup().keyboard("{Enter}");
+    expect(onOptions).toHaveBeenCalledOnce();
+    expect(onPlay).not.toHaveBeenCalled();
+  });
   describe("accessibility", () => {
     it('card has role="button" and aria-label with game title', () => {
       const onPlay = vi.fn();

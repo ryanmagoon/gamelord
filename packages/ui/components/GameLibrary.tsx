@@ -1,3 +1,5 @@
+import { useConsoleMode } from "../hooks/useConsoleMode";
+import { useControllerGrid } from "../hooks/useControllerGrid";
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { GameCard, Game, GameCardMenuItem } from "./GameCard";
 import { Input } from "./ui/input";
@@ -119,6 +121,7 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
   onReady,
   isRevealing,
 }) => {
+  const [consoleMode] = useConsoleMode();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortBy>("title");
@@ -305,8 +308,23 @@ export const GameLibrary: React.FC<GameLibraryProps> = ({
     if (aspectRatios.length === 0 || containerWidth <= 0) {
       return { items: [], totalHeight: 0 };
     }
-    return computeRowLayout(aspectRatios, containerWidth);
-  }, [aspectRatios, containerWidth]);
+    return computeRowLayout(
+      aspectRatios,
+      containerWidth,
+      MOSAIC_GAP,
+      consoleMode ? 400 : ROW_HEIGHT,
+    );
+  }, [aspectRatios, containerWidth, consoleMode]);
+
+  const controllerItems = useMemo(
+    () =>
+      displayItems.flatMap((item, index) => {
+        const position = layout.items[index];
+        return item.kind === "game" && position ? [{ ...position, id: item.game.id }] : [];
+      }),
+    [displayItems, layout],
+  );
+  useControllerGrid(gridRef, scrollContainerRef, controllerItems);
 
   const { scrollTop, viewportHeight } = useScrollContainer(scrollContainerRef);
 

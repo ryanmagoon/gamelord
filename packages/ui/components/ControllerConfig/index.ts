@@ -14,5 +14,6 @@ export {
   saveMapping,
   clearMapping,
   mappingToArray,
+  subscribeMappingChanges,
   BUTTON_ORDER,
 } from "./controller-mappings";

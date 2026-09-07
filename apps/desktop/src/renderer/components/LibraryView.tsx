@@ -902,6 +902,8 @@ export const LibraryView: React.FC<{
         <div className="flex gap-2 p-4 border-b overflow-x-auto">
           <Button
             variant={selectedSystem === null ? "default" : "outline"}
+            data-controller-tab
+            data-active={selectedSystem === null}
             size="sm"
             onClick={() => switchSystem(null)}
           >
@@ -913,6 +915,8 @@ export const LibraryView: React.FC<{
               <Button
                 key={system.id}
                 variant={selectedSystem === system.id ? "default" : "outline"}
+                data-controller-tab
+                data-active={selectedSystem === system.id}
                 size="sm"
                 onClick={() => switchSystem(system.id)}
               >

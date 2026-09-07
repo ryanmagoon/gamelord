@@ -173,6 +173,7 @@ contextBridge.exposeInMainWorld("gamelord", {
     maximize: () => ipcRenderer.send("game-window:maximize"),
     close: () => ipcRenderer.send("game-window:close"),
     toggleFullscreen: () => ipcRenderer.send("game-window:toggle-fullscreen"),
+    setFullscreen: (value: boolean) => ipcRenderer.send("game-window:set-fullscreen", value),
     setClickThrough: (value: boolean) => ipcRenderer.send("game-window:set-click-through", value),
     setTrafficLightVisible: (visible: boolean) =>
       ipcRenderer.send("game-window:set-traffic-light-visible", visible),

@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, waitFor, userEvent, within } from "storybook/test";
+import { useState } from "react";
+import type { RetroSystemId } from "../GamepadArtwork/retroSystems";
 import { ControllerConfig } from "./ControllerConfig";
 import type { ConnectedController } from "./controller-mappings";
 import { getDefaultMapping } from "./controller-mappings";
@@ -51,6 +53,19 @@ const meta = {
     layout: "padded",
   },
   tags: ["autodocs"],
+  play: async ({ canvasElement, args }) => {
+    if (!args.controllers?.[args.selectedControllerIndex]?.connected) {
+      return;
+    }
+    await waitFor(
+      () => {
+        expect(
+          canvasElement.querySelector('[data-scene-status="ready"] canvas[data-settled="true"]'),
+        ).not.toBeNull();
+      },
+      { timeout: 15_000 },
+    );
+  },
   decorators: [
     (Story) => (
       <div
@@ -172,13 +187,66 @@ export const ButtonsPressed: Story = {
   },
 };
 
+export const TestControls: Story = {
+  args: { ...ButtonsPressed.args },
+  play: async ({ canvas, canvasElement }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Test controls" }));
+    await expect(canvas.getByRole("button", { name: "Stop testing" })).toBeInTheDocument();
+    await expect(canvasElement.querySelector('[data-controller-capture="true"]')).not.toBeNull();
+  },
+};
+
 export const AnalogSticksActive: Story = {
   args: {
+    systemId: "psx",
     controllers: [xboxController],
     mapping: defaultMapping,
     selectedControllerIndex: 0,
     buttonStates: emptyButtonStates,
     axisValues: [0.8, -0.6, -0.3, 0.9],
     remappingButton: null,
+  },
+};
+
+export const SystemSelectionAndRemap: Story = {
+  args: { ...OneXboxController.args },
+  render: function Interactive(args) {
+    const [systemId, setSystemId] = useState<RetroSystemId>("snes");
+    const [remapping, setRemapping] = useState<number | null>(null);
+    return (
+      <ControllerConfig
+        {...args}
+        systemId={systemId}
+        mapping={getDefaultMapping(systemId)}
+        onSelectSystem={(next) => {
+          setRemapping(null);
+          setSystemId(next);
+        }}
+        remappingButton={remapping}
+        onStartRemap={setRemapping}
+        onCancelRemap={() => setRemapping(null)}
+      />
+    );
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await userEvent.click(canvas.getByRole("combobox", { name: "Emulated system" }));
+    await userEvent.click(
+      within(document.body).getByRole("option", { name: "Game Boy", exact: true }),
+    );
+    await expect(
+      canvas.getByRole("img", { name: "Game Boy · DMG-01, live control display" }),
+    ).toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Map L" })).not.toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(
+          canvasElement.querySelector('[data-scene-status="ready"] canvas[data-settled="true"]'),
+        ).not.toBeNull(),
+      { timeout: 15_000 },
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Map A" }));
+    await expect(canvas.getByText("A selected for mapping.")).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel", exact: true }));
+    await expect(canvas.queryByText("A selected for mapping.")).not.toBeInTheDocument();
   },
 };

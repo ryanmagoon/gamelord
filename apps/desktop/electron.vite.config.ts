@@ -97,19 +97,14 @@ export default defineConfig({
         external: ["electron", /^electron\/.+/, /\.node$/],
         output: {
           format: "es",
-          // electron-vite 5 + Vite 8 emit the main process as ESM (`.mjs`),
-          // where `__dirname`/`__filename` don't exist. The main source and
-          // bundled CJS deps (e.g. electron's index.js shim) rely on them, so
-          // recreate them per-file from `import.meta.url`.
-          banner:
-            "import { fileURLToPath as __gl_fileURLToPath } from 'node:url';\n" +
-            "import { dirname as __gl_dirname } from 'node:path';\n" +
-            "const __filename = __gl_fileURLToPath(import.meta.url);\n" +
-            "const __dirname = __gl_dirname(__filename);",
+          // Rolldown emits the Node ESM CommonJS shims. Adding our own banner
+          // redeclares __filename in shared chunks and prevents Electron boot.
         },
       },
     },
     define: {
+      __dirname: "import.meta.dirname",
+      __filename: "import.meta.filename",
       "process.env.SCREENSCRAPER_DEV_ID": JSON.stringify(process.env.SCREENSCRAPER_DEV_ID ?? ""),
       "process.env.SCREENSCRAPER_DEV_PASSWORD": JSON.stringify(
         process.env.SCREENSCRAPER_DEV_PASSWORD ?? "",

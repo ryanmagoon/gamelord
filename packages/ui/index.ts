@@ -52,3 +52,19 @@ export { isMacPlatform, modifierKey } from "./hooks/usePlatform";
 
 // Utils
 export * from "./utils";
+
+export { findNextFocusable, type Direction, type FocusableRect } from "./lib/spatialNav";
+export {
+  GamepadArtwork,
+  GamepadGlyph,
+  detectGamepadModel,
+  physicalButtonLabel,
+  type GamepadModel,
+} from "./components/GamepadArtwork/GamepadArtwork";
+export { useConsoleMode } from "./hooks/useConsoleMode";
+
+export {
+  RETRO_SYSTEMS,
+  retroSystem,
+  type RetroSystemId,
+} from "./components/GamepadArtwork/retroSystems";

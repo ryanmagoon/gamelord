@@ -44,7 +44,8 @@
   --ring: hsl(0 0% 83.9%);
 }
 
-@theme {
+/* Resolve semantic colors where used so nested dark surfaces inherit correctly. */
+@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

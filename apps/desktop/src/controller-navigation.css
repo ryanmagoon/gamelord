@@ -1,0 +1,80 @@
+html[data-input-device="gamepad"] :focus,
+html[data-input-device="keyboard"] :focus-visible {
+  outline: 3px solid #86efac;
+  outline-offset: 4px;
+}
+html[data-input-device="gamepad"] .game-card-border:focus {
+  z-index: 20;
+}
+html[data-input-device="gamepad"] .game-card-border:not(.game-card-active) {
+  scale: 1;
+  translate: none !important;
+}
+html[data-input-device="gamepad"] .game-card-border:not(:focus-within):not(.game-card-active) {
+  box-shadow: none;
+}
+html[data-input-device="gamepad"]
+  .game-card-border:not(:focus-within):not(.game-card-active)::before {
+  opacity: 0;
+}
+html[data-input-device="gamepad"] .game-card-border:focus-within .controller-card-actions {
+  opacity: 1;
+}
+.controller-prompts {
+  position: fixed;
+  bottom: 18px;
+  right: 24px;
+  z-index: 80;
+  display: flex;
+  gap: 24px;
+  padding: 10px 18px;
+  border: 1px solid #ffffff24;
+  border-radius: 12px;
+  background: #171a1f;
+  color: #edf0f4;
+  font-size: 13px;
+  pointer-events: none;
+}
+.controller-prompts span {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.controller-prompts kbd {
+  font-weight: 700;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-input-device="gamepad"] :focus {
+    transition: outline-color 120ms ease;
+    animation: controller-focus-in 160ms ease-out;
+  }
+  @keyframes controller-focus-in {
+    from {
+      outline-offset: 8px;
+      outline-color: transparent;
+    }
+    to {
+      outline-offset: 4px;
+      outline-color: #86efac;
+    }
+  }
+}
+[data-console-mode="true"] {
+  font-size: 18px;
+}
+[data-console-mode="true"] button:not(.game-card-border),
+[data-console-mode="true"] input {
+  min-height: 44px;
+}
+[data-console-mode="true"] .drag-region {
+  min-height: 60px;
+}
+[data-console-mode="true"] .controller-card-actions {
+  opacity: 1;
+}
+[data-console-mode="true"] button,
+[data-console-mode="true"] input,
+[data-console-mode="true"] .text-sm,
+[data-console-mode="true"] .text-xs {
+  font-size: 18px;
+}

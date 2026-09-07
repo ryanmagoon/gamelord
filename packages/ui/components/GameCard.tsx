@@ -88,12 +88,18 @@ export const GameCard: React.FC<GameCardProps> = React.memo(
     // Resolve menu items: prefer lazy factory over static array
     const menuItems = menuItemsProp ?? (getMenuItems ? getMenuItems(game) : undefined);
     const handlePlay = (e: React.MouseEvent) => {
+      if (disabled || isLaunching) {
+        return;
+      }
       e.preventDefault();
       const rect = e.currentTarget.getBoundingClientRect();
       onPlay(game, rect);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.target !== e.currentTarget || disabled || isLaunching) {
+        return;
+      }
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         const rect = e.currentTarget.getBoundingClientRect();
@@ -179,6 +185,8 @@ export const GameCard: React.FC<GameCardProps> = React.memo(
     return (
       <Card
         aria-label={`Play ${game.title}`}
+        data-game-id={game.id}
+        aria-disabled={disabled || isLaunching || undefined}
         className={cn(
           "game-card-border group relative rounded-none border-0 w-full h-full",
           disabled
@@ -289,7 +297,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(
             {onToggleFavorite && (
               <div
                 className={cn(
-                  "absolute top-2 left-2 transition-opacity",
+                  "controller-card-actions absolute top-2 left-2 transition-opacity",
                   game.favorite
                     ? "opacity-100"
                     : "opacity-0 group-hover:opacity-100 focus-within:opacity-100",
@@ -321,7 +329,7 @@ export const GameCard: React.FC<GameCardProps> = React.memo(
 
             {/* Options dropdown menu */}
             {hasMenu && (
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+              <div className="controller-card-actions absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                 {menuItems && menuItems.length > 0 ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

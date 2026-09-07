@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ControllerConfig } from "./ControllerConfig";
 import type { ConnectedController } from "./controller-mappings";
@@ -40,7 +40,11 @@ const defaultProps = {
 describe("ControllerConfig", () => {
   it("shows empty state when no controllers are connected", () => {
     render(<ControllerConfig {...defaultProps} controllers={[]} />);
-    expect(screen.getByText("No Controllers Detected")).toBeInTheDocument();
+    expect(
+      screen.getByText("Connect a controller to test and assign controls."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Map A" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Emulated system" })).toBeEnabled();
   });
 
   it("displays connected controller name and type", () => {
@@ -60,17 +64,15 @@ describe("ControllerConfig", () => {
     );
     expect(screen.getByText("PlayStation")).toBeInTheDocument();
     // PlayStation-specific button labels in the binding rows
-    expect(screen.getByText("Cross")).toBeInTheDocument();
-    expect(screen.getByText("Circle")).toBeInTheDocument();
+    expect(screen.getAllByText("Cross")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Circle")[0]).toBeInTheDocument();
   });
 
-  it("renders all 16 button bindings", () => {
-    const { container } = render(<ControllerConfig {...defaultProps} />);
+  it("shows only the selected retro system controls", () => {
+    render(<ControllerConfig {...defaultProps} />);
     expect(screen.getByText("Button Mapping")).toBeInTheDocument();
-    // Count binding rows: each is a <button> containing a <span class="font-medium">
-    const bindingLabels = container.querySelectorAll("span.font-medium");
-    // Binding labels include all 16 bindings (D-Pad Up/Down/Left/Right, A, B, X, Y, etc.)
-    expect(bindingLabels.length).toBe(16);
+    expect(screen.getAllByRole("button", { name: /^Map / })).toHaveLength(12);
+    expect(screen.queryByRole("button", { name: "Map L3" })).not.toBeInTheDocument();
   });
 
   it("renders multiple controllers", () => {
@@ -96,26 +98,15 @@ describe("ControllerConfig", () => {
   it("calls onStartRemap when clicking a binding row", async () => {
     const user = userEvent.setup();
     const onStartRemap = vi.fn();
-    const { container } = render(
-      <ControllerConfig {...defaultProps} onStartRemap={onStartRemap} />,
-    );
-    // Find a binding row by its label. For Xbox, "View" is unique (the Select button).
-    // It only appears in the binding section, not the button tester.
-    const bindingLabels = container.querySelectorAll("span.font-medium");
-    const viewLabel = Array.from(bindingLabels).find((el) => el.textContent === "View");
-    expect(viewLabel).toBeTruthy();
-    const viewRow = viewLabel?.closest("button");
-    expect(viewRow).toBeTruthy();
-    if (viewRow) {
-      await user.click(viewRow);
-    }
-    expect(onStartRemap).toHaveBeenCalledWith(2); // LIBRETRO_BUTTON.SELECT (displayed as "View" on Xbox)
+    render(<ControllerConfig {...defaultProps} onStartRemap={onStartRemap} />);
+    await user.click(screen.getByRole("button", { name: "Map Select" }));
+    expect(onStartRemap).toHaveBeenCalledWith(2);
   });
 
   it("shows remap prompt when remapping a button", () => {
     render(<ControllerConfig {...defaultProps} remappingButton={8} />);
     expect(
-      screen.getByText("Press the button you want to bind, or Escape to cancel"),
+      screen.getByText("Release all buttons, then press a button to bind. Home or Escape cancels."),
     ).toBeInTheDocument();
     expect(screen.getByText("Press a button…")).toBeInTheDocument();
   });
@@ -130,14 +121,70 @@ describe("ControllerConfig", () => {
 
   it("shows button tester", () => {
     render(<ControllerConfig {...defaultProps} />);
-    expect(screen.getByText("Button Tester")).toBeInTheDocument();
-    expect(screen.getByText("Press buttons to test your controller")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: "Super Nintendo Controller · SNS-005, live control display",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Select a control to assign it, or test your current mappings."),
+    ).toBeInTheDocument();
   });
 
-  it("does not show button tester when controller is disconnected", () => {
+  it("captures menu controls while testing and exits on Home", async () => {
+    const user = userEvent.setup();
+    const { container, rerender } = render(<ControllerConfig {...defaultProps} />);
+    await user.click(screen.getByRole("button", { name: "Test controls" }));
+    expect(container.querySelector('[data-controller-capture="true"]')).not.toBeNull();
+    rerender(<ControllerConfig {...defaultProps} buttonStates={{ 1: true }} />);
+    expect(screen.getByRole("button", { name: "Stop testing" })).toBeInTheDocument();
+    rerender(<ControllerConfig {...defaultProps} buttonStates={{ 16: true }} />);
+    expect(container.querySelector('[data-controller-capture="true"]')).toBeNull();
+  });
+
+  it("consumes Escape when testing or remapping so Settings stays open", async () => {
+    const user = userEvent.setup();
+    const onCancelRemap = vi.fn();
+    const { rerender } = render(<ControllerConfig {...defaultProps} />);
+    await user.click(screen.getByRole("button", { name: "Test controls" }));
+    const outerEscape = vi.fn();
+    document.addEventListener("keydown", outerEscape);
+    try {
+      fireEvent.keyDown(screen.getByRole("button", { name: "Stop testing" }), { key: "Escape" });
+      expect(screen.getByRole("button", { name: "Test controls" })).toBeInTheDocument();
+      expect(outerEscape).not.toHaveBeenCalled();
+      rerender(
+        <ControllerConfig {...defaultProps} remappingButton={8} onCancelRemap={onCancelRemap} />,
+      );
+      fireEvent.keyDown(screen.getByRole("button", { name: "Cancel" }), { key: "Escape" });
+      expect(onCancelRemap).toHaveBeenCalledOnce();
+      expect(outerEscape).not.toHaveBeenCalled();
+    } finally {
+      document.removeEventListener("keydown", outerEscape);
+    }
+  });
+
+  it("releases test capture when changing system or losing the selected controller", async () => {
+    const user = userEvent.setup();
+    const { container, rerender } = render(<ControllerConfig {...defaultProps} />);
+    await user.click(screen.getByRole("button", { name: "Test controls" }));
+    rerender(<ControllerConfig {...defaultProps} systemId="gb" />);
+    expect(container.querySelector('[data-controller-capture="true"]')).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Test controls" }));
+    rerender(<ControllerConfig {...defaultProps} systemId="gb" controllers={[]} />);
+    expect(container.querySelector('[data-controller-capture="true"]')).toBeNull();
+    expect(screen.queryByRole("button", { name: "Stop testing" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the target hardware visible and disables mapping when disconnected", () => {
     const disconnected: ConnectedController = { ...xboxController, connected: false };
     render(<ControllerConfig {...defaultProps} controllers={[disconnected]} />);
-    expect(screen.queryByText("Button Tester")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: "Super Nintendo Controller · SNS-005, live control display",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Map A" })).toBeDisabled();
   });
 
   it("shows Disconnected status for disconnected controller", () => {

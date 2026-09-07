@@ -1,3 +1,7 @@
+import { useControllerPauseMenu } from "../hooks/useControllerPauseMenu";
+import { ControllerNavigation } from "./ControllerNavigation/ControllerNavigation";
+import { ControllerMenu } from "./ControllerNavigation/ControllerMenu";
+import { SettingsDialog } from "./Settings/SettingsDialog";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Button,
@@ -102,6 +106,15 @@ export const GameWindow: React.FC = () => {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord;
   const [game, setGame] = useState<Game | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const controllerMenu = useControllerPauseMenu(isPaused, api.emulation, (message) =>
+    toast.error(message),
+  );
+  const controllerMenuOpen = controllerMenu.menuOpen;
+  const controllerSettingsOpen = controllerMenu.settingsOpen;
+  const [controllerTheme, setControllerTheme] = useState<"system" | "dark" | "light">(() => {
+    const saved = localStorage.getItem("gamelord:theme");
+    return saved === "light" || saved === "dark" ? saved : "system";
+  });
   const [showControls, setShowControls] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [saveStatesSupported, setSaveStatesSupported] = useState(true);
@@ -348,9 +361,10 @@ export const GameWindow: React.FC = () => {
 
   // Gamepad polling — uses same api.gameInput() pipeline as keyboard
   const { connectedCount: connectedGamepads } = useGamepad({
+    systemId: game?.systemId,
     gameInput: api.gameInput,
     gameInputAnalog: api.gameInputAnalog,
-    enabled: mode === "native" && !isPaused,
+    enabled: mode === "native" && !isPaused && !controllerMenuOpen && !controllerSettingsOpen,
   });
 
   // Ref to the latest updateCanvasSize — allows the IPC effect to call
@@ -867,7 +881,12 @@ export const GameWindow: React.FC = () => {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isTypingInInput(e)) {
+      if (
+        isTypingInInput(e) ||
+        document.querySelector(
+          '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+        )
+      ) {
         return;
       }
       const buttonId = KEY_MAP[e.key];
@@ -878,7 +897,12 @@ export const GameWindow: React.FC = () => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (isTypingInInput(e)) {
+      if (
+        isTypingInInput(e) ||
+        document.querySelector(
+          '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+        )
+      ) {
         return;
       }
       const buttonId = KEY_MAP[e.key];
@@ -933,8 +957,17 @@ export const GameWindow: React.FC = () => {
   };
 
   const handleScreenshot = async () => {
-    playSfx("screenshot");
-    await api.emulation.screenshot();
+    try {
+      const result = await api.emulation.screenshot();
+      if (result.success) {
+        playSfx("screenshot");
+        toast.success("Screenshot saved");
+      } else {
+        toast.error(result.error ?? "Failed to take screenshot");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to take screenshot");
+    }
   };
 
   const handleReset = async () => {
@@ -1200,6 +1233,55 @@ export const GameWindow: React.FC = () => {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
+      <ControllerNavigation
+        enabled={isNative && !isPoweringOff}
+        gameplay={!controllerMenuOpen && !controllerSettingsOpen}
+        onMenu={() => {
+          void controllerMenu.open();
+        }}
+        onBack={() => {
+          void controllerMenu.close();
+        }}
+      />
+      <ControllerMenu
+        open={controllerMenuOpen}
+        title={game.title}
+        onResume={() => {
+          void controllerMenu.close(true);
+        }}
+        onClose={() => {
+          void controllerMenu.close();
+        }}
+        onSave={() => {
+          void handleSaveState();
+        }}
+        onLoad={() => {
+          void handleLoadState();
+        }}
+        onScreenshot={() => {
+          void handleScreenshot();
+        }}
+        onSettings={controllerMenu.showSettings}
+        onQuit={() => api.gameWindow.close()}
+        slot={selectedSlot}
+        onSlot={setSelectedSlot}
+        savesSupported={saveStatesSupported}
+      />
+      <SettingsDialog
+        gameSystemId={game.systemId}
+        open={controllerSettingsOpen}
+        onOpenChange={controllerMenu.changeSettings}
+        themeMode={controllerTheme}
+        onThemeChange={(theme) => {
+          setControllerTheme(theme);
+          localStorage.setItem("gamelord:theme", theme);
+          document.documentElement.classList.toggle(
+            "dark",
+            theme === "dark" ||
+              (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches),
+          );
+        }}
+      />
       {/* Power-on animation (system-specific) */}
       {isNative && isPoweringOn && (
         <PowerAnimation

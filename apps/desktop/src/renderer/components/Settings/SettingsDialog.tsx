@@ -1,3 +1,4 @@
+import { ControllerPreferences } from "../ControllerNavigation/ControllerPreferences";
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -14,6 +15,8 @@ import {
   SHADER_LABELS,
   SHADER_PRESETS,
   ControllerConfig,
+  RETRO_SYSTEMS,
+  type RetroSystemId,
   detectHdrCapabilities,
 } from "@gamelord/ui";
 import {
@@ -44,6 +47,7 @@ type ThemeMode = "system" | "dark" | "light";
 type SettingsTab = "general" | "emulation" | "controllers" | "library" | "about";
 
 interface SettingsDialogProps {
+  gameSystemId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   themeMode: ThemeMode;
@@ -59,6 +63,7 @@ const TAB_CONFIG: Array<{ id: SettingsTab; label: string; icon: React.ReactNode 
 ];
 
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({
+  gameSystemId,
   open,
   onOpenChange,
   themeMode,
@@ -74,16 +79,29 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden" hideCloseButton>
-        <div className="flex h-[480px]">
+      <DialogContent
+        className={cn(
+          "p-0 gap-0 overflow-hidden",
+          activeTab === "controllers" ? "sm:max-w-5xl" : "sm:max-w-2xl",
+        )}
+        hideCloseButton
+      >
+        <div
+          className={cn("flex", activeTab === "controllers" ? "h-[min(700px,85vh)]" : "h-[480px]")}
+        >
           {/* Sidebar */}
-          <nav className="w-44 shrink-0 border-r bg-muted/30 p-3 flex flex-col gap-1">
+          <nav
+            data-controller-region
+            className="w-44 shrink-0 border-r bg-muted/30 p-3 flex flex-col gap-1"
+          >
             <DialogTitle className="px-2 pb-2 text-sm font-semibold text-muted-foreground">
               Settings
             </DialogTitle>
             {TAB_CONFIG.map((tab) => (
               <button
                 key={tab.id}
+                data-controller-tab
+                data-active={activeTab === tab.id}
                 onClick={() => handleTabChange(tab.id)}
                 className={cn(
                   "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors text-left",
@@ -99,12 +117,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           </nav>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div data-controller-region className="flex-1 min-w-0 overflow-y-auto p-6">
             {activeTab === "general" && (
               <GeneralTab themeMode={themeMode} onThemeChange={onThemeChange} />
             )}
             {activeTab === "emulation" && <EmulationTab />}
-            {activeTab === "controllers" && <ControllersTab />}
+            {activeTab === "controllers" && <ControllersTab gameSystemId={gameSystemId} />}
             {activeTab === "library" && <LibraryTab />}
             {activeTab === "about" && <AboutTab />}
           </div>
@@ -251,35 +269,50 @@ const GeneralTab: React.FC<{
 // Controllers Tab
 // ---------------------------------------------------------------------------
 
-const ControllersTab: React.FC = () => {
+const ControllersTab: React.FC<{ gameSystemId?: string }> = ({ gameSystemId }) => {
+  const [systemId, setSystemId] = useState<RetroSystemId>(() => {
+    const preferred = gameSystemId ?? localStorage.getItem("gamelord:controller-system");
+    return RETRO_SYSTEMS.find((system) => system.id === preferred)?.id ?? "snes";
+  });
   const {
     controllers,
     mapping,
     selectedControllerIndex,
     selectController,
     buttonStates,
+    buttonValues,
     axisValues,
     remappingButton,
     startRemap,
     cancelRemap,
     changeBinding,
     resetDefaults,
-  } = useControllerConfig();
+  } = useControllerConfig(systemId);
 
   return (
-    <ControllerConfig
-      controllers={controllers}
-      mapping={mapping}
-      onBindingChange={changeBinding}
-      onResetDefaults={resetDefaults}
-      selectedControllerIndex={selectedControllerIndex}
-      onSelectController={selectController}
-      buttonStates={buttonStates}
-      axisValues={axisValues}
-      remappingButton={remappingButton}
-      onStartRemap={startRemap}
-      onCancelRemap={cancelRemap}
-    />
+    <>
+      <ControllerConfig
+        systemId={systemId}
+        onSelectSystem={(next) => {
+          cancelRemap();
+          setSystemId(next);
+          localStorage.setItem("gamelord:controller-system", next);
+        }}
+        controllers={controllers}
+        mapping={mapping}
+        onBindingChange={changeBinding}
+        onResetDefaults={resetDefaults}
+        selectedControllerIndex={selectedControllerIndex}
+        onSelectController={selectController}
+        buttonStates={buttonStates}
+        buttonValues={buttonValues}
+        axisValues={axisValues}
+        remappingButton={remappingButton}
+        onStartRemap={startRemap}
+        onCancelRemap={cancelRemap}
+      />
+      <ControllerPreferences controllerId={controllers[selectedControllerIndex]?.id} />
+    </>
   );
 };
 

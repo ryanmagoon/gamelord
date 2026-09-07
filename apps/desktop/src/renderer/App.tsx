@@ -1,3 +1,4 @@
+import { ControllerNavigation } from "./components/ControllerNavigation/ControllerNavigation";
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   AlertDialog,
@@ -8,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
+  useConsoleMode,
   WebGLRendererComponent,
   UpdateNotification,
   Game as UiGame,
@@ -79,6 +81,12 @@ const VIEW_TRANSITION_MS = 300;
 
 function App() {
   const api = (window as unknown as { gamelord: GamelordAPI }).gamelord;
+  const [consoleMode, setConsoleMode] = useConsoleMode();
+  useEffect(() => {
+    if (consoleMode) {
+      api.gameWindow.setFullscreen(true);
+    }
+  }, [api, consoleMode]);
   const [viewState, setViewState] = useState<ViewState>("library");
   const viewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { currentShader, handleRendererReady, changeShader } = useWebGLRenderer();
@@ -582,7 +590,7 @@ function App() {
     viewState === "to-game" ? 1 : viewState === "to-library" ? 0 : viewState === "game" ? 1 : 0;
 
   return (
-    <div className="relative min-h-screen bg-background">
+    <div className="relative min-h-screen bg-background" data-console-mode={consoleMode}>
       {/* Library view layer */}
       {showLibrary && (
         <div
@@ -597,6 +605,18 @@ function App() {
             className={`drag-region h-10 border-b flex items-center justify-end gap-2 px-4 ${api.platform === "darwin" ? "titlebar-inset" : "pr-36"}`}
           >
             <DevBranchBadge />
+            <Button
+              variant="ghost"
+              className="no-drag h-7 gap-2"
+              aria-pressed={consoleMode}
+              onClick={() => {
+                setConsoleMode(!consoleMode);
+                api.gameWindow.setFullscreen(!consoleMode);
+              }}
+            >
+              <Tv className="h-4 w-4" />
+              {consoleMode ? "Exit Console Mode" : "Console Mode"}
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -714,6 +734,10 @@ function App() {
       </AlertDialog>
 
       {/* Settings dialog */}
+      <ControllerNavigation
+        enabled={viewState === "library"}
+        onMenu={() => setSettingsOpen(true)}
+      />
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={(open) => {

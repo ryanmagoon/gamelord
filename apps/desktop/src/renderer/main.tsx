@@ -1,3 +1,4 @@
+import "../controller-navigation.css";
 // Connect to agent-react-devtools daemon before any React import so the
 // DevTools global hook is installed first. No-op in production builds.
 import "agent-react-devtools/connect";

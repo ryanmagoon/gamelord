@@ -171,7 +171,7 @@ export function getGamepadButtonLabel(buttonIndex: number): string {
 }
 
 /** Build the default mapping from the existing STANDARD_GAMEPAD_MAPPING. */
-export function getDefaultMapping(): ControllerMapping {
+export function getDefaultMapping(systemId?: string): ControllerMapping {
   const bindings: Array<ButtonBinding> = BUTTON_ORDER.map(({ retroId, label }) => {
     // Find which gamepad button maps to this retroId in the standard mapping
     const gamepadButtonIndex = STANDARD_GAMEPAD_MAPPING.indexOf(retroId);
@@ -181,17 +181,95 @@ export function getDefaultMapping(): ControllerMapping {
       gamepadButtonIndex: gamepadButtonIndex >= 0 ? gamepadButtonIndex : null,
     };
   });
+  if (systemId === "n64") {
+    for (const [index, label] of ["C Up", "C Down", "C Left", "C Right"].entries()) {
+      bindings.push({ retroId: 16 + index, label, gamepadButtonIndex: null });
+    }
+  }
   return { bindings };
 }
 
+const MAPPING_STORAGE_PREFIX = "gamelord:controller-mapping:";
+const SYSTEM_MAPPING_STORAGE_PREFIX = "gamelord:system-controller-mapping:";
+const MAPPING_CHANGED_EVENT = "gamelord:controller-mapping-changed";
+
+/** Notify mounted gameplay hooks of same-window saves and changes from other windows. */
+export function subscribeMappingChanges(
+  onChange: (controllerId: string | null, systemId?: string) => void,
+): () => void {
+  const onSaved = (event: Event) => {
+    const detail = (event as CustomEvent<string | { controllerId: string; systemId?: string }>)
+      .detail;
+    if (typeof detail === "string") {
+      onChange(detail);
+    } else {
+      onChange(detail.controllerId, detail.systemId);
+    }
+  };
+  const onStorage = (event: StorageEvent) => {
+    if (event.storageArea !== null && event.storageArea !== localStorage) {
+      return;
+    }
+    if (event.key === null) {
+      onChange(null);
+    } else if (event.key.startsWith(SYSTEM_MAPPING_STORAGE_PREFIX)) {
+      try {
+        const key: unknown = JSON.parse(event.key.slice(SYSTEM_MAPPING_STORAGE_PREFIX.length));
+        if (
+          Array.isArray(key) &&
+          key.length === 2 &&
+          key.every((part) => typeof part === "string")
+        ) {
+          onChange(key[1], key[0]);
+        }
+      } catch {
+        // Ignore unrelated or malformed storage keys.
+      }
+    } else if (event.key.startsWith(MAPPING_STORAGE_PREFIX)) {
+      onChange(event.key.slice(MAPPING_STORAGE_PREFIX.length));
+    }
+  };
+  window.addEventListener(MAPPING_CHANGED_EVENT, onSaved);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(MAPPING_CHANGED_EVENT, onSaved);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
 /** localStorage key for persisted controller mappings. */
-function getMappingStorageKey(controllerId: string): string {
-  return `gamelord:controller-mapping:${controllerId}`;
+function getMappingStorageKey(controllerId: string, systemId?: string): string {
+  if (systemId !== undefined) {
+    return `${SYSTEM_MAPPING_STORAGE_PREFIX}${JSON.stringify([systemId, controllerId])}`;
+  }
+  return `${MAPPING_STORAGE_PREFIX}${controllerId}`;
+}
+
+/** Add new system-specific targets to older mappings without replacing saved bindings. */
+function completeSystemMapping(mapping: ControllerMapping, systemId?: string): ControllerMapping {
+  if (systemId !== "n64") {
+    return mapping;
+  }
+  const missing = getDefaultMapping(systemId).bindings.filter(
+    (binding) =>
+      binding.retroId >= 16 && !mapping.bindings.some((saved) => saved.retroId === binding.retroId),
+  );
+  return { bindings: [...mapping.bindings, ...missing] };
 }
 
 /** Load a saved mapping from localStorage, or return null if none exists. */
-export function loadMapping(controllerId: string): ControllerMapping | null {
-  const stored = localStorage.getItem(getMappingStorageKey(controllerId));
+export function loadMapping(controllerId: string, systemId?: string): ControllerMapping | null {
+  const stored = localStorage.getItem(getMappingStorageKey(controllerId, systemId));
+  if (stored === null && systemId !== undefined) {
+    // Copy a legacy global mapping on first use, retaining the original for other systems.
+    const legacy = loadMapping(controllerId);
+    if (legacy) {
+      const migrated = completeSystemMapping(legacy, systemId);
+      localStorage.setItem(getMappingStorageKey(controllerId, systemId), JSON.stringify(migrated));
+      return migrated;
+    }
+    return null;
+  }
   if (!stored) {
     return null;
   }
@@ -203,7 +281,7 @@ export function loadMapping(controllerId: string): ControllerMapping | null {
       "bindings" in parsed &&
       Array.isArray((parsed as ControllerMapping).bindings)
     ) {
-      return parsed as ControllerMapping;
+      return completeSystemMapping(parsed as ControllerMapping, systemId);
     }
   } catch {
     // Invalid JSON, ignore
@@ -212,13 +290,26 @@ export function loadMapping(controllerId: string): ControllerMapping | null {
 }
 
 /** Save a mapping to localStorage keyed by controller id. */
-export function saveMapping(controllerId: string, mapping: ControllerMapping): void {
-  localStorage.setItem(getMappingStorageKey(controllerId), JSON.stringify(mapping));
+export function saveMapping(
+  controllerId: string,
+  mapping: ControllerMapping,
+  systemId?: string,
+): void {
+  localStorage.setItem(getMappingStorageKey(controllerId, systemId), JSON.stringify(mapping));
+  window.dispatchEvent(
+    new CustomEvent(MAPPING_CHANGED_EVENT, { detail: { controllerId, systemId } }),
+  );
 }
 
 /** Remove a saved mapping from localStorage. */
-export function clearMapping(controllerId: string): void {
+export function clearMapping(controllerId: string, systemId?: string): void {
+  if (systemId !== undefined) {
+    // An explicit default prevents a legacy global remap from being imported again.
+    saveMapping(controllerId, getDefaultMapping(systemId), systemId);
+    return;
+  }
   localStorage.removeItem(getMappingStorageKey(controllerId));
+  window.dispatchEvent(new CustomEvent(MAPPING_CHANGED_EVENT, { detail: controllerId }));
 }
 
 /**
