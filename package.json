@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@nkzw/eslint-plugin": "^2.0.0",
-    "@nkzw/oxlint-config": "^1.0.1",
+    "@nkzw/oxlint-config": "^2.0.1",
     "@typescript-eslint/eslint-plugin": "^8.69.0",
     "@typescript/native-preview": "7.0.0-dev.20260523.1",
     "eslint-plugin-no-only-tests": "^3.4.0",
