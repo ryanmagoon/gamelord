@@ -36,7 +36,7 @@
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^4.7.0",
     "agent-react-devtools": "^0.4.0",
-    "agentation": "^2.2.1",
+    "agentation": "^3.0.2",
     "autoprefixer": "^10.5.4",
     "dotenv": "^17.4.2",
     "electron": "41.10.3",
