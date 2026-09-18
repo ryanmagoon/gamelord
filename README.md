@@ -48,6 +48,7 @@
 | PlayStation | PCSX ReARMed, Beetle PSX HW, SwanStation |
 | Sega Saturn | Beetle Saturn, Yabause |
 | SNES | Snes9x, bsnes |
+| GameCube | Dolphin |
 
 More systems are on the way — the goal is to support any libretro-compatible core.
 

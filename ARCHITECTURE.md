@@ -4,11 +4,18 @@ GameLord is a native emulator frontend (OpenEmu-style) where Electron handles UI
 
 ## How It Works
 
-1. **Native addon** (`apps/desktop/native/src/libretro_core.cc`) loads libretro `.dylib` cores directly, implementing the full libretro frontend API (environment callbacks, video/audio/input)
-2. **Utility process** (`core-worker.ts`) runs the emulation loop in a dedicated Electron utility process with hybrid sleep+spin frame pacing (~0.1-0.5ms jitter), sending video frames and audio samples to the main process via `postMessage`
-3. **Main process** forwards frames/audio to the renderer via `webContents.send` with `Buffer`. `EmulationWorkerClient` manages the worker lifecycle and request/response protocol.
-4. **Renderer** displays frames on a `<canvas>` via `putImageData` and plays audio via Web Audio API with seamless chunk scheduling
-5. **Input** is captured in the renderer (keyboard events) and forwarded through the main process to the utility process worker via IPC
+1. **Native addon** (`apps/desktop/native/src/libretro_core.cc`) loads libretro cores directly, implementing the full libretro frontend API (environment callbacks, video/audio/input).
+2. **Utility process** (`core-worker.ts`) runs the emulation loop in a dedicated Electron utility process with hybrid sleep+spin frame pacing (~0.1-0.5ms jitter). It writes video frames directly into double-buffered `SharedArrayBuffer` memory and audio samples into an SPSC (single-producer single-consumer) audio ring buffer.
+3. **Zero-copy shared memory transfer (Default)**:
+   - Synchronized via a shared control block (`shared-frame-protocol.ts`) containing 7 `Int32` slots (`activeBuffer`, `frameSequence`, `frameWidth`, `frameHeight`, `audioWritePos`, `audioReadPos`, `audioSampleRate`).
+   - The worker writes geometry and updates the active buffer slot before incrementing `frameSequence`. The renderer observes `frameSequence` last, ensuring memory visibility of the new buffer and dimensions before processing.
+   - Initial `SharedArrayBuffer` handles are exchanged with the renderer via a `MessagePort` bridge (`GameWindow.tsx`).
+   - *Fallback path*: If `useSharedBuffers` is disabled, the main process falls back to copying frames and audio to the renderer over IPC via `webContents.send` (`Buffer`).
+4. **Renderer**:
+   - Video frames are uploaded directly as a texture and rendered through `WebGLRenderer` (`GameWindow.tsx`) using the multi-pass shader pipeline in `packages/ui/webgl/` (supporting CRT scanlines, curvature, bloom).
+   - Audio is drained directly from the shared SPSC ring buffer in `GameWindow.tsx` and scheduled seamlessly via the Web Audio API.
+5. **Input**:
+   - In contrast to shared-memory video/audio, input remains asymmetric: keyboard and gamepad events are captured in the renderer and dispatched per event over IPC (`preload.ts` → `GameWindowManager.ts` → `core-worker.ts`) to be polled by the libretro core callback.
 
 ## Key Files
 
@@ -29,12 +36,15 @@ apps/desktop/src/main/
 │   └── EmulatorManager.ts    - Core selection & orchestration
 ├── workers/
 │   ├── core-worker.ts        - Utility process: emulation loop, native addon, frame pacing
-│   └── core-worker-protocol.ts - Shared message types (worker ↔ main)
+│   ├── core-worker-protocol.ts - Shared message types (worker ↔ main)
+│   └── shared-frame-protocol.ts - Control block layout & video/audio shared buffer sizing
 └── ipc/
     └── handlers.ts           - IPC endpoints
 
 apps/desktop/src/renderer/components/
-└── GameWindow.tsx            - Canvas rendering, audio playback, controls overlay
+└── GameWindow.tsx            - WebGL texture upload, shader pipeline, audio ring drain, controls overlay
+
+packages/ui/webgl/            - WebGL multi-pass CRT shader pipeline and renderer
 
 apps/desktop/src/preload.ts   - Renderer API bridge
 ```
