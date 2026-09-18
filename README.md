@@ -34,6 +34,21 @@
 
 Save states, mid-game disc swapping, and cheat files are all supported. They're listed here once and not sold, because every emulation frontend has them.
 
+## Isn't this stupid?
+
+Partly. There's a reason this isn't a crowded field, and it's worth being specific about which of those reasons turned out to be real.
+
+**The objection everyone leads with is JavaScript, and it's the wrong one.** No JavaScript runs per frame. Cores are native code behind an N-API addon, the emulation loop lives in its own utility process, and V8 is nowhere near the hot path. Frames reach the renderer through a lock-free double-buffered `SharedArrayBuffer` and audio through a single-producer ring buffer, so there's no per-frame serialization and nothing to garbage-collect. Uploading a texture and drawing it with a shader is the one thing a browser engine is genuinely best at. That part was never the hard part.
+
+**The real costs are less exciting than the imagined ones.**
+
+- **Input takes the long way around.** Key presses are captured in the renderer and forwarded over IPC through the main process to the emulation worker. Video and audio got the shared-memory treatment; input didn't. A native frontend polls the device on the same thread as the core and pays none of this.
+- **Timers are a lie.** `setTimeout` bottoms out around 4ms and jitters under load, which is useless against a 16.67ms budget. So the loop burns CPU spin-waiting the last 2ms of every frame to hit its deadline. It works. It is not elegant.
+- **The memory floor is a browser engine.** Before a single ROM loads, the baseline is whatever Chromium costs that week.
+- **Shipping is three problems wearing a trenchcoat.** A signed and notarized app, a native addon compiled per architecture, and core binaries that have to arrive from somewhere.
+
+Stupid in the places you'd expect, then — and less stupid than you'd expect in the place everyone points at. The bet is that a frontend gets judged on library browsing, artwork, shaders, and how it feels to use, and that those are all UI problems. UI is what this stack is for.
+
 ## Supported Systems
 
 | System | Cores |
