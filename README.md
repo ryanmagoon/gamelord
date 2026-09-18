@@ -25,12 +25,12 @@
 
 ## Features
 
-- **Libretro core support** — Runs cores natively via a C++ addon
-- **WebGL rendering with CRT shaders** — Scanlines, curvature, bloom, and other retro effects via multi-pass WebGL2 shaders
-- **Library management** — Automatic ROM scanning, metadata lookup, and cover art sync
-- **Save states** — Multiple slots with autosave on close
-- **Multi-disc swap** — Swap discs mid-game for multi-disc PSX titles
-- **Cheat support** — RetroArch `.cht` files and DuckStation chtdb database
+- **In-process Libretro cores** — Runs cores natively via a C++ Node addon in-process (not an external RetroArch process)
+- **WebGL2 shader pipeline (18 presets)** — Multi-pass CRT and display effects including CRT Geom, CRT Geom Deluxe, CRT Aperture, CRT Fast, CRT Caligari, NTSC Adaptive, LCD PSP, LCD GBA, LCD GBA + Motion Blur, xBRZ Freescale, SABR, Pixellate, Dither, Halftone, Motion Blur, Nearest Neighbor, Linear, and None
+- **Sub-millisecond frame pacing** — Emulation loop runs in a dedicated Electron utility process with hybrid sleep+spin pacing (~0.1–0.5ms jitter)
+- **Hash-based library IDs** — ROMs identified by MD5 against ScreenScraper, with name search only as a fallback, plus cover art sync
+- **First-launch homebrew** — Bundled permissively-licensed homebrew imports on first launch so the library is not empty before you add ROMs
+- **On-demand core downloads** — Cores are fetched when needed rather than hand-installed
 
 ## Supported Systems
 
