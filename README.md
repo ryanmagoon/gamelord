@@ -25,12 +25,14 @@
 
 ## Features
 
-- **Libretro core support** — Runs cores natively via a C++ addon
-- **WebGL rendering with CRT shaders** — Scanlines, curvature, bloom, and other retro effects via multi-pass WebGL2 shaders
-- **Library management** — Automatic ROM scanning, metadata lookup, and cover art sync
-- **Save states** — Multiple slots with autosave on close
-- **Multi-disc swap** — Swap discs mid-game for multi-disc PSX titles
-- **Cheat support** — RetroArch `.cht` files and DuckStation chtdb database
+- **Cores run in-process** — libretro cores are `dlopen`'d directly by a native N-API addon. No separate emulator install, no external process to hand frames across, no second set of config files to reconcile.
+- **Frame pacing is a first-class concern** — the emulation loop runs in a dedicated utility process with hybrid sleep+spin timing (~0.1–0.5ms jitter), and the renderer draws on `requestAnimationFrame`, so frames land on vsync instead of whenever the event loop gets to them.
+- **18 shader presets** — a multi-pass WebGL2 pipeline covering CRT Geom and Geom Deluxe, aperture grille, NTSC composite, GBA and PSP LCD grids, and the xBRZ and SABR upscalers. The choice is remembered per system.
+- **Content-hash metadata lookup** — ROMs are identified by MD5 against ScreenScraper, with a name search only as a fallback, so box art and metadata don't depend on how you named your files.
+- **Cores fetched on demand** — pick a game, and the core it needs downloads and installs itself with progress in the library view.
+- **Playable before you supply a ROM** — permissively-licensed homebrew ships with the app and imports itself on first launch.
+
+Save states, mid-game disc swapping, and cheat files are all supported. They're listed here once and not sold, because every emulation frontend has them.
 
 ## Supported Systems
 
