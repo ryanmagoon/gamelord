@@ -42,7 +42,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^4.7.0",
-    "@vitest/browser-playwright": "^4.1.11",
+    "@vitest/browser-playwright": "^5.0.0",
     "agentation": "^2.2.1",
     "autoprefixer": "^10.5.4",
     "chromatic": "^17.0.0",
