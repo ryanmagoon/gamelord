@@ -39,7 +39,7 @@
     "agentation": "^2.2.1",
     "autoprefixer": "^10.5.4",
     "dotenv": "^17.4.2",
-    "electron": "41.10.3",
+    "electron": "44.2.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "happy-dom": "^20.13.2",
