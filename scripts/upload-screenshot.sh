@@ -6,7 +6,7 @@
 #   pathname    Optional remote path (default: screenshots/<timestamp>-<filename>)
 #
 # Requires:
-#   - vercel CLI installed (brew install vercel or pnpm add -g vercel)
+#   - vercel CLI v56+ installed (brew install vercel or pnpm add -g vercel)
 #   - BLOB_READ_WRITE_TOKEN env var (from Vercel dashboard → Storage → Blob)
 #
 # Output: prints the public URL to stdout on success.
@@ -61,12 +61,23 @@ else
 fi
 
 # Upload to Vercel Blob (store access level is set at creation time in the dashboard).
-# --force allows overwriting if pathname already exists.
+# --allow-overwrite replaces --force, which Vercel CLI 56 removed.
+# --access is required by the same CLI version.
 # BLOB_READ_WRITE_TOKEN is read automatically from the environment.
+UPLOAD_STATUS=0
 OUTPUT=$(vercel blob put "$IMAGE_PATH" \
   --pathname "$PATHNAME" \
-  --force \
-  --no-color 2>&1)
+  --allow-overwrite true \
+  --access public \
+  --no-color 2>&1) || UPLOAD_STATUS=$?
+
+# `set -e` aborts the whole script if a command substitution exits non-zero,
+# which swallows the CLI's error before the URL-extraction check can report it.
+if [ "$UPLOAD_STATUS" -ne 0 ]; then
+  echo "Error: vercel blob put failed (exit $UPLOAD_STATUS):" >&2
+  echo "$OUTPUT" >&2
+  exit "$UPLOAD_STATUS"
+fi
 
 # Extract URL from output — vercel blob put prints "Success! <url>"
 URL=$(echo "$OUTPUT" | grep -oE 'https://[^ ]+\.blob\.vercel-storage\.com[^ ]*' | head -1)
