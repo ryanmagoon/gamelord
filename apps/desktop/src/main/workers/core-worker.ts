@@ -15,7 +15,6 @@ import type {
   WorkerCommand,
   WorkerEvent,
   AVInfo,
-  SaveStateMetadata,
 } from "./core-worker-protocol";
 import {
   CTRL_ACTIVE_BUFFER,
@@ -26,6 +25,8 @@ import {
   CTRL_AUDIO_SAMPLE_RATE,
 } from "./shared-frame-protocol";
 import { filterForwardableLogs, extractSerialFromLog } from "./core-worker-protocol";
+import { listSaveStates, writeSaveState } from "./save-state-files";
+import type { RgbaFrame } from "./save-state-thumbnail";
 
 // ---------------------------------------------------------------------------
 // State
@@ -36,6 +37,11 @@ let isRunning = false;
 let isPaused = false;
 let serialDetected = false;
 let loopTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Last frame handed to the renderer, kept for save state thumbnails.
+// getVideoFrame() returns a fresh copy and null once consumed, so the loop
+// stores the reference (no copy) and saves read it from here.
+let lastFrame: RgbaFrame | null = null;
 
 // Paths received from main process during init
 let romPath = "";
@@ -142,32 +148,21 @@ function loadSram(): void {
 // Save state management
 // ---------------------------------------------------------------------------
 
-function saveState(slot: number): void {
+async function saveState(slot: number): Promise<void> {
   if (!native) {
     throw new Error("No core loaded");
   }
 
-  const stateData = native.serializeState();
-  if (!stateData) {
-    throw new Error("Failed to serialize state");
-  }
-
-  const statePath = getStatePath(slot);
-  fs.mkdirSync(path.dirname(statePath), { recursive: true });
-  fs.writeFileSync(statePath, Buffer.from(stateData.buffer));
-
-  const systemInfo = native.getSystemInfo();
-  const metadata: SaveStateMetadata = {
+  const { thumbnailError } = await writeSaveState({
+    core: native,
+    statePath: getStatePath(slot),
     slot,
-    createdAt: new Date().toISOString(),
-    coreName: systemInfo?.libraryName ?? "Unknown",
-    coreVersion: systemInfo?.libraryVersion ?? "Unknown",
-    playTimeSeconds: null,
     romName: getRomName(),
-    stateSize: stateData.byteLength,
-  };
-  const metaPath = statePath.replace(/\.sav$/, ".json");
-  fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
+    frame: lastFrame,
+  });
+  if (thumbnailError) {
+    send({ type: "log", level: 2, message: `Save state thumbnail skipped: ${thumbnailError}` });
+  }
 }
 
 function loadState(slot: number): void {
@@ -186,63 +181,6 @@ function loadState(slot: number): void {
   if (!native.unserializeState(stateData)) {
     throw new Error("Failed to restore state");
   }
-}
-
-function listSaveStates(): Array<SaveStateMetadata> {
-  const romName = getRomName();
-  const dir = path.join(saveStatesDir, romName);
-
-  if (!fs.existsSync(dir)) {
-    return [];
-  }
-
-  const entries = fs.readdirSync(dir);
-  const states: Array<SaveStateMetadata> = [];
-
-  for (const entry of entries) {
-    if (!entry.endsWith(".sav")) {
-      continue;
-    }
-
-    const savPath = path.join(dir, entry);
-    const metaPath = savPath.replace(/\.sav$/, ".json");
-
-    // Derive slot number from filename
-    let slot: number;
-    if (entry === "autosave.sav") {
-      slot = 99;
-    } else {
-      const match = entry.match(/^state-(\d+)\.sav$/);
-      if (!match) {
-        continue;
-      }
-      slot = Number.parseInt(match[1], 10);
-    }
-
-    if (fs.existsSync(metaPath)) {
-      try {
-        const raw = fs.readFileSync(metaPath, "utf8");
-        states.push(JSON.parse(raw) as SaveStateMetadata);
-        continue;
-      } catch {
-        // Fall through to stat-based fallback
-      }
-    }
-
-    // Fallback for legacy saves without metadata sidecar
-    const stat = fs.statSync(savPath);
-    states.push({
-      slot,
-      createdAt: stat.mtime.toISOString(),
-      coreName: "Unknown",
-      coreVersion: "Unknown",
-      playTimeSeconds: null,
-      romName,
-      stateSize: stat.size,
-    });
-  }
-
-  return states.sort((a, b) => a.slot - b.slot);
 }
 
 // ---------------------------------------------------------------------------
@@ -546,6 +484,7 @@ function startEmulationLoop(): void {
     // Send only the last frame from the batch
     const frame = native.getVideoFrame();
     if (frame) {
+      lastFrame = frame;
       if (useSharedBuffers) {
         writeVideoToSAB(frame);
       } else {
@@ -615,6 +554,7 @@ function startEmulationLoop(): void {
       // Send video frame
       const frame = native.getVideoFrame();
       if (frame) {
+        lastFrame = frame;
         if (useSharedBuffers) {
           writeVideoToSAB(frame);
         } else {
@@ -722,16 +662,17 @@ function handleMessage(command: WorkerCommand): void {
       break;
 
     case "saveState":
-      try {
-        saveState(command.slot);
-        sendResponse(command.requestId, true);
-      } catch (error) {
-        sendResponse(
-          command.requestId,
-          false,
-          error instanceof Error ? error.message : String(error),
-        );
-      }
+      // Serialization runs synchronously inside saveState(); only the
+      // thumbnail encode is awaited, so the emulation loop keeps running.
+      saveState(command.slot).then(
+        () => sendResponse(command.requestId, true),
+        (error: unknown) =>
+          sendResponse(
+            command.requestId,
+            false,
+            error instanceof Error ? error.message : String(error),
+          ),
+      );
       break;
 
     case "loadState":
@@ -909,7 +850,7 @@ function handleMessage(command: WorkerCommand): void {
 
     case "listSaveStates":
       try {
-        const states = listSaveStates();
+        const states = listSaveStates(path.join(saveStatesDir, getRomName()), getRomName());
         sendResponse(command.requestId, true, undefined, { states });
       } catch (error) {
         sendResponse(
@@ -928,6 +869,7 @@ function handleMessage(command: WorkerCommand): void {
           native.destroy();
           native = null;
         }
+        lastFrame = null;
         sendResponse(command.requestId, true);
       } catch (error) {
         sendResponse(

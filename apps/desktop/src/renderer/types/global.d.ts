@@ -14,6 +14,8 @@ export interface SaveStateMetadata {
   playTimeSeconds: number | null;
   romName: string;
   stateSize: number;
+  /** True when a PNG thumbnail sits next to the `.sav` (same basename). */
+  hasThumbnail: boolean;
 }
 
 export interface CoreInfo {
